@@ -130,6 +130,33 @@ export default function PeopleDiscoveryPanel({
     });
   }, [loadPeople, onNotice]);
 
+  useEffect(() => {
+    if (!token || !selectedPerson?.id || selectedPerson?.cover_url) return undefined;
+
+    let cancelled = false;
+    backendRequest(`/api/community/profiles/${encodeURIComponent(selectedPerson.id)}`, { token })
+      .then((profile) => {
+        if (cancelled || !profile) return;
+        setSelectedPerson((current) => {
+          if (!current || String(current.id) !== String(selectedPerson.id)) return current;
+          return {
+            ...current,
+            cover_url: profile.cover_url || "",
+            avatar_url: profile.avatar_url || current.avatar_url || "",
+            headline: profile.headline || current.headline || "",
+            bio: profile.bio || current.bio || "",
+          };
+        });
+      })
+      .catch(() => {
+        // A missing cover must never block the People preview itself.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPerson?.cover_url, selectedPerson?.id, token]);
+
   const counts = useMemo(() => ({
     connections: people.filter((person) => person.relationship_status === "connected").length,
     requests: people.filter((person) => person.relationship_status === "incoming").length,
@@ -355,12 +382,27 @@ export default function PeopleDiscoveryPanel({
       {selectedPerson ? (
         <div className="fixed inset-0 z-[400] flex items-end justify-center bg-black/65 p-3 backdrop-blur-sm sm:items-center" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedPerson(null); }}>
           <div className="w-full max-w-md overflow-hidden rounded-[28px] border border-white/12 bg-[#081725] shadow-[0_28px_80px_rgba(0,0,0,0.65)]">
-            <div className="relative overflow-hidden border-b border-white/[0.07] bg-[radial-gradient(circle_at_15%_0%,rgba(34,199,184,0.18),transparent_40%),radial-gradient(circle_at_90%_10%,rgba(99,102,241,0.16),transparent_42%),#0a1a29] p-5">
-              <button type="button" onClick={() => setSelectedPerson(null)} className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/20 text-white/55"><X className="h-4 w-4" /></button>
-              <PersonAvatar person={selectedPerson} size="lg" />
-              <h3 className="mt-3 text-xl font-black">{selectedPerson.display_name || selectedPerson.full_name || "CLARA Member"}</h3>
-              <p className="mt-1 text-sm leading-6 text-white/45">{selectedPerson.headline || "Building better money habits with CLARA"}</p>
-              <div className="mt-3 flex flex-wrap gap-1.5">{deriveFocusTags(selectedPerson).map((tag) => <span key={tag} className="rounded-full border border-[#22c7b8]/14 bg-[#22c7b8]/[0.06] px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.1em] text-[#99f6e4]">{tag}</span>)}</div>
+            <div className="relative overflow-hidden border-b border-white/[0.07] bg-[#0a1a29]">
+              <div className="relative h-28 w-full overflow-hidden bg-[radial-gradient(circle_at_15%_0%,rgba(34,199,184,0.28),transparent_42%),radial-gradient(circle_at_90%_10%,rgba(99,102,241,0.26),transparent_44%),#0a1a29] sm:h-32">
+                {selectedPerson.cover_url ? (
+                  <img
+                    src={selectedPerson.cover_url}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover opacity-100"
+                  />
+                ) : null}
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#0a1a29]/75 to-transparent" />
+                <button type="button" onClick={() => setSelectedPerson(null)} className="absolute right-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-[#06111f]/68 text-white/80 shadow-lg backdrop-blur-md"><X className="h-4 w-4" /></button>
+              </div>
+
+              <div className="relative px-5 pb-5">
+                <div className="relative z-10 -mt-8 inline-flex rounded-full border-4 border-[#0a1a29] bg-[#0a1a29] shadow-[0_14px_30px_rgba(0,0,0,0.32)]">
+                  <PersonAvatar person={selectedPerson} size="lg" />
+                </div>
+                <h3 className="mt-3 text-xl font-black">{selectedPerson.display_name || selectedPerson.full_name || "CLARA Member"}</h3>
+                <p className="mt-1 text-sm leading-6 text-white/45">{selectedPerson.headline || "Building better money habits with CLARA"}</p>
+                <div className="mt-3 flex flex-wrap gap-1.5">{deriveFocusTags(selectedPerson).map((tag) => <span key={tag} className="rounded-full border border-[#22c7b8]/14 bg-[#22c7b8]/[0.06] px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.1em] text-[#99f6e4]">{tag}</span>)}</div>
+              </div>
             </div>
 
             <div className="space-y-3 p-4">
