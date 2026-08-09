@@ -109,6 +109,10 @@ test("Support CLARA owns a persistent app-level overlay world and animation cloc
   assert.match(bubble, /EXPANDED_MS: 3000/);
   assert.match(bubble, /ICON_SECOND_MS: 3000/);
   assert.match(bubble, /HIDDEN_MS: 10000/);
+  assert.match(
+    bubble,
+    /if \(!user\?\.id \|\| !portalHost \|\| supportState\.isActive\) return null;/
+  );
   assert.doesNotMatch(bubble, /SESSION_EXPANSION_KEY/);
   assert.doesNotMatch(bubble, /querySelectorAll\('\[role="dialog"\]/);
 });
