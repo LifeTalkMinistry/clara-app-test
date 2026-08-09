@@ -44,6 +44,7 @@ import "./clara-feature-theme-pass.css";
 import "./clara-home-premium-theme.css";
 import "./clara-home-daily-tip-official.css";
 import "./clara-no-bubble-effects.css";
+import "./clara-home-learning-rail-official.css";
 
 const App = React.lazy(() => import("./App.jsx"));
 
