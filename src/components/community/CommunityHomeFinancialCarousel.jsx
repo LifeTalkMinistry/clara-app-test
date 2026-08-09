@@ -125,7 +125,7 @@ export default function CommunityHomeFinancialCarousel() {
   if (!user) return null;
 
   return (
-    <div className="clara-community-home-financial-carousel relative z-30 mt-4 overflow-visible pb-5 sm:mt-5">
+    <div className="clara-community-home-financial-carousel relative z-30 mt-4 overflow-visible px-3 pb-5 sm:mt-5">
       <FinancialCarousel
         flushSpacing
         dashboardScale={dashboardScale}
@@ -169,7 +169,7 @@ export default function CommunityHomeFinancialCarousel() {
         featureFlags={profileData.feature_flags}
       />
 
-      <div className="clara-community-home-money-left relative z-20 mt-4 px-4 sm:px-0">
+      <div className="clara-community-home-money-left relative z-20 mt-4 px-0">
         <DashboardMoneySummaryStable
           flushSpacing
           dashboardScale={dashboardScale}
