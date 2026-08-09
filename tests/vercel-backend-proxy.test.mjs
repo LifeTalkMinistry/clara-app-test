@@ -22,12 +22,12 @@ const legalInformationClientSource = readFileSync(
   "utf8"
 );
 
-const PRODUCTION_API_ORIGIN = "https://api.clarapmc.ph";
+const PRODUCTION_API_ORIGIN = "https://api.clarapmc.com";
 
 test("production builds point directly to the self-hosted CLARA API hostname", () => {
   assert.match(
     productionEnvironment,
-    /^VITE_CLARA_API_URL=https:\/\/api\.clarapmc\.ph\s*$/m
+    /^VITE_CLARA_API_URL=https:\/\/api\.clarapmc\.com\s*$/m
   );
 });
 
@@ -44,7 +44,7 @@ test("coaching requests use the same direct backend base as the rest of CLARA", 
 });
 
 test("the production API hostname remains the owned CLARA hostname", () => {
-  assert.equal(PRODUCTION_API_ORIGIN, "https://api.clarapmc.ph");
+  assert.equal(PRODUCTION_API_ORIGIN, "https://api.clarapmc.com");
 });
 
 test("Settings backend clients coalesce rapid repeated reads", () => {
