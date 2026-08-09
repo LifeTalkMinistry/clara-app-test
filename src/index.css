@@ -268,6 +268,83 @@ body::after {
   margin-right: 104px !important;
 }
 
+/* Community profile: let the real cover/photo carry the identity instead of the global glass system washing it out. */
+#root section:has(> button[aria-label="View cover photo"]),
+#root section:has(> button[aria-label="View cover photo"]:disabled) {
+  border-color: rgba(103, 232, 249, 0.24) !important;
+  background-color: #071522 !important;
+  background-image: linear-gradient(180deg, #071522 0%, #081627 58%, #0a1225 100%) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 22px 56px rgba(0, 0, 0, 0.42), 0 0 32px rgba(34, 199, 184, 0.07) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+#root button[aria-label="View cover photo"] {
+  height: 10rem !important;
+  min-height: 10rem !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-blend-mode: soft-light !important;
+  filter: saturate(1.13) contrast(1.08) brightness(1.03) !important;
+  opacity: 1 !important;
+  isolation: isolate;
+}
+
+#root button[aria-label="View cover photo"] > div {
+  display: none !important;
+}
+
+#root button[aria-label="View profile photo"] {
+  width: 6.25rem !important;
+  height: 6.25rem !important;
+  border-width: 3px !important;
+  border-color: #081627 !important;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.46), 0 0 0 1px rgba(94, 234, 212, 0.28), 0 0 24px rgba(34, 199, 184, 0.12) !important;
+  background-color: #0b2134 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+#root button[aria-label="View profile photo"] img {
+  opacity: 1 !important;
+  filter: saturate(1.08) contrast(1.08) brightness(1.02) !important;
+  image-rendering: auto;
+  transform: translateZ(0);
+}
+
+#root section:has(> button[aria-label="View cover photo"]) h2 {
+  color: #ffffff !important;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.34);
+}
+
+#root section:has(> button[aria-label="View cover photo"]) [class*="text-[#ccfbf1]/78"] {
+  color: rgba(236, 254, 255, 0.92) !important;
+}
+
+#root section:has(> button[aria-label="View cover photo"]) [class*="text-white/38"] {
+  color: rgba(255, 255, 255, 0.58) !important;
+}
+
+#root section:has(> button[aria-label="View cover photo"]) + nav {
+  border-color: rgba(165, 243, 252, 0.15) !important;
+  background: rgba(5, 18, 36, 0.90) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 12px 28px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(12px) saturate(1.08) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(1.08) !important;
+}
+
+#root section:has(> button[aria-label="View cover photo"]) + nav button {
+  color: rgba(255, 255, 255, 0.76);
+}
+
+@media (max-width: 640px) {
+  #root button[aria-label="View cover photo"] {
+    height: 9.5rem !important;
+    min-height: 9.5rem !important;
+  }
+}
+
 /* Android WebView onboarding: keep the shell as the single vertical scroll owner. */
 @media (max-width: 640px) {
   #root .clara-universal-onboarding {
