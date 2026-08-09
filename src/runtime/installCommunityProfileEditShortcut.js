@@ -3,6 +3,19 @@ let installed = false;
 const SHORTCUT_ATTR = "data-clara-profile-edit-shortcut";
 const SHORTCUT_ROW_ATTR = "data-clara-profile-edit-shortcut-row";
 
+function syncCoverImagePriority() {
+  document.querySelectorAll('button[aria-label="View cover photo"]').forEach((button) => {
+    const inlineBackground = button.style.getPropertyValue("background-image");
+    if (!inlineBackground || !inlineBackground.includes("url(")) return;
+    if (button.style.getPropertyPriority("background-image") === "important") return;
+
+    // The Community feature theme intentionally owns the empty-cover gradient with
+    // an !important background-image. A saved cover is supplied by React inline,
+    // so promote only that real user cover above the legacy fallback gradient.
+    button.style.setProperty("background-image", inlineBackground, "important");
+  });
+}
+
 function findOwnProfileEditButton() {
   return Array.from(document.querySelectorAll("header button")).find(
     (button) => String(button.textContent || "").trim() === "Edit"
@@ -57,6 +70,8 @@ function removeShortcut() {
 }
 
 function syncShortcut() {
+  syncCoverImagePriority();
+
   const editButton = findOwnProfileEditButton();
   const existing = document.querySelector(`[${SHORTCUT_ATTR}]`);
 
@@ -123,7 +138,12 @@ export function installCommunityProfileEditShortcut() {
   const observer = new MutationObserver(scheduleSync);
   const start = () => {
     if (!document.body) return;
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["style", "aria-label"],
+    });
     scheduleSync();
   };
 
