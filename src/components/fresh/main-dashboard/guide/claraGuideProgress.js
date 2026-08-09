@@ -1,5 +1,5 @@
 export const CLARA_GUIDE_PROGRESS_KEY = "claraGuideProgress";
-export const DAILY_MONEY_TIP_GUIDE_VERSION = 1;
+export const DAILY_MONEY_TIP_GUIDE_VERSION = 2;
 
 export function readClaraGuideProgress() {
   if (typeof window === "undefined") return {};
