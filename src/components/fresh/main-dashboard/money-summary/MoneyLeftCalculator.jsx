@@ -104,7 +104,13 @@ function formatPeso(value) {
   }).format(amount);
 }
 
-export default function MoneyLeftCalculator({ isOpen, onClose, onUseExpense }) {
+export default function MoneyLeftCalculator({
+  isOpen,
+  onClose,
+  onUseExpense,
+  guideMode = false,
+  onGuideComplete,
+}) {
   const [expression, setExpression] = useState("");
   const closeButtonRef = useRef(null);
   const onCloseRef = useRef(onClose);
@@ -156,10 +162,13 @@ export default function MoneyLeftCalculator({ isOpen, onClose, onUseExpense }) {
   const expenseActionLabel = canUseExpense
     ? `Use ${formatPeso(result)} As Expense`
     : "Use As Expense";
+  const primaryActionLabel = guideMode ? "Next — CLARA Orb" : expenseActionLabel;
+  const primaryActionDisabled = guideMode ? false : !canUseExpense;
 
   return createPortal(
     <div
       data-clara-money-calculator-modal="true"
+      data-clara-guide-calculator-preview={guideMode ? "true" : undefined}
       className="fixed inset-0 z-[9999] flex min-h-[100dvh] items-center justify-center bg-slate-950/80 px-4 py-6 text-white backdrop-blur-lg"
       role="presentation"
       onMouseDown={(event) => {
@@ -169,12 +178,19 @@ export default function MoneyLeftCalculator({ isOpen, onClose, onUseExpense }) {
       <section
         role="dialog"
         aria-modal="true"
-        aria-label="Calculator"
+        aria-label={guideMode ? "Calculator guide preview" : "Calculator"}
         className="w-full max-w-[320px] rounded-[24px] border border-cyan-300/25 bg-[linear-gradient(145deg,rgba(4,23,51,0.99),rgba(20,13,66,0.99))] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.62),0_0_34px_rgba(34,211,238,0.14)]"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
-          <strong className="text-base tracking-[-0.01em]">Calculator</strong>
+          <div>
+            <strong className="text-base tracking-[-0.01em]">Calculator</strong>
+            {guideMode ? (
+              <p className="mt-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-cyan-100/60">
+                Guide preview · nothing is saved
+              </p>
+            ) : null}
+          </div>
           <button
             ref={closeButtonRef}
             type="button"
@@ -185,6 +201,12 @@ export default function MoneyLeftCalculator({ isOpen, onClose, onUseExpense }) {
             <X className="h-4 w-4" />
           </button>
         </div>
+
+        {guideMode ? (
+          <div className="mb-3 rounded-2xl border border-cyan-100/12 bg-cyan-300/[0.055] px-3 py-2.5 text-[11px] font-semibold leading-5 text-cyan-50/72">
+            Try any calculation. In normal use, the result can be sent straight into the expense logger so you do not have to remember the amount.
+          </div>
+        ) : null}
 
         <div className="mb-3 min-h-[76px] rounded-2xl border border-white/10 bg-slate-950/75 px-3.5 py-3 shadow-[inset_0_1px_14px_rgba(0,0,0,0.32)]">
           <div className="min-h-5 overflow-hidden text-ellipsis whitespace-nowrap text-right text-sm text-white/55">
@@ -229,13 +251,19 @@ export default function MoneyLeftCalculator({ isOpen, onClose, onUseExpense }) {
         <button
           type="button"
           data-clara-calculator-manual-log-action="true"
-          disabled={!canUseExpense}
-          onClick={() => canUseExpense && onUseExpense?.(result)}
-          aria-label={expenseActionLabel}
-          title={expenseActionLabel}
+          disabled={primaryActionDisabled}
+          onClick={() => {
+            if (guideMode) {
+              onGuideComplete?.();
+              return;
+            }
+            if (canUseExpense) onUseExpense?.(result);
+          }}
+          aria-label={guideMode ? "Continue to CLARA orb guide" : expenseActionLabel}
+          title={guideMode ? "Continue to CLARA orb guide" : expenseActionLabel}
           className="mt-3 flex h-[52px] w-full items-center justify-center whitespace-nowrap rounded-[15px] border border-cyan-200/55 bg-[linear-gradient(135deg,rgba(103,232,249,0.96),rgba(129,140,248,0.96))] px-5 text-center text-[14px] font-extrabold tracking-[-0.01em] text-slate-950 shadow-[0_12px_30px_rgba(34,211,238,0.20),inset_0_1px_0_rgba(255,255,255,0.55)] transition enabled:hover:brightness-105 enabled:active:scale-[0.985] disabled:cursor-default disabled:border-white/10 disabled:bg-[linear-gradient(135deg,rgba(30,41,59,0.82),rgba(49,46,129,0.55))] disabled:text-white/55 disabled:shadow-none"
         >
-          {expenseActionLabel}
+          {primaryActionLabel}
         </button>
       </section>
     </div>,
