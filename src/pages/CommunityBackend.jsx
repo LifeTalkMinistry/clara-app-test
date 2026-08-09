@@ -70,7 +70,7 @@ function acceptFile(file) {
 
 function AttachmentPicker({ onPick, disabled = false }) {
   const picker = (accept, Icon, label) => (
-    <label key={label} className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.035] px-3 text-[10px] font-black text-white/65 transition hover:border-[#22c7b8]/30 hover:text-[#ccfbf1]">
+    <label key={label} className="clara-community-attachment-button inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.035] px-3 text-[10px] font-black text-white/65 transition hover:border-[#22c7b8]/30 hover:text-[#ccfbf1]">
       <Icon className="h-3.5 w-3.5" /> {label}
       <input type="file" accept={accept} disabled={disabled} className="hidden" onChange={(event) => {
         const file = event.target.files?.[0];
@@ -93,7 +93,7 @@ function SelectedAttachment({ file, onRemove }) {
   if (!file) return null;
   const Icon = file.type?.startsWith("image/") ? FileImage : file.type?.startsWith("video/") ? Video : Paperclip;
   return (
-    <div className="mt-3 flex items-center gap-3 rounded-[16px] border border-[#22c7b8]/18 bg-[#22c7b8]/[0.06] px-3 py-3">
+    <div className="clara-community-selected-attachment mt-3 flex items-center gap-3 rounded-[16px] border border-[#22c7b8]/18 bg-[#22c7b8]/[0.06] px-3 py-3">
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#22c7b8]/10 text-[#99f6e4]"><Icon className="h-4 w-4" /></div>
       <div className="min-w-0 flex-1"><p className="truncate text-xs font-black text-white">{file.name}</p><p className="mt-0.5 text-[9px] font-semibold text-white/35">{fileSizeLabel(file.size)}</p></div>
       <button type="button" onClick={onRemove} className="flex h-8 w-8 items-center justify-center rounded-xl text-white/45 hover:bg-white/[0.06] hover:text-white"><X className="h-4 w-4" /></button>
@@ -234,7 +234,7 @@ export default function CommunityBackend() {
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[#06111f] text-white">
+    <div className="clara-community-backend-root fixed inset-0 z-[80] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[#06111f] text-white">
       <header className="shrink-0 border-b border-white/10 bg-[#06111f]/96 px-3 pb-3 pt-[max(12px,env(safe-area-inset-top))] backdrop-blur-xl sm:px-5">
         <div className="mx-auto flex w-full max-w-5xl items-center gap-3">
           <button type="button" onClick={() => activeView === "notifications" ? setActiveView("feed") : navigate("/dashboard")} className="inline-flex h-11 shrink-0 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-3 text-sm font-bold text-white/85" aria-label={activeView === "notifications" ? "Back to Community feed" : "Back to Dashboard"}><ArrowLeft className="h-4 w-4" /></button>
@@ -247,7 +247,7 @@ export default function CommunityBackend() {
         </div>
       </header>
 
-      <main className="min-h-0 flex-1 overflow-y-auto px-3 pb-[calc(env(safe-area-inset-bottom)+30px)] pt-4 sm:px-5">
+      <main className="clara-community-feed-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-[calc(env(safe-area-inset-bottom)+30px)] pt-4 sm:px-5">
         <div className="mx-auto w-full max-w-3xl">
           {actionError ? <div className="mb-4 rounded-2xl border border-red-400/15 bg-red-500/10 px-4 py-3 text-xs font-semibold text-red-100">{actionError}</div> : null}
 
@@ -260,16 +260,16 @@ export default function CommunityBackend() {
             </section>
           ) : (
             <div className="space-y-6">
-              {canPost ? <section className={`mb-6 rounded-[22px] border border-white/10 bg-[#0a1a29] ${composerOpen ? "p-4" : "p-3"}`}>
-                {!composerOpen ? <button type="button" onClick={() => setComposerOpen(true)} className="flex h-12 w-full items-center rounded-2xl border border-white/10 bg-[#071725] px-4 text-left text-sm font-semibold text-white/35">What's happening with your money journey?</button> : <>
+              {canPost ? <section className={`clara-community-composer mb-6 rounded-[22px] border border-white/10 bg-[#0a1a29] ${composerOpen ? "p-4" : "p-3"}`} data-composer-open={composerOpen ? "true" : "false"}>
+                {!composerOpen ? <button type="button" onClick={() => setComposerOpen(true)} className="clara-community-composer-trigger flex h-12 w-full items-center rounded-2xl border border-white/10 bg-[#071725] px-4 text-left text-sm font-semibold text-white/35">What's happening with your money journey?</button> : <>
                   <div className="mb-2 flex items-center justify-between gap-3 px-1">
                     <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/38">What are you sharing?</p>
-                    <button type="button" onClick={() => setComposerOpen(false)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/45 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white active:scale-95" aria-label="Close post composer"><X className="h-4 w-4" /></button>
+                    <button type="button" onClick={() => setComposerOpen(false)} className="clara-community-composer-close flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/45 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white active:scale-95" aria-label="Close post composer"><X className="h-4 w-4" /></button>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">{POST_TYPES.map((postType) => { const Icon = postType.icon; const selected = selectedPostType === postType.key; return <button key={postType.key} type="button" aria-pressed={selected} onClick={() => setSelectedPostType(postType.key)} style={selected ? { backgroundColor: "#5eead4", color: "#042f2e", borderColor: "#ccfbf1", boxShadow: "0 0 0 1px rgba(153,246,228,0.8), 0 0 22px rgba(34,199,184,0.45)" } : undefined} className={`flex h-10 items-center justify-center gap-2 rounded-xl border text-[10px] font-black transition-all duration-150 ${selected ? "scale-[1.01]" : "border-white/10 bg-white/[0.035] text-white/55 hover:border-white/20 hover:text-white/75"}`}><Icon className="h-3.5 w-3.5" />{postType.label}</button>; })}</div>
-                  <textarea autoFocus rows={4} value={body} onChange={(event) => setBody(event.target.value)} placeholder="What's happening with your money journey?" className="mt-3 w-full resize-none rounded-[18px] border border-white/10 bg-[#071725] px-4 py-3 text-sm font-semibold leading-6 text-white outline-none placeholder:text-white/28 focus:border-[#22c7b8]/45" />
+                  <div className="clara-community-post-types grid grid-cols-2 gap-2">{POST_TYPES.map((postType) => { const Icon = postType.icon; const selected = selectedPostType === postType.key; return <button key={postType.key} type="button" aria-pressed={selected} onClick={() => setSelectedPostType(postType.key)} style={selected ? { backgroundColor: "#5eead4", color: "#042f2e", borderColor: "#ccfbf1", boxShadow: "0 0 0 1px rgba(153,246,228,0.8), 0 0 22px rgba(34,199,184,0.45)" } : undefined} className={`flex h-10 items-center justify-center gap-2 rounded-xl border text-[10px] font-black transition-all duration-150 ${selected ? "scale-[1.01]" : "border-white/10 bg-white/[0.035] text-white/55 hover:border-white/20 hover:text-white/75"}`}><Icon className="h-3.5 w-3.5" />{postType.label}</button>; })}</div>
+                  <textarea autoFocus rows={4} value={body} onChange={(event) => setBody(event.target.value)} placeholder="What's happening with your money journey?" className="clara-community-composer-textarea mt-3 w-full resize-none rounded-[18px] border border-white/10 bg-[#071725] px-4 py-3 text-sm font-semibold leading-6 text-white outline-none placeholder:text-white/28 focus:border-[#22c7b8]/45" />
                   <SelectedAttachment file={mediaFile} onRemove={() => setMediaFile(null)} />
-                  <div className="mt-3 flex items-center justify-between gap-3"><AttachmentPicker onPick={pickComposerMedia} disabled={saving} /><Button onClick={createPost} disabled={saving || (!body.trim() && !mediaFile)} className="h-10 shrink-0 rounded-2xl bg-[#22c7b8] px-5 font-black text-[#042f2e]">{saving ? "Posting..." : "Post"}</Button></div>
+                  <div className="mt-3 flex items-center justify-between gap-3"><AttachmentPicker onPick={pickComposerMedia} disabled={saving} /><Button onClick={createPost} disabled={saving || (!body.trim() && !mediaFile)} className="clara-community-post-button h-10 shrink-0 rounded-2xl bg-[#22c7b8] px-5 font-black text-[#042f2e]">{saving ? "Posting..." : "Post"}</Button></div>
                   <p className="mt-2 text-[9px] font-semibold text-white/30">Videos up to 200 MB · Photos and files up to 25 MB</p>
                 </>}
               </section> : null}
