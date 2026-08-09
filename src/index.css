@@ -268,7 +268,7 @@ body::after {
   margin-right: 104px !important;
 }
 
-/* Community profile: let the real cover/photo carry the identity instead of the global glass system washing it out. */
+/* Community profile: let the stored cover render as a real background image. */
 #root section:has(> button[aria-label="View cover photo"]),
 #root section:has(> button[aria-label="View cover photo"]:disabled) {
   border-color: rgba(103, 232, 249, 0.24) !important;
@@ -285,8 +285,9 @@ body::after {
   background-size: cover !important;
   background-position: center !important;
   background-repeat: no-repeat !important;
-  background-blend-mode: soft-light !important;
-  filter: saturate(1.13) contrast(1.08) brightness(1.03) !important;
+  /* Do not blend the uploaded image into the teal fallback; the inline cover URL must remain visible. */
+  background-blend-mode: normal !important;
+  filter: none !important;
   opacity: 1 !important;
   isolation: isolate;
 }
