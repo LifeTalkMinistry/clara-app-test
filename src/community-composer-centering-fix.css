@@ -1,0 +1,46 @@
+/* Final mobile geometry correction for the Community composer.
+ * The feed is intentionally full-bleed, while the hero/composer/filter utility
+ * controls must sit on a centered 16px inset rail. Explicit width ownership
+ * prevents older Community theme rules from adding margins on top of 100% width.
+ */
+
+@media (max-width: 639px) {
+  .clara-community-feed-scroll section:has(h1),
+  .clara-community-feed-scroll .clara-community-composer,
+  .clara-community-feed-scroll .clara-community-composer + div {
+    box-sizing: border-box !important;
+    width: calc(100% - 32px) !important;
+    max-width: calc(100% - 32px) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+
+  .clara-community-feed-scroll .clara-community-composer {
+    min-width: 0 !important;
+  }
+
+  .clara-community-feed-scroll .clara-community-composer > div:first-child {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .clara-community-feed-scroll .clara-community-composer > div:first-child > div:last-child {
+    flex: 1 1 0% !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .clara-community-feed-scroll .clara-community-composer textarea {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .clara-community-feed-scroll .clara-community-composer + div {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    scroll-padding-left: 0 !important;
+  }
+}
