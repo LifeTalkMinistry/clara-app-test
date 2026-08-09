@@ -35,15 +35,15 @@ function formatNotificationTime(value) {
 
 function CommunityShellHeader({ activeView, unreadCount, onExit }) {
   const itemClass = (active = false) =>
-    `relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition ${
+    `clara-community-nav-item relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition ${
       active
         ? "border-[#5eead4]/35 bg-[#22c7b8]/16 text-[#ccfbf1] shadow-[0_0_18px_rgba(34,199,184,0.12)]"
         : "border-white/10 bg-white/[0.05] text-white/78"
     }`;
 
   return (
-    <header className="shrink-0 border-b border-white/10 bg-[#06111f]/96 px-3 pb-3 pt-[max(12px,env(safe-area-inset-top))] backdrop-blur-xl">
-      <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-1.5">
+    <header className="clara-community-shell-header shrink-0 border-b border-white/10 bg-[#06111f]/96 px-3 pb-3 pt-[max(12px,env(safe-area-inset-top))] backdrop-blur-xl">
+      <div className="clara-community-shell-nav mx-auto flex w-full max-w-3xl items-center justify-between gap-1.5">
         <button
           type="button"
           onClick={onExit}
@@ -111,7 +111,7 @@ function CommunityShellHeader({ activeView, unreadCount, onExit }) {
 
         <Link
           to="/community?view=profile"
-          className={`relative inline-flex h-10 min-w-[44px] shrink-0 items-center justify-center rounded-2xl border px-2 text-[10px] font-black transition ${
+          className={`clara-community-nav-item relative inline-flex h-10 min-w-[44px] shrink-0 items-center justify-center rounded-2xl border px-2 text-[10px] font-black transition ${
             activeView === "profile"
               ? "border-[#5eead4]/35 bg-[#22c7b8]/16 text-[#ccfbf1] shadow-[0_0_18px_rgba(34,199,184,0.12)]"
               : "border-white/10 bg-white/[0.05] text-white/78"
@@ -180,7 +180,10 @@ export default function Community() {
   const unreadCount = notifications.filter((item) => !item.is_read).length;
 
   return (
-    <div className="fixed inset-0 z-[80] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[#06111f] text-white">
+    <div
+      className="clara-community-root fixed inset-0 z-[80] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[#06111f] text-white"
+      data-community-view={activeView}
+    >
       <CommunityShellHeader
         activeView={activeView}
         unreadCount={unreadCount}
@@ -243,7 +246,7 @@ export default function Community() {
           <CommunityProfile />
         </div>
       ) : (
-        <main className="min-h-0 flex-1 overflow-y-auto px-3 pb-[calc(env(safe-area-inset-bottom)+30px)] pt-4 sm:px-5">
+        <main className="clara-community-notifications-view min-h-0 flex-1 overflow-y-auto px-3 pb-[calc(env(safe-area-inset-bottom)+30px)] pt-4 sm:px-5">
           <div className="mx-auto w-full max-w-3xl">
             <div className="mb-4">
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#5eead4]/55">Community activity</p>
@@ -257,7 +260,7 @@ export default function Community() {
                 <p className="mt-1 text-sm text-white/42">Comments, reactions, and messages will appear here.</p>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-[22px] border border-white/10 bg-[#0a1a29]">
+              <div className="clara-community-notifications-card overflow-hidden rounded-[22px] border border-white/10 bg-[#0a1a29]">
                 {notifications.map((notification) => (
                   <button
                     type="button"
