@@ -169,9 +169,9 @@ export default function GuidedWalletCreationModal({
   };
 
   return (
-    <div className="fixed inset-x-0 bottom-0 top-[64px] z-[120] h-[calc(100dvh-64px)] w-full overflow-hidden bg-[linear-gradient(140deg,rgba(5,28,48,0.99),rgba(7,16,44,0.995)_48%,rgba(34,15,73,0.995))] text-white">
+    <div className="fixed inset-0 z-[120] h-[100dvh] w-full overflow-hidden bg-[linear-gradient(140deg,rgba(5,28,48,0.99),rgba(7,16,44,0.995)_48%,rgba(34,15,73,0.995))] text-white">
       <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
-        <div className="shrink-0 border-b border-white/[0.07] bg-[radial-gradient(circle_at_12%_0%,rgba(45,212,191,0.20),transparent_42%),radial-gradient(circle_at_100%_3%,rgba(129,140,248,0.18),transparent_38%),rgba(255,255,255,0.035)] px-6 pb-4 pt-4 sm:pb-5 sm:pt-5">
+        <div className="shrink-0 border-b border-white/[0.07] bg-[radial-gradient(circle_at_12%_0%,rgba(45,212,191,0.20),transparent_42%),radial-gradient(circle_at_100%_3%,rgba(129,140,248,0.18),transparent_38%),rgba(255,255,255,0.035)] px-6 pb-4 pt-[calc(4.75rem+env(safe-area-inset-top))] sm:pb-5 sm:pt-[calc(4.75rem+env(safe-area-inset-top))]">
           <div className="mx-auto flex w-full max-w-[520px] items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="mb-3 flex items-center gap-2">
