@@ -5,9 +5,9 @@ import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCard
 
 const BUDGET_GLOW_LAYERS = [];
 
-// Temporary ownership-proof treatment requested for the live carousel.
-// If the Budget card shown on Home turns this exact blue, this component is
-// confirmed as the renderer we should continue refining.
+// Live ownership proof: intentionally obvious solid blue.
+// Once this exact Home card is confirmed, replace this temporary proof style
+// with the final CLARA finance treatment.
 const BUDGET_PLAIN_BLUE_TEST_STYLES = `
 .clara-finance-bubble-budget {
   background: #0067d9 !important;
