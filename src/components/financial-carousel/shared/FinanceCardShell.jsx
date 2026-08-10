@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react";
 import {
+  FINANCE_CARD_BRAND_OVERRIDES,
   FINANCE_CARD_GLOW_LAYERS,
   getFinanceCardGlowLayers,
   getFinanceCardShellClassName,
@@ -32,7 +33,7 @@ export default function FinanceCardShell({
   performanceMode,
   ringClass = "",
   roundedClass = "rounded-[30px]",
-  shadowClass = "shadow-[0_24px_70px_rgba(0,0,0,0.36),0_0_36px_rgba(0,255,220,0.065),0_0_60px_rgba(126,34,206,0.09),inset_0_1px_0_rgba(255,255,255,0.075)]",
+  shadowClass = "",
   surfaceClassName = "",
   glowLayerClassNames = FINANCE_CARD_GLOW_LAYERS,
   children,
@@ -63,6 +64,16 @@ export default function FinanceCardShell({
         .filter(Boolean)
         .join(" ")}
     >
+      <style>{FINANCE_CARD_BRAND_OVERRIDES}</style>
+
+      {/*
+        CLARA brand treatment is intentionally centralized here so Wallet,
+        Income Hub, Budget, Emergency Fund, Savings, Investment and Debt
+        always share one visual language even when older card internals remain.
+      */}
+      <div className="pointer-events-none absolute inset-0 z-[4] bg-[radial-gradient(circle_at_10%_0%,rgba(37,99,235,0.17),transparent_34%),radial-gradient(circle_at_92%_5%,rgba(250,204,21,0.045),transparent_25%),radial-gradient(circle_at_96%_100%,rgba(220,38,38,0.065),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.018),rgba(2,6,23,0.12)_100%)]" />
+      <div className="pointer-events-none absolute inset-x-5 top-0 z-[5] h-px bg-gradient-to-r from-transparent via-blue-200/30 to-transparent" />
+
       {/*
         Performance rule:
         Carousel cards can mount active + nearby slides together.
