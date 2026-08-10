@@ -29,6 +29,12 @@ function notificationNavLink() {
   );
 }
 
+function setBadgeText(badge, text) {
+  if (String(badge.textContent || "") !== text) {
+    badge.textContent = text;
+  }
+}
+
 function renderMessageBadge(count = lastUnreadMessageCount) {
   const link = messageNavLink();
   if (!link) return;
@@ -47,7 +53,7 @@ function renderMessageBadge(count = lastUnreadMessageCount) {
     link.appendChild(badge);
   }
 
-  badge.textContent = formatBadgeCount(count);
+  setBadgeText(badge, formatBadgeCount(count));
   badge.setAttribute(
     "aria-label",
     `${count} unread private message${count === 1 ? "" : "s"}`
@@ -73,7 +79,7 @@ function renderGeneralNotificationBadge(count = lastGeneralNotificationCount) {
   const badge = existingBadges[0];
   if (!badge) return;
 
-  badge.textContent = formatBadgeCount(count);
+  setBadgeText(badge, formatBadgeCount(count));
   badge.setAttribute(
     "aria-label",
     `${count} unread notification${count === 1 ? "" : "s"}`
@@ -87,9 +93,8 @@ function hideMessageRowsFromNotificationCenter() {
 
   Array.from(card.querySelectorAll(":scope > button")).forEach((row) => {
     const text = String(row.textContent || "").toLowerCase();
-    row.style.display = text.includes(MESSAGE_NOTIFICATION_PHRASE)
-      ? "none"
-      : "";
+    const nextDisplay = text.includes(MESSAGE_NOTIFICATION_PHRASE) ? "none" : "";
+    if (row.style.display !== nextDisplay) row.style.display = nextDisplay;
   });
 }
 
