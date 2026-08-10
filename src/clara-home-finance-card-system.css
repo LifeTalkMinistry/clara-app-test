@@ -5,16 +5,18 @@
  * - Collapsed outer carousel chassis: components/financial-carousel/shared/collapsedFinanceOuter.css
  * - Inner finance cards: [data-finance-card] roots rendered by FinanceCardShell
  *
- * This file is imported after clara-no-bubble-effects.css, so Home-specific
- * finance-card overrides that must win the cascade belong here.
+ * IMPORTANT: clara-no-bubble-effects.css owns finance-card backgrounds through
+ * #root .clara-finance-bubble-card with !important. Because that selector has an
+ * ID, Home overrides here must also include #root or they can change the border
+ * while still losing the actual card background in the cascade.
  */
 
 /*
- * TEMPORARY DIAGNOSTIC — Income Hub INNER card only.
- * This intentionally does not touch .clara-finance-slide-surface (the outer edge).
- * If the large Income Hub body turns solid blue, we have confirmed the correct
- * visual layer and can replace this with the final CLARA treatment.
+ * TEMPORARY DIAGNOSTIC — Income Hub ACTUAL card body.
+ * This selector deliberately outranks the global #root .clara-finance-bubble-card
+ * background rule. It does not target .clara-finance-slide-surface (outer chassis).
  */
+#root
 .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
 [data-finance-card="investmentFund"] {
@@ -27,9 +29,11 @@
   -webkit-backdrop-filter: none !important;
 }
 
+#root
 .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
 [data-finance-card="investmentFund"]::before,
+#root
 .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
 [data-finance-card="investmentFund"]::after {
