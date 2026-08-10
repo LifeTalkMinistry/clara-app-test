@@ -139,8 +139,8 @@ test("DashboardTopNav is a pure renderer with no hidden global ownership", () =>
   assert.match(topNavSource, /onSelect\?\.\(item\.selectKey \|\| item\.key\)/);
   assert.match(topNavSource, /data-dashboard-nav-key/);
   assert.doesNotMatch(topNavSource, /clara-theme-nav-pill-active/);
-  assert.match(dashboardSource, /DashboardTopNavController/);
-  assert.doesNotMatch(dashboardSource, /<DashboardTopNav\s/);
+  assert.match(dashboardSource, /<Navigate to=\{CLARA_HOME_PATH\} replace/);
+  assert.doesNotMatch(dashboardSource, /DashboardTopNavController|<DashboardTopNav\s/);
 });
 
 test("guide phases are owned by a separate top nav controller", () => {
