@@ -14,8 +14,7 @@ import {
 const readSource = (relativePath) =>
   readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
 
-const dashboard = readSource("src/pages/Dashboard.jsx");
-const homePanel = readSource("src/components/fresh/main-dashboard/shell/DashboardHomePanel.jsx");
+const communityHome = readSource("src/components/community/CommunityHomeFinancialCarousel.jsx");
 const carousel = readSource("src/components/financial-carousel/FinancialCarousel.jsx");
 const budgetLogic = readSource("src/components/financial-carousel/cards/budget/logic/useBudgetCardLogic.js");
 const walletLogic = readSource("src/components/financial-carousel/cards/wallet/logic/useWalletCardLogic.js");
@@ -28,11 +27,11 @@ const debtStore = readSource("src/lib/debtObligationStore.js");
 const debtSync = readSource("src/lib/manualExpenseLinkedTargetSync.js");
 const moneyLeftMetrics = readSource("src/components/fresh/main-dashboard/money-summary/useDashboardMoneyLeftMetrics.js");
 
-test("Dashboard owns one finance card controller", () => {
-  assert.equal(dashboard.includes("const financeCardController = useMemo("), true);
-  assert.match(dashboard, /correctEmergencyFundBalance: correctEmergencyFundBalanceData/);
-  assert.match(dashboard, /thisMonthSpent, fmt, financeCardController/);
-  assert.equal(homePanel.includes("financeCardController={isGuideMode ? null : financeCardController}"), true);
+test("Community Home owns one finance card controller and one carousel host", () => {
+  assert.match(communityHome, /const financeCardController = useFinancialData\(user\)/);
+  assert.match(communityHome, /<FinancialCarousel/);
+  assert.match(communityHome, /financeCardController=\{financeCardController\}/);
+  assert.doesNotMatch(communityHome, /<DashboardHomePanel/);
 });
 
 test("financial cards do not create duplicate full finance controllers", () => {
