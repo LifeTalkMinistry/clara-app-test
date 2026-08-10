@@ -43,12 +43,21 @@
 }
 
 /*
- * Profile belongs to the same command rail as Home, Feed, Schedule, Circle,
- * Challenge, Messages and Notifications. Keep the React-owned profile link in
- * normal flow as the final item. Older runtime code may still create a mirrored
- * pinned copy; suppress that legacy clone so there is never a detached profile
- * bubble or a reserved gap before the profile.
+ * Profile belongs to the core navigation sequence and must appear directly
+ * after Notifications. Runtime-added Learning / Coaching / Guide controls are
+ * placed after Profile instead of being inserted visually between Notification
+ * and the user's identity.
  */
+.clara-community-root .clara-community-shell-nav > a[aria-label="Open Community profile"] {
+  order: 1;
+}
+
+.clara-community-root .clara-community-shell-nav > .clara-community-topnav-tool {
+  order: 2;
+}
+
+/* Older runtime code may still create a mirrored pinned copy. Suppress that
+   legacy clone so there is never a detached profile bubble. */
 .clara-community-root .clara-community-profile-pinned {
   display: none !important;
 }
