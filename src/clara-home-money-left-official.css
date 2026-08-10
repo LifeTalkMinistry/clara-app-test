@@ -1,0 +1,179 @@
+/*
+ * CLARA Home — Money Left official branding
+ * Home-only presentation. Keeps privacy, calculator, orb gestures, and routing intact.
+ */
+
+/* Final Home anchor: clean premium CLARA navy/blue, no teal/purple radial wash. */
+.clara-community-root[data-community-view="home"]
+  .clara-community-home-money-left
+  > section[data-clara-dashboard-section="money-summary"] {
+  position: relative;
+  isolation: isolate;
+  grid-template-columns: 1fr !important;
+  min-height: 118px;
+  overflow: hidden;
+  border-color: rgba(73, 137, 224, 0.34) !important;
+  background: linear-gradient(
+    135deg,
+    #0a3474 0%,
+    #08295f 34%,
+    #061d46 68%,
+    #04142f 100%
+  ) !important;
+  background-image: linear-gradient(
+    135deg,
+    #0a3474 0%,
+    #08295f 34%,
+    #061d46 68%,
+    #04142f 100%
+  ) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 14px 34px rgba(0, 0, 0, 0.24) !important;
+}
+
+/* Small official CLARA signature line: blue -> gold -> red. */
+.clara-community-root[data-community-view="home"]
+  .clara-community-home-money-left
+  > section[data-clara-dashboard-section="money-summary"]::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  inset: 0 0 auto 0;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    #0867ff 0%,
+    #0867ff 58%,
+    #ffd84a 58%,
+    #ffd84a 78%,
+    #f32645 78%,
+    #f32645 100%
+  );
+  opacity: 0.92;
+}
+
+/* Home intentionally surfaces Money Left as the single summary card. */
+.clara-community-root[data-community-view="home"]
+  .clara-community-home-money-left
+  [data-clara-summary-card="total-expense"] {
+  display: none !important;
+}
+
+.clara-community-root[data-community-view="home"]
+  .clara-community-home-money-left
+  [data-clara-summary-card="money-left"] {
+  min-height: 118px !important;
+  border: 0 !important;
+  background: linear-gradient(
+    135deg,
+    rgba(16, 66, 142, 0.36) 0%,
+    rgba(8, 38, 88, 0.24) 46%,
+    rgba(4, 19, 44, 0.08) 100%
+  ) !important;
+  background-image: linear-gradient(
+    135deg,
+    rgba(16, 66, 142, 0.36) 0%,
+    rgba(8, 38, 88, 0.24) 46%,
+    rgba(4, 19, 44, 0.08) 100%
+  ) !important;
+}
+
+.clara-community-root[data-community-view="home"]
+  .clara-community-home-money-left
+  [data-clara-summary-card="money-left"] p {
+  color: #ffd84a !important;
+  opacity: 0.88 !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.22em !important;
+}
+
+.clara-community-root[data-community-view="home"]
+  .clara-community-home-money-left
+  [data-clara-summary-card="money-left"] h2 {
+  color: #f7fbff !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.035em !important;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.22) !important;
+}
+
+/* Privacy + calculator controls: quiet navy-blue utility buttons, gold focus. */
+.clara-community-root[data-community-view="home"]
+  .clara-community-home-money-left
+  :is(
+    [data-clara-summary-privacy-toggle="true"],
+    [data-clara-money-calculator-toggle="true"]
+  ) {
+  border-color: rgba(126, 181, 255, 0.26) !important;
+  background: rgba(3, 18, 43, 0.68) !important;
+  color: #b9d9ff !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.clara-community-root[data-community-view="home"]
+  .clara-community-home-money-left
+  :is(
+    [data-clara-summary-privacy-toggle="true"],
+    [data-clara-money-calculator-toggle="true"]
+  ):hover {
+  border-color: rgba(255, 216, 74, 0.46) !important;
+  color: #ffffff !important;
+  background: rgba(7, 31, 71, 0.92) !important;
+}
+
+.clara-community-root[data-community-view="home"]
+  .clara-community-home-money-left
+  :is(
+    [data-clara-summary-privacy-toggle="true"],
+    [data-clara-money-calculator-toggle="true"]
+  ):focus-visible {
+  outline: 2px solid rgba(255, 216, 74, 0.82) !important;
+  outline-offset: 2px !important;
+}
+
+/* Remove the old cyan/purple orb aura while preserving the actual official CLARA orb. */
+.clara-community-root[data-community-view="home"]
+  .clara-community-home-money-left
+  [data-clara-orb-control="true"]
+  > div:first-child {
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  opacity: 1 !important;
+}
+
+.clara-community-root[data-community-view="home"]
+  .clara-community-home-money-left
+  [data-clara-orb-control="true"]
+  > div:nth-child(2) {
+  border-color: rgba(89, 157, 247, 0.28) !important;
+  background: #061b3f !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+.clara-community-root[data-community-view="home"]
+  .clara-community-home-money-left
+  [data-clara-manual-expense-orb="true"] {
+  border-color: rgba(255, 216, 74, 0.52) !important;
+  background: #061b3f !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 8px 18px rgba(0, 0, 0, 0.28) !important;
+}
+
+.clara-community-root[data-community-view="home"]
+  .clara-community-home-money-left
+  [data-clara-manual-expense-orb="true"] img {
+  filter: none !important;
+}
+
+.clara-community-root[data-community-view="home"]
+  .clara-community-home-money-left
+  [data-clara-manual-expense-orb="true"]:hover {
+  border-color: rgba(255, 216, 74, 0.78) !important;
+  background: #082658 !important;
+}
