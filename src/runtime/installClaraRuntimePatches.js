@@ -139,6 +139,7 @@ import "../community-premium-theme.css";
 import "../community-reference-refresh.css";
 import "../community-composer-centering-fix.css";
 import "../community-feed-post-seams.css";
+import "../community-official-brand-theme.css";
 
 // Life Stage visual patches
 import "../life-stage-hero-polish.css";
