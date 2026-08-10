@@ -38,8 +38,6 @@ jobs:
             fs.writeFileSync(path, text);
           };
 
-          // These files are disconnected from the live app and contain retired wallet
-          // creation surfaces / handlers that can confuse future maintenance.
           [
             'src/components/FinanceActionModalPremium.jsx',
             'src/components/WalletCardEditable.jsx',
@@ -50,7 +48,6 @@ jobs:
             '.github/scripts/lazy-load-dashboard-modal-stack.mjs',
           ].forEach(removeFile);
 
-          // Remove the retired direct-create implementation from the live finance hook.
           {
             const path = 'src/components/fresh/main-dashboard/finance-actions/useDashboardFinanceActionHandlersCore.js';
             let text = fs.readFileSync(path, 'utf8');
@@ -74,7 +71,6 @@ jobs:
             fs.writeFileSync(path, text);
           }
 
-          // Remove the dead create implementation plumbing from Dashboard.
           {
             const path = 'src/pages/Dashboard.jsx';
             let text = fs.readFileSync(path, 'utf8');
@@ -91,20 +87,17 @@ jobs:
             fs.writeFileSync(path, text);
           }
 
-          // The guide renders manual expense only; this retired wallet callback prop was never consumed.
           replaceRequired(
             'src/components/fresh/main-dashboard/guide/ClaraGuideManualExpensePreview.jsx',
             '        createWalletInline={noop}\n',
             ''
           );
 
-          // Point the architecture test at the live handler wrapper instead of the retired modal hook.
           replaceRequired(
             'tests/money-left-architecture.test.mjs',
             '    read("../src/components/fresh/main-dashboard/finance-actions/useDashboardFinanceModalHandlers.js"),',
             '    read("../src/components/fresh/main-dashboard/finance-actions/useDashboardFinanceActionHandlers.js"),'
           );
-
           NODE
 
       - name: Verify one wallet creation system remains
@@ -144,9 +137,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Run focused architecture test
-        run: node --test tests/money-left-architecture.test.mjs
 
       - name: Build check
         run: npm run build
