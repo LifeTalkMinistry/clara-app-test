@@ -50,22 +50,42 @@ function ensureStyles() {
       border-radius: inherit;
       background: linear-gradient(135deg, rgba(26, 188, 190, .78), rgba(92, 72, 220, .84));
       color: #fff;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 900;
       letter-spacing: -.02em;
     }
 
+    /*
+      The profile is a normal final top-nav item. The avatar is only the icon
+      inside that item; it must not become its own visually detached bubble.
+    */
     .clara-community-profile-nav-avatar {
       overflow: hidden !important;
-      padding: 3px !important;
-      background: linear-gradient(135deg, rgba(35, 215, 206, .94), rgba(103, 84, 239, .92)) !important;
-      box-shadow: 0 0 0 1px rgba(128, 255, 246, .18), 0 8px 24px rgba(73, 85, 212, .22) !important;
+      padding: 0 !important;
+      border-color: rgba(111, 131, 180, .22) !important;
+      background: rgba(11, 23, 48, .88) !important;
+      box-shadow: none !important;
+    }
+
+    .clara-community-profile-nav-avatar[aria-current="page"] {
+      border-color: rgba(85, 242, 233, .45) !important;
+      background: radial-gradient(circle at 35% 30%, rgba(49, 225, 216, .22), rgba(16, 31, 57, .96)) !important;
+      box-shadow: 0 0 0 1px rgba(85, 242, 233, .08), 0 0 24px rgba(43, 225, 216, .16) !important;
     }
 
     .clara-community-profile-nav-avatar > .clara-community-real-profile-avatar,
     .clara-community-profile-nav-avatar > .clara-community-real-profile-initials {
-      border: 2px solid rgba(5, 20, 42, .92);
+      width: calc(100% - 8px);
+      height: calc(100% - 8px);
+      flex: 0 0 auto;
+      border-radius: 9999px;
+      border: 1px solid rgba(255, 255, 255, .12);
       background-clip: padding-box;
+    }
+
+    .clara-community-profile-nav-avatar[aria-current="page"] > .clara-community-real-profile-avatar,
+    .clara-community-profile-nav-avatar[aria-current="page"] > .clara-community-real-profile-initials {
+      border-color: rgba(143, 255, 248, .34);
     }
 
     .clara-community-composer-profile-avatar {
