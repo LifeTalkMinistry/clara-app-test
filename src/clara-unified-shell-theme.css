@@ -221,6 +221,19 @@
   background: linear-gradient(180deg, rgba(45, 212, 207, 0.22), rgba(104, 87, 232, 0.20));
 }
 
+/* Feed category pills stay swipeable on phones, but the browser's horizontal
+ * scrollbar must never appear as a visual progress bar beneath them. */
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll .overflow-x-auto.mb-7 {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll .overflow-x-auto.mb-7::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 @media (max-width: 640px) {
   .clara-community-root .clara-community-home-view,
   .clara-community-root .clara-community-schedule-view,
