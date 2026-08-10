@@ -37,7 +37,7 @@ export function getTopWallet(wallets = []) {
 }
 
 export function getWalletMessage(walletCount) {
-  if (!walletCount) return "Create your first wallet to organize your money.";
+  if (!walletCount) return "Create your first wallet.";
   return "Available across all wallets.";
 }
 
