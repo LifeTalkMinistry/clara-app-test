@@ -32,6 +32,9 @@ import "./installCommunityGuideLauncherBridge";
 // Post/reaction notification routing must stay inside the Community shell so
 // opening the exact post never hides or scrolls away the shared top navigation.
 import "./installCommunityNotificationPostNavigationGuard";
+// Private-message unread state belongs to the Message icon. General Community
+// activity remains on the bell, with each badge clearing independently.
+import "./installCommunityMessageNotificationSplit";
 
 // Core memory runtime. The scoped compatibility layer must install before any
 // legacy memory reader/writer touches the historical unscoped storage key.
