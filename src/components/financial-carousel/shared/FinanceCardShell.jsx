@@ -67,12 +67,12 @@ export default function FinanceCardShell({
       <style>{FINANCE_CARD_BRAND_OVERRIDES}</style>
 
       {/*
-        CLARA brand treatment is intentionally centralized here so Wallet,
-        Income Hub, Budget, Emergency Fund, Savings, Investment and Debt
-        always share one visual language even when older card internals remain.
+        CLARA finance identity stays abstract rather than drawing a literal flag.
+        Royal blue owns the material; restrained gold/red diagonal traces act as
+        a quiet brand signature while the midnight base keeps the cards premium.
       */}
-      <div className="pointer-events-none absolute inset-0 z-[4] bg-[radial-gradient(circle_at_10%_0%,rgba(37,99,235,0.17),transparent_34%),radial-gradient(circle_at_92%_5%,rgba(250,204,21,0.045),transparent_25%),radial-gradient(circle_at_96%_100%,rgba(220,38,38,0.065),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.018),rgba(2,6,23,0.12)_100%)]" />
-      <div className="pointer-events-none absolute inset-x-5 top-0 z-[5] h-px bg-gradient-to-r from-transparent via-blue-200/30 to-transparent" />
+      <div className="clara-finance-brand-field pointer-events-none absolute inset-0 z-[4]" />
+      <div className="clara-finance-brand-edge pointer-events-none absolute inset-x-5 top-0 z-[5] h-px" />
 
       {/*
         Performance rule:
