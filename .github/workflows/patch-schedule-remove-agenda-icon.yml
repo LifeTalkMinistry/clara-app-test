@@ -1,0 +1,57 @@
+name: Patch schedule agenda breathing room
+
+on:
+  push:
+    paths:
+      - '.github/workflows/patch-schedule-remove-agenda-icon.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Remove agenda icon and reclaim space
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardSchedulePanel.jsx')
+          text = path.read_text(encoding='utf-8')
+
+          old = '''      <div className="relative flex h-full w-full items-center gap-3.5">
+        <div className="flex h-[clamp(40px,6.2svh,48px)] w-[clamp(40px,6.2svh,48px)] shrink-0 items-center justify-center rounded-[20px] border border-white/10 bg-white/[.035] text-cyan-100/70 shadow-[0_0_18px_rgba(34,211,238,.07)]">
+          {agenda.emoji ? (
+            <span className="text-xl leading-none" aria-hidden="true">{agenda.emoji}</span>
+          ) : (
+            <Icon className="h-5 w-5" />
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">'''
+
+          new = '''      <div className="relative flex h-full w-full items-center">
+        <div className="min-w-0 flex-1">'''
+
+          if old not in text:
+              print('Agenda icon block already removed or source changed; no patch needed.')
+          else:
+              path.write_text(text.replace(old, new, 1), encoding='utf-8')
+              print('Removed agenda icon and expanded agenda copy area.')
+
+      - name: Commit patch
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git config user.name "CLARA UI Patch"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardSchedulePanel.jsx
+          git commit -m "Remove schedule agenda icon for breathing room"
+          git push origin main
