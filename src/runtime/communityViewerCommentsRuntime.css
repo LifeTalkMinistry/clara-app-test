@@ -1,0 +1,191 @@
+.clara-viewer-comments-runtime-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  border: 0;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.02) 0%, rgba(0, 0, 0, 0.12) 30%, rgba(0, 0, 0, 0.48) 72%, rgba(0, 0, 0, 0.72) 100%);
+  cursor: default;
+}
+
+.clara-viewer-comments-runtime-loader,
+.clara-viewer-comments-runtime-notice {
+  position: fixed;
+  left: 50%;
+  z-index: 530;
+  width: min(calc(100vw - 24px), 536px);
+  transform: translateX(-50%);
+  border: 1px solid rgba(69, 126, 223, 0.26);
+  border-radius: 24px 24px 0 0;
+  background:
+    radial-gradient(circle at 5% 0%, rgba(17, 100, 255, 0.15), transparent 38%),
+    linear-gradient(145deg, rgba(5, 17, 38, 0.985), rgba(8, 20, 46, 0.99));
+  box-shadow: 0 -22px 64px rgba(0, 0, 0, 0.42);
+  color: rgba(240, 247, 255, 0.72);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+.clara-viewer-comments-runtime-loader {
+  bottom: 0;
+  padding: 22px 18px calc(22px + env(safe-area-inset-bottom));
+}
+
+.clara-viewer-comments-runtime-notice {
+  bottom: 18px;
+  border-radius: 18px;
+  padding: 14px 16px;
+}
+
+.clara-viewer-comments-sheet-source {
+  position: fixed !important;
+  left: 50% !important;
+  right: auto !important;
+  bottom: 0 !important;
+  z-index: 540 !important;
+  width: min(100vw, 560px) !important;
+  max-height: min(70dvh, 620px) !important;
+  margin: 0 !important;
+  transform: translateX(-50%) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  border: 1px solid rgba(72, 132, 230, 0.28) !important;
+  border-bottom: 0 !important;
+  border-radius: 28px 28px 0 0 !important;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(16, 112, 255, 0.16), transparent 32%),
+    radial-gradient(circle at 95% 10%, rgba(242, 45, 76, 0.055), transparent 34%),
+    linear-gradient(160deg, rgba(4, 13, 31, 0.995), rgba(7, 18, 43, 0.995) 55%, rgba(5, 12, 28, 0.995)) !important;
+  box-shadow:
+    0 -28px 80px rgba(0, 0, 0, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.055) !important;
+  padding: 0 16px calc(14px + env(safe-area-inset-bottom)) !important;
+  color: white !important;
+  scrollbar-width: none;
+  animation: clara-viewer-comments-sheet-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.clara-viewer-comments-sheet-source::-webkit-scrollbar {
+  display: none;
+}
+
+.clara-viewer-comments-runtime-header {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  display: grid;
+  grid-template-columns: 40px 1fr 40px;
+  align-items: center;
+  min-height: 58px;
+  margin: 0 -16px 12px;
+  padding: 8px 12px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background: linear-gradient(180deg, rgba(4, 13, 31, 0.995), rgba(5, 15, 35, 0.965));
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.clara-viewer-comments-runtime-header strong {
+  grid-column: 2;
+  color: rgba(248, 251, 255, 0.95);
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  text-align: center;
+}
+
+.clara-viewer-comments-runtime-handle {
+  position: absolute;
+  left: 50%;
+  top: 6px;
+  width: 34px;
+  height: 4px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.clara-viewer-comments-runtime-close {
+  grid-column: 3;
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  justify-self: end;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 23px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.clara-viewer-comments-sheet-source > p:first-of-type {
+  margin-top: 0 !important;
+  color: rgba(178, 199, 228, 0.5) !important;
+}
+
+.clara-viewer-comments-sheet-source > div:not(.clara-viewer-comments-runtime-header) {
+  border-color: rgba(87, 133, 204, 0.12) !important;
+  background: rgba(9, 25, 52, 0.72) !important;
+}
+
+.clara-viewer-comments-sheet-source button[class*="text-[#8ffbf4]"] {
+  color: #76a9ff !important;
+}
+
+.clara-viewer-comments-sheet-source textarea,
+.clara-viewer-comments-sheet-source input[placeholder="Write a comment..."] {
+  border-color: rgba(74, 132, 226, 0.22) !important;
+  background: rgba(4, 14, 32, 0.94) !important;
+  color: rgba(248, 251, 255, 0.92) !important;
+}
+
+.clara-viewer-comments-sheet-source input[placeholder="Write a comment..."]:focus,
+.clara-viewer-comments-sheet-source textarea:focus {
+  border-color: rgba(62, 126, 255, 0.65) !important;
+  box-shadow: 0 0 0 2px rgba(36, 103, 255, 0.11) !important;
+}
+
+.clara-viewer-comments-sheet-source > div:has(input[placeholder="Write a comment..."]) {
+  position: sticky;
+  bottom: 0;
+  z-index: 7;
+  margin: 12px -16px -14px !important;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(255, 255, 255, 0.07) !important;
+  background: linear-gradient(180deg, rgba(5, 15, 35, 0.96), rgba(4, 12, 29, 0.995)) !important;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.clara-viewer-comments-sheet-source > div:has(input[placeholder="Write a comment..."]) > button {
+  background: linear-gradient(135deg, #0b67ff, #1754dd) !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 24px rgba(11, 103, 255, 0.24) !important;
+}
+
+@keyframes clara-viewer-comments-sheet-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 28px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@media (max-width: 639px) {
+  .clara-viewer-comments-sheet-source {
+    max-height: 72dvh !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-radius: 26px 26px 0 0 !important;
+  }
+}
