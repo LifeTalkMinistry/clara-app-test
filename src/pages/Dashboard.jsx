@@ -96,7 +96,6 @@ export default function Dashboard() {
     addExpense: addExpenseData,
     updateExpense: updateExpenseData,
     deleteExpense: deleteExpenseData,
-    addWallet: addWalletData,
     updateWallet: updateWalletData,
     deleteWallet: deleteWalletData,
     addIncome: addIncomeData,
@@ -645,7 +644,6 @@ export default function Dashboard() {
     openDeleteSavingsGoalModal,
     openAddSavingsModal,
     moveWalletInline,
-    createWalletInline,
     deleteWalletInline,
     saveManualExpenseInline,
     addMoneyInline,
@@ -663,7 +661,6 @@ export default function Dashboard() {
     addExpenseData,
     addIncomeData,
     addSavingsGoalData,
-    addWalletData,
     budgetExitConfirm,
     budgetPlanIsComplete,
     budgets,
@@ -893,7 +890,7 @@ export default function Dashboard() {
           setFinancialGoal, finishOnboarding,
         }}
         financeModalRendererProps={{
-          financeModal, closeFinanceModal, createWalletInline, financeActionLoading,
+          financeModal, closeFinanceModal, financeActionLoading,
           financeForm, setFinanceForm, deleteWalletInline, addMoneyInline, fmt,
           transferMoneyInline, openTransferMoneyModal, wallets, saveManualExpenseInline,
           manualExpenseCanSubmit, manualExpenseBudgetListItems, showFinanceNotice,

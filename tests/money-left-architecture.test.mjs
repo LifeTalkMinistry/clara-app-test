@@ -19,7 +19,7 @@ test("Money Left owns its calculator and orb gestures inside React", async () =>
     read("../src/components/fresh/main-dashboard/money-summary/MoneyLeftCalculator.jsx"),
     read("../src/components/fresh/main-dashboard/money-summary/useMoneyLeftOrbGestures.js"),
     read("../src/main.jsx"),
-    read("../src/components/fresh/main-dashboard/finance-actions/useDashboardFinanceModalHandlers.js"),
+    read("../src/components/fresh/main-dashboard/finance-actions/useDashboardFinanceActionHandlers.js"),
     read("../src/components/fresh/main-dashboard/finance-actions/useDashboardOrbInteractionHandlers.js"),
     read("../src/runtime/installMoneyLeftOrbInteractionSound.js"),
     read("../src/clara-fab-theme.css"),

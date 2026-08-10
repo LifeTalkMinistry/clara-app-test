@@ -17,10 +17,6 @@ import {
   normalizeLower,
   normalizeString,
 } from "@/utils/dashboard/dashboardHelpers";
-import {
-  buildWalletProviderPayload,
-  getWalletProvider,
-} from "@/components/financial-carousel/cards/wallet/logic/walletProviderRegistry";
 
 export default function useDashboardFinanceActionHandlers({
   activeBudget,
@@ -28,7 +24,6 @@ export default function useDashboardFinanceActionHandlers({
   addExpenseData,
   addIncomeData,
   addSavingsGoalData,
-  addWalletData,
   budgetExitConfirm,
   budgetPlanIsComplete,
   budgets,
@@ -429,63 +424,6 @@ export default function useDashboardFinanceActionHandlers({
     },
     [financeActionLoading, refreshFinanceSection, showFinanceNotice, wallets]
   );
-
-  const createWalletInline = useCallback(async () => {
-    const selectedWalletType = normalizeString(financeForm.type) || "cash";
-    const provider = getWalletProvider(selectedWalletType, selectedWalletType);
-    const name =
-      normalizeString(financeForm.name) ||
-      (provider.key !== "custom" ? provider.defaultWalletName || provider.label : "");
-    const type = provider.walletType || "custom";
-    const startingBalance = Number(financeForm.startingBalance);
-
-    if (!name) {
-      showFinanceNotice("Please enter a wallet name.");
-      return;
-    }
-
-    if (!Number.isFinite(startingBalance) || startingBalance < 0) {
-      showFinanceNotice("Please enter a valid starting balance.");
-      return;
-    }
-
-    try {
-      setFinanceActionLoading(true);
-      await addWalletData?.({
-        name,
-        type,
-        ...buildWalletProviderPayload(provider.key),
-        icon: provider.iconText || null,
-        balance: startingBalance,
-        starting_balance: startingBalance,
-        sort_order: wallets.length,
-        user_id: user?.id || null,
-        user_email: user?.email || null,
-        created_by: user?.email || null,
-      });
-
-      await refreshFinanceSection();
-      setExpandedFinanceCard("wallets");
-      closeFinanceModal();
-      showFinanceNotice("Wallet created successfully.", "success");
-    } catch (error) {
-      showFinanceNotice(error?.message || "Failed to create wallet.");
-    } finally {
-      setFinanceActionLoading(false);
-    }
-  }, [
-    closeFinanceModal,
-    financeForm.customWalletType,
-    financeForm.name,
-    financeForm.startingBalance,
-    financeForm.type,
-    refreshFinanceSection,
-    showFinanceNotice,
-    user?.email,
-    user?.id,
-    wallets.length,
-    addWalletData,
-  ]);
 
   const deleteWalletInline = useCallback(async () => {
     const wallet = financeModal?.payload;
@@ -1523,7 +1461,6 @@ export default function useDashboardFinanceActionHandlers({
     openAddSavingsModal,
     refreshFinanceSection,
     moveWalletInline,
-    createWalletInline,
     deleteWalletInline,
     saveManualExpenseInline,
     addMoneyInline,

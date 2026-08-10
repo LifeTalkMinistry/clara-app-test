@@ -93,7 +93,6 @@ export default function ClaraGuideManualExpensePreview({ onNext }) {
       <DashboardFinanceModalRenderer
         financeModal={{ type: "manual_expense", payload: {} }}
         closeFinanceModal={returnToSingleTapLesson}
-        createWalletInline={noop}
         financeActionLoading={false}
         financeForm={GUIDE_FORM}
         setFinanceForm={noop}
