@@ -196,7 +196,6 @@ export default function CommunityHomeFinancialCarousel() {
         onSaveSavingsGoal={openSavingsGoals}
         onDeleteSavingsGoal={openSavingsGoals}
         onAddSavings={openSavingsGoals}
-        incomeSources={[]}
         incomeData={{ totalIncome }}
         refreshData={refreshData}
         featureFlags={profileData.feature_flags}
