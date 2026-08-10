@@ -1,30 +1,21 @@
 const FINANCE_CARD_TRANSITION_CLASS =
   "transition-[transform,opacity,border-color,background-color,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]";
 
-// Official CLARA finance surface.
-// Keep the financial carousel visually as direct and recognizable as the
-// Daily Money Tip and Money Left cards: one defined royal-blue family, not an
-// abstract teal/purple composition. Financial status colors remain available
-// only for small semantic values and actions inside the cards.
 export const FINANCE_CARD_SURFACE_CLASS =
-  `relative flex h-full min-h-[inherit] flex-col overflow-hidden border border-blue-200/[0.18] bg-[#073b7a] backdrop-blur-[26px] ${FINANCE_CARD_TRANSITION_CLASS}`;
+  `relative flex h-full min-h-[inherit] flex-col overflow-hidden border border-white/[0.095] bg-[linear-gradient(135deg,rgba(6,34,50,0.84),rgba(6,17,42,0.90)_46%,rgba(18,24,55,0.88))] backdrop-blur-[26px] ${FINANCE_CARD_TRANSITION_CLASS}`;
 
 export const FINANCE_CARD_MEDIUM_SURFACE_CLASS =
-  `relative flex h-full min-h-[inherit] flex-col overflow-hidden border border-blue-200/[0.15] bg-[#073b7a] backdrop-blur-xl ${FINANCE_CARD_TRANSITION_CLASS}`;
+  `relative flex h-full min-h-[inherit] flex-col overflow-hidden border border-white/[0.075] bg-[linear-gradient(135deg,rgba(5,28,42,0.78),rgba(5,15,36,0.84)_48%,rgba(13,22,50,0.80))] backdrop-blur-xl ${FINANCE_CARD_TRANSITION_CLASS}`;
 
 export const FINANCE_CARD_LITE_SURFACE_CLASS =
-  `relative flex h-full min-h-[inherit] flex-col overflow-hidden border border-blue-200/[0.12] bg-[#073b7a] backdrop-blur-none ${FINANCE_CARD_TRANSITION_CLASS}`;
-
-export const FINANCE_CARD_FULL_SHADOW_CLASS =
-  "shadow-[0_22px_58px_rgba(0,0,0,0.36),inset_0_1px_0_rgba(255,255,255,0.09)]";
+  `relative flex h-full min-h-[inherit] flex-col overflow-hidden border border-white/[0.052] bg-[linear-gradient(135deg,rgba(5,16,29,0.76),rgba(5,11,25,0.82))] backdrop-blur-none ${FINANCE_CARD_TRANSITION_CLASS}`;
 
 export const FINANCE_CARD_MEDIUM_SHADOW_CLASS =
-  "shadow-[0_16px_38px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.07)]";
+  "shadow-[0_18px_42px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.055)]";
 
 export const FINANCE_CARD_LITE_SHADOW_CLASS = "shadow-none";
 
-// No decorative color glows. This prevents old teal/violet identities from
-// reappearing through individual card implementations.
+/* Decorative circular glow layers are intentionally disabled app-wide. */
 export const FINANCE_CARD_GLOW_LAYERS = [];
 export const FINANCE_CARD_MEDIUM_GLOW_LAYERS = [];
 
@@ -39,7 +30,9 @@ export function normalizeFinanceCardPerformanceMode(performanceMode = "full") {
 export function getFinanceCardShellClassName({
   performanceMode = "full",
   roundedClass = "rounded-[30px]",
+  shadowClass = "shadow-[0_24px_70px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.075)]",
   ringClass = "",
+  surfaceClassName = "",
 } = {}) {
   const mode = normalizeFinanceCardPerformanceMode(performanceMode);
 
@@ -59,6 +52,7 @@ export function getFinanceCardShellClassName({
       roundedClass,
       FINANCE_CARD_MEDIUM_SHADOW_CLASS,
       ringClass,
+      surfaceClassName,
     ]
       .filter(Boolean)
       .join(" ");
@@ -67,8 +61,9 @@ export function getFinanceCardShellClassName({
   return [
     FINANCE_CARD_SURFACE_CLASS,
     roundedClass,
-    FINANCE_CARD_FULL_SHADOW_CLASS,
+    shadowClass,
     ringClass,
+    surfaceClassName,
   ]
     .filter(Boolean)
     .join(" ");
@@ -79,81 +74,38 @@ export function getFinanceCardGlowLayers() {
 }
 
 export const FINANCE_CARD_EXPAND_BUTTON_CLASS =
-  "relative z-30 flex min-h-[48px] w-full items-center justify-between rounded-[22px] border border-blue-100/[0.16] bg-[#062f65] px-4 py-3 text-sm text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_10px_24px_rgba(0,0,0,0.14)] transition hover:border-blue-100/[0.25] hover:bg-[#073a78] active:scale-[0.992]";
+  "relative z-30 flex min-h-[48px] w-full items-center justify-between rounded-[22px] border border-cyan-100/[0.16] bg-white/[0.065] px-4 py-3 text-sm text-white/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.085),0_12px_28px_rgba(0,0,0,0.16)] backdrop-blur-xl transition hover:border-cyan-100/[0.26] hover:bg-white/[0.095] active:scale-[0.992]";
 
 export const FINANCE_CARD_EXPANDED_PANEL_CLASS =
-  "mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto rounded-[24px] border border-blue-100/[0.12] bg-[#062f65] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_14px_28px_rgba(0,0,0,0.13)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
-
-// Central hard guard against the historical finance palette. Older card
-// internals may still contain cyan/teal/violet utility classes for layout or
-// status. Background decoration is neutralized here so every finance card
-// presents one unmistakable CLARA-blue chassis.
-export const FINANCE_CARD_BRAND_OVERRIDES = `
-.clara-finance-bubble-card,
-.clara-finance-bubble-card[data-performance-mode="full"],
-.clara-finance-bubble-card[data-performance-mode="medium"],
-.clara-finance-bubble-card[data-performance-mode="lite"],
-.clara-finance-bubble-card[data-expanded="true"] {
-  border-color: rgba(191, 219, 254, 0.18) !important;
-  background: #073b7a !important;
-  background-image: none !important;
-  box-shadow:
-    0 22px 58px rgba(0, 0, 0, 0.36),
-    inset 0 1px 0 rgba(255, 255, 255, 0.09) !important;
-}
-
-.clara-finance-bubble-card [class*="bg-fuchsia-"],
-.clara-finance-bubble-card [class*="bg-violet-"],
-.clara-finance-bubble-card [class*="bg-purple-"],
-.clara-finance-bubble-card [class*="bg-indigo-"][class*="blur-"],
-.clara-finance-bubble-card [class*="bg-cyan-"][class*="blur-"],
-.clara-finance-bubble-card [class*="bg-teal-"][class*="blur-"],
-.clara-finance-bubble-card [class*="bg-sky-"][class*="blur-"] {
-  background: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-}
-
-.clara-finance-bubble-card [class*="radial-gradient"],
-.clara-finance-bubble-card [class*="from-violet"],
-.clara-finance-bubble-card [class*="to-violet"],
-.clara-finance-bubble-card [class*="from-purple"],
-.clara-finance-bubble-card [class*="to-purple"],
-.clara-finance-bubble-card [class*="from-teal"],
-.clara-finance-bubble-card [class*="to-teal"] {
-  background-image: none !important;
-}
-
-.clara-finance-bubble-card [class*="border-cyan-"],
-.clara-finance-bubble-card [class*="border-teal-"],
-.clara-finance-bubble-card [class*="border-violet-"],
-.clara-finance-bubble-card [class*="border-purple-"] {
-  border-color: rgba(147, 197, 253, 0.18) !important;
-}
-
-.clara-finance-bubble-card [class*="ring-cyan-"],
-.clara-finance-bubble-card [class*="ring-teal-"],
-.clara-finance-bubble-card [class*="ring-violet-"],
-.clara-finance-bubble-card [class*="ring-purple-"] {
-  --tw-ring-color: rgba(96, 165, 250, 0.18) !important;
-}
-
-.clara-finance-bubble-card [class*="text-cyan-"],
-.clara-finance-bubble-card [class*="text-teal-"],
-.clara-finance-bubble-card [class*="text-violet-"],
-.clara-finance-bubble-card [class*="text-purple-"] {
-  color: rgba(219, 234, 254, 0.94) !important;
-}
-`;
+  "mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto rounded-[24px] border border-cyan-100/[0.12] bg-white/[0.06] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.075),0_16px_30px_rgba(0,0,0,0.14)] backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 export const FINANCIAL_CAROUSEL_PREMIUM_GLASS_STYLES = `
 .clara-finance-slide-surface {
-  border-color: rgba(191, 219, 254, 0.17) !important;
-  background: #073b7a !important;
-  background-image: none !important;
+  border-color: rgba(207, 250, 254, 0.105) !important;
+  background: linear-gradient(135deg, rgba(3, 18, 32, 0.94), rgba(5, 14, 35, 0.975) 48%, rgba(13, 22, 50, 0.96)) !important;
   box-shadow:
-    0 22px 58px rgba(0, 0, 0, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    0 24px 70px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.065) !important;
+}
+
+.clara-finance-bubble-card[data-performance-mode="full"],
+.clara-finance-bubble-card[data-expanded="true"] {
+  border-color: rgba(207, 250, 254, 0.105) !important;
+  background: linear-gradient(135deg, rgba(8, 33, 50, 0.82), rgba(8, 17, 42, 0.90) 46%, rgba(15, 23, 52, 0.86)) !important;
+  box-shadow:
+    0 22px 58px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.075) !important;
+}
+
+.clara-finance-bubble-card[data-performance-mode="medium"] {
+  border-color: rgba(207, 250, 254, 0.075) !important;
+  background: linear-gradient(135deg, rgba(7, 29, 45, 0.78), rgba(6, 14, 35, 0.84) 48%, rgba(13, 22, 48, 0.80)) !important;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255,255,0.055) !important;
+}
+
+.clara-finance-bubble-card[data-performance-mode="lite"] {
+  border-color: rgba(255, 255, 255, 0.052) !important;
+  background: rgba(5, 13, 28, 0.80) !important;
 }
 
 .clara-finance-bubble-card button[aria-label^="View"],
