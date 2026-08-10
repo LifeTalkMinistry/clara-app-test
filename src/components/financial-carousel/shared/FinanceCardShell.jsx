@@ -66,20 +66,10 @@ export default function FinanceCardShell({
     >
       <style>{FINANCE_CARD_BRAND_OVERRIDES}</style>
 
-      {/*
-        CLARA finance identity stays abstract rather than drawing a literal flag.
-        Royal blue owns the material; restrained gold/red diagonal traces act as
-        a quiet brand signature while the midnight base keeps the cards premium.
-      */}
-      <div className="clara-finance-brand-field pointer-events-none absolute inset-0 z-[4]" />
-      <div className="clara-finance-brand-edge pointer-events-none absolute inset-x-5 top-0 z-[5] h-px" />
+      {/* A single blue material is the finance identity. No teal, violet,
+          gold/red traces, or decorative multicolor glow is painted here. */}
+      <div className="pointer-events-none absolute inset-x-5 top-0 z-[5] h-px bg-white/15" />
 
-      {/*
-        Performance rule:
-        Carousel cards can mount active + nearby slides together.
-        Keep full glow/blur treatment only for active or expanded cards.
-        Medium/lite modes reduce paint cost on mobile without changing card layout.
-      */}
       {glowLayers.map((className, index) => (
         <div key={`${cardKey}-glow-${index}`} className={className} />
       ))}
