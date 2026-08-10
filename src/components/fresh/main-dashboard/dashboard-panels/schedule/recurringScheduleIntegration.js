@@ -8,6 +8,32 @@ import {
 
 export const RECURRING_SCHEDULE_WINDOW_MONTHS = 24;
 const SCHEDULE_CREATE_EVENT = "clara:schedule:create-event";
+const SCHEDULE_AGENDA_BREATHING_ROOM_STYLE_ID = "clara-schedule-agenda-breathing-room";
+
+function installScheduleAgendaBreathingRoomStyles() {
+  if (typeof document === "undefined") return;
+  if (document.getElementById(SCHEDULE_AGENDA_BREATHING_ROOM_STYLE_ID)) return;
+
+  const style = document.createElement("style");
+  style.id = SCHEDULE_AGENDA_BREATHING_ROOM_STYLE_ID;
+  style.textContent = `
+    button[class*="min-h-[clamp(106px"] > div.relative.flex.h-full.w-full.items-center {
+      gap: 0 !important;
+    }
+
+    button[class*="min-h-[clamp(106px"] > div.relative.flex.h-full.w-full.items-center > div:first-child {
+      display: none !important;
+    }
+
+    button[class*="min-h-[clamp(106px"] > div.relative.flex.h-full.w-full.items-center > div:last-child {
+      width: 100% !important;
+      min-width: 0 !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+installScheduleAgendaBreathingRoomStyles();
 
 export function dispatchRecurringBillOccurrences(ownerId, bill) {
   if (!bill?.id) return;
