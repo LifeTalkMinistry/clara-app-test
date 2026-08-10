@@ -91,6 +91,20 @@ const SCHEDULE_BRAND_CSS = `
     pointer-events: none;
   }
 
+  /* Remove the agenda icon tile entirely and give that space back to the copy. */
+  .clara-schedule-brand button[class*="min-h-[clamp(106px"] > div.relative.flex.h-full.w-full.items-center {
+    gap: 0 !important;
+  }
+
+  .clara-schedule-brand button[class*="min-h-[clamp(106px"] > div.relative.flex.h-full.w-full.items-center > div:first-child {
+    display: none !important;
+  }
+
+  .clara-schedule-brand button[class*="min-h-[clamp(106px"] > div.relative.flex.h-full.w-full.items-center > div:last-child {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
   .clara-schedule-brand button[class*="min-h-[clamp(106px"] div[class*="rounded-[20px]"] {
     border-color: rgba(77, 141, 255, .32) !important;
     background: linear-gradient(145deg, rgba(23, 105, 255, .16), rgba(245, 200, 75, .045)) !important;
