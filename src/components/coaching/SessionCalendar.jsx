@@ -32,7 +32,7 @@ export function MonthCalendar({
 }) {
   const monthLabel = new Intl.DateTimeFormat("en-PH", { month: "long", year: "numeric" }).format(selectedMonth);
   return (
-    <section className="mt-3 rounded-[28px] border border-white/[0.08] bg-[rgba(5,18,38,0.76)] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.30),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl sm:p-5">
+    <section className="clara-coaching-calendar-brand mt-3 rounded-[28px] border border-white/[0.08] bg-[rgba(5,18,38,0.76)] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.30),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl sm:p-5">
       {availabilityLoading ? <LoadingPanel /> : null}
       {!availabilityLoading && loadError && !slots.length ? <NoticePanel danger title="Availability could not be loaded" message="CLARA will not show fake schedules. Retry to request the current backend-controlled availability." actionLabel="Retry" onAction={loadAvailability} /> : null}
       {!availabilityLoading && !loadError && !slots.length ? <NoticePanel title="No appointments are currently available" message="Max has no bookable schedules inside the current booking window. Please check again later." actionLabel="Check again" onAction={loadAvailability} /> : null}
@@ -40,7 +40,7 @@ export function MonthCalendar({
         <>
           <div className="flex items-center justify-between gap-3">
             <div><p className="text-[9px] font-black uppercase tracking-[0.20em] text-cyan-200/70">{isCommitmentSession ? "One-on-one session calendar" : "Monthly coaching calendar"}</p><h2 className="mt-1 text-[20px] font-black text-white">{monthLabel}</h2></div>
-            <div className="flex items-center gap-2"><button type="button" onClick={() => setMonthIndex((value) => Math.max(0, value - 1))} disabled={monthIndex === 0} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-white/70 disabled:opacity-25"><ChevronLeft className="h-4 w-4" /></button><button type="button" onClick={() => setMonthIndex((value) => Math.min(monthOptions.length - 1, value + 1))} disabled={monthIndex >= monthOptions.length - 1} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-white/70 disabled:opacity-25"><ChevronRight className="h-4 w-4" /></button></div>
+            <div className="flex items-center gap-2"><button type="button" aria-label="Previous month" onClick={() => setMonthIndex((value) => Math.max(0, value - 1))} disabled={monthIndex === 0} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-white/70 disabled:opacity-25"><ChevronLeft className="h-4 w-4" /></button><button type="button" aria-label="Next month" onClick={() => setMonthIndex((value) => Math.min(monthOptions.length - 1, value + 1))} disabled={monthIndex >= monthOptions.length - 1} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-white/70 disabled:opacity-25"><ChevronRight className="h-4 w-4" /></button></div>
           </div>
           <div className="mt-5 grid grid-cols-7 gap-1.5">
             {WEEKDAY_LABELS.map((day) => <div key={day} className="pb-1 text-center text-[8px] font-black uppercase tracking-[0.12em] text-slate-400/70">{day}</div>)}
@@ -63,7 +63,7 @@ export function MonthCalendar({
 export function TimePicker({ selectedDateLabel, selectedDateSlots, selectedSlotId, onSelectSlot, onReset, onContinue }) {
   const selectedSlot = selectedDateSlots.find((slot) => slot.id === selectedSlotId) || null;
   return (
-    <div className="relative flex h-full flex-col">
+    <div className="clara-coaching-brand-anchor clara-session-timepicker-brand relative flex h-full flex-col">
       <div className="flex items-start justify-between gap-3"><div><h1 className="text-[24px] font-black leading-tight tracking-tight text-white sm:text-[30px]">{selectedDateLabel}</h1><p className="mt-1 text-[11px] font-semibold text-slate-300/70">Choose your preferred 30-minute session.</p></div><button type="button" onClick={onReset} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.045] text-white/65"><X className="h-4 w-4" /></button></div>
       <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
         {selectedDateSlots.map((slot) => {
