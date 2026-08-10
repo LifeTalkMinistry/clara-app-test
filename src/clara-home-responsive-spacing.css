@@ -1,0 +1,76 @@
+/*
+ * CLARA Home — responsive vertical spacing rhythm
+ *
+ * One adaptive spacing system for the Home viewport. Prevents the first card
+ * from kissing the header and the Money Left card from kissing the bottom edge
+ * across short/tall phones, browser chrome changes, and Android safe areas.
+ */
+
+.clara-community-root[data-community-view="home"] .clara-community-home-view {
+  --clara-home-top-space: clamp(14px, 2.1dvh, 22px);
+  --clara-home-section-gap: clamp(16px, 2.4dvh, 24px);
+  --clara-home-bottom-space: clamp(28px, 4.2dvh, 48px);
+
+  padding-top: var(--clara-home-top-space) !important;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--clara-home-bottom-space)) !important;
+  scroll-padding-top: var(--clara-home-top-space);
+  scroll-padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--clara-home-bottom-space));
+}
+
+/* The old Learning Hub launcher row is gone from Home. Do not let its hidden
+   wrappers/spacers contribute ghost spacing between Daily Tip and finance. */
+.clara-community-root[data-community-view="home"] .clara-community-home-legacy-selector-shield {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.clara-community-root[data-community-view="home"]
+  .clara-community-home-learning-hub:has([data-clara-learning-hub-bridge="true"]) {
+  height: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Daily Tip -> finance uses the same adaptive rhythm on every device. */
+.clara-community-root[data-community-view="home"] .clara-community-home-financial-carousel {
+  margin-top: var(--clara-home-section-gap) !important;
+  padding-bottom: 0 !important;
+}
+
+/* Finance card -> Money Left uses exactly the same rhythm. */
+.clara-community-root[data-community-view="home"] .clara-community-home-money-left {
+  margin-top: var(--clara-home-section-gap) !important;
+  margin-bottom: 0 !important;
+}
+
+/* The removed red divider must not consume visual or layout space. */
+.clara-community-root[data-community-view="home"] .clara-community-home-financial-carousel::before {
+  content: none !important;
+  display: none !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Short phones still need breathing room, but we avoid wasting scarce height. */
+@media (max-height: 740px) {
+  .clara-community-root[data-community-view="home"] .clara-community-home-view {
+    --clara-home-top-space: 12px;
+    --clara-home-section-gap: 14px;
+    --clara-home-bottom-space: 24px;
+  }
+}
+
+/* Taller phones get a little more calm negative space rather than stretched
+   component heights. */
+@media (min-height: 900px) {
+  .clara-community-root[data-community-view="home"] .clara-community-home-view {
+    --clara-home-top-space: 20px;
+    --clara-home-section-gap: 22px;
+    --clara-home-bottom-space: 40px;
+  }
+}
