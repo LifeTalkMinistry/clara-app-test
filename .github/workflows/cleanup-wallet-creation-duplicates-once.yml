@@ -138,8 +138,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build check
-        run: npm run build
+      - name: Direct production compile check
+        run: npx vite build --base=./
 
       - name: Commit cleanup and remove one-time workflow
         shell: bash
