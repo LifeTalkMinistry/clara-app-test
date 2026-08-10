@@ -10,7 +10,7 @@ const OTHER_PROVIDER_GROUP_KEY = "other_banks_and_wallets";
 const STEPS = {
   choose_wallet: ["", "Choose the wallet, bank, or money container you want to track."],
   custom_name: ["Name your custom wallet", "Give this wallet a name you’ll recognize later."],
-  money_setup: ["Does this wallet already have money?", "Connect it to Income Hub, enter a starting balance, or skip for now."],
+  money_setup: ["", "Connect it to Income Hub, enter a starting balance, or skip for now."],
   review: ["Review wallet", "Make sure everything looks right before saving."],
 };
 
@@ -150,9 +150,10 @@ export default function GuidedWalletCreationModal({
     moneyMode === "skip" ||
     (moneyMode === "manual_balance" && amount !== "" && Number.isFinite(amountNumber) && amountNumber >= 0) ||
     (moneyMode === "income_hub" && incomeSources.length > 0 && Boolean(financeForm.incomeSourceId) && amountNumber > 0);
+  const incomeHubBusy = moneyMode === "income_hub" && incomeSourcesLoading;
   const disabled =
     loading ||
-    incomeSourcesLoading ||
+    incomeHubBusy ||
     (step === "custom_name" && !walletName) ||
     (step === "money_setup" && !canMoneyContinue) ||
     (step === "review" && (!walletName || !canMoneyContinue));
