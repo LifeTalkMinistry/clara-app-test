@@ -5,6 +5,8 @@ import {
 
 const NOTIFICATION_SELECTOR = ".clara-community-notifications-card > button";
 const STYLE_ID = "clara-community-notification-post-nav-guard";
+const UNAVAILABLE_SELECTOR = "[data-clara-notification-target-unavailable='true']";
+const FINANCIAL_DASHBOARD_PATH = "/community?view=home";
 
 let installed = false;
 let detailAttemptTimer = null;
@@ -94,6 +96,101 @@ function installTopNavGuardStyle() {
       outline: 1px solid rgba(245,200,75,.62) !important;
       box-shadow: 0 0 0 4px rgba(23,105,255,.07), 0 22px 56px rgba(0,0,0,.28) !important;
     }
+
+    /* A notification may outlive the post/content it points to. Never leave
+       the user on an empty screen when that happens. The shared top nav remains
+       visible above this state. */
+    ${UNAVAILABLE_SELECTOR} {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 214;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 20px max(28px, env(safe-area-inset-bottom));
+      overflow: auto;
+      background:
+        radial-gradient(circle at 10% 0%, rgba(23,105,255,.15), transparent 34%),
+        radial-gradient(circle at 100% 8%, rgba(229,57,69,.07), transparent 30%),
+        linear-gradient(180deg, #040b18 0%, #050d1d 100%);
+    }
+
+    ${UNAVAILABLE_SELECTOR} .clara-unavailable-target-card {
+      width: min(100%, 360px);
+      border: 1px solid rgba(82,143,255,.22);
+      border-radius: 26px;
+      padding: 24px 21px 20px;
+      background:
+        radial-gradient(circle at 0 0, rgba(23,105,255,.09), transparent 36%),
+        linear-gradient(145deg, rgba(8,22,47,.98), rgba(5,14,31,.99));
+      box-shadow: 0 24px 64px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.05);
+      text-align: center;
+      color: #f7faff;
+    }
+
+    ${UNAVAILABLE_SELECTOR} .clara-unavailable-target-icon {
+      display: grid;
+      place-items: center;
+      width: 54px;
+      height: 54px;
+      margin: 0 auto 16px;
+      border: 1px solid rgba(245,200,75,.25);
+      border-radius: 18px;
+      background: rgba(245,200,75,.08);
+      color: #f5c84b;
+      font-size: 24px;
+      font-weight: 900;
+      box-shadow: 0 0 24px rgba(23,105,255,.08);
+    }
+
+    ${UNAVAILABLE_SELECTOR} .clara-unavailable-target-kicker {
+      margin: 0 0 8px;
+      color: rgba(245,200,75,.76);
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+    }
+
+    ${UNAVAILABLE_SELECTOR} h2 {
+      margin: 0;
+      color: rgba(248,250,255,.98);
+      font-size: 21px;
+      line-height: 1.2;
+      font-weight: 900;
+      letter-spacing: -.035em;
+    }
+
+    ${UNAVAILABLE_SELECTOR} p.clara-unavailable-target-copy {
+      margin: 10px auto 0;
+      max-width: 300px;
+      color: rgba(190,207,232,.62);
+      font-size: 12px;
+      line-height: 1.65;
+      font-weight: 650;
+    }
+
+    ${UNAVAILABLE_SELECTOR} button {
+      width: 100%;
+      min-height: 48px;
+      margin-top: 20px;
+      border: 1px solid rgba(97,158,255,.35);
+      border-radius: 17px;
+      background: linear-gradient(135deg, #0a5edb, #0c79ff);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: -.01em;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 12px 28px rgba(12,121,255,.18);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    ${UNAVAILABLE_SELECTOR} button:active {
+      transform: scale(.99);
+    }
   `;
   document.head.appendChild(style);
 }
@@ -166,12 +263,17 @@ function keepShellHeaderVisible() {
   header.style.removeProperty("transform");
 }
 
+function clearUnavailableTarget() {
+  document.querySelectorAll(UNAVAILABLE_SELECTOR).forEach((node) => node.remove());
+}
+
 function clearPostDetailMode() {
   if (detailAttemptTimer) {
     window.clearTimeout(detailAttemptTimer);
     detailAttemptTimer = null;
   }
 
+  clearUnavailableTarget();
   document.querySelectorAll('[data-clara-post-detail="true"]').forEach((root) => {
     root.removeAttribute("data-clara-post-detail");
   });
@@ -200,24 +302,81 @@ function currentPostDetailRequest() {
   };
 }
 
+function showUnavailableTarget(reason = "missing") {
+  clearUnavailableTarget();
+  keepShellHeaderVisible();
+
+  const overlay = document.createElement("div");
+  overlay.dataset.claraNotificationTargetUnavailable = "true";
+
+  const header = document.querySelector(".clara-community-shell-header");
+  if (header instanceof HTMLElement) {
+    const rect = header.getBoundingClientRect();
+    overlay.style.top = `${Math.max(0, Math.round(rect.bottom))}px`;
+  } else {
+    overlay.style.top = "68px";
+  }
+
+  const card = document.createElement("div");
+  card.className = "clara-unavailable-target-card";
+
+  const icon = document.createElement("div");
+  icon.className = "clara-unavailable-target-icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = "!";
+
+  const kicker = document.createElement("p");
+  kicker.className = "clara-unavailable-target-kicker";
+  kicker.textContent = "CLARA notification";
+
+  const title = document.createElement("h2");
+  title.textContent = reason === "error"
+    ? "We couldn't open this right now."
+    : "It looks like this content is already gone.";
+
+  const copy = document.createElement("p");
+  copy.className = "clara-unavailable-target-copy";
+  copy.textContent = reason === "error"
+    ? "The notification is still here, but CLARA couldn't load its destination. It may be temporarily unavailable."
+    : "The post may have been deleted, removed, or is no longer available to your account.";
+
+  const backButton = document.createElement("button");
+  backButton.type = "button";
+  backButton.textContent = "Back to Financial Dashboard";
+  backButton.addEventListener("click", () => {
+    clearPostDetailMode();
+    navigateHash(FINANCIAL_DASHBOARD_PATH);
+  });
+
+  card.append(icon, kicker, title, copy, backButton);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+}
+
 async function locateTargetIndex(postId) {
   const token = getStoredBackendToken();
-  if (!token || !postId) return -1;
+  if (!token || !postId) return { status: "error", index: -1 };
 
   try {
     const data = await backendRequest("/api/community/posts?limit=50", { token });
     const posts = Array.isArray(data) ? data : [];
-    return posts.findIndex((post) => String(post?.id) === String(postId));
+    const index = posts.findIndex((post) => String(post?.id) === String(postId));
+    return index >= 0 ? { status: "found", index } : { status: "missing", index: -1 };
   } catch (error) {
     console.warn("[CLARA Notifications] Could not load target post:", error);
-    return -1;
+    return { status: "error", index: -1 };
   }
 }
 
 async function openExpandedPost(postId, notificationType = "reaction") {
-  const targetIndex = await locateTargetIndex(postId);
-  if (targetIndex < 0) return;
+  const target = await locateTargetIndex(postId);
+  if (target.status !== "found") {
+    clearPostDetailMode();
+    showUnavailableTarget(target.status === "error" ? "error" : "missing");
+    return;
+  }
 
+  const targetIndex = target.index;
   const startedAt = Date.now();
   clearPostDetailMode();
 
@@ -236,10 +395,13 @@ async function openExpandedPost(postId, notificationType = "reaction") {
     if (!(root instanceof HTMLElement) || !(feedScroll instanceof HTMLElement) || !(card instanceof HTMLElement) || !(list instanceof HTMLElement)) {
       if (Date.now() - startedAt < 10000) {
         detailAttemptTimer = window.setTimeout(tryOpen, 140);
+      } else {
+        showUnavailableTarget("error");
       }
       return;
     }
 
+    clearUnavailableTarget();
     root.dataset.claraPostDetail = "true";
     list.classList.add("clara-post-detail-list");
     card.dataset.claraPostDetailTarget = "true";
@@ -287,7 +449,10 @@ function handlePostNotificationClick(event) {
     .then((notification) => {
       const type = String(notification?.type || row.dataset.claraNotificationType || "reaction").toLowerCase();
       const postId = notification?.post_id || row.dataset.claraNotificationPostId || "";
-      if (!postId) return;
+      if (!postId) {
+        showUnavailableTarget("missing");
+        return;
+      }
 
       navigateHash(
         `/community?view=feed&mode=post&postId=${encodeURIComponent(postId)}&notificationType=${encodeURIComponent(type)}`
@@ -296,6 +461,7 @@ function handlePostNotificationClick(event) {
     })
     .catch((error) => {
       console.warn("[CLARA Notifications] Expanded post navigation failed:", error);
+      showUnavailableTarget("error");
     });
 }
 
@@ -310,6 +476,7 @@ export function installCommunityNotificationPostNavigationGuard() {
   const observer = new MutationObserver(() => {
     const request = currentPostDetailRequest();
     if (!request) return;
+    if (document.querySelector(UNAVAILABLE_SELECTOR)) return;
     const root = document.querySelector('.clara-community-root[data-community-view="feed"]');
     if (root?.dataset?.claraPostDetail === "true") return;
     window.setTimeout(syncExpandedPostFromLocation, 60);
