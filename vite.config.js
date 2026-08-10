@@ -50,8 +50,8 @@ function claraPwaBranding() {
 
     transformIndexHtml(html) {
       const brandedIconLinks = [
-        '<link rel="icon" type="image/png" href="./clara-icon.png" />',
-        '<link rel="apple-touch-icon" sizes="180x180" href="./clara-icon.png" />',
+        '<link rel="icon" type="image/png" href="./clara-icon.png?v=clara-official-20260810-2" />',
+        '<link rel="apple-touch-icon" sizes="180x180" href="./clara-icon.png?v=clara-official-20260810-2" />',
         '<meta name="apple-mobile-web-app-capable" content="yes" />',
         '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />',
         '<meta name="apple-mobile-web-app-title" content="CLARA" />',
