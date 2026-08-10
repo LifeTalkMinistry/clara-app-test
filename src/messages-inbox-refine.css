@@ -85,6 +85,28 @@ div.z-\[90\]:has(> header button[aria-label="Back to Community"]) main > div > d
   box-shadow: none !important;
 }
 
+/*
+ * CHAT THREAD STACK FIX
+ *
+ * MessagesBackend already renders a real back button in the conversation
+ * header. The dashboard/community top navigation can sit above the thread's
+ * z-[100] layer, which makes the entire chat header (including Back) appear to
+ * be missing on mobile/PWA. Promote only the active private-message thread to
+ * the top application layer so its own header is always visible and tappable.
+ */
+div.fixed.inset-0.z-\[100\]:has(input[placeholder="Type a message..."]),
+div.fixed.inset-0.z-\[100\]:has(textarea[placeholder="Type a message..."]) {
+  z-index: 2147483000 !important;
+  isolation: isolate !important;
+}
+
+div.fixed.inset-0.z-\[100\]:has(input[placeholder="Type a message..."]) > header,
+div.fixed.inset-0.z-\[100\]:has(textarea[placeholder="Type a message..."]) > header {
+  display: block !important;
+  position: relative !important;
+  z-index: 10 !important;
+}
+
 @media (max-width: 420px) {
   div.z-\[90\]:has(> header button[aria-label="Back to Community"]) main {
     padding-left: 14px !important;
