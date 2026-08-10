@@ -1,0 +1,181 @@
+/*
+ * CLARA Community Profile — official brand COLOR PASS ONLY.
+ *
+ * This layer deliberately does not own geometry. Existing profile widths,
+ * heights, spacing, radii, overlap, tabs, and responsive behavior remain in
+ * CommunityProfile.jsx. Only color, surface, border, text, and glow are changed.
+ */
+
+/* Unique Community Profile shell: the profile page is the min-screen CLARA root
+   whose direct content rail is max-w-md. */
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) {
+  --cp-blue: #0867ff;
+  --cp-sky: #19b5ff;
+  --cp-gold: #ffd84a;
+  --cp-red: #f32645;
+  --cp-navy: #040b18;
+  --cp-navy-2: #06142a;
+  --cp-panel: #07162d;
+  background:
+    radial-gradient(circle at 5% 8%, rgba(8, 103, 255, 0.13), transparent 26%),
+    radial-gradient(circle at 98% 13%, rgba(243, 38, 69, 0.07), transparent 30%),
+    linear-gradient(180deg, #040b18 0%, #050d1d 48%, #040a16 100%) !important;
+}
+
+/* Local profile header controls. Shared Community top-nav geometry is untouched. */
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) > .mx-auto > header button {
+  border-color: rgba(93, 151, 237, 0.22) !important;
+  background: rgba(5, 18, 39, 0.78) !important;
+  color: rgba(239, 247, 255, 0.86) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 8px 22px rgba(0, 0, 0, 0.16) !important;
+}
+
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) > .mx-auto > header p[class*="text-[#5eead4]"] {
+  color: rgba(255, 216, 74, 0.76) !important;
+}
+
+/* Main identity card. */
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) > .mx-auto > section.overflow-hidden {
+  border-color: rgba(76, 127, 199, 0.25) !important;
+  background:
+    radial-gradient(circle at 0% 100%, rgba(25, 181, 255, 0.07), transparent 34%),
+    radial-gradient(circle at 100% 88%, rgba(243, 38, 69, 0.04), transparent 34%),
+    linear-gradient(145deg, rgba(7, 24, 49, 0.995), rgba(5, 15, 35, 0.998)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 20px 56px rgba(0, 0, 0, 0.27),
+    0 0 36px rgba(8, 103, 255, 0.035) !important;
+}
+
+/* Default cover only; an uploaded inline cover image continues to win naturally. */
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) > .mx-auto > section.overflow-hidden > button.h-32 {
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 216, 74, 0.26), transparent 24%),
+    linear-gradient(112deg, #075bdc 0%, #0c4ca2 38%, #402338 68%, #b62037 100%);
+}
+
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) > .mx-auto > section.overflow-hidden > button.h-32 > div {
+  background: rgba(255, 216, 74, 0.08) !important;
+}
+
+/* Avatar frame / initials. */
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) > .mx-auto > section.overflow-hidden button[aria-label="View profile photo"],
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) > .mx-auto > section.overflow-hidden div[class*="border-4"][class*="rounded-full"] {
+  border-color: #07162d !important;
+  background: #08234a !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.30), 0 0 0 1px rgba(88, 155, 255, 0.22), 0 0 22px rgba(8, 103, 255, 0.10) !important;
+}
+
+/* Support and Community identity chips. */
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) [data-clara-support-tier] {
+  border-color: rgba(88, 155, 255, 0.36) !important;
+  background: linear-gradient(90deg, rgba(8, 103, 255, 0.15), rgba(5, 30, 67, 0.58)) !important;
+  color: rgba(240, 248, 255, 0.94) !important;
+}
+
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) [class*="bg-[#22c7b8]"] {
+  background-color: var(--cp-blue) !important;
+}
+
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) [class*="border-[#22c7b8]"] {
+  border-color: rgba(88, 155, 255, 0.38) !important;
+}
+
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) [class*="text-[#ccfbf1]"] {
+  color: rgba(238, 247, 255, 0.94) !important;
+}
+
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) [class*="text-[#99f6e4]"] {
+  color: rgba(135, 198, 255, 0.94) !important;
+}
+
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) [class*="text-[#5eead4]"] {
+  color: rgba(255, 216, 74, 0.78) !important;
+}
+
+/* Profile tabs and edit tabs. */
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) nav,
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) div[class*="bg-[#071725]"][class*="border-y"] {
+  border-color: rgba(76, 127, 199, 0.16) !important;
+  background: rgba(4, 15, 34, 0.82) !important;
+}
+
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) button[class*="bg-[#22c7b8]/14"] {
+  background: linear-gradient(135deg, rgba(9, 80, 173, 0.96), rgba(8, 103, 255, 0.88)) !important;
+  color: #fff !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 0 18px rgba(8, 103, 255, 0.16) !important;
+}
+
+/* Overview cards and profile information panels. */
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) section[class*="bg-[#0a1a29]"] {
+  border-color: rgba(76, 127, 199, 0.20) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(25, 181, 255, 0.055), transparent 34%),
+    linear-gradient(145deg, rgba(7, 24, 49, 0.99), rgba(5, 16, 37, 0.995)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 14px 34px rgba(0, 0, 0, 0.16) !important;
+}
+
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) div[class*="bg-[#071725]"] {
+  background-color: rgba(3, 14, 32, 0.84) !important;
+  border-color: rgba(82, 124, 181, 0.18) !important;
+}
+
+/* Right now / Main goal / Streak: keep the three roles distinct without rainbow UI. */
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) section[class*="bg-[#0a1a29]"] .grid.grid-cols-3 > div:nth-child(1) svg {
+  color: rgba(243, 38, 69, 0.86) !important;
+}
+
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) section[class*="bg-[#0a1a29]"] .grid.grid-cols-3 > div:nth-child(2) svg {
+  color: rgba(111, 186, 255, 0.92) !important;
+}
+
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) section[class*="bg-[#0a1a29]"] .grid.grid-cols-3 > div:nth-child(3) svg {
+  color: rgba(255, 216, 74, 0.92) !important;
+}
+
+/* Financial story heading gets the warm CLARA highlight. */
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) section[class*="bg-[#0a1a29]"] > p[class*="uppercase"][class*="tracking-"] {
+  color: rgba(255, 216, 74, 0.76) !important;
+}
+
+/* Privacy guidance panel. */
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) section[class*="bg-[#0a1a29]"] div[class*="bg-[#22c7b8]"] {
+  background: rgba(8, 103, 255, 0.10) !important;
+  color: rgba(126, 190, 255, 0.96) !important;
+}
+
+/* Editors / form controls. */
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) input[class*="bg-[#071725]"],
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) textarea[class*="bg-[#071725]"],
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) select[class*="bg-[#071725]"] {
+  background: rgba(3, 14, 32, 0.92) !important;
+  border-color: rgba(82, 124, 181, 0.20) !important;
+}
+
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) input[class*="bg-[#071725]"]:focus,
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) textarea[class*="bg-[#071725]"]:focus,
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) select[class*="bg-[#071725]"]:focus {
+  border-color: rgba(111, 186, 255, 0.56) !important;
+  box-shadow: 0 0 0 3px rgba(8, 103, 255, 0.07) !important;
+}
+
+/* Save / primary profile actions. */
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) button[class*="bg-[#22c7b8]"] {
+  background: linear-gradient(135deg, #075bdc, #0878ff) !important;
+  color: #fff !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 10px 26px rgba(8, 103, 255, 0.20) !important;
+}
+
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) button[class*="bg-[#22c7b8]"] svg {
+  color: var(--cp-gold) !important;
+}
+
+/* Photo viewer stays dark and neutral while matching CLARA borders. */
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) [role="dialog"] {
+  background: rgba(2, 7, 17, 0.97) !important;
+}
+
+div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) [role="dialog"] > div:first-child {
+  border-color: rgba(76, 127, 199, 0.18) !important;
+  background: rgba(4, 15, 34, 0.78) !important;
+}
