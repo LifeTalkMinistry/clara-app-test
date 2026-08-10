@@ -1,4 +1,5 @@
 import { CalendarDays, CircleAlert, Clock3, LoaderCircle, RefreshCw, Sparkles } from "lucide-react";
+import "./schedule-appointment-official-brand.css";
 
 export function SummaryChip({ icon: Icon, label, value }) {
   return (
@@ -11,7 +12,7 @@ export function SummaryChip({ icon: Icon, label, value }) {
 
 export function SessionIntro({ isCommitmentSession, onIconTap }) {
   return (
-    <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+    <div className="clara-coaching-brand-anchor clara-session-intro-brand grid gap-4 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
       <div className="flex items-center gap-3.5">
         <button type="button" onClick={onIconTap} aria-label="Open coaching calendar" className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] border border-cyan-100/20 bg-[linear-gradient(145deg,rgba(34,211,238,0.22),rgba(124,58,237,0.48))] shadow-[0_14px_34px_rgba(76,29,149,0.30)]"><CalendarDays className="h-6 w-6 text-cyan-50" /></button>
         <div><h1 className="text-[28px] font-black tracking-tight text-white sm:text-[34px]">{isCommitmentSession ? "One-on-One Budgeting Session" : "Monthly Coaching"}</h1><p className="mt-1 text-[12px] font-semibold leading-relaxed text-slate-300/75 sm:text-[13px]">Choose a real available schedule for your personal session with Max.</p></div>
