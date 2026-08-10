@@ -14,6 +14,7 @@ import { installMoneyVisibilitySound } from "./runtime/installMoneyVisibilitySou
 import { installFinancialCarouselSwipeSound } from "./runtime/installFinancialCarouselSwipeSound";
 import { installCommunityVideoAutoplay } from "./runtime/installCommunityVideoAutoplay";
 import { installCommunityProfileEditShortcut } from "./runtime/installCommunityProfileEditShortcut";
+import { installCommunityNotificationRuntime } from "./runtime/installCommunityNotificationRuntime";
 import { installClaraBackgroundRuntimeGuard } from "./runtime/installClaraBackgroundRuntimeGuard";
 import { installBudgetSetupCopyCleanup } from "./runtime/installBudgetSetupCopyCleanup";
 import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
@@ -185,6 +186,12 @@ try {
   installCommunityProfileEditShortcut();
 } catch (error) {
   console.warn("Community profile edit shortcut failed to init:", error);
+}
+
+try {
+  installCommunityNotificationRuntime();
+} catch (error) {
+  console.warn("Community notification runtime failed to init:", error);
 }
 
 try {
