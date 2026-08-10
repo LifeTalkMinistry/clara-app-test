@@ -1,6 +1,7 @@
 /*
  * CLARA Home — Money Left official branding
  * Home-only presentation. Keeps privacy, calculator, orb gestures, and routing intact.
+ * IMPORTANT: the CLARA orb is intentionally not styled here.
  */
 
 /* Final Home anchor: clean premium CLARA navy/blue, no teal/purple radial wash. */
@@ -99,7 +100,7 @@
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.22) !important;
 }
 
-/* Privacy + calculator controls: quiet navy-blue utility buttons, gold focus. */
+/* Privacy + calculator controls only. The CLARA orb is deliberately excluded. */
 .clara-community-root[data-community-view="home"]
   .clara-community-home-money-left
   :is(
@@ -133,47 +134,4 @@
   ):focus-visible {
   outline: 2px solid rgba(255, 216, 74, 0.82) !important;
   outline-offset: 2px !important;
-}
-
-/* Remove the old cyan/purple orb aura while preserving the actual official CLARA orb. */
-.clara-community-root[data-community-view="home"]
-  .clara-community-home-money-left
-  [data-clara-orb-control="true"]
-  > div:first-child {
-  background: transparent !important;
-  box-shadow: none !important;
-  filter: none !important;
-  opacity: 1 !important;
-}
-
-.clara-community-root[data-community-view="home"]
-  .clara-community-home-money-left
-  [data-clara-orb-control="true"]
-  > div:nth-child(2) {
-  border-color: rgba(89, 157, 247, 0.28) !important;
-  background: #061b3f !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
-}
-
-.clara-community-root[data-community-view="home"]
-  .clara-community-home-money-left
-  [data-clara-manual-expense-orb="true"] {
-  border-color: rgba(255, 216, 74, 0.52) !important;
-  background: #061b3f !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.10),
-    0 8px 18px rgba(0, 0, 0, 0.28) !important;
-}
-
-.clara-community-root[data-community-view="home"]
-  .clara-community-home-money-left
-  [data-clara-manual-expense-orb="true"] img {
-  filter: none !important;
-}
-
-.clara-community-root[data-community-view="home"]
-  .clara-community-home-money-left
-  [data-clara-manual-expense-orb="true"]:hover {
-  border-color: rgba(255, 216, 74, 0.78) !important;
-  background: #082658 !important;
 }
