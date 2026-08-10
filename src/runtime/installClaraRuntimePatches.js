@@ -27,6 +27,7 @@ import "./installCommunityProfileScrollOwnership";
 // backend. Financial records remain under their existing local/device ownership.
 import "./installCommunityBackendOwnership";
 import "./installMessagesSearchCancel";
+import "./installMessagesProfilePhotos";
 import "./installCommunityGuideLauncherBridge";
 // Post/reaction notification routing must stay inside the Community shell so
 // opening the exact post never hides or scrolls away the shared top navigation.
