@@ -44,3 +44,25 @@
     scroll-padding-left: 0 !important;
   }
 }
+
+/*
+ * Expanded composer: the user already knows whose account is posting, so the
+ * profile/avatar medallion becomes redundant. Keep it in the compact composer
+ * for recognition, but remove it after expansion and give the writing controls
+ * the entire row. This intentionally changes only the expanded state.
+ */
+.clara-community-feed-scroll
+  .clara-community-composer[data-composer-open="true"]
+  > div:first-child
+  > div:first-child {
+  display: none !important;
+}
+
+.clara-community-feed-scroll
+  .clara-community-composer[data-composer-open="true"]
+  > div:first-child
+  > div:last-child {
+  flex: 1 1 100% !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
