@@ -1,0 +1,548 @@
+/*
+ * CLARA Community Feed — official Philippine brand theme.
+ *
+ * Presentation only. This file intentionally loads after the older Community
+ * theme/refresh patches so the active feed uses the same official visual system
+ * as the completed Home surface: deep navy, CLARA blue, warm gold, restrained red.
+ */
+
+.clara-community-root[data-community-view="feed"] {
+  --cf-blue: #0867ff;
+  --cf-sky: #19b5ff;
+  --cf-gold: #ffd84a;
+  --cf-red: #f32645;
+  --cf-navy: #040b18;
+  --cf-navy-2: #06142a;
+  --cf-line: rgba(92, 143, 211, 0.22);
+  --cf-copy: rgba(235, 244, 255, 0.82);
+  background: var(--cf-navy) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* SHARED TOP NAV — same official visual language as Home                     */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-root[data-community-view="feed"] .clara-community-shell-header {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-bottom-color: rgba(105, 145, 202, 0.16) !important;
+  background:
+    radial-gradient(ellipse at 8% 4%, rgba(8, 103, 255, 0.58) 0%, rgba(8, 103, 255, 0.28) 24%, transparent 49%),
+    radial-gradient(ellipse at 51% -24%, rgba(255, 216, 74, 0.46) 0%, rgba(255, 216, 74, 0.22) 22%, transparent 47%),
+    radial-gradient(ellipse at 96% 8%, rgba(243, 38, 69, 0.54) 0%, rgba(243, 38, 69, 0.27) 24%, transparent 50%),
+    linear-gradient(105deg, #06152e 0%, #08234a 31%, #172033 50%, #301322 72%, #170a17 100%) !important;
+  box-shadow:
+    0 12px 34px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -10px 22px rgba(0, 0, 0, 0.14) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-shell-header::before {
+  content: "";
+  position: absolute;
+  inset: -22% -8%;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    118deg,
+    rgba(8, 103, 255, 0.16) 2%,
+    rgba(25, 181, 255, 0.04) 27%,
+    rgba(255, 216, 74, 0.12) 49%,
+    rgba(255, 216, 74, 0.035) 60%,
+    rgba(243, 38, 69, 0.16) 82%,
+    rgba(243, 38, 69, 0.07) 100%
+  );
+  filter: blur(15px);
+  transform: skewX(-8deg) scale(1.06);
+  opacity: 0.92;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-shell-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgba(8, 103, 255, 0.92) 0%,
+    rgba(25, 181, 255, 0.48) 24%,
+    rgba(255, 216, 74, 0.86) 50%,
+    rgba(243, 38, 69, 0.80) 76%,
+    rgba(197, 28, 55, 0.92) 100%
+  );
+  box-shadow:
+    0 0 10px rgba(8, 103, 255, 0.18),
+    0 0 10px rgba(255, 216, 74, 0.10),
+    0 0 10px rgba(243, 38, 69, 0.14);
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-shell-nav {
+  position: relative;
+  z-index: 1;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-nav-item {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  background: rgba(3, 11, 25, 0.54) !important;
+  background-image: none !important;
+  color: rgba(255, 255, 255, 0.64) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 7px 20px rgba(0, 0, 0, 0.17) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-nav-item[aria-current="page"] {
+  border-color: rgba(142, 199, 255, 0.50) !important;
+  color: #fff !important;
+  background: rgba(3, 15, 34, 0.70) !important;
+  background-image: none !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 0 0 1px rgba(8, 103, 255, 0.10),
+    0 0 20px rgba(8, 103, 255, 0.20) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-nav-item[aria-current="page"] > span[class*="-bottom"] {
+  width: 30px !important;
+  background: linear-gradient(90deg, var(--cf-blue) 0%, var(--cf-sky) 27%, var(--cf-gold) 50%, var(--cf-red) 76%, #cf2340 100%) !important;
+  box-shadow:
+    0 0 9px rgba(8, 103, 255, 0.30),
+    0 0 7px rgba(255, 216, 74, 0.18),
+    0 0 8px rgba(243, 38, 69, 0.20) !important;
+}
+
+.clara-community-root[data-community-view="feed"] a[aria-label="Community notifications"] > span[class*="-top-1"] {
+  border-color: rgba(3, 11, 25, 0.85) !important;
+  background: #ff3152 !important;
+  color: #fff !important;
+  box-shadow: 0 0 12px rgba(243, 38, 69, 0.40) !important;
+}
+
+.clara-community-root[data-community-view="feed"] a[aria-label="Open Community profile"] {
+  border-color: rgba(255, 255, 255, 0.20) !important;
+  color: #fff !important;
+  background: rgba(3, 11, 25, 0.56) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* FEED ENVIRONMENT                                                            */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-view,
+.clara-community-root[data-community-view="feed"] .clara-community-feed-view > div {
+  background: var(--cf-navy) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 4% 5%, rgba(25, 181, 255, 0.11), transparent 24%),
+    radial-gradient(circle at 96% 16%, rgba(8, 103, 255, 0.09), transparent 28%),
+    radial-gradient(circle at 104% 68%, rgba(243, 38, 69, 0.05), transparent 30%),
+    linear-gradient(180deg, #040b18 0%, #050d1d 44%, #040a16 100%) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 20px;
+  left: -112px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0.34;
+  background: repeating-conic-gradient(from -8deg, rgba(255, 216, 74, 0.024) 0 3deg, transparent 3deg 18deg);
+  -webkit-mask-image: radial-gradient(circle, #000 0 25%, transparent 68%);
+  mask-image: radial-gradient(circle, #000 0 25%, transparent 68%);
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll > div {
+  position: relative;
+  z-index: 1;
+}
+
+/* -------------------------------------------------------------------------- */
+/* COMMUNITY HERO                                                              */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll section:has(h1) {
+  border-color: rgba(76, 139, 218, 0.25) !important;
+  background:
+    radial-gradient(circle at 4% 10%, rgba(25, 181, 255, 0.17), transparent 39%),
+    radial-gradient(circle at 100% 22%, rgba(243, 38, 69, 0.085), transparent 39%),
+    linear-gradient(132deg, rgba(7, 28, 57, 0.99), rgba(5, 18, 41, 0.995) 58%, rgba(12, 14, 36, 0.995)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 18px 44px rgba(0, 0, 0, 0.22),
+    0 0 30px rgba(8, 103, 255, 0.035) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll section:has(h1)::before {
+  background:
+    linear-gradient(112deg, rgba(255, 255, 255, 0.035), transparent 28%, transparent 72%, rgba(255, 255, 255, 0.012)),
+    radial-gradient(circle at 86% 42%, rgba(8, 103, 255, 0.09), transparent 32%) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll section:has(h1)::after {
+  background: linear-gradient(90deg, transparent, rgba(8, 103, 255, 0.34), rgba(255, 216, 74, 0.15), rgba(243, 38, 69, 0.22), transparent) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll section:has(h1) p:first-child {
+  color: rgba(255, 216, 74, 0.78) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll section:has(h1) h1 {
+  color: #f7fbff !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll section:has(h1) h1 + p {
+  color: rgba(211, 226, 246, 0.58) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll section:has(h1) > div.pointer-events-none::before {
+  background: radial-gradient(circle, rgba(8, 103, 255, 0.16) 0%, rgba(25, 181, 255, 0.07) 48%, transparent 72%) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll section:has(h1) > div.pointer-events-none::after {
+  border-color: rgba(71, 151, 255, 0.25) !important;
+  box-shadow: inset 0 0 18px rgba(8, 103, 255, 0.045) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll section:has(h1) > div.pointer-events-none > div:nth-child(1) {
+  background: radial-gradient(circle, rgba(8, 103, 255, 0.16), rgba(25, 181, 255, 0.055) 48%, transparent 72%) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll section:has(h1) > div.pointer-events-none > div:nth-child(4) {
+  border-color: rgba(72, 151, 255, 0.42) !important;
+  box-shadow: 0 0 16px rgba(8, 103, 255, 0.14) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll section:has(h1) > div.pointer-events-none > div:nth-child(5) {
+  border-color: rgba(255, 216, 74, 0.20) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll section:has(h1) > div.pointer-events-none > div:nth-child(6) {
+  border-color: rgba(83, 151, 245, 0.23) !important;
+  background: linear-gradient(145deg, rgba(8, 103, 255, 0.24), rgba(5, 24, 55, 0.78)) !important;
+  color: rgba(224, 239, 255, 0.90) !important;
+  box-shadow: 0 0 30px rgba(8, 103, 255, 0.14) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll section:has(h1) > div.pointer-events-none > span:nth-of-type(1) {
+  background: var(--cf-gold) !important;
+  box-shadow: 0 0 12px rgba(255, 216, 74, 0.54) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll section:has(h1) > div.pointer-events-none > span:nth-of-type(2) {
+  background: var(--cf-red) !important;
+  box-shadow: 0 0 10px rgba(243, 38, 69, 0.36) !important;
+}
+
+/* Uploaded CLARA Board art stays content-first; only its frame/dots are branded. */
+.clara-community-root[data-community-view="feed"] .clara-community-board {
+  border-color: rgba(76, 139, 218, 0.22) !important;
+  background: #06142a !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 18px 44px rgba(0, 0, 0, 0.22) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-board button[aria-current="true"] {
+  background: var(--cf-gold) !important;
+  box-shadow: 0 0 10px rgba(255, 216, 74, 0.34) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* COMPOSER                                                                    */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-root[data-community-view="feed"] .clara-community-composer {
+  border-color: rgba(76, 139, 218, 0.24) !important;
+  background:
+    radial-gradient(circle at 0% 50%, rgba(25, 181, 255, 0.10), transparent 33%),
+    radial-gradient(circle at 104% 60%, rgba(243, 38, 69, 0.035), transparent 34%),
+    linear-gradient(145deg, rgba(7, 25, 50, 0.99), rgba(4, 15, 34, 0.995)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 15px 40px rgba(0, 0, 0, 0.20),
+    0 0 24px rgba(8, 103, 255, 0.035) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-composer[data-composer-open="false"] {
+  background:
+    radial-gradient(circle at 0% 50%, rgba(25, 181, 255, 0.09), transparent 32%),
+    linear-gradient(145deg, rgba(6, 23, 47, 0.99), rgba(4, 15, 34, 0.995)) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-composer[data-composer-open="false"] > div:first-child > div:first-child {
+  border-color: rgba(68, 145, 245, 0.32) !important;
+  background: rgba(8, 103, 255, 0.075) !important;
+  box-shadow: inset 0 0 18px rgba(8, 103, 255, 0.055) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-composer[data-composer-open="false"] > div:first-child > div:first-child > div {
+  border-color: rgba(111, 186, 255, 0.52) !important;
+  color: rgba(255, 216, 74, 0.84) !important;
+  background: rgba(4, 15, 34, 0.66) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-composer[data-composer-open="false"] > div:first-child > div:last-child::before {
+  color: rgba(214, 229, 248, 0.62) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-composer textarea {
+  border-color: rgba(88, 129, 186, 0.18) !important;
+  background: rgba(3, 13, 30, 0.46) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-composer[data-composer-open="true"] textarea:focus {
+  border-color: rgba(111, 186, 255, 0.46) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 0 0 3px rgba(8, 103, 255, 0.07) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-composer button[aria-pressed] {
+  border-color: rgba(91, 133, 190, 0.18) !important;
+  background: rgba(4, 16, 35, 0.72) !important;
+  color: rgba(219, 232, 249, 0.54) !important;
+  box-shadow: none !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-composer button[aria-pressed="true"] {
+  border-color: rgba(111, 186, 255, 0.62) !important;
+  background: linear-gradient(135deg, rgba(9, 80, 173, 0.96), rgba(8, 103, 255, 0.88)) !important;
+  color: #f8fbff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 0 18px rgba(8, 103, 255, 0.20) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-composer button[aria-pressed="true"] svg {
+  color: var(--cf-gold) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-attachment-button {
+  border-color: rgba(89, 132, 190, 0.18) !important;
+  background: rgba(5, 19, 40, 0.66) !important;
+  color: rgba(214, 229, 248, 0.56) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-attachment-button:hover {
+  border-color: rgba(111, 186, 255, 0.34) !important;
+  background: rgba(8, 103, 255, 0.07) !important;
+  color: rgba(236, 245, 255, 0.84) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-composer > div:last-child > button {
+  border-color: rgba(111, 186, 255, 0.40) !important;
+  background: linear-gradient(135deg, #075bdc, #0878ff) !important;
+  color: #fff !important;
+  box-shadow: 0 10px 25px rgba(8, 103, 255, 0.20) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* FEED FILTERS                                                                */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll div.mb-7.flex.items-center.gap-2 {
+  position: relative;
+  padding-bottom: 8px !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll div.mb-7.flex.items-center.gap-2::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(8, 103, 255, 0.34), rgba(255, 216, 74, 0.08), transparent 72%);
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll div.mb-7.flex.items-center.gap-2 > button {
+  border-color: rgba(88, 129, 186, 0.18) !important;
+  background: rgba(5, 18, 39, 0.80) !important;
+  color: rgba(214, 229, 248, 0.54) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll div.mb-7.flex.items-center.gap-2 > button[class*="bg-[#20d4cd]"] {
+  border-color: rgba(111, 186, 255, 0.64) !important;
+  background: linear-gradient(135deg, rgba(9, 80, 173, 0.97), rgba(8, 103, 255, 0.90)) !important;
+  color: #fff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 0 20px rgba(8, 103, 255, 0.20) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll div.mb-7.flex.items-center.gap-2 > button:nth-child(2) svg,
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll div.mb-7.flex.items-center.gap-2 > button:nth-child(4) svg {
+  color: rgba(255, 216, 74, 0.80) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll div.mb-7.flex.items-center.gap-2 > button:nth-child(3) svg,
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll div.mb-7.flex.items-center.gap-2 > button:nth-child(5) svg {
+  color: rgba(111, 186, 255, 0.74) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* POST CARDS                                                                  */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-root[data-community-view="feed"] .clara-community-post-card {
+  border-color: rgba(76, 127, 199, 0.22) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(25, 181, 255, 0.075), transparent 31%),
+    radial-gradient(circle at 102% 12%, rgba(243, 38, 69, 0.028), transparent 31%),
+    linear-gradient(145deg, rgba(7, 24, 49, 0.995), rgba(4, 14, 34, 0.998)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 20px 52px rgba(0, 0, 0, 0.23),
+    0 0 34px rgba(8, 103, 255, 0.025) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-post-card > div:first-child::before {
+  background: linear-gradient(90deg, rgba(8, 103, 255, 0.55), rgba(255, 216, 74, 0.16), rgba(243, 38, 69, 0.14), transparent 74%) !important;
+  opacity: 0.34 !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-post-card button[class*="border-2"] {
+  border-color: rgba(76, 151, 255, 0.74) !important;
+  background: rgba(8, 103, 255, 0.08) !important;
+  color: rgba(223, 239, 255, 0.90) !important;
+  box-shadow: 0 0 16px rgba(8, 103, 255, 0.12) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-post-card [data-clara-support-tier="supporter"] {
+  border-color: rgba(88, 155, 255, 0.36) !important;
+  background: linear-gradient(90deg, rgba(8, 103, 255, 0.15), rgba(5, 30, 67, 0.55)) !important;
+  color: rgba(238, 247, 255, 0.92) !important;
+  box-shadow: 0 0 16px rgba(8, 103, 255, 0.09) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-post-card [data-clara-support-tier="supporter"] > span:nth-child(2) {
+  border-color: rgba(255, 216, 74, 0.30) !important;
+  background: rgba(255, 216, 74, 0.09) !important;
+  color: rgba(255, 224, 99, 0.92) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-post-card [data-clara-support-tier="builder"] {
+  border-color: rgba(93, 151, 237, 0.30) !important;
+  background: linear-gradient(90deg, rgba(8, 103, 255, 0.14), rgba(255, 216, 74, 0.055)) !important;
+  color: rgba(237, 246, 255, 0.92) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-post-card [data-clara-support-tier="champion"] {
+  border-color: rgba(255, 216, 74, 0.40) !important;
+  background: linear-gradient(90deg, rgba(255, 216, 74, 0.14), rgba(243, 38, 69, 0.045)) !important;
+  color: rgba(255, 239, 177, 0.94) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-post-card [class*="text-[#38e3dd]"] {
+  color: rgba(255, 216, 74, 0.78) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-post-card > div:first-child > div.mt-4.inline-flex {
+  border-color: rgba(255, 216, 74, 0.34) !important;
+  background: rgba(255, 216, 74, 0.065) !important;
+  color: rgba(255, 224, 99, 0.94) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-post-card [class*="bg-[#071725]"],
+.clara-community-root[data-community-view="feed"] .clara-community-post-card [class*="bg-[#06111f]"] {
+  border-color: rgba(84, 126, 181, 0.15) !important;
+  background: rgba(3, 13, 30, 0.72) !important;
+}
+
+/* Reaction row: red heart, blue support, gold/blue discussion. */
+.clara-community-root[data-community-view="feed"] .clara-community-post-card .grid.grid-cols-3 > button {
+  border-color: rgba(82, 124, 181, 0.14) !important;
+  background: rgba(3, 13, 30, 0.38) !important;
+  color: rgba(207, 224, 246, 0.54) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-post-card .grid.grid-cols-3 > button:nth-child(1):hover,
+.clara-community-root[data-community-view="feed"] .clara-community-post-card .grid.grid-cols-3 > button:nth-child(1)[class*="text-[#ff7dab]"] {
+  border-color: rgba(243, 38, 69, 0.28) !important;
+  background: rgba(243, 38, 69, 0.075) !important;
+  color: rgba(255, 103, 128, 0.94) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-post-card .grid.grid-cols-3 > button:nth-child(2):hover,
+.clara-community-root[data-community-view="feed"] .clara-community-post-card .grid.grid-cols-3 > button:nth-child(2)[class*="text-[#51e8f1]"] {
+  border-color: rgba(78, 154, 255, 0.30) !important;
+  background: rgba(8, 103, 255, 0.075) !important;
+  color: rgba(130, 190, 255, 0.94) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-post-card .grid.grid-cols-3 > button:nth-child(3):hover,
+.clara-community-root[data-community-view="feed"] .clara-community-post-card .grid.grid-cols-3 > button:nth-child(3)[class*="text-[#a997ff]"] {
+  border-color: rgba(255, 216, 74, 0.24) !important;
+  background: rgba(255, 216, 74, 0.055) !important;
+  color: rgba(255, 226, 111, 0.88) !important;
+}
+
+/* Comments */
+.clara-community-root[data-community-view="feed"] .clara-community-post-card [class*="text-[#8ffbf4]"] {
+  color: rgba(125, 185, 255, 0.90) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-post-card input:focus,
+.clara-community-root[data-community-view="feed"] .clara-community-post-card textarea:focus {
+  border-color: rgba(111, 186, 255, 0.40) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-post-card button[aria-label="Send comment"] {
+  background: linear-gradient(135deg, #075bdc, #0878ff) !important;
+  color: #fff !important;
+  box-shadow: 0 8px 20px rgba(8, 103, 255, 0.18) !important;
+}
+
+/* Empty states */
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll section:not(:has(h1)) {
+  border-color: rgba(76, 127, 199, 0.14) !important;
+  background: rgba(5, 18, 39, 0.58) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll section:not(:has(h1)) svg {
+  color: rgba(111, 186, 255, 0.62) !important;
+}
+
+/* Floating create control */
+.clara-community-root[data-community-view="feed"] .clara-community-feed-view + button,
+.clara-community-root[data-community-view="feed"] button[aria-label="Create a Community post"] {
+  border-color: rgba(111, 186, 255, 0.44) !important;
+  background: linear-gradient(145deg, #075bdc, #0878ff) !important;
+  color: rgba(255, 226, 111, 0.98) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 14px 34px rgba(8, 103, 255, 0.28) !important;
+}
+
+@media (max-width: 520px) {
+  .clara-community-root[data-community-view="feed"] .clara-community-feed-scroll {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  .clara-community-root[data-community-view="feed"] .clara-community-feed-scroll section:has(h1) {
+    border-radius: 26px !important;
+  }
+
+  .clara-community-root[data-community-view="feed"] .clara-community-post-card {
+    border-radius: 25px !important;
+  }
+}
