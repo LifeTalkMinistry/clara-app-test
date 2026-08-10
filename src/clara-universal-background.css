@@ -1,0 +1,99 @@
+/*
+ * CLARA — universal app background
+ *
+ * One calm page environment for every screen. Brand colors belong to the
+ * interface surfaces above it, not to large ambient cyan/purple glow fields.
+ */
+
+:root {
+  --clara-bg-top: #06152d;
+  --clara-bg-mid: #030d20;
+  --clara-bg-bottom: #020713;
+  --clara-universal-background: linear-gradient(
+    180deg,
+    var(--clara-bg-top) 0%,
+    #041128 24%,
+    var(--clara-bg-mid) 56%,
+    #020a19 78%,
+    var(--clara-bg-bottom) 100%
+  );
+  background: var(--clara-bg-bottom) !important;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  background-color: var(--clara-bg-bottom) !important;
+  background-image: var(--clara-universal-background) !important;
+  background-repeat: no-repeat !important;
+  background-size: 100% 100% !important;
+}
+
+body {
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Remove the old app-wide cyan/teal and purple atmospheric overlays. */
+body::before,
+body::after {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+  background-image: none !important;
+  filter: none !important;
+  opacity: 0 !important;
+  mix-blend-mode: normal !important;
+}
+
+/* Layout owns the visible viewport background across authenticated screens. */
+.theme-page-shell {
+  background-color: var(--clara-bg-bottom) !important;
+  background-image: var(--clara-universal-background) !important;
+  background-repeat: no-repeat !important;
+  background-size: 100% 100% !important;
+}
+
+/* Community views reveal the universal shell instead of painting a second
+   teal/purple or page-specific ambient canvas over it. */
+.clara-community-root,
+.clara-community-root :is(
+  .clara-community-home-view,
+  .clara-community-feed-view,
+  .clara-community-schedule-view,
+  .clara-community-circles-view,
+  .clara-community-challenges-view,
+  .clara-community-messages-view,
+  .clara-community-notifications-view,
+  .clara-community-profile-view
+) {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+/* Home used to own a separate canvas. Keep its content structure but let the
+   universal navy environment show through. */
+.clara-community-root .clara-community-home-view {
+  background: transparent !important;
+}
+
+.clara-community-root .clara-community-home-view::before,
+.clara-community-root .clara-community-home-view::after {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+  background-image: none !important;
+}
+
+/* Avoid accidental white/black seams around full-height app canvases. */
+html,
+body,
+#root,
+.theme-page-shell,
+.clara-community-root {
+  color-scheme: dark;
+}
