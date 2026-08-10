@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import AdminPhaseZeroTracker from "@/components/admin/AdminPhaseZeroTracker";
 
 export default function ClaraFabLogoInjector() {
   useEffect(() => {
@@ -39,5 +40,5 @@ export default function ClaraFabLogoInjector() {
     return () => window.clearInterval(timer);
   }, []);
 
-  return null;
+  return <AdminPhaseZeroTracker />;
 }
