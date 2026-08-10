@@ -14,6 +14,36 @@
   isolation: isolate;
 }
 
+/*
+ * Shared-shell invariant: every Community destination uses this exact header.
+ * Home, Feed, Schedule, My Circle, Challenges, Messages, Notifications and
+ * Profile only swap the content surface below it. Keep the rail mounted and
+ * pinned at the top even when a child page changes its own scrolling model.
+ */
+.clara-community-root > .clara-community-shell-header {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 220 !important;
+  display: block !important;
+  width: 100% !important;
+  flex: 0 0 auto !important;
+}
+
+.clara-community-root > :is(
+  .clara-community-home-view,
+  .clara-community-feed-view,
+  .clara-community-schedule-view,
+  .clara-community-circles-view,
+  .clara-community-challenges-view,
+  .clara-community-messages-view,
+  .clara-community-notifications-view,
+  .clara-community-profile-view
+) {
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+}
+
 .clara-community-root .clara-community-shell-nav {
   justify-content: flex-start !important;
   gap: 8px !important;
