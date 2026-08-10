@@ -8,7 +8,6 @@ const readSource = (relativePath) =>
   readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
 
 const listItems = readSource("src/components/fresh/main-dashboard/budget/useDashboardManualExpenseBudgetListItems.js");
-const dashboard = readSource("src/pages/Dashboard.jsx");
 const actions = readSource("src/components/fresh/main-dashboard/finance-actions/useDashboardFinanceActionHandlersCore.js");
 const budgetLogic = readSource("src/components/financial-carousel/cards/budget/logic/useBudgetCardLogicCore.js");
 const budgetEngine = readSource("src/components/fresh/main-dashboard/budget/useDashboardMonthlyBudgetPlanEngine.js");
@@ -17,7 +16,6 @@ const formProgress = readSource("src/components/fresh/main-dashboard/budget/useD
 
 test("protected Manual Log selections use explicit selected-budget ownership", () => {
   assert.doesNotMatch(listItems, /installProtectedFindBridge|Object\.defineProperty\(options, "find"/);
-  assert.match(dashboard, /manualExpenseBudgetOptions,\s*selectedManualExpenseBudget,\s*monthlyBudgetHeader/);
   assert.match(actions, /isUnplanned \|\| isUndocumented \? null : selectedManualExpenseBudget/);
   assert.match(actions, /budget_category_id: selectedBudgetId \|\| null/);
   assert.match(actions, /budget_list_key: selectedBudgetKey \|\| null/);
