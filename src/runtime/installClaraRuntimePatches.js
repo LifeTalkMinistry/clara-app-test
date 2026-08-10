@@ -28,6 +28,9 @@ import "./installCommunityProfileScrollOwnership";
 import "./installCommunityBackendOwnership";
 import "./installMessagesSearchCancel";
 import "./installCommunityGuideLauncherBridge";
+// Post/reaction notification routing must stay inside the Community shell so
+// opening the exact post never hides or scrolls away the shared top navigation.
+import "./installCommunityNotificationPostNavigationGuard";
 
 // Core memory runtime. The scoped compatibility layer must install before any
 // legacy memory reader/writer touches the historical unscoped storage key.
