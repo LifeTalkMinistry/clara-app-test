@@ -1,5 +1,9 @@
 import WalletCard from "@/components/WalletCard";
 import { toggleExpandedFinanceCard } from "../../../shared/financeCardExpansion";
+import {
+  WALLET_COLLAPSED_SLIDE_HEIGHT,
+  WALLET_EXPANDED_SLIDE_HEIGHT,
+} from "../../../shared/financeSlideShellTheme";
 
 const DETAIL_KEY = "wallets";
 
@@ -31,7 +35,11 @@ export default function WalletCardView({
   return (
     <div
       className="h-full min-h-[inherit] flex flex-col"
-      style={{ minHeight: isExpanded ? "clamp(515px,73dvh,647px)" : "clamp(286px,45dvh,430px)" }}
+      style={{
+        minHeight: isExpanded
+          ? WALLET_EXPANDED_SLIDE_HEIGHT
+          : WALLET_COLLAPSED_SLIDE_HEIGHT,
+      }}
     >
       <WalletCard
         wallets={data.wallets}
