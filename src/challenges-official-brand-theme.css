@@ -1,0 +1,310 @@
+/*
+ * CLARA Challenge Hub — official brand COLOR PASS ONLY.
+ *
+ * The existing Challenge Hub keeps ownership of geometry, spacing, widths,
+ * heights, radii, typography sizing, responsive behavior and challenge logic.
+ * This layer changes only visual branding: deep navy surfaces, CLARA blue,
+ * warm gold, restrained red, borders, text treatment and controlled glow.
+ */
+
+.clara-community-root[data-community-view="challenges"] {
+  --ch-blue: #0867ff;
+  --ch-sky: #19b5ff;
+  --ch-gold: #ffd84a;
+  --ch-red: #f32645;
+  --ch-navy: #040b18;
+  --ch-navy-2: #06142a;
+  --ch-panel: #07182f;
+  background: var(--ch-navy) !important;
+}
+
+/* Page environment */
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view,
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view > div,
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main {
+  color: #f7fbff !important;
+  background:
+    radial-gradient(circle at 3% 7%, rgba(25,181,255,.105), transparent 27%),
+    radial-gradient(circle at 97% 15%, rgba(8,103,255,.075), transparent 30%),
+    radial-gradient(circle at 104% 73%, rgba(243,38,69,.048), transparent 31%),
+    linear-gradient(180deg,#040b18 0%,#050d1d 48%,#040a16 100%) !important;
+}
+
+/* Hero */
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view main > div > section:first-child {
+  border-color: rgba(76,139,218,.27) !important;
+  background:
+    radial-gradient(circle at 0% 8%, rgba(25,181,255,.20), transparent 40%),
+    radial-gradient(circle at 96% 18%, rgba(8,103,255,.16), transparent 39%),
+    radial-gradient(circle at 107% 92%, rgba(243,38,69,.095), transparent 38%),
+    linear-gradient(132deg,rgba(7,28,57,.995),rgba(5,18,41,.998) 58%,rgba(15,12,29,.998)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.06),
+    0 18px 44px rgba(0,0,0,.23),
+    0 0 30px rgba(8,103,255,.045) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view main > div > section:first-child::after {
+  content: "";
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  top: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg,
+    var(--ch-blue) 0 44%,
+    var(--ch-gold) 44% 57%,
+    var(--ch-red) 57% 100%);
+  opacity: .82;
+  box-shadow:
+    0 0 10px rgba(8,103,255,.20),
+    0 0 8px rgba(243,38,69,.12);
+  pointer-events: none;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view main > div > section:first-child > div.relative > div:first-child {
+  border-color: rgba(82,153,255,.34) !important;
+  background: linear-gradient(145deg,rgba(8,103,255,.16),rgba(5,22,49,.88)) !important;
+  color: var(--ch-gold) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.07),
+    0 0 26px rgba(8,103,255,.10) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view main > div > section:first-child p[class*="uppercase"] {
+  color: rgba(255,216,74,.82) !important;
+  text-shadow: 0 0 14px rgba(255,216,74,.08);
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view main > div > section:first-child h2 {
+  color: #f8fbff !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view main > div > section:first-child h2 + p {
+  color: rgba(208,225,247,.58) !important;
+}
+
+/* Challenge cadence tabs */
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view main > div > div.grid.grid-cols-3 {
+  border-color: rgba(76,127,199,.22) !important;
+  background: linear-gradient(145deg,rgba(5,19,40,.97),rgba(3,12,29,.99)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view main > div > div.grid.grid-cols-3 > button {
+  color: rgba(205,222,244,.47) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view main > div > div.grid.grid-cols-3 > button[class*="bg-[#22c7b8]/16"] {
+  border-color: rgba(111,186,255,.50) !important;
+  background: linear-gradient(135deg,rgba(7,91,220,.94),rgba(8,103,255,.88)) !important;
+  color: #fff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.16),
+    0 8px 22px rgba(8,103,255,.18),
+    inset 0 -2px 0 rgba(255,216,74,.16) !important;
+}
+
+/* Main challenge card */
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view main > div > section[class*="rounded-[26px]"] {
+  position: relative;
+  border-color: rgba(76,127,199,.24) !important;
+  background:
+    radial-gradient(circle at -5% 2%,rgba(25,181,255,.11),transparent 32%),
+    radial-gradient(circle at 105% 92%,rgba(243,38,69,.052),transparent 33%),
+    linear-gradient(145deg,rgba(7,24,49,.995),rgba(4,14,34,.999)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.045),
+    0 18px 44px rgba(0,0,0,.20) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view main > div > section[class*="rounded-[26px]"]::before {
+  content: "";
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 0;
+  height: 2px;
+  z-index: 3;
+  border-radius: 999px;
+  background: linear-gradient(90deg,
+    var(--ch-blue) 0 46%,
+    var(--ch-gold) 46% 57%,
+    var(--ch-red) 57% 100%);
+  opacity: .60;
+  pointer-events: none;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view main > div > section[class*="rounded-[26px]"] > div:first-child {
+  border-bottom-color: rgba(94,131,183,.12) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view span[class*="border-[#22c7b8]/20"][class*="uppercase"] {
+  border-color: rgba(255,216,74,.30) !important;
+  background: rgba(255,216,74,.065) !important;
+  color: rgba(255,230,139,.92) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view [class*="text-[#99f6e4]"] {
+  color: rgba(143,199,255,.91) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view [class*="text-[#ccfbf1]"] {
+  color: rgba(235,244,255,.94) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view [class*="text-[#5eead4]"] {
+  color: rgba(255,216,74,.76) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view [class*="border-[#22c7b8]/"] {
+  border-color: rgba(76,145,245,.28) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view [class*="bg-[#22c7b8]/"] {
+  background-color: rgba(8,103,255,.085) !important;
+  background-image: none !important;
+}
+
+/* Progress */
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view main > div > section[class*="rounded-[26px]"] p[class*="text-[#99f6e4]"] {
+  color: rgba(255,216,74,.90) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view div[class*="transition-[width]"][class~="bg-[#22c7b8]"] {
+  background: linear-gradient(90deg,#0867ff 0%,#1399ff 76%,#ffd84a 100%) !important;
+  box-shadow: 0 0 10px rgba(8,103,255,.18) !important;
+}
+
+/* Primary action */
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view button[class~="bg-[#22c7b8]"] {
+  border: 1px solid rgba(111,186,255,.42) !important;
+  background: linear-gradient(135deg,#075bdc,#0878ff) !important;
+  color: #fff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.16),
+    0 12px 28px rgba(8,103,255,.18) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view button[class~="bg-[#22c7b8]"] svg {
+  color: rgba(255,226,111,.98) !important;
+}
+
+/* Completed state */
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view div[class*="border-[#5eead4]/25"][class*="bg-[#22c7b8]/10"] {
+  border-color: rgba(255,216,74,.30) !important;
+  background: rgba(255,216,74,.065) !important;
+  color: rgba(255,236,173,.94) !important;
+  box-shadow: inset 0 0 20px rgba(255,216,74,.025) !important;
+}
+
+/* Momentum / metrics */
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view section:has(.grid.grid-cols-3) p[class*="uppercase"] {
+  color: rgba(255,216,74,.70) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view section:has(.grid.grid-cols-3) > div:first-child > svg {
+  color: rgba(255,216,74,.66) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view section:has(.grid.grid-cols-3) .grid.grid-cols-3 > div {
+  border-color: rgba(76,127,199,.22) !important;
+  background: linear-gradient(150deg,rgba(7,24,49,.98),rgba(4,14,34,.995)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view section:has(.grid.grid-cols-3) .grid.grid-cols-3 > div:nth-child(1) svg {
+  color: rgba(94,178,255,.88) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view section:has(.grid.grid-cols-3) .grid.grid-cols-3 > div:nth-child(2) svg {
+  color: rgba(255,216,74,.88) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view section:has(.grid.grid-cols-3) .grid.grid-cols-3 > div:nth-child(3) svg {
+  color: rgba(255,101,123,.82) !important;
+}
+
+/* Badges */
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view section[class*="rounded-[24px]"] {
+  border-color: rgba(76,127,199,.22) !important;
+  background:
+    radial-gradient(circle at 102% 0%,rgba(243,38,69,.035),transparent 30%),
+    linear-gradient(145deg,rgba(7,24,49,.995),rgba(4,14,34,.998)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view section[class*="rounded-[24px]"] > div:first-child p[class*="uppercase"] {
+  color: rgba(255,216,74,.70) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view section[class*="rounded-[24px]"] > div:first-child > svg {
+  color: rgba(255,216,74,.74) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view section[class*="rounded-[24px]"] div[class*="border-[#22c7b8]/25"] {
+  border-color: rgba(76,145,245,.29) !important;
+  background: rgba(8,103,255,.07) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view section[class*="rounded-[24px]"] div[class*="bg-[#22c7b8]/14"] {
+  background: rgba(8,103,255,.12) !important;
+  color: rgba(143,199,255,.92) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view section[class*="rounded-[24px]"] svg[class*="text-[#5eead4]"] {
+  color: rgba(255,216,74,.86) !important;
+}
+
+/* CLARA challenge rule */
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view section.flex.items-start.gap-3[class*="border-[#22c7b8]"] {
+  border-color: rgba(76,145,245,.25) !important;
+  background:
+    radial-gradient(circle at 103% 50%,rgba(243,38,69,.045),transparent 34%),
+    linear-gradient(145deg,rgba(8,103,255,.075),rgba(4,15,34,.75)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view section.flex.items-start.gap-3[class*="border-[#22c7b8]"] > div:first-child {
+  background: rgba(8,103,255,.10) !important;
+  color: rgba(255,216,74,.84) !important;
+  box-shadow: inset 0 0 16px rgba(8,103,255,.04) !important;
+}
