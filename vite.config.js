@@ -1,6 +1,108 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import fs from "fs";
 import path from "path";
+
+const claraIconSource = path.resolve(__dirname, "./assets/icon.png");
+const claraIconsSource = path.resolve(__dirname, "./icons");
+
+const claraWebManifest = JSON.stringify(
+  {
+    name: "CLARA",
+    short_name: "CLARA",
+    start_url: "./",
+    scope: "./",
+    display: "standalone",
+    background_color: "#020617",
+    theme_color: "#020617",
+    icons: [
+      {
+        src: "./icons/icon-192.webp",
+        type: "image/webp",
+        sizes: "192x192",
+        purpose: "any maskable",
+      },
+      {
+        src: "./icons/icon-512.webp",
+        type: "image/webp",
+        sizes: "512x512",
+        purpose: "any maskable",
+      },
+    ],
+  },
+  null,
+  2,
+);
+
+function claraPwaBranding() {
+  const sendFile = (res, filePath, contentType) => {
+    if (!fs.existsSync(filePath)) return false;
+    res.statusCode = 200;
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", "no-cache");
+    fs.createReadStream(filePath).pipe(res);
+    return true;
+  };
+
+  return {
+    name: "clara-pwa-branding",
+    enforce: "pre",
+
+    transformIndexHtml(html) {
+      const brandedIconLinks = [
+        '<link rel="icon" type="image/png" href="./clara-icon.png" />',
+        '<link rel="apple-touch-icon" sizes="180x180" href="./clara-icon.png" />',
+        '<meta name="apple-mobile-web-app-capable" content="yes" />',
+        '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />',
+        '<meta name="apple-mobile-web-app-title" content="CLARA" />',
+      ].join("\n    ");
+
+      return html
+        .replace(/<link\s+rel=["']icon["'][^>]*>/i, brandedIconLinks)
+        .replace(
+          /<link\s+rel=["']manifest["'][^>]*>/i,
+          '<link rel="manifest" href="./manifest.webmanifest" />',
+        );
+    },
+
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const pathname = String(req.url || "").split("?")[0];
+
+        if (pathname.endsWith("/clara-icon.png")) {
+          if (sendFile(res, claraIconSource, "image/png")) return;
+        }
+
+        if (pathname.endsWith("/manifest.webmanifest")) {
+          res.statusCode = 200;
+          res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+          res.setHeader("Cache-Control", "no-cache");
+          res.end(claraWebManifest);
+          return;
+        }
+
+        next();
+      });
+    },
+
+    writeBundle(outputOptions) {
+      const outDir = path.resolve(__dirname, outputOptions.dir || "dist");
+      fs.mkdirSync(outDir, { recursive: true });
+      fs.copyFileSync(claraIconSource, path.join(outDir, "clara-icon.png"));
+      fs.writeFileSync(
+        path.join(outDir, "manifest.webmanifest"),
+        `${claraWebManifest}\n`,
+        "utf8",
+      );
+
+      if (fs.existsSync(claraIconsSource)) {
+        fs.cpSync(claraIconsSource, path.join(outDir, "icons"), {
+          recursive: true,
+        });
+      }
+    },
+  };
+}
 
 function getManualChunk(id) {
   if (!id.includes("node_modules")) return undefined;
@@ -74,7 +176,7 @@ function getManualChunk(id) {
 }
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [claraPwaBranding(), react()],
 
   define: {
     "import.meta.env.VITE_CLARA_WELCOME_SESSION_FORM_URL": JSON.stringify(
