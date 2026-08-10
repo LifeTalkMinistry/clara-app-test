@@ -43,7 +43,7 @@ export default function SessionCheckIn({ selectedSlot, questionIndex, answers, o
   };
 
   return (
-    <div>
+    <div className="clara-coaching-brand-anchor clara-session-checkin-brand">
       <button type="button" onClick={onBack} disabled={isSubmitting} className="inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.12em] text-cyan-100/65"><ChevronLeft className="h-4 w-4" />Back</button>
       {!isEdit && recoveredDraft ? <div className="mt-3 rounded-[16px] border border-amber-200/20 bg-amber-100/[0.06] px-3.5 py-3 text-[10px] font-semibold text-amber-100/80">Recovered unsent draft — this request has not been submitted yet.</div> : null}
       {isEdit ? <div className="mt-3 rounded-[16px] border border-cyan-200/15 bg-cyan-200/[0.05] px-3.5 py-3 text-[10px] font-semibold text-cyan-100/75">You are editing your submitted session details. Your appointment date, time, and confirmation status will not change.</div> : null}
