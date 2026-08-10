@@ -1,6 +1,5 @@
 /* CLARA Messages inbox refinement.
- * Keep member tiles readable on narrow screens and use the same single-color
- * CLARA teal system as Community.
+ * Keep member tiles readable on narrow screens and preserve existing geometry.
  */
 
 /* PEOPLE ROW */
@@ -117,4 +116,238 @@ div.fixed.inset-0.z-\[100\]:has(textarea[placeholder="Type a message..."]) > hea
     width: 78px !important;
     min-width: 78px !important;
   }
+}
+
+/* ========================================================================== */
+/* OFFICIAL CLARA MESSAGES BRAND PASS — VISUALS ONLY                          */
+/* Preserve all existing sizes, spacing, radii and responsive behavior.       */
+/* ========================================================================== */
+
+.clara-community-messages-view {
+  --msg-blue: #0867ff;
+  --msg-sky: #19b5ff;
+  --msg-gold: #ffd84a;
+  --msg-red: #f32645;
+  --msg-navy: #040b18;
+  --msg-navy-2: #06142a;
+  --msg-line: rgba(82, 132, 204, 0.18);
+}
+
+/* Inbox shell */
+.clara-community-messages-view > div[class~="z-[90]"] {
+  background:
+    radial-gradient(circle at 2% 4%, rgba(25, 181, 255, 0.08), transparent 27%),
+    radial-gradient(circle at 98% 18%, rgba(243, 38, 69, 0.035), transparent 28%),
+    linear-gradient(180deg, #040b18 0%, #050d1d 52%, #040a16 100%) !important;
+}
+
+.clara-community-messages-view > div[class~="z-[90]"] > header {
+  border-bottom-color: rgba(82, 132, 204, 0.16) !important;
+  background: rgba(4, 11, 24, 0.94) !important;
+  box-shadow: inset 0 -1px 0 rgba(8, 103, 255, 0.05) !important;
+}
+
+.clara-community-messages-view > div[class~="z-[90]"] > header button[aria-label="Back to Community"] {
+  border-color: rgba(92, 147, 225, 0.20) !important;
+  background: rgba(7, 22, 46, 0.76) !important;
+  color: rgba(234, 243, 255, 0.88) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045) !important;
+}
+
+/* Search field */
+.clara-community-messages-view > div[class~="z-[90]"] main > div > div:first-child {
+  border-color: rgba(88, 139, 212, 0.22) !important;
+  background:
+    linear-gradient(145deg, rgba(7, 24, 48, 0.96), rgba(4, 14, 31, 0.98)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 10px 28px rgba(0, 0, 0, 0.12) !important;
+}
+
+.clara-community-messages-view > div[class~="z-[90]"] main > div > div:first-child svg {
+  color: rgba(116, 179, 255, 0.72) !important;
+}
+
+.clara-community-messages-view > div[class~="z-[90]"] input[placeholder="Search members"] {
+  color: rgba(242, 247, 255, 0.92) !important;
+}
+
+.clara-community-messages-view > div[class~="z-[90]"] input[placeholder="Search members"]::placeholder {
+  color: rgba(187, 207, 233, 0.34) !important;
+}
+
+.clara-community-messages-view > div[class~="z-[90]"] main > div > div:first-child:focus-within {
+  border-color: rgba(255, 216, 74, 0.40) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 0 0 2px rgba(255, 216, 74, 0.045),
+    0 12px 30px rgba(0, 0, 0, 0.14) !important;
+}
+
+/* Search results and conversation list container */
+.clara-community-messages-view > div[class~="z-[90]"] main section > div[class*="overflow-hidden"] {
+  border-color: rgba(82, 132, 204, 0.18) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(25, 181, 255, 0.045), transparent 30%),
+    linear-gradient(145deg, rgba(7, 24, 49, 0.97), rgba(4, 14, 32, 0.985)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 14px 34px rgba(0, 0, 0, 0.16) !important;
+}
+
+.clara-community-messages-view > div[class~="z-[90]"] main section > div[class*="overflow-hidden"] > div {
+  border-color: rgba(77, 123, 185, 0.12) !important;
+}
+
+.clara-community-messages-view > div[class~="z-[90]"] main section button {
+  color: rgba(243, 248, 255, 0.94) !important;
+}
+
+.clara-community-messages-view > div[class~="z-[90]"] main section button:hover {
+  background: rgba(8, 103, 255, 0.055) !important;
+}
+
+/* Member / conversation avatars */
+.clara-community-messages-view > div[class~="z-[90]"] main section button > div:first-child > div:first-child {
+  border-color: rgba(80, 154, 255, 0.34) !important;
+  background:
+    radial-gradient(circle at 32% 24%, rgba(25, 181, 255, 0.17), transparent 40%),
+    linear-gradient(145deg, rgba(8, 103, 255, 0.14), rgba(5, 24, 52, 0.86)) !important;
+  color: rgba(225, 241, 255, 0.94) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 0 18px rgba(8, 103, 255, 0.07) !important;
+}
+
+/* Keep online state semantic green, but frame it in the CLARA surface. */
+.clara-community-messages-view > div[class~="z-[90]"] main section button > div:first-child > span[class*="bg-emerald"] {
+  border-color: var(--msg-navy) !important;
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.28) !important;
+}
+
+/* Search result Chat CTA */
+.clara-community-messages-view > div[class~="z-[90]"] main section button > span.text-\[11px\] {
+  color: rgba(255, 216, 74, 0.88) !important;
+}
+
+/* Secondary text and timestamps */
+.clara-community-messages-view > div[class~="z-[90]"] main section p[class*="text-white/38"],
+.clara-community-messages-view > div[class~="z-[90]"] main section p[class*="text-white/45"],
+.clara-community-messages-view > div[class~="z-[90]"] main section span[class*="text-white/35"] {
+  color: rgba(195, 211, 233, 0.48) !important;
+}
+
+/* Unread badge */
+.clara-community-messages-view > div[class~="z-[90]"] main section span[class*="bg-[#22c7b8]"] {
+  background: linear-gradient(135deg, #075bdc, #0878ff) !important;
+  color: #fff !important;
+  box-shadow: 0 0 14px rgba(8, 103, 255, 0.22) !important;
+}
+
+/* Empty state icon/text */
+.clara-community-messages-view > div[class~="z-[90]"] main section svg {
+  color: rgba(116, 179, 255, 0.64);
+}
+
+/* -------------------------------------------------------------------------- */
+/* ACTIVE PRIVATE CHAT THREAD                                                  */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-messages-view > div[class~="z-[100]"] {
+  background:
+    radial-gradient(circle at 5% 0%, rgba(25, 181, 255, 0.075), transparent 26%),
+    radial-gradient(circle at 96% 12%, rgba(243, 38, 69, 0.035), transparent 27%),
+    linear-gradient(180deg, #040b18 0%, #050d1d 54%, #040a16 100%) !important;
+}
+
+.clara-community-messages-view > div[class~="z-[100]"] > header {
+  border-bottom-color: rgba(82, 132, 204, 0.17) !important;
+  background:
+    linear-gradient(180deg, rgba(6, 20, 42, 0.98), rgba(4, 12, 27, 0.97)) !important;
+  box-shadow:
+    inset 0 -1px 0 rgba(8, 103, 255, 0.055),
+    0 8px 24px rgba(0, 0, 0, 0.12) !important;
+}
+
+.clara-community-messages-view > div[class~="z-[100]"] > header button {
+  border-color: rgba(88, 139, 212, 0.18) !important;
+  background: rgba(7, 23, 48, 0.72) !important;
+  color: rgba(233, 243, 255, 0.82) !important;
+}
+
+.clara-community-messages-view > div[class~="z-[100]"] > header > div > div.relative > div:first-child {
+  border-color: rgba(80, 154, 255, 0.36) !important;
+  background:
+    radial-gradient(circle at 32% 24%, rgba(25, 181, 255, 0.17), transparent 40%),
+    linear-gradient(145deg, rgba(8, 103, 255, 0.16), rgba(5, 24, 52, 0.88)) !important;
+  color: rgba(225, 241, 255, 0.94) !important;
+}
+
+.clara-community-messages-view > div[class~="z-[100]"] > main {
+  background: transparent !important;
+}
+
+/* Incoming message */
+.clara-community-messages-view > div[class~="z-[100]"] > main div[class*="rounded-bl-md"] {
+  border-color: rgba(82, 132, 204, 0.17) !important;
+  background: rgba(7, 23, 48, 0.82) !important;
+  color: rgba(242, 247, 255, 0.94) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+}
+
+/* Outgoing message */
+.clara-community-messages-view > div[class~="z-[100]"] > main div[class*="rounded-br-md"] {
+  background:
+    linear-gradient(135deg, #075bdc 0%, #0867ff 58%, #0b7dff 100%) !important;
+  color: #fff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 8px 20px rgba(8, 103, 255, 0.15) !important;
+}
+
+.clara-community-messages-view > div[class~="z-[100]"] > main div[class*="rounded-br-md"] div[class*="text-[#042f2e]"] {
+  color: rgba(231, 242, 255, 0.68) !important;
+}
+
+/* Start-conversation empty state */
+.clara-community-messages-view > div[class~="z-[100]"] > main svg {
+  color: rgba(255, 216, 74, 0.72) !important;
+}
+
+/* Composer footer */
+.clara-community-messages-view > div[class~="z-[100]"] > footer {
+  border-top-color: rgba(82, 132, 204, 0.16) !important;
+  background: rgba(4, 11, 24, 0.97) !important;
+  box-shadow: 0 -10px 28px rgba(0, 0, 0, 0.12) !important;
+}
+
+.clara-community-messages-view > div[class~="z-[100]"] > footer > div > div:first-child {
+  border-color: rgba(88, 139, 212, 0.22) !important;
+  background:
+    linear-gradient(145deg, rgba(7, 24, 48, 0.95), rgba(4, 14, 31, 0.98)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
+}
+
+.clara-community-messages-view > div[class~="z-[100]"] > footer > div > div:first-child:focus-within {
+  border-color: rgba(255, 216, 74, 0.38) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 0 0 2px rgba(255, 216, 74, 0.04) !important;
+}
+
+.clara-community-messages-view > div[class~="z-[100]"] input[placeholder="Type a message..."] {
+  color: rgba(244, 248, 255, 0.94) !important;
+}
+
+.clara-community-messages-view > div[class~="z-[100]"] input[placeholder="Type a message..."]::placeholder {
+  color: rgba(188, 207, 232, 0.34) !important;
+}
+
+.clara-community-messages-view > div[class~="z-[100]"] > footer button {
+  border-color: rgba(111, 186, 255, 0.30) !important;
+  background: linear-gradient(135deg, #075bdc, #0878ff) !important;
+  color: rgba(255, 226, 111, 0.98) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 10px 24px rgba(8, 103, 255, 0.20) !important;
 }
