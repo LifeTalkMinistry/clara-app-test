@@ -1,36 +1,29 @@
 /*
- * CLARA Home finance-card bridge.
+ * CLARA Home finance-card system.
  *
- * Visual ownership is intentionally split:
- * - Collapsed outer carousel chassis: components/financial-carousel/shared/collapsedFinanceOuter.css
- * - Inner finance cards: [data-finance-card] roots rendered by FinanceCardShell
+ * Visual rule:
+ * - every finance card shares one premium CLARA navy/royal-blue material
+ * - card identity comes from restrained semantic accents, not a different
+ *   full-card color for every feature
+ * - Income Hub remains the master reference treatment
  *
- * This file is imported after clara-no-bubble-effects.css, so Home-specific
- * finance-card overrides that must win the cascade belong here.
+ * Accent variables are declared on each .clara-finance-slide-shell inside
+ * collapsedFinanceOuter.css and inherit into these FinanceCardShell roots.
  */
 
 /* -------------------------------------------------------------------------- */
-/* INCOME HUB — official CLARA Philippine-inspired premium palette            */
+/* SHARED INNER CARD MATERIAL                                                  */
 /* -------------------------------------------------------------------------- */
-/*
- * Color hierarchy:
- * - deep navy / near-black foundation
- * - royal/electric blue as the dominant brand color
- * - warm gold used only as a restrained highlight
- * - rich red used only as a secondary edge accent
- *
- * No cyan-purple rainbow treatment and no decorative glow bubbles.
- */
 #root .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
-[data-finance-card="investmentFund"] {
+[data-finance-card] {
   background:
     linear-gradient(
       112deg,
-      rgba(8, 103, 255, 0.18) 0%,
-      rgba(8, 103, 255, 0.07) 36%,
-      rgba(255, 216, 74, 0.024) 60%,
-      rgba(243, 38, 69, 0.060) 100%
+      rgba(var(--clara-finance-accent, 8, 103, 255), 0.13) 0%,
+      rgba(var(--clara-finance-accent, 8, 103, 255), 0.045) 36%,
+      rgba(var(--clara-finance-secondary, 113, 178, 255), 0.024) 72%,
+      rgba(243, 38, 69, 0.025) 100%
     ),
     linear-gradient(
       145deg,
@@ -43,10 +36,10 @@
   background-image:
     linear-gradient(
       112deg,
-      rgba(8, 103, 255, 0.18) 0%,
-      rgba(8, 103, 255, 0.07) 36%,
-      rgba(255, 216, 74, 0.024) 60%,
-      rgba(243, 38, 69, 0.060) 100%
+      rgba(var(--clara-finance-accent, 8, 103, 255), 0.13) 0%,
+      rgba(var(--clara-finance-accent, 8, 103, 255), 0.045) 36%,
+      rgba(var(--clara-finance-secondary, 113, 178, 255), 0.024) 72%,
+      rgba(243, 38, 69, 0.025) 100%
     ),
     linear-gradient(
       145deg,
@@ -55,16 +48,124 @@
       #061735 68%,
       #091126 100%
     ) !important;
-  border-color: rgba(106, 168, 255, 0.30) !important;
+  border-color: rgba(var(--clara-finance-accent, 8, 103, 255), 0.24) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.20),
-    0 16px 38px rgba(0, 0, 0, 0.22) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.065),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 16px 38px rgba(0, 0, 0, 0.20) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 
-/* The large visible Income Hub content panel inside the FinanceCardShell. */
+/* Red- and gold-accent cards remain subtle; navy still owns the surface. */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+:is(
+  [data-finance-card="emergencyFund"],
+  [data-finance-card="savingsGoals"],
+  [data-finance-card="debtObligations"]
+) {
+  border-color: rgba(var(--clara-finance-accent), 0.20) !important;
+}
+
+/* Remove legacy decorative pseudo/glow surfaces from every finance card. */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card]::before,
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card]::after {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+  background-image: none !important;
+}
+
+/* One CTA language across Wallet / Income / Budget / EF / Savings / Debt. */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card]
+button[data-clara-finance-expand-toggle="true"] {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(var(--clara-finance-accent, 8, 103, 255), 0.13),
+      rgba(6, 30, 69, 0.97)
+    ) !important;
+  background-color: #082c61 !important;
+  border-color: rgba(var(--clara-finance-accent, 8, 103, 255), 0.25) !important;
+  color: rgba(244, 249, 255, 0.95) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 8px 18px rgba(0, 0, 0, 0.14) !important;
+}
+
+/* Keep secondary dark panels in the same navy family instead of purple glass. */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card]
+:is(
+  [class*="bg-black/"],
+  [class*="bg-[#020817]"],
+  [class*="bg-[#071725]"],
+  [class*="bg-[#0a1a29]"]
+)[class*="rounded"] {
+  background: linear-gradient(180deg, rgba(4, 25, 58, 0.84), rgba(3, 16, 39, 0.94)) !important;
+  border-color: rgba(var(--clara-finance-accent, 8, 103, 255), 0.12) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* CARD IDENTITIES — ACCENTS ONLY                                              */
+/* -------------------------------------------------------------------------- */
+
+/* Wallet: sky/blue means accessible, liquid money. */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card="wallet"]
+:is([class*="text-cyan"], [class*="text-sky"]),
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card="wallet"] svg[class*="text-cyan"] {
+  color: rgb(125 211 252) !important;
+}
+
+/* Budget: calm blue, intentionally no warning color takeover. */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card="budget"]
+:is([class*="text-cyan"], [class*="text-indigo"], [class*="text-violet"]) {
+  color: rgb(147 197 253) !important;
+}
+
+/* Emergency Fund: red is reserved for protection/urgency accents. */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card="emergencyFund"]
+:is([class*="text-cyan"], [class*="text-violet"], [class*="text-purple"]) {
+  color: rgb(253 164 175) !important;
+}
+
+/* Savings Goals: gold communicates progress and achievement. */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card="savingsGoals"]
+:is([class*="text-cyan"], [class*="text-violet"], [class*="text-purple"], [class*="text-indigo"]) {
+  color: rgb(255 226 110) !important;
+}
+
+/* Debt: red carries caution; gold can remain for resolved/positive states. */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card="debtObligations"]
+:is([class*="text-cyan"], [class*="text-violet"], [class*="text-purple"], [class*="text-indigo"]) {
+  color: rgb(253 164 175) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* INCOME HUB — MASTER REFERENCE                                               */
+/* -------------------------------------------------------------------------- */
+/* Large visible content panel. */
 #root .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
 [data-finance-card="investmentFund"][data-expanded="false"]
@@ -85,21 +186,6 @@
       #0a142c 100%
     ) !important;
   background-color: #082859 !important;
-  background-image:
-    linear-gradient(
-      108deg,
-      rgba(8, 103, 255, 0.15) 0%,
-      rgba(8, 103, 255, 0.045) 38%,
-      rgba(255, 216, 74, 0.020) 60%,
-      rgba(243, 38, 69, 0.070) 100%
-    ),
-    linear-gradient(
-      145deg,
-      #0a356f 0%,
-      #082859 32%,
-      #071d43 66%,
-      #0a142c 100%
-    ) !important;
   border-color: rgba(105, 168, 255, 0.24) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.055),
@@ -109,66 +195,23 @@
   -webkit-backdrop-filter: none !important;
 }
 
-/* Main value/description area: quieter navy so the information stays readable. */
+/* Income Hub value/description area. */
 #root .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
 [data-finance-card="investmentFund"][data-expanded="false"]
 > div > div > div:first-child > div:nth-child(2) {
-  background:
-    linear-gradient(
-      180deg,
-      rgba(10, 52, 111, 0.46) 0%,
-      rgba(5, 24, 57, 0.68) 54%,
-      rgba(4, 17, 42, 0.82) 100%
-    ) !important;
-  background-color: rgba(5, 24, 57, 0.74) !important;
-  background-image:
-    linear-gradient(
-      180deg,
-      rgba(10, 52, 111, 0.46) 0%,
-      rgba(5, 24, 57, 0.68) 54%,
-      rgba(4, 17, 42, 0.82) 100%
-    ) !important;
+  background: linear-gradient(180deg, rgba(10, 52, 111, 0.46), rgba(5, 24, 57, 0.68) 54%, rgba(4, 17, 42, 0.82)) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.024) !important;
 }
 
-/* Three-stat strip: deep navy anchor with a subtle blue edge. */
+/* Income Hub three-stat strip. */
 #root .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
 [data-finance-card="investmentFund"][data-expanded="false"]
 > div > div > div:first-child > div:nth-child(2) > div:nth-child(3) > div {
   background: linear-gradient(180deg, #041631 0%, #031126 100%) !important;
-  background-color: #041631 !important;
-  background-image: linear-gradient(180deg, #041631 0%, #031126 100%) !important;
   border-color: rgba(90, 147, 222, 0.16) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.035),
     0 10px 22px rgba(0, 0, 0, 0.14) !important;
-}
-
-/* CTA: calm royal-blue control, not neon. */
-#root .clara-community-root[data-community-view="home"]
-.clara-community-home-financial-carousel
-[data-finance-card="investmentFund"]
-button[data-clara-finance-expand-toggle="true"] {
-  background: linear-gradient(180deg, #082c61 0%, #061e45 100%) !important;
-  background-color: #082c61 !important;
-  background-image: linear-gradient(180deg, #082c61 0%, #061e45 100%) !important;
-  border-color: rgba(101, 166, 247, 0.24) !important;
-  color: rgba(244, 249, 255, 0.94) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.055),
-    0 8px 18px rgba(0, 0, 0, 0.14) !important;
-}
-
-#root .clara-community-root[data-community-view="home"]
-.clara-community-home-financial-carousel
-[data-finance-card="investmentFund"]::before,
-#root .clara-community-root[data-community-view="home"]
-.clara-community-home-financial-carousel
-[data-finance-card="investmentFund"]::after {
-  content: none !important;
-  display: none !important;
-  background: none !important;
-  background-image: none !important;
 }
