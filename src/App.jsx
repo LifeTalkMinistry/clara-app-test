@@ -27,7 +27,6 @@ const InvestmentPlan = lazy(() => import("./pages/InvestmentPlan"));
 const MonthlyBudgetPlan = lazy(() => import("./pages/MonthlyBudgetPlan"));
 const TransactionHub = lazy(() => import("./pages/TransactionHub"));
 const AddFunds = lazy(() => import("./pages/AddFunds"));
-const Wallets = lazy(() => import("./pages/Wallets"));
 const Budgets = lazy(() => import("./pages/Budgets"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const AiInsights = lazy(() => import("./pages/AiInsights"));
@@ -331,7 +330,7 @@ function AppRoutes() {
                     />
                     <Route
                       path="/wallets"
-                      element={guard(<Wallets />, "/wallets")}
+                      element={<Navigate to={CLARA_HOME_PATH} replace />}
                     />
                     <Route
                       path="/budgets"
