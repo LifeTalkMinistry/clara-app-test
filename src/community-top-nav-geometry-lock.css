@@ -1,0 +1,161 @@
+/*
+ * CLARA Community top-nav geometry lock
+ *
+ * The CommunityShellHeader is shared across Home, Feed, Schedule, My Circle,
+ * Challenges, Messages, Notifications and Profile. This file deliberately
+ * loads last and owns only geometry so view-specific theme layers cannot make
+ * the same nav grow, shrink, shift, or change spacing when the active view
+ * changes.
+ */
+
+.clara-community-root[data-community-view] > .clara-community-shell-header {
+  width: 100% !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+  padding-bottom: 16px !important;
+  padding-top: max(14px, env(safe-area-inset-top, 0px)) !important;
+  box-sizing: border-box !important;
+}
+
+.clara-community-root[data-community-view] .clara-community-shell-nav {
+  width: 100% !important;
+  max-width: 768px !important;
+  min-height: 40px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-left: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  gap: 8px !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  box-sizing: border-box !important;
+}
+
+.clara-community-root[data-community-view]
+  .clara-community-shell-nav > :is(.clara-community-nav-item, .clara-community-topnav-tool) {
+  width: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+  flex: 0 0 40px !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding: 0 !important;
+  align-self: center !important;
+  box-sizing: border-box !important;
+  border-radius: 9999px !important;
+  transform: none;
+}
+
+.clara-community-root[data-community-view]
+  .clara-community-shell-nav > :is(.clara-community-nav-item, .clara-community-topnav-tool) > svg {
+  width: 18px !important;
+  min-width: 18px !important;
+  height: 18px !important;
+  min-height: 18px !important;
+  flex: 0 0 18px !important;
+}
+
+/* Profile uses the same outer footprint; only its inner photo stays inset. */
+.clara-community-root[data-community-view]
+  .clara-community-shell-nav > a[aria-label="Open Community profile"] {
+  width: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+  flex-basis: 40px !important;
+}
+
+@media (max-width: 420px) {
+  .clara-community-root[data-community-view] > .clara-community-shell-header {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    padding-bottom: 16px !important;
+  }
+
+  .clara-community-root[data-community-view] .clara-community-shell-nav {
+    min-height: 36px !important;
+    gap: 7px !important;
+  }
+
+  .clara-community-root[data-community-view]
+    .clara-community-shell-nav > :is(.clara-community-nav-item, .clara-community-topnav-tool) {
+    width: 36px !important;
+    min-width: 36px !important;
+    max-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    max-height: 36px !important;
+    flex: 0 0 36px !important;
+  }
+
+  .clara-community-root[data-community-view]
+    .clara-community-shell-nav > a[aria-label="Open Community profile"] {
+    width: 36px !important;
+    min-width: 36px !important;
+    max-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    max-height: 36px !important;
+    flex-basis: 36px !important;
+  }
+
+  .clara-community-root[data-community-view]
+    .clara-community-shell-nav > :is(.clara-community-nav-item, .clara-community-topnav-tool) > svg {
+    width: 17px !important;
+    min-width: 17px !important;
+    height: 17px !important;
+    min-height: 17px !important;
+    flex-basis: 17px !important;
+  }
+}
+
+@media (min-width: 640px) {
+  .clara-community-root[data-community-view] > .clara-community-shell-header {
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+  }
+
+  .clara-community-root[data-community-view] .clara-community-shell-nav {
+    min-height: 48px !important;
+    gap: 10px !important;
+  }
+
+  .clara-community-root[data-community-view]
+    .clara-community-shell-nav > :is(.clara-community-nav-item, .clara-community-topnav-tool) {
+    width: 48px !important;
+    min-width: 48px !important;
+    max-width: 48px !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    max-height: 48px !important;
+    flex: 0 0 48px !important;
+  }
+
+  .clara-community-root[data-community-view]
+    .clara-community-shell-nav > a[aria-label="Open Community profile"] {
+    width: 48px !important;
+    min-width: 48px !important;
+    max-width: 48px !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    max-height: 48px !important;
+    flex-basis: 48px !important;
+  }
+
+  .clara-community-root[data-community-view]
+    .clara-community-shell-nav > :is(.clara-community-nav-item, .clara-community-topnav-tool) > svg {
+    width: 19px !important;
+    min-width: 19px !important;
+    height: 19px !important;
+    min-height: 19px !important;
+    flex-basis: 19px !important;
+  }
+}
