@@ -7,12 +7,6 @@ import {
 
 const POPULAR_PROVIDER_KEYS = ["custom", "gcash", "maya_wallet", "cash", "bdo"];
 const OTHER_PROVIDER_GROUP_KEY = "other_banks_and_wallets";
-const STEPS = {
-  choose_wallet: ["", "Choose the wallet, bank, or money container you want to track."],
-  custom_name: ["Name your custom wallet", "Give this wallet a name you’ll recognize later."],
-  money_setup: ["", "Connect it to Income Hub, enter a starting balance, or skip for now."],
-  review: ["", "Make sure everything looks right before saving."],
-};
 
 const toNumber = (value) => {
   const parsed = Number(value);
@@ -103,17 +97,12 @@ export default function GuidedWalletCreationModal({
   const amountNumber = toNumber(amount);
   const walletName = String(financeForm.name || "").trim();
   const isCustom = selectedProvider?.key === "custom" || financeForm.type === "custom";
-  const totalSteps = isCustom ? 4 : 3;
-  const stepIndex = isCustom
-    ? { choose_wallet: 1, custom_name: 2, money_setup: 3, review: 4 }[step] || 1
-    : { choose_wallet: 1, money_setup: 2, review: 3 }[step] || 1;
   const activeGroup = activeGroupKey === OTHER_PROVIDER_GROUP_KEY ? {
     key: OTHER_PROVIDER_GROUP_KEY,
     label: "Other Banks / Wallets",
     description: "All remaining banks, e-wallets, and money containers.",
     providers: otherProviders,
   } : null;
-  const [title, subtitle] = STEPS[step] || STEPS.choose_wallet;
 
   const selectProvider = (provider) => {
     const custom = provider.key === "custom";
@@ -180,21 +169,7 @@ export default function GuidedWalletCreationModal({
   return (
     <div className="fixed inset-0 z-[120] h-[100dvh] w-full overflow-hidden bg-[linear-gradient(140deg,rgba(5,28,48,0.99),rgba(7,16,44,0.995)_48%,rgba(34,15,73,0.995))] text-white">
       <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
-        <div className="shrink-0 border-b border-white/[0.07] bg-[radial-gradient(circle_at_12%_0%,rgba(45,212,191,0.20),transparent_42%),radial-gradient(circle_at_100%_3%,rgba(129,140,248,0.18),transparent_38%),rgba(255,255,255,0.035)] px-6 pb-4 pt-[calc(4.75rem+env(safe-area-inset-top))] sm:pb-5 sm:pt-[calc(4.75rem+env(safe-area-inset-top))]">
-          <div className="mx-auto flex w-full max-w-[520px] items-start justify-between gap-4">
-            <div className="min-w-0">
-              <div className="mb-3 flex items-center gap-2">
-                <span className="rounded-full border border-emerald-200/18 bg-emerald-300/10 px-3 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-emerald-100/78">Step {stepIndex} of {totalSteps}</span>
-                <div className="flex gap-1">{Array.from({ length: totalSteps }).map((_, index) => <span key={index} className={`h-1.5 w-5 rounded-full ${index + 1 <= stepIndex ? "bg-emerald-300" : "bg-white/14"}`} />)}</div>
-              </div>
-              {title ? <h3 className="max-w-[340px] text-[clamp(28px,8vw,34px)] font-black leading-[0.98] tracking-[-0.055em]">{title}</h3> : null}
-              <p className={`${step === "choose_wallet" ? "mt-2" : "mt-3"} max-w-[340px] text-[13px] font-semibold leading-5 text-cyan-50/64`}>{subtitle}</p>
-            </div>
-            <button type="button" onClick={onClose} className="shrink-0 rounded-full border border-white/15 bg-white/[0.07] p-3 text-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_12px_30px_rgba(0,0,0,0.20)]" aria-label="Close wallet setup"><X className="h-5 w-5" /></button>
-          </div>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-hidden px-6 py-5">
+        <div className="min-h-0 flex-1 overflow-hidden px-6 pb-5 pt-[calc(5rem+env(safe-area-inset-top))]">
           <div className="mx-auto h-full w-full max-w-[520px] overflow-hidden">
             {step === "choose_wallet" ? (
               <div className="flex h-full min-h-0 flex-col space-y-3">
@@ -249,7 +224,18 @@ export default function GuidedWalletCreationModal({
 
         <div className="shrink-0 border-t border-white/[0.06] bg-[#050c1c]/88 px-6 pb-[calc(0.85rem+env(safe-area-inset-bottom))] pt-4 backdrop-blur-2xl">
           <div className="mx-auto w-full max-w-[520px]">
-            {step === "choose_wallet" ? <p className="text-center text-[11px] font-semibold text-white/46">Choose a wallet identity to continue.</p> : <div className="grid grid-cols-[0.8fr_1.2fr] gap-3"><button type="button" onClick={goBack} className="rounded-[22px] border border-white/12 bg-white/[0.055] px-4 py-4 text-sm font-black text-white/72">Back</button><button type="button" onClick={primary} disabled={disabled} className="rounded-[22px] bg-gradient-to-r from-emerald-300 via-emerald-400 to-green-600 px-4 py-4 text-sm font-black text-white shadow-[0_18px_48px_rgba(16,185,129,0.26)] disabled:cursor-not-allowed disabled:border disabled:border-white/15 disabled:bg-none disabled:bg-white/[0.09] disabled:text-white/55 disabled:shadow-none">{step === "review" ? (loading ? "Saving..." : "Save Wallet") : "Continue →"}</button></div>}
+            {step === "choose_wallet" ? (
+              <div className="grid grid-cols-[1fr_auto] items-center gap-3">
+                <p className="text-[11px] font-semibold text-white/46">Choose a wallet identity to continue.</p>
+                <button type="button" onClick={onClose} className="flex h-[52px] w-[52px] items-center justify-center rounded-[20px] border border-white/12 bg-white/[0.055] text-white/62 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition hover:bg-white/[0.08] hover:text-white" aria-label="Close wallet setup"><X className="h-5 w-5" /></button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-[0.8fr_1.2fr_auto] gap-3">
+                <button type="button" onClick={goBack} className="rounded-[22px] border border-white/12 bg-white/[0.055] px-4 py-4 text-sm font-black text-white/72">Back</button>
+                <button type="button" onClick={primary} disabled={disabled} className="rounded-[22px] bg-gradient-to-r from-emerald-300 via-emerald-400 to-green-600 px-4 py-4 text-sm font-black text-white shadow-[0_18px_48px_rgba(16,185,129,0.26)] disabled:cursor-not-allowed disabled:border disabled:border-white/15 disabled:bg-none disabled:bg-white/[0.09] disabled:text-white/55 disabled:shadow-none">{step === "review" ? (loading ? "Saving..." : "Save Wallet") : "Continue →"}</button>
+                <button type="button" onClick={onClose} className="flex h-full min-h-[52px] w-[52px] items-center justify-center rounded-[20px] border border-white/12 bg-white/[0.055] text-white/62 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition hover:bg-white/[0.08] hover:text-white" aria-label="Close wallet setup"><X className="h-5 w-5" /></button>
+              </div>
+            )}
           </div>
         </div>
       </div>
