@@ -11,7 +11,7 @@ const STEPS = {
   choose_wallet: ["", "Choose the wallet, bank, or money container you want to track."],
   custom_name: ["Name your custom wallet", "Give this wallet a name you’ll recognize later."],
   money_setup: ["", "Connect it to Income Hub, enter a starting balance, or skip for now."],
-  review: ["Review wallet", "Make sure everything looks right before saving."],
+  review: ["", "Make sure everything looks right before saving."],
 };
 
 const toNumber = (value) => {
