@@ -25,6 +25,7 @@ export const fetchAdminAccessCodes = () => adminRequest("/access-codes");
 export const fetchAdminSubscriptions = () => adminRequest("/subscriptions");
 export const fetchAdminSettings = () => adminRequest("/settings");
 export const fetchAdminCommunityBoardItems = () => adminRequest("/community-board");
+export const fetchAdminPhaseZeroTracker = () => adminRequest("/phase-zero-tracker");
 export async function fetchAdminSupportMessages() {
   const payload = await adminRequest("/support/messages");
   return Array.isArray(payload?.messages) ? payload.messages : [];
@@ -58,6 +59,12 @@ export const updateAdminSettings = (patch) =>
   adminRequest("/settings", {
     method: "PATCH",
     body: patch,
+  });
+
+export const updateAdminPhaseZeroTracker = (statuses) =>
+  adminRequest("/phase-zero-tracker", {
+    method: "PATCH",
+    body: { statuses },
   });
 
 export const createAdminCommunityBoardItem = (payload) =>
