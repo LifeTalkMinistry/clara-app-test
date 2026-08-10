@@ -1,10 +1,10 @@
 /*
- * CLARA Community Profile tab edge lock
+ * CLARA Community Profile tab containment
  *
- * The profile body intentionally keeps a 16px content rail for cards. The
- * Overview / Money / Dreams / More navigation is app chrome, so its surface
- * and separator lines should span the full mobile viewport while the tab
- * buttons retain the same readable inner padding.
+ * The profile cards already live on a 16px content rail. Keep the
+ * Overview / Money / Dreams / More navigation on that same rail instead of
+ * bleeding to the app edges. The whole tab group should read as one contained
+ * control: ( Overview  Money  Dreams  More ).
  */
 
 .clara-community-root[data-community-view="profile"]
@@ -12,43 +12,58 @@
   > div
   > div.mx-auto.w-full.max-w-md.px-4
   > nav {
-  width: auto !important;
-  max-width: none !important;
-  margin-left: -1rem !important;
-  margin-right: -1rem !important;
-  padding-left: 1rem !important;
-  padding-right: 1rem !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding: 5px !important;
   box-sizing: border-box !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(76, 127, 199, 0.22) !important;
+  border-radius: 18px !important;
+  background:
+    radial-gradient(circle at 2% 50%, rgba(8, 103, 255, 0.08), transparent 34%),
+    radial-gradient(circle at 98% 50%, rgba(243, 38, 69, 0.035), transparent 34%),
+    linear-gradient(145deg, rgba(5, 19, 40, 0.96), rgba(3, 12, 29, 0.98)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 10px 28px rgba(0, 0, 0, 0.12) !important;
 }
 
-/* Keep the editable-profile tab rail visually consistent when editing. */
+.clara-community-root[data-community-view="profile"]
+  .clara-community-profile-view
+  > div
+  > div.mx-auto.w-full.max-w-md.px-4
+  > nav
+  > div {
+  width: 100% !important;
+  min-width: 0 !important;
+  gap: 4px !important;
+}
+
+/* Keep editable-profile tabs contained too, without showing a scrollbar. */
 .clara-community-root[data-community-view="profile"]
   .clara-community-profile-view
   > div
   > div.mx-auto.w-full.max-w-md.px-4
   > div.mt-3.overflow-x-auto.border-y {
-  width: auto !important;
-  max-width: none !important;
-  margin-left: -1rem !important;
-  margin-right: -1rem !important;
-  padding-left: 1rem !important;
-  padding-right: 1rem !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding: 5px !important;
   box-sizing: border-box !important;
+  border: 1px solid rgba(76, 127, 199, 0.22) !important;
+  border-radius: 18px !important;
+  background: linear-gradient(145deg, rgba(5, 19, 40, 0.96), rgba(3, 12, 29, 0.98)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+  scrollbar-width: none !important;
 }
 
-@media (min-width: 448px) {
-  /* On wider layouts, do not bleed beyond the centered profile canvas. */
-  .clara-community-root[data-community-view="profile"]
-    .clara-community-profile-view
-    > div
-    > div.mx-auto.w-full.max-w-md.px-4
-    > nav,
-  .clara-community-root[data-community-view="profile"]
-    .clara-community-profile-view
-    > div
-    > div.mx-auto.w-full.max-w-md.px-4
-    > div.mt-3.overflow-x-auto.border-y {
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-  }
+.clara-community-root[data-community-view="profile"]
+  .clara-community-profile-view
+  > div
+  > div.mx-auto.w-full.max-w-md.px-4
+  > div.mt-3.overflow-x-auto.border-y::-webkit-scrollbar {
+  display: none !important;
 }
