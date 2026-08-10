@@ -91,6 +91,19 @@ body::after {
   background-image: none !important;
 }
 
+/* The old Learning Hub rail was removed from Home, so the red section divider
+   no longer has a structural purpose. Keep only natural breathing space between
+   Daily Money Tip and the finance carousel. */
+.clara-community-root[data-community-view="home"]
+  .clara-community-home-financial-carousel::before {
+  content: none !important;
+  display: none !important;
+  height: 0 !important;
+  margin: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+
 /* Avoid accidental white/black seams around full-height app canvases. */
 html,
 body,
