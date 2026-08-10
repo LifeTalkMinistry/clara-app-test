@@ -77,6 +77,29 @@
 }
 
 /*
+ * Canonical command order
+ * Core destinations stay first, Profile remains the identity endpoint, and
+ * Learning Hub begins the utility section immediately after Profile.
+ */
+.clara-community-root[data-community-view]
+  .clara-community-shell-nav > a[aria-label="Open Community profile"] {
+  order: 1 !important;
+}
+
+.clara-community-root[data-community-view]
+  .clara-community-shell-nav > [data-clara-topnav-tool="learning"] {
+  order: 2 !important;
+  margin-left: 0 !important;
+}
+
+.clara-community-root[data-community-view]
+  .clara-community-shell-nav > [data-clara-topnav-tool="coaching"],
+.clara-community-root[data-community-view]
+  .clara-community-shell-nav > [data-clara-topnav-tool="guide"] {
+  order: 3 !important;
+}
+
+/*
  * Schedule content spacing
  *
  * The Feed already uses px-4 / sm:px-6. Mirror that exact horizontal rhythm
