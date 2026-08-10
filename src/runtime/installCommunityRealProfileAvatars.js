@@ -104,6 +104,13 @@ function ensureStyles() {
   document.head.appendChild(style);
 }
 
+function initialsNode(profile) {
+  const fallback = document.createElement("span");
+  fallback.className = "clara-community-real-profile-initials";
+  fallback.textContent = initialsFor(profile);
+  return fallback;
+}
+
 function avatarNode(profile) {
   if (profile?.avatar_url) {
     const image = document.createElement("img");
@@ -111,13 +118,18 @@ function avatarNode(profile) {
     image.src = profile.avatar_url;
     image.alt = profile?.display_name || profile?.full_name || "Profile photo";
     image.decoding = "async";
+    image.addEventListener(
+      "error",
+      () => {
+        if (!image.isConnected) return;
+        image.replaceWith(initialsNode(profile));
+      },
+      { once: true }
+    );
     return image;
   }
 
-  const fallback = document.createElement("span");
-  fallback.className = "clara-community-real-profile-initials";
-  fallback.textContent = initialsFor(profile);
-  return fallback;
+  return initialsNode(profile);
 }
 
 function profileKey(profile) {
@@ -125,10 +137,27 @@ function profileKey(profile) {
 }
 
 function applyToProfileNav(profile) {
-  const nav = document.querySelector('.clara-community-nav-item[title="ME"]');
+  /*
+    Always target the React-owned profile link INSIDE the command rail. Older
+    runtime code can leave a hidden mirrored profile element in the header; that
+    must never receive the real avatar instead of the visible final nav slot.
+  */
+  const nav = document.querySelector(
+    '.clara-community-shell-nav > .clara-community-nav-item[title="ME"]'
+  );
   if (!nav) return;
+
   const key = profileKey(profile);
-  if (nav.dataset.claraProfileAvatarKey === key) return;
+  const existingAvatar = nav.querySelector(
+    ":scope > .clara-community-real-profile-avatar, :scope > .clara-community-real-profile-initials"
+  );
+
+  /*
+    React/nav synchronization can recreate the link while preserving the data
+    key. Only skip work when the actual avatar node still exists. This prevents
+    the final profile slot from becoming an empty dark circle.
+  */
+  if (nav.dataset.claraProfileAvatarKey === key && existingAvatar) return;
 
   nav.dataset.claraProfileAvatarKey = key;
   nav.classList.add("clara-community-profile-nav-avatar");
@@ -138,7 +167,10 @@ function applyToProfileNav(profile) {
       node.remove();
     }
   }
-  nav.querySelectorAll(":scope > .clara-community-real-profile-avatar, :scope > .clara-community-real-profile-initials").forEach((node) => node.remove());
+
+  nav.querySelectorAll(
+    ":scope > .clara-community-real-profile-avatar, :scope > .clara-community-real-profile-initials"
+  ).forEach((node) => node.remove());
 
   const marker = nav.querySelector(":scope > span.pointer-events-none");
   nav.insertBefore(avatarNode(profile), marker || nav.firstChild);
@@ -150,7 +182,10 @@ function applyToComposer(profile) {
   );
   if (!host) return;
   const key = profileKey(profile);
-  if (host.dataset.claraProfileAvatarKey === key) return;
+  const existingAvatar = host.querySelector(
+    ":scope > .clara-community-real-profile-avatar, :scope > .clara-community-real-profile-initials"
+  );
+  if (host.dataset.claraProfileAvatarKey === key && existingAvatar) return;
 
   host.dataset.claraProfileAvatarKey = key;
   host.classList.add("clara-community-composer-profile-avatar");
