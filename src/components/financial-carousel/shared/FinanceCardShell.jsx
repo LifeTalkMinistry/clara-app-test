@@ -1,4 +1,5 @@
 import { createContext, useContext } from "react";
+import "./collapsedFinanceOuter.css";
 import {
   FINANCE_CARD_BRAND_OVERRIDES,
   FINANCE_CARD_GLOW_LAYERS,
