@@ -21,7 +21,7 @@ export function AppointmentStatus({ appointment, onCancel, onRequestReschedule, 
   const isCompleted = appointment.status === "completed";
   const userMessage = String(appointment.user_message || "").trim();
   return (
-    <div className="py-2 text-center sm:py-5">
+    <div className={`clara-coaching-brand-anchor clara-session-status-brand clara-appointment-status-${appointment.status} py-2 text-center sm:py-5`}>
       <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] border border-cyan-200/20 bg-cyan-300/[0.08]"><CheckCircle2 className="h-7 w-7 text-cyan-100" /></span>
       <p className="mt-5 text-[9px] font-black uppercase tracking-[0.20em] text-cyan-200/65">Authoritative appointment status</p><h1 className="mt-1.5 text-[27px] font-black text-white">{title}</h1><p className="mx-auto mt-2 max-w-lg text-[11px] font-semibold text-slate-300/68">{message}</p>
       <div className="mx-auto mt-5 grid max-w-xl gap-2.5 sm:grid-cols-2"><SummaryChip icon={CalendarDays} label="Date" value={formatDateLabel(appointment.starts_at, true)} /><SummaryChip icon={Clock3} label="Manila time" value={formatTimeLabel(appointment.starts_at)} /></div>
@@ -37,7 +37,7 @@ export function AppointmentStatus({ appointment, onCancel, onRequestReschedule, 
 
 export function RequestSuccess({ appointment, onHome }) {
   return (
-    <div className="py-3 text-center sm:py-6">
+    <div className="clara-coaching-brand-anchor clara-session-status-brand clara-appointment-status-requested py-3 text-center sm:py-6">
       <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] border border-emerald-200/20 bg-emerald-300/[0.10]"><CheckCircle2 className="h-7 w-7 text-emerald-200" /></span><h1 className="mt-5 text-[27px] font-black text-white">Session Request Sent</h1><p className="mx-auto mt-2 max-w-md text-[11px] font-semibold text-slate-300/68">Your preferred schedule has been submitted to Max. We’ll update you here once your session is confirmed.</p>
       <div className="mx-auto mt-5 max-w-md rounded-[20px] border border-white/[0.08] bg-white/[0.04] px-4 py-4 text-left"><p className="text-[8px] font-black uppercase tracking-[0.15em] text-cyan-100/55">Requested schedule</p><p className="mt-1.5 text-[13px] font-black text-white">{formatDateLabel(appointment.starts_at, true)}</p><p className="mt-1 text-[11px] font-bold text-slate-300/70">{formatTimeLabel(appointment.starts_at)}</p><p className="mt-3 text-[9px] font-black uppercase text-amber-200">Status: Waiting for confirmation</p></div>
       <button type="button" onClick={onHome} className="mx-auto mt-5 inline-flex h-11 items-center justify-center rounded-[16px] border border-cyan-100/20 bg-[linear-gradient(100deg,rgba(14,165,233,0.84),rgba(99,102,241,0.92))] px-6 text-[9px] font-black uppercase text-white">Back to Home</button>
