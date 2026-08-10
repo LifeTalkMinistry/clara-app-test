@@ -1,0 +1,54 @@
+/*
+ * CLARA Community Profile tab edge lock
+ *
+ * The profile body intentionally keeps a 16px content rail for cards. The
+ * Overview / Money / Dreams / More navigation is app chrome, so its surface
+ * and separator lines should span the full mobile viewport while the tab
+ * buttons retain the same readable inner padding.
+ */
+
+.clara-community-root[data-community-view="profile"]
+  .clara-community-profile-view
+  > div
+  > div.mx-auto.w-full.max-w-md.px-4
+  > nav {
+  width: auto !important;
+  max-width: none !important;
+  margin-left: -1rem !important;
+  margin-right: -1rem !important;
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
+  box-sizing: border-box !important;
+}
+
+/* Keep the editable-profile tab rail visually consistent when editing. */
+.clara-community-root[data-community-view="profile"]
+  .clara-community-profile-view
+  > div
+  > div.mx-auto.w-full.max-w-md.px-4
+  > div.mt-3.overflow-x-auto.border-y {
+  width: auto !important;
+  max-width: none !important;
+  margin-left: -1rem !important;
+  margin-right: -1rem !important;
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
+  box-sizing: border-box !important;
+}
+
+@media (min-width: 448px) {
+  /* On wider layouts, do not bleed beyond the centered profile canvas. */
+  .clara-community-root[data-community-view="profile"]
+    .clara-community-profile-view
+    > div
+    > div.mx-auto.w-full.max-w-md.px-4
+    > nav,
+  .clara-community-root[data-community-view="profile"]
+    .clara-community-profile-view
+    > div
+    > div.mx-auto.w-full.max-w-md.px-4
+    > div.mt-3.overflow-x-auto.border-y {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+}
