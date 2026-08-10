@@ -5,34 +5,6 @@ import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCard
 
 const BUDGET_GLOW_LAYERS = [];
 
-// Live ownership proof: intentionally obvious solid blue.
-// Once this exact Home card is confirmed, replace this temporary proof style
-// with the final CLARA finance treatment.
-const BUDGET_PLAIN_BLUE_TEST_STYLES = `
-.clara-finance-bubble-budget {
-  background: #0067d9 !important;
-  background-image: none !important;
-  border-color: rgba(191, 219, 254, 0.34) !important;
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.32) !important;
-}
-
-.clara-finance-slide-surface:has(.clara-finance-bubble-budget) {
-  background: #0067d9 !important;
-  background-image: none !important;
-  border-color: rgba(191, 219, 254, 0.28) !important;
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.30) !important;
-}
-
-.clara-finance-bubble-budget [class*="bg-teal-"],
-.clara-finance-bubble-budget [class*="bg-cyan-"],
-.clara-finance-bubble-budget [class*="bg-violet-"],
-.clara-finance-bubble-budget [class*="bg-purple-"],
-.clara-finance-bubble-budget [class*="bg-indigo-"] {
-  background-color: transparent !important;
-  background-image: none !important;
-}
-`;
-
 export default function BudgetCard({
   activeBudget = null,
   budgetCategories = [],
@@ -85,7 +57,6 @@ export default function BudgetCard({
 
   return (
     <div className="flex h-full min-h-[inherit] flex-col rounded-[inherit]">
-      <style>{BUDGET_PLAIN_BLUE_TEST_STYLES}</style>
       <FinanceCardShell
         cardKey="budget"
         expanded={expanded}
