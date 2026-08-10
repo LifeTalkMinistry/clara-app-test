@@ -74,3 +74,18 @@
     --clara-home-bottom-space: 40px;
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/* SHARED COMMUNITY TOP-NAV SHAPE LOCK                                        */
+/* -------------------------------------------------------------------------- */
+/*
+ * This stylesheet is loaded after the Home restraint layer. Keep every shared
+ * top-nav control truly circular on every Community destination so switching
+ * Home <-> Feed/Schedule/Circle/etc. never changes the icon shape from round to
+ * squircle. The profile remains the same circular final core-nav item.
+ */
+.clara-community-root[data-community-view]
+  .clara-community-shell-nav > :is(a.clara-community-nav-item, button.clara-community-nav-item),
+.clara-community-root[data-community-view] .clara-community-topnav-tool {
+  border-radius: 9999px !important;
+}
