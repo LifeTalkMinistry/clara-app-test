@@ -1,7 +1,5 @@
 import { createContext, useContext } from "react";
-import "./collapsedFinanceOuter.css";
 import {
-  FINANCE_CARD_BRAND_OVERRIDES,
   FINANCE_CARD_GLOW_LAYERS,
   getFinanceCardGlowLayers,
   getFinanceCardShellClassName,
@@ -34,7 +32,7 @@ export default function FinanceCardShell({
   performanceMode,
   ringClass = "",
   roundedClass = "rounded-[30px]",
-  shadowClass = "",
+  shadowClass = "shadow-[0_24px_70px_rgba(0,0,0,0.36),0_0_36px_rgba(0,255,220,0.065),0_0_60px_rgba(126,34,206,0.09),inset_0_1px_0_rgba(255,255,255,0.075)]",
   surfaceClassName = "",
   glowLayerClassNames = FINANCE_CARD_GLOW_LAYERS,
   children,
@@ -65,12 +63,6 @@ export default function FinanceCardShell({
         .filter(Boolean)
         .join(" ")}
     >
-      <style>{FINANCE_CARD_BRAND_OVERRIDES}</style>
-
-      {/* A single blue material is the finance identity. No teal, violet,
-          gold/red traces, or decorative multicolor glow is painted here. */}
-      <div className="pointer-events-none absolute inset-x-5 top-0 z-[5] h-px bg-white/15" />
-
       {glowLayers.map((className, index) => (
         <div key={`${cardKey}-glow-${index}`} className={className} />
       ))}
