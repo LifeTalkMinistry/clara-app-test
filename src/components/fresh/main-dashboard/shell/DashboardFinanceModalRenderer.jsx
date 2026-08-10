@@ -52,7 +52,6 @@ function readProtectedBudgetAmount(plan = {}) {
 export default function DashboardFinanceModalRenderer({
   financeModal,
   closeFinanceModal,
-  createWalletInline,
   financeActionLoading,
   financeForm,
   setFinanceForm,
@@ -139,93 +138,6 @@ export default function DashboardFinanceModalRenderer({
 
   return (
     <>
-      <FinanceActionModal
-        open={financeModal.type === "create_wallet"}
-        title="Where will your money live?"
-        description="Create a new money container inside your CLARA system."
-        onClose={closeFinanceModal}
-        onSubmit={(event) => {
-          event.preventDefault();
-          createWalletInline();
-        }}
-        submitLabel="Create wallet →"
-        loading={financeActionLoading}
-      >
-        <FinanceField label="Wallet name">
-          <input
-            type="text"
-            value={financeForm.name}
-            onChange={(event) =>
-              setFinanceForm((prev) => ({ ...prev, name: event.target.value }))
-            }
-            placeholder="e.g. GCash, Cash, Payroll"
-            className={financeInputClassName}
-          />
-        </FinanceField>
-
-        <FinanceField
-          label="Wallet type"
-          helper="Choose the closest type so CLARA can organize your money clearly."
-        >
-          <div className="space-y-3">
-            <select
-              value={financeForm.type}
-              onChange={(event) =>
-                setFinanceForm((prev) => ({
-                  ...prev,
-                  type: event.target.value,
-                  customWalletType:
-                    event.target.value === "custom" ? prev.customWalletType : "",
-                }))
-              }
-              className={financeInputClassName}
-            >
-              <option value="cash">Cash</option>
-              <option value="gcash">GCash</option>
-              <option value="maya">Maya</option>
-              <option value="bank">Bank</option>
-              <option value="payroll">Payroll</option>
-              <option value="savings">Savings</option>
-              <option value="allowance">Allowance</option>
-              <option value="business">Business</option>
-              <option value="credit_card">Credit Card</option>
-              <option value="custom">Custom</option>
-            </select>
-
-            {financeForm.type === "custom" ? (
-              <input
-                type="text"
-                value={financeForm.customWalletType}
-                onChange={(event) =>
-                  setFinanceForm((prev) => ({
-                    ...prev,
-                    customWalletType: event.target.value,
-                  }))
-                }
-                placeholder="e.g. Loan Wallet, Travel Fund, Side Hustle"
-                className={financeInputClassName}
-              />
-            ) : null}
-          </div>
-        </FinanceField>
-
-        <FinanceField label="Starting balance">
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={financeForm.startingBalance}
-            onChange={(event) =>
-              setFinanceForm((prev) => ({
-                ...prev,
-                startingBalance: event.target.value,
-              }))
-            }
-            placeholder="0"
-            className={financeInputClassName}
-          />
-        </FinanceField>
-      </FinanceActionModal>
 
       <FinanceActionModal
         open={financeModal.type === "delete_wallet"}

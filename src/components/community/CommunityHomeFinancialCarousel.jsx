@@ -9,6 +9,7 @@ import {
   getWalletProviderFromWallet,
 } from "@/components/financial-carousel/cards/wallet/logic/walletProviderRegistry";
 import FinanceActionModal from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal";
+import DashboardFinanceModalRendererWithIncomeFunding from "@/components/fresh/main-dashboard/shell/DashboardFinanceModalRendererWithIncomeFunding";
 import FinanceField from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceField";
 import { financeInputClassName } from "@/components/fresh/main-dashboard/finance-form/financeFormConstants";
 import useDashboardMonthlyBudgetHeader from "@/components/fresh/main-dashboard/budget/useDashboardMonthlyBudgetHeader";
@@ -112,7 +113,6 @@ export default function CommunityHomeFinancialCarousel() {
     loading = false,
     refreshing = false,
     refreshData,
-    addWallet: addWalletData,
     updateWallet: updateWalletData,
     deleteWallet: deleteWalletData,
     addIncome: addIncomeData,
@@ -247,63 +247,6 @@ export default function CommunityHomeFinancialCarousel() {
     if (!wallet) return;
     setWalletModal({ type: "delete_wallet", payload: wallet });
   }, []);
-
-  const createWalletInline = useCallback(async () => {
-    if (walletActionLoading) return;
-
-    const selectedType = String(walletForm.type || "cash").trim().toLowerCase();
-    const provider = getWalletProvider(selectedType, selectedType);
-    const name =
-      String(walletForm.name || "").trim() ||
-      (provider.key !== "custom"
-        ? provider.defaultWalletName || provider.label
-        : "");
-    const startingBalance = Number(walletForm.startingBalance);
-
-    if (!name) {
-      toast.error("Please enter a wallet name.");
-      return;
-    }
-    if (!Number.isFinite(startingBalance) || startingBalance < 0) {
-      toast.error("Please enter a valid starting balance.");
-      return;
-    }
-
-    try {
-      setWalletActionLoading(true);
-      await addWalletData?.({
-        name,
-        type: provider.walletType || "custom",
-        ...buildWalletProviderPayload(provider.key),
-        icon: provider.iconText || null,
-        balance: startingBalance,
-        starting_balance: startingBalance,
-        sort_order: manageableWallets.length,
-        user_id: user?.id || null,
-        user_email: user?.email || null,
-        created_by: user?.email || null,
-      });
-      await refreshFinanceSection();
-      setExpandedFinanceCard("wallets");
-      closeWalletModal();
-      toast.success("Wallet created.");
-    } catch (error) {
-      toast.error(error?.message || "CLARA could not create this wallet yet.");
-    } finally {
-      setWalletActionLoading(false);
-    }
-  }, [
-    addWalletData,
-    closeWalletModal,
-    manageableWallets.length,
-    refreshFinanceSection,
-    user?.email,
-    user?.id,
-    walletActionLoading,
-    walletForm.name,
-    walletForm.startingBalance,
-    walletForm.type,
-  ]);
 
   const editWalletInline = useCallback(async () => {
     if (walletActionLoading) return;
@@ -682,68 +625,23 @@ export default function CommunityHomeFinancialCarousel() {
         </span>
       </div>
 
-      <FinanceActionModal
-        open={walletModal.type === "create_wallet"}
-        title="Where will your money live?"
-        description="Create a new money container inside your CLARA system."
-        onClose={closeWalletModal}
-        onSubmit={(event) => {
-          event.preventDefault();
-          void createWalletInline();
-        }}
-        submitLabel="Create wallet →"
-        loading={walletActionLoading}
-      >
-        <FinanceField label="Wallet name">
-          <input
-            type="text"
-            value={walletForm.name}
-            onChange={(event) =>
-              setWalletForm((current) => ({ ...current, name: event.target.value }))
-            }
-            placeholder="e.g. GCash, Cash, Payroll"
-            className={financeInputClassName}
-          />
-        </FinanceField>
-
-        <FinanceField
-          label="Wallet type"
-          helper="Choose the closest type so CLARA can organize your money clearly."
-        >
-          <select
-            value={walletForm.type}
-            onChange={(event) =>
-              setWalletForm((current) => ({ ...current, type: event.target.value }))
-            }
-            className={financeInputClassName}
-          >
-            <option value="cash">Cash</option>
-            <option value="gcash">GCash</option>
-            <option value="maya_wallet">Maya</option>
-            <option value="bank">Bank</option>
-            <option value="savings">Savings</option>
-            <option value="business">Business</option>
-            <option value="custom">Custom</option>
-          </select>
-        </FinanceField>
-
-        <FinanceField label="Starting balance">
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={walletForm.startingBalance}
-            onChange={(event) =>
-              setWalletForm((current) => ({
-                ...current,
-                startingBalance: event.target.value,
-              }))
-            }
-            placeholder="0"
-            className={financeInputClassName}
-          />
-        </FinanceField>
-      </FinanceActionModal>
+      {walletModal.type === "create_wallet" ? (
+        <DashboardFinanceModalRendererWithIncomeFunding
+          financeModal={walletModal}
+          closeFinanceModal={closeWalletModal}
+          financeActionLoading={walletActionLoading || loading || refreshing}
+          financeForm={walletForm}
+          setFinanceForm={setWalletForm}
+          fmt={formatPhpCurrency}
+          showFinanceNotice={(message, tone) => {
+            if (!message) return;
+            if (tone === "success") toast.success(message);
+            else toast.error(message);
+          }}
+          user={user}
+          wallets={wallets}
+        />
+      ) : null}
 
       <FinanceActionModal
         open={walletModal.type === "edit_wallet"}
