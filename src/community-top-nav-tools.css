@@ -1,25 +1,19 @@
 /*
- * CLARA Community top navigation tools
+ * CLARA Community shared top navigation
  *
- * Moves Learning Hub / Coaching / Guide launchers out of the Home body and
- * into the existing top command rail without increasing header height or
- * control size. Navigation remains manual: swipe/drag/trackpad only.
+ * One persistent command rail is used by Home, Feed, Schedule, My Circle,
+ * Challenges, Messages, Notifications and Profile. The visual source of truth
+ * is the official CLARA Home top nav; page content changes below it only.
  */
 
 /* -------------------------------------------------------------------------- */
-/* TOP COMMAND RAIL                                                            */
+/* SHARED SHELL OWNERSHIP                                                      */
 /* -------------------------------------------------------------------------- */
 .clara-community-root .clara-community-shell-header {
   position: relative;
   isolation: isolate;
 }
 
-/*
- * Shared-shell invariant: every Community destination uses this exact header.
- * Home, Feed, Schedule, My Circle, Challenges, Messages, Notifications and
- * Profile only swap the content surface below it. Keep the rail mounted and
- * pinned at the top even when a child page changes its own scrolling model.
- */
 .clara-community-root > .clara-community-shell-header {
   position: sticky !important;
   top: 0 !important;
@@ -44,7 +38,75 @@
   min-height: 0;
 }
 
-.clara-community-root .clara-community-shell-nav {
+/* -------------------------------------------------------------------------- */
+/* CANONICAL CLARA HOME TOP-NAV VISUALS — NOW SHARED BY EVERY VIEW            */
+/* -------------------------------------------------------------------------- */
+.clara-community-root.clara-community-root[data-community-view] .clara-community-shell-header {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-bottom-color: rgba(105, 145, 202, 0.16) !important;
+  background:
+    radial-gradient(ellipse at 8% 4%, rgba(8, 103, 255, 0.58) 0%, rgba(8, 103, 255, 0.28) 24%, transparent 49%),
+    radial-gradient(ellipse at 51% -24%, rgba(255, 216, 74, 0.46) 0%, rgba(255, 216, 74, 0.22) 22%, transparent 47%),
+    radial-gradient(ellipse at 96% 8%, rgba(243, 38, 69, 0.54) 0%, rgba(243, 38, 69, 0.27) 24%, transparent 50%),
+    linear-gradient(105deg, #06152e 0%, #08234a 31%, #172033 50%, #301322 72%, #170a17 100%) !important;
+  box-shadow:
+    0 12px 34px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -10px 22px rgba(0, 0, 0, 0.14) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.clara-community-root.clara-community-root[data-community-view] .clara-community-shell-header::before {
+  content: "";
+  position: absolute;
+  inset: -22% -8%;
+  z-index: 0;
+  pointer-events: none;
+  display: block !important;
+  background: linear-gradient(
+    118deg,
+    rgba(8, 103, 255, 0.16) 2%,
+    rgba(25, 181, 255, 0.04) 27%,
+    rgba(255, 216, 74, 0.12) 49%,
+    rgba(255, 216, 74, 0.035) 60%,
+    rgba(243, 38, 69, 0.16) 82%,
+    rgba(243, 38, 69, 0.07) 100%
+  ) !important;
+  filter: blur(15px);
+  transform: skewX(-8deg) scale(1.06);
+  opacity: 0.92;
+}
+
+.clara-community-root.clara-community-root[data-community-view] .clara-community-shell-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+  height: 2px;
+  pointer-events: none;
+  display: block !important;
+  background: linear-gradient(
+    90deg,
+    rgba(8, 103, 255, 0.92) 0%,
+    rgba(25, 181, 255, 0.48) 24%,
+    rgba(255, 216, 74, 0.86) 50%,
+    rgba(243, 38, 69, 0.80) 76%,
+    rgba(197, 28, 55, 0.92) 100%
+  ) !important;
+  box-shadow:
+    0 0 10px rgba(8, 103, 255, 0.18),
+    0 0 10px rgba(255, 216, 74, 0.10),
+    0 0 10px rgba(243, 38, 69, 0.14) !important;
+}
+
+.clara-community-root.clara-community-root[data-community-view] .clara-community-shell-nav {
+  position: relative;
+  z-index: 1;
   justify-content: flex-start !important;
   gap: 8px !important;
   overflow-x: auto !important;
@@ -57,6 +119,12 @@
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x;
   padding-right: 20px !important;
+  border: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 20px), transparent 100%);
   -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 20px), transparent 100%);
 }
@@ -72,12 +140,63 @@
   scroll-snap-align: center;
 }
 
-/*
- * Profile belongs to the core navigation sequence and must appear directly
- * after Notifications. Runtime-added Learning / Coaching / Guide controls are
- * placed after Profile instead of being inserted visually between Notification
- * and the user's identity.
- */
+.clara-community-root.clara-community-root[data-community-view] .clara-community-nav-item {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  background: rgba(3, 11, 25, 0.54) !important;
+  background-image: none !important;
+  color: rgba(255, 255, 255, 0.64) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 7px 20px rgba(0, 0, 0, 0.17) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+
+.clara-community-root.clara-community-root[data-community-view] .clara-community-nav-item[aria-current="page"] {
+  border-color: rgba(142, 199, 255, 0.50) !important;
+  background: rgba(3, 15, 34, 0.70) !important;
+  background-image: none !important;
+  color: #ffffff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 0 0 1px rgba(8, 103, 255, 0.10),
+    0 0 20px rgba(8, 103, 255, 0.20) !important;
+}
+
+.clara-community-root.clara-community-root[data-community-view]
+  .clara-community-nav-item[aria-current="page"]
+  > span[class*="-bottom"] {
+  width: 30px !important;
+  background: linear-gradient(90deg, #0867ff 0%, #19b5ff 27%, #ffd84a 50%, #f32645 76%, #cf2340 100%) !important;
+  box-shadow:
+    0 0 9px rgba(8, 103, 255, 0.30),
+    0 0 7px rgba(255, 216, 74, 0.18),
+    0 0 8px rgba(243, 38, 69, 0.20) !important;
+}
+
+.clara-community-root.clara-community-root[data-community-view]
+  a[aria-label="Community notifications"]
+  > span[class*="-top-1"] {
+  border-color: rgba(3, 11, 25, 0.85) !important;
+  background: #ff3152 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(243, 38, 69, 0.40) !important;
+}
+
+.clara-community-root.clara-community-root[data-community-view]
+  a[aria-label="Open Community profile"] {
+  border-color: rgba(255, 255, 255, 0.20) !important;
+  background: rgba(3, 11, 25, 0.56) !important;
+  background-image: none !important;
+  color: #ffffff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 7px 20px rgba(0, 0, 0, 0.17) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* ORDER — PROFILE IS PART OF THE CORE NAV, DIRECTLY AFTER NOTIFICATIONS      */
+/* -------------------------------------------------------------------------- */
 .clara-community-root .clara-community-shell-nav > a[aria-label="Open Community profile"] {
   order: 1;
 }
@@ -86,14 +205,13 @@
   order: 2;
 }
 
-/* Older runtime code may still create a mirrored pinned copy. Suppress that
-   legacy clone so there is never a detached profile bubble. */
 .clara-community-root .clara-community-profile-pinned {
   display: none !important;
 }
 
-/* Runtime-added tools use exactly the same footprint as the existing nav.
-   No taller header and no larger hit targets. */
+/* -------------------------------------------------------------------------- */
+/* RUNTIME-ADDED LEARNING / COACHING / GUIDE TOOLS                            */
+/* -------------------------------------------------------------------------- */
 .clara-community-root .clara-community-topnav-tool {
   position: relative;
   display: inline-flex;
@@ -103,11 +221,11 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  border: 1px solid rgba(137, 169, 211, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
   border-radius: 13px;
-  background: rgba(3, 13, 31, 0.52);
-  color: rgba(220, 234, 250, 0.62);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  background: rgba(3, 11, 25, 0.54) !important;
+  color: rgba(255, 255, 255, 0.64) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 7px 20px rgba(0, 0, 0, 0.17) !important;
   cursor: pointer;
   transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease, transform 160ms ease;
   -webkit-tap-highlight-color: transparent;
@@ -115,9 +233,9 @@
 
 .clara-community-root .clara-community-topnav-tool:hover,
 .clara-community-root .clara-community-topnav-tool:focus-visible {
-  border-color: rgba(99, 165, 255, 0.40);
-  background: rgba(7, 31, 70, 0.76);
-  color: #f6f9ff;
+  border-color: rgba(142, 199, 255, 0.38) !important;
+  background: rgba(3, 15, 34, 0.72) !important;
+  color: #ffffff !important;
 }
 
 .clara-community-root .clara-community-topnav-tool:active {
@@ -192,7 +310,7 @@
 }
 
 /* -------------------------------------------------------------------------- */
-/* REMOVE THE OLD HOME MINI-NAV                                                */
+/* REMOVE THE OLD HOME MINI-NAV                                               */
 /* -------------------------------------------------------------------------- */
 .clara-community-root[data-community-view="home"] .clara-community-home-legacy-selector-shield {
   display: none !important;
@@ -202,17 +320,12 @@
   padding: 0 !important;
 }
 
-/* Keep the React-owned launchers mounted so the new top-nav proxies can invoke
-   their existing behavior. Only their old visual rail is removed. */
 .clara-community-root[data-community-view="home"]
   .clara-community-home-learning-hub
   [data-clara-learning-hub-bridge="true"] {
   display: none !important;
 }
 
-/* When the launcher bridge is the current LearningHub state, collapse the
-   wrapper to zero. When Learning Hub actually opens, the bridge disappears and
-   the real expanded Learning Hub gets its normal layout back automatically. */
 .clara-community-root[data-community-view="home"]
   .clara-community-home-learning-hub:has([data-clara-learning-hub-bridge="true"]) {
   min-height: 0 !important;
@@ -223,8 +336,6 @@
   overflow: visible !important;
 }
 
-/* The red finance transition now follows Daily Money Tip directly when the
-   launcher rail is closed. */
 .clara-community-root[data-community-view="home"]
   .clara-community-home-learning-hub:has([data-clara-learning-hub-bridge="true"])
   + .clara-community-home-financial-carousel::before {
