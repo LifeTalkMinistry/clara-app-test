@@ -178,8 +178,8 @@ export default function GuidedWalletCreationModal({
                 <span className="rounded-full border border-emerald-200/18 bg-emerald-300/10 px-3 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-emerald-100/78">Step {stepIndex} of {totalSteps}</span>
                 <div className="flex gap-1">{Array.from({ length: totalSteps }).map((_, index) => <span key={index} className={`h-1.5 w-5 rounded-full ${index + 1 <= stepIndex ? "bg-emerald-300" : "bg-white/14"}`} />)}</div>
               </div>
-              <h3 className="max-w-[340px] text-[clamp(28px,8vw,34px)] font-black leading-[0.98] tracking-[-0.055em]">{title}</h3>
-              <p className="mt-3 max-w-[340px] text-[13px] font-semibold leading-5 text-cyan-50/64">{subtitle}</p>
+              {step !== "choose_wallet" ? <h3 className="max-w-[340px] text-[clamp(28px,8vw,34px)] font-black leading-[0.98] tracking-[-0.055em]">{title}</h3> : null}
+              <p className={`${step === "choose_wallet" ? "mt-2" : "mt-3"} max-w-[340px] text-[13px] font-semibold leading-5 text-cyan-50/64`}>{subtitle}</p>
             </div>
             <button type="button" onClick={onClose} className="shrink-0 rounded-full border border-white/15 bg-white/[0.07] p-3 text-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_12px_30px_rgba(0,0,0,0.20)]" aria-label="Close wallet setup"><X className="h-5 w-5" /></button>
           </div>
