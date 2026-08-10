@@ -1,6 +1,7 @@
 const INSTALL_FLAG = "__claraMessagesSearchCancelInstalled";
 const OVERLAY_SELECTOR = "[data-clara-messages-search-overlay='true']";
 const LEGACY_SELECTOR = "[data-clara-messages-search-cancel='true']";
+const MESSAGE_INPUT_SELECTOR = 'input[placeholder="Type a message..."]';
 
 function setReactInputValue(input, value) {
   const descriptor = Object.getOwnPropertyDescriptor(
@@ -178,6 +179,56 @@ function installCancelButton(input) {
   syncVisibility();
 }
 
+/*
+ * PRIVATE CHAT COMPOSER FOCUS
+ *
+ * MessagesBackend temporarily marks the message input disabled while a send is
+ * in flight. On mobile that immediately dismisses the keyboard, forcing the
+ * user to tap the composer again after every message. For an already-focused
+ * composer, ignore only that transient disabled=true assignment so the user can
+ * keep typing the next message. A deliberate tap elsewhere still blurs normally.
+ *
+ * The send button also normally steals focus on pointer-down. Prevent that
+ * default focus transfer while the composer is active; the click still reaches
+ * React and sends the message.
+ */
+function installPersistentMessageComposer(input) {
+  if (!(input instanceof HTMLInputElement)) return;
+  if (input.dataset.claraMessageComposerFocusBound === "true") return;
+  input.dataset.claraMessageComposerFocusBound = "true";
+
+  const disabledDescriptor = Object.getOwnPropertyDescriptor(
+    window.HTMLInputElement.prototype,
+    "disabled"
+  );
+
+  if (disabledDescriptor?.get && disabledDescriptor?.set) {
+    Object.defineProperty(input, "disabled", {
+      configurable: true,
+      enumerable: disabledDescriptor.enumerable,
+      get() {
+        return disabledDescriptor.get.call(input);
+      },
+      set(value) {
+        if (value === true && document.activeElement === input) return;
+        disabledDescriptor.set.call(input, value);
+      },
+    });
+  }
+
+  const footer = input.closest("footer");
+  const sendButton = footer?.querySelector("button");
+  if (!sendButton || sendButton.dataset.claraMessageSendFocusBound === "true") return;
+  sendButton.dataset.claraMessageSendFocusBound = "true";
+
+  const keepComposerFocused = (event) => {
+    if (document.activeElement === input) event.preventDefault();
+  };
+
+  sendButton.addEventListener("pointerdown", keepComposerFocused);
+  sendButton.addEventListener("mousedown", keepComposerFocused);
+}
+
 function cleanupDetachedOverlays() {
   document.querySelectorAll(OVERLAY_SELECTOR).forEach((button) => {
     const input = button.__claraMessagesSearchInput;
@@ -190,6 +241,9 @@ function scanMessagesSearch() {
   document
     .querySelectorAll('input[placeholder="Search members"]')
     .forEach(installCancelButton);
+  document
+    .querySelectorAll(MESSAGE_INPUT_SELECTOR)
+    .forEach(installPersistentMessageComposer);
 }
 
 export function installMessagesSearchCancel() {
