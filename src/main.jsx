@@ -51,6 +51,7 @@ import "./clara-home-money-left-official.css";
 import "./clara-universal-background.css";
 import "./clara-home-responsive-spacing.css";
 import "./community-top-nav-geometry-lock.css";
+import "./community-profile-official-brand.css";
 
 const App = React.lazy(() => import("./App.jsx"));
 
