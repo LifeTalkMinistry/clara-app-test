@@ -1,30 +1,51 @@
 /*
  * CLARA Home — collapsed finance OUTER shell only.
  *
- * This intentionally does NOT style [data-finance-card] or anything inside it.
- * The inner Wallet / Income / Budget / EF / Savings / Debt card stays exactly
- * as its own component renders it. Only the non-expanded carousel chassis is
- * branded here.
+ * This intentionally does NOT style [data-finance-card] content surfaces.
+ * It controls only the non-expanded carousel chassis around each finance card.
  */
 
-/*
- * TEMP DIAGNOSTIC: Income Hub only.
- *
- * The app also has a global #root .clara-finance-slide-surface !important rule.
- * That selector outranks the older class-only override, so earlier tests never
- * actually reached the visible outer Income Hub shell. This selector includes
- * #root and the investmentFund card key so it wins the cascade and proves that
- * this is the correct visible layer.
- */
+/* Income Hub outer chassis — official CLARA Philippine-inspired palette. */
 #root .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
 .clara-finance-slide-shell[data-card-key="investmentFund"][data-expanded="false"]
 > .clara-finance-slide-surface {
-  background: #0866ff !important;
-  background-color: #0866ff !important;
-  background-image: none !important;
-  border-color: #6aa8ff !important;
-  box-shadow: none !important;
+  background:
+    linear-gradient(
+      112deg,
+      rgba(8, 103, 255, 0.18) 0%,
+      rgba(8, 103, 255, 0.06) 42%,
+      rgba(255, 216, 74, 0.020) 64%,
+      rgba(243, 38, 69, 0.070) 100%
+    ),
+    linear-gradient(
+      145deg,
+      #0b3d82 0%,
+      #092f67 31%,
+      #071f47 67%,
+      #10142a 100%
+    ) !important;
+  background-color: #092f67 !important;
+  background-image:
+    linear-gradient(
+      112deg,
+      rgba(8, 103, 255, 0.18) 0%,
+      rgba(8, 103, 255, 0.06) 42%,
+      rgba(255, 216, 74, 0.020) 64%,
+      rgba(243, 38, 69, 0.070) 100%
+    ),
+    linear-gradient(
+      145deg,
+      #0b3d82 0%,
+      #092f67 31%,
+      #071f47 67%,
+      #10142a 100%
+    ) !important;
+  border-color: rgba(113, 178, 255, 0.38) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.20),
+    0 18px 44px rgba(0, 0, 0, 0.24) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
@@ -43,7 +64,7 @@
   background-image: none !important;
 }
 
-/* Keep the general collapsed outer-shell treatment for the other finance cards. */
+/* Keep a restrained blue edge treatment on the other collapsed finance cards. */
 #root .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
 .clara-finance-slide-shell[data-expanded="false"]
