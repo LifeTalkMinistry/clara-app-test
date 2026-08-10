@@ -100,23 +100,12 @@ export const FINANCIAL_CAROUSEL_PREMIUM_GLASS_STYLES = `
 .clara-finance-bubble-card[data-performance-mode="medium"] {
   border-color: rgba(207, 250, 254, 0.075) !important;
   background: linear-gradient(135deg, rgba(7, 29, 45, 0.78), rgba(6, 14, 35, 0.84) 48%, rgba(13, 22, 48, 0.80)) !important;
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255,255,0.055) !important;
+  box-shadow: 0 18px 42px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.055) !important;
 }
 
 .clara-finance-bubble-card[data-performance-mode="lite"] {
   border-color: rgba(255, 255, 255, 0.052) !important;
   background: rgba(5, 13, 28, 0.80) !important;
-}
-
-/* Temporary diagnostic override: prove the actual Income Hub shell is targeted. */
-.clara-finance-bubble-investmentFund[data-performance-mode="full"],
-.clara-finance-bubble-investmentFund[data-performance-mode="medium"],
-.clara-finance-bubble-investmentFund[data-performance-mode="lite"],
-.clara-finance-bubble-investmentFund[data-expanded="true"] {
-  border-color: #60a5fa !important;
-  background: #0866ff !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
 }
 
 .clara-finance-bubble-card button[aria-label^="View"],
