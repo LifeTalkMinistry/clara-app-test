@@ -14,6 +14,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
+import CircleActivitiesPanel from "@/components/community/CircleActivitiesPanel";
 import PeopleDiscoveryPanel from "@/components/community/PeopleDiscoveryPanel";
 import {
   backendRequest,
@@ -312,6 +313,7 @@ export default function MyCircle() {
   if (selectedCircleId) {
     const circle = circleDetails?.circle;
     const members = Array.isArray(circleDetails?.members) ? circleDetails.members : [];
+    const activities = Array.isArray(circleDetails?.activities) ? circleDetails.activities : [];
     const posts = Array.isArray(circleDetails?.posts) ? circleDetails.posts : [];
     const isOwner = circle?.current_role === "owner";
 
@@ -381,6 +383,15 @@ export default function MyCircle() {
                   ))}
                 </div>
               </section>
+
+              <CircleActivitiesPanel
+                token={token}
+                circleId={circle.id}
+                activities={activities}
+                isOwner={isOwner}
+                onRefresh={() => loadCircle(circle.id, { quiet: true })}
+                onNotice={setNotice}
+              />
 
               <section className="rounded-[24px] border border-[#22c7b8]/16 bg-[#0a1a29] p-4">
                 <div className="flex items-center gap-2 text-[#99f6e4]"><ShieldCheck className="h-4 w-4" /><p className="text-[10px] font-black uppercase tracking-[0.16em]">Private check-in</p></div>
