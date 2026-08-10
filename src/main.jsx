@@ -46,6 +46,7 @@ import "./clara-home-daily-tip-official.css";
 import "./clara-no-bubble-effects.css";
 import "./clara-home-learning-rail-official.css";
 import "./clara-home-finance-card-system.css";
+import "./clara-home-money-left-official.css";
 
 const App = React.lazy(() => import("./App.jsx"));
 
