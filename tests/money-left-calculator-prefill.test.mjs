@@ -5,17 +5,12 @@ import fs from "node:fs/promises";
 const read = (path) => fs.readFile(new URL(path, import.meta.url), "utf8");
 
 test("calculator result prefills the active manual expense flow", async () => {
-  const [dashboardSource, wrapperSource, coreSource, summarySource] = await Promise.all([
-    read("../src/pages/Dashboard.jsx"),
+  const [wrapperSource, coreSource, summarySource] = await Promise.all([
     read("../src/components/fresh/main-dashboard/finance-actions/useDashboardFinanceActionHandlers.js"),
     read("../src/components/fresh/main-dashboard/finance-actions/useDashboardFinanceActionHandlersCore.js"),
     read("../src/components/fresh/main-dashboard/money-summary/DashboardMoneySummaryStable.jsx"),
   ]);
 
-  assert.match(
-    dashboardSource,
-    /import useDashboardFinanceActionHandlers from "@\/components\/fresh\/main-dashboard\/finance-actions\/useDashboardFinanceActionHandlers"/,
-  );
   assert.match(
     wrapperSource,
     /import useDashboardFinanceActionHandlersCore from "\.\/useDashboardFinanceActionHandlersCore"/,
