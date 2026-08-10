@@ -1,3 +1,4 @@
+import "../shared/collapsedFinanceOuter.css";
 import {
   EXPANDED_SLIDE_HEIGHT,
   NORMAL_SLIDE_HEIGHT,
