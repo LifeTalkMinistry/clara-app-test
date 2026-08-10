@@ -112,6 +112,45 @@
   box-sizing: border-box !important;
 }
 
+/*
+ * Dedicated Learning Hub
+ *
+ * The page hero already names the destination, so the old collapsible
+ * "Learning Hub" control is redundant here. Keep the carousel engine and all
+ * swipe/tap behavior, but remove the visible stage/card-shell treatment so the
+ * books themselves feel like they are floating directly on the page.
+ */
+.clara-community-root[data-clara-learning-page="true"]
+  .clara-community-home-learning-hub button[data-clara-learning-hub-toggle="true"] {
+  display: none !important;
+}
+
+.clara-community-root[data-clara-learning-page="true"]
+  .clara-community-home-learning-hub [data-learning-hub-expanded="true"] {
+  margin-top: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.clara-community-root[data-clara-learning-page="true"]
+  .clara-community-home-learning-hub .clara-learning-hub-clip {
+  background: transparent !important;
+}
+
+.clara-community-root[data-clara-learning-page="true"]
+  .clara-community-home-learning-hub .clara-learning-hub-stage {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.clara-community-root[data-clara-learning-page="true"]
+  .clara-community-home-learning-hub .clara-learning-hub-stage > .pointer-events-none {
+  display: none !important;
+}
+
 @media (max-width: 420px) {
   .clara-community-root[data-community-view] > .clara-community-shell-header {
     padding-left: 12px !important;
