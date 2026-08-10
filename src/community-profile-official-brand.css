@@ -179,3 +179,5 @@ div.min-h-screen.bg-\[\#06111f\].text-white:has(> .mx-auto.w-full.max-w-md) [rol
   border-color: rgba(76, 127, 199, 0.18) !important;
   background: rgba(4, 15, 34, 0.78) !important;
 }
+
+/* Deployment sync marker: profile brand layer is intentional and active. */
