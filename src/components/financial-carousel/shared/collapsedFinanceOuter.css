@@ -1,22 +1,79 @@
 /*
- * CLARA Home — collapsed finance OUTER shell only.
+ * CLARA Home — collapsed finance OUTER shell system.
  *
- * This intentionally does NOT style [data-finance-card] content surfaces.
- * It controls only the non-expanded carousel chassis around each finance card.
+ * Every finance module shares the same premium navy/royal-blue material.
+ * Individual cards keep a restrained semantic accent so they remain easy to
+ * recognize without looking like six unrelated products.
  */
 
-/* Income Hub outer chassis — official CLARA Philippine-inspired palette. */
+/* Shared palette defaults. Variables inherit into the inner FinanceCardShell. */
 #root .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
-.clara-finance-slide-shell[data-card-key="investmentFund"][data-expanded="false"]
+.clara-finance-slide-shell {
+  --clara-finance-accent: 8, 103, 255;
+  --clara-finance-secondary: 113, 178, 255;
+}
+
+/* Wallet — liquid/available money: sky + CLARA blue. */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+.clara-finance-slide-shell[data-card-key="wallet"] {
+  --clara-finance-accent: 56, 189, 248;
+  --clara-finance-secondary: 8, 103, 255;
+}
+
+/* Income Hub — money coming in: CLARA blue + restrained gold. */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+.clara-finance-slide-shell[data-card-key="investmentFund"] {
+  --clara-finance-accent: 8, 103, 255;
+  --clara-finance-secondary: 255, 216, 74;
+}
+
+/* Budget — calm structure/control: royal blue + soft blue. */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+.clara-finance-slide-shell[data-card-key="budget"] {
+  --clara-finance-accent: 59, 130, 246;
+  --clara-finance-secondary: 143, 199, 255;
+}
+
+/* Emergency Fund — protection/urgency: restrained red + CLARA blue. */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+.clara-finance-slide-shell[data-card-key="emergencyFund"] {
+  --clara-finance-accent: 243, 38, 69;
+  --clara-finance-secondary: 8, 103, 255;
+}
+
+/* Savings Goals — achievement/progress: gold + CLARA blue. */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+.clara-finance-slide-shell[data-card-key="savingsGoals"] {
+  --clara-finance-accent: 255, 216, 74;
+  --clara-finance-secondary: 8, 103, 255;
+}
+
+/* Debt & Obligations — caution/responsibility: red + restrained gold. */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+.clara-finance-slide-shell[data-card-key="debtObligations"] {
+  --clara-finance-accent: 243, 38, 69;
+  --clara-finance-secondary: 255, 216, 74;
+}
+
+/* One master chassis material for every collapsed finance card. */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+.clara-finance-slide-shell[data-expanded="false"]
 > .clara-finance-slide-surface {
   background:
     linear-gradient(
       112deg,
-      rgba(8, 103, 255, 0.18) 0%,
-      rgba(8, 103, 255, 0.06) 42%,
-      rgba(255, 216, 74, 0.020) 64%,
-      rgba(243, 38, 69, 0.070) 100%
+      rgba(var(--clara-finance-accent), 0.11) 0%,
+      rgba(var(--clara-finance-accent), 0.035) 38%,
+      rgba(var(--clara-finance-secondary), 0.028) 72%,
+      rgba(243, 38, 69, 0.025) 100%
     ),
     linear-gradient(
       145deg,
@@ -29,10 +86,10 @@
   background-image:
     linear-gradient(
       112deg,
-      rgba(8, 103, 255, 0.18) 0%,
-      rgba(8, 103, 255, 0.06) 42%,
-      rgba(255, 216, 74, 0.020) 64%,
-      rgba(243, 38, 69, 0.070) 100%
+      rgba(var(--clara-finance-accent), 0.11) 0%,
+      rgba(var(--clara-finance-accent), 0.035) 38%,
+      rgba(var(--clara-finance-secondary), 0.028) 72%,
+      rgba(243, 38, 69, 0.025) 100%
     ),
     linear-gradient(
       145deg,
@@ -41,33 +98,37 @@
       #071f47 67%,
       #10142a 100%
     ) !important;
-  border-color: rgba(113, 178, 255, 0.38) !important;
+  border-color: rgba(var(--clara-finance-accent), 0.30) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 0.085),
     inset 0 -1px 0 rgba(0, 0, 0, 0.20),
     0 18px 44px rgba(0, 0, 0, 0.24) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 
+/* Savings gold and red-status cards should never become loud solid-color cards. */
 #root .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
-.clara-finance-slide-shell[data-card-key="investmentFund"][data-expanded="false"]
+.clara-finance-slide-shell:is(
+  [data-card-key="savingsGoals"],
+  [data-card-key="emergencyFund"],
+  [data-card-key="debtObligations"]
+)[data-expanded="false"]
+> .clara-finance-slide-surface {
+  border-color: rgba(var(--clara-finance-accent), 0.24) !important;
+}
+
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+.clara-finance-slide-shell[data-expanded="false"]
 > .clara-finance-slide-surface::before,
 #root .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
-.clara-finance-slide-shell[data-card-key="investmentFund"][data-expanded="false"]
+.clara-finance-slide-shell[data-expanded="false"]
 > .clara-finance-slide-surface::after {
   content: none !important;
   display: none !important;
   background: none !important;
   background-image: none !important;
-}
-
-/* Keep a restrained blue edge treatment on the other collapsed finance cards. */
-#root .clara-community-root[data-community-view="home"]
-.clara-community-home-financial-carousel
-.clara-finance-slide-shell[data-expanded="false"]
-> .clara-finance-slide-surface {
-  border-color: rgba(124, 181, 255, 0.34) !important;
 }
