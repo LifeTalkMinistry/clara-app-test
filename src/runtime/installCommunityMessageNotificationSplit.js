@@ -1,3 +1,4 @@
+// Canonical CLARA split: DMs own the Message badge; general activity owns the bell.
 import {
   backendRequest,
   getStoredBackendToken,
