@@ -1,7 +1,15 @@
+import {
+  backendRequest,
+  getStoredBackendToken,
+  getStoredBackendUser,
+} from "@/lib/clara-backend-client";
+
 const INSTALL_FLAG = "__claraMessagesSearchCancelInstalled";
 const OVERLAY_SELECTOR = "[data-clara-messages-search-overlay='true']";
 const LEGACY_SELECTOR = "[data-clara-messages-search-cancel='true']";
 const MESSAGE_INPUT_SELECTOR = 'input[placeholder="Type a message..."]';
+const MESSAGE_BADGE_SELECTOR = "[data-clara-message-unread-badge='true']";
+const NOTIFICATION_FETCH_FLAG = "__claraMessageNotificationSeparationFetchInstalled";
 
 function setReactInputValue(input, value) {
   const descriptor = Object.getOwnPropertyDescriptor(
@@ -246,10 +254,193 @@ function scanMessagesSearch() {
     .forEach(installPersistentMessageComposer);
 }
 
+function requestUrl(input) {
+  if (typeof input === "string") return input;
+  if (input instanceof URL) return input.href;
+  return String(input?.url || "");
+}
+
+function isNotificationsListRequest(input, init = {}) {
+  const url = requestUrl(input);
+  const method = String(init?.method || input?.method || "GET").toUpperCase();
+  if (method !== "GET" || !url.includes("/api/community/notifications")) return false;
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return parsed.pathname.endsWith("/api/community/notifications");
+  } catch {
+    return /\/api\/community\/notifications(?:\?|$)/.test(url);
+  }
+}
+
+function isMessagesReadRequest(input, init = {}) {
+  const url = requestUrl(input);
+  const method = String(init?.method || input?.method || "GET").toUpperCase();
+  return method === "PATCH" && url.includes("/api/messages/read");
+}
+
+function installNotificationMessageSeparationFetch() {
+  if (window[NOTIFICATION_FETCH_FLAG] || typeof window.fetch !== "function") return;
+  window[NOTIFICATION_FETCH_FLAG] = true;
+
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = async (input, init = {}) => {
+    const response = await originalFetch(input, init);
+
+    if (isMessagesReadRequest(input, init) && response.ok) {
+      window.setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("clara:message-unread-refresh"));
+      }, 0);
+    }
+
+    if (!isNotificationsListRequest(input, init) || !response.ok) return response;
+
+    try {
+      const payload = await response.clone().json();
+      if (!Array.isArray(payload)) return response;
+      const filtered = payload.filter(
+        (notification) => String(notification?.type || "").toLowerCase() !== "message"
+      );
+      const headers = new Headers(response.headers);
+      headers.delete("content-length");
+      headers.delete("content-encoding");
+      headers.set("content-type", "application/json");
+      return new Response(JSON.stringify(filtered), {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+      });
+    } catch {
+      return response;
+    }
+  };
+}
+
+function ensureMessageBadge(link, unreadCount) {
+  if (!(link instanceof HTMLElement)) return;
+  let badge = link.querySelector(MESSAGE_BADGE_SELECTOR);
+
+  if (!unreadCount) {
+    badge?.remove();
+    return;
+  }
+
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.dataset.claraMessageUnreadBadge = "true";
+    badge.setAttribute("aria-label", "Unread private messages");
+    Object.assign(badge.style, {
+      position: "absolute",
+      right: "-2px",
+      top: "-4px",
+      minWidth: "17px",
+      height: "17px",
+      padding: "0 4px",
+      border: "2px solid #071329",
+      borderRadius: "9999px",
+      background: "#ff3152",
+      color: "#ffffff",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontSize: "8px",
+      fontWeight: "900",
+      lineHeight: "1",
+      boxSizing: "border-box",
+      boxShadow: "0 0 12px rgba(243,38,69,0.40)",
+      pointerEvents: "none",
+      zIndex: "20",
+    });
+    link.appendChild(badge);
+  }
+
+  badge.textContent = unreadCount > 9 ? "9+" : String(unreadCount);
+}
+
+function cleanNotificationEmptyCopy() {
+  document.querySelectorAll(".clara-community-notifications-view p").forEach((node) => {
+    if (node.textContent?.trim() === "Comments, reactions, and messages will appear here.") {
+      node.textContent = "Comments, reactions, and connection activity will appear here.";
+    }
+  });
+}
+
+let unreadRefreshInFlight = false;
+async function refreshMessageUnreadBadge() {
+  if (unreadRefreshInFlight || document.visibilityState === "hidden") return;
+  const link = document.querySelector('a[aria-label="Open private messages"]');
+  if (!link) return;
+
+  const token = getStoredBackendToken();
+  const user = getStoredBackendUser();
+  const currentUserId = user?.id;
+  if (!token || !currentUserId) {
+    ensureMessageBadge(link, 0);
+    return;
+  }
+
+  unreadRefreshInFlight = true;
+  try {
+    const messages = await backendRequest("/api/messages", { token });
+    const unreadCount = (Array.isArray(messages) ? messages : []).filter(
+      (message) =>
+        String(message?.recipient_id || "") === String(currentUserId) &&
+        !message?.is_read
+    ).length;
+    ensureMessageBadge(link, unreadCount);
+  } catch (error) {
+    console.warn("[Messages] unread badge refresh failed:", error);
+  } finally {
+    unreadRefreshInFlight = false;
+  }
+}
+
+function installMessageUnreadBadge() {
+  let timerId = null;
+  let refreshTimer = null;
+
+  const scheduleRefresh = (delay = 80) => {
+    window.clearTimeout(refreshTimer);
+    refreshTimer = window.setTimeout(() => {
+      cleanNotificationEmptyCopy();
+      refreshMessageUnreadBadge();
+    }, delay);
+  };
+
+  const observer = new MutationObserver(() => scheduleRefresh(120));
+  const start = () => {
+    scheduleRefresh(0);
+    observer.observe(document.body, { childList: true, subtree: true });
+    timerId = window.setInterval(() => {
+      if (document.visibilityState !== "hidden") scheduleRefresh(0);
+    }, 4000);
+    window.addEventListener("focus", () => scheduleRefresh(0));
+    window.addEventListener("hashchange", () => scheduleRefresh(80));
+    window.addEventListener("clara:message-unread-refresh", () => scheduleRefresh(40));
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) scheduleRefresh(0);
+    });
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", start, { once: true });
+  } else {
+    start();
+  }
+
+  return () => {
+    observer.disconnect();
+    window.clearInterval(timerId);
+    window.clearTimeout(refreshTimer);
+  };
+}
+
 export function installMessagesSearchCancel() {
   if (typeof window === "undefined" || typeof document === "undefined") return;
   if (window[INSTALL_FLAG]) return;
   window[INSTALL_FLAG] = true;
+
+  installNotificationMessageSeparationFetch();
+  installMessageUnreadBadge();
 
   const observer = new MutationObserver(scanMessagesSearch);
   const start = () => {
