@@ -295,7 +295,7 @@ async function focusPostTarget(target) {
 
   let posts = [];
   try {
-    const data = await backendRequest("/api/community/posts?limit=100", { token });
+    const data = await backendRequest("/api/community/posts?limit=50", { token });
     posts = Array.isArray(data) ? data : [];
   } catch {
     return false;
@@ -426,12 +426,23 @@ function routeNotification(row) {
   navigateHash("/community?view=notifications");
 }
 
-function handleNotificationClick(event) {
-  const row = event.target?.closest?.("button[data-clara-notification-id]");
-  if (!row || !document.contains(row)) return;
+async function handleNotificationClick(event) {
+  const clickedRow = event.target?.closest?.(NOTIFICATION_SELECTOR);
+  if (!clickedRow || !document.contains(clickedRow)) return;
 
-  row.dataset.claraNotificationUnread = "false";
-  window.setTimeout(() => routeNotification(row), 20);
+  let targetRow = clickedRow;
+  if (!targetRow.dataset.claraNotificationId) {
+    const index = rows().indexOf(clickedRow);
+    if (index < 0) return;
+
+    const notifications = await fetchNotifications({ force: true });
+    annotateRows(notifications);
+    targetRow = rows()[index] || clickedRow;
+  }
+
+  if (!targetRow.dataset.claraNotificationId) return;
+  targetRow.dataset.claraNotificationUnread = "false";
+  window.setTimeout(() => routeNotification(targetRow), 20);
 }
 
 export function installCommunityNotificationRuntime() {
