@@ -45,28 +45,39 @@ async function loadProfiles(force = false) {
   return loadingPromise;
 }
 
+function clearPhoto(avatarNode) {
+  if (!(avatarNode instanceof HTMLElement)) return;
+  avatarNode.style.removeProperty("background");
+  avatarNode.style.removeProperty("background-image");
+  avatarNode.style.removeProperty("background-size");
+  avatarNode.style.removeProperty("background-position");
+  avatarNode.style.removeProperty("background-repeat");
+  avatarNode.style.removeProperty("color");
+  avatarNode.style.removeProperty("overflow");
+  delete avatarNode.dataset.claraMessageProfilePhoto;
+}
+
 function applyPhoto(avatarNode, name) {
   if (!(avatarNode instanceof HTMLElement)) return;
   const avatarUrl = profileMap.get(normalizeName(name));
   if (!avatarUrl) {
-    if (avatarNode.dataset.claraMessageProfilePhoto === "true") {
-      avatarNode.style.removeProperty("background-image");
-      avatarNode.style.removeProperty("background-size");
-      avatarNode.style.removeProperty("background-position");
-      avatarNode.style.removeProperty("background-repeat");
-      avatarNode.style.removeProperty("color");
-      delete avatarNode.dataset.claraMessageProfilePhoto;
-    }
+    if (avatarNode.dataset.claraMessageProfilePhoto === "true") clearPhoto(avatarNode);
     return;
   }
 
   const safeUrl = avatarUrl.replace(/"/g, "%22");
   avatarNode.dataset.claraMessageProfilePhoto = "true";
-  avatarNode.style.backgroundImage = `url("${safeUrl}")`;
-  avatarNode.style.backgroundSize = "cover";
-  avatarNode.style.backgroundPosition = "center";
-  avatarNode.style.backgroundRepeat = "no-repeat";
-  avatarNode.style.color = "transparent";
+
+  // Messages branding intentionally owns the fallback avatar surface with
+  // `background: ... !important`. Profile photos are real user content, so the
+  // inline image must explicitly outrank that fallback surface when available.
+  avatarNode.style.setProperty("background", `center / cover no-repeat url("${safeUrl}")`, "important");
+  avatarNode.style.setProperty("background-image", `url("${safeUrl}")`, "important");
+  avatarNode.style.setProperty("background-size", "cover", "important");
+  avatarNode.style.setProperty("background-position", "center", "important");
+  avatarNode.style.setProperty("background-repeat", "no-repeat", "important");
+  avatarNode.style.setProperty("color", "transparent", "important");
+  avatarNode.style.setProperty("overflow", "hidden", "important");
 }
 
 function scanInbox() {
