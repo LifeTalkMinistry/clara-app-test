@@ -126,38 +126,37 @@
 }
 
 /*
- * When a user opens a Learning Hub category, the same internal toggle already
- * owns the correct "back to categories" behavior. Reveal only that state and
- * turn it into a compact floating back button in the carousel's lower-right
- * corner instead of bringing the old Learning Hub pill back.
+ * Category back control: intentionally small and understated. The button stays
+ * obvious enough to discover, but visually behaves like a premium utility
+ * control instead of competing with the lesson cover art.
  */
 .clara-community-root[data-clara-learning-page="true"]
   .clara-community-home-learning-hub
   button[data-clara-learning-hub-toggle="true"][aria-label="Back to Learning Hub categories."] {
   display: flex !important;
   position: absolute !important;
-  right: 14px !important;
-  bottom: 12px !important;
+  right: 16px !important;
+  bottom: 14px !important;
   z-index: 140 !important;
-  width: 42px !important;
-  min-width: 42px !important;
-  max-width: 42px !important;
-  height: 42px !important;
-  min-height: 42px !important;
-  max-height: 42px !important;
+  width: 34px !important;
+  min-width: 34px !important;
+  max-width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  max-height: 34px !important;
   margin: 0 !important;
   padding: 0 !important;
   gap: 0 !important;
-  border: 1px solid rgba(87, 155, 255, 0.48) !important;
+  border: 1px solid rgba(113, 174, 255, 0.34) !important;
   border-radius: 9999px !important;
   background:
-    radial-gradient(circle at 30% 22%, rgba(25, 181, 255, 0.22), transparent 48%),
-    linear-gradient(145deg, rgba(5, 29, 66, 0.98), rgba(10, 22, 50, 0.98)) !important;
+    radial-gradient(circle at 32% 20%, rgba(255, 255, 255, 0.10), transparent 38%),
+    linear-gradient(145deg, rgba(6, 28, 61, 0.96), rgba(5, 16, 37, 0.98)) !important;
   color: #ffffff !important;
   box-shadow:
-    0 10px 26px rgba(0, 0, 0, 0.32),
-    0 0 0 1px rgba(8, 103, 255, 0.08),
-    0 0 18px rgba(8, 103, 255, 0.18) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 6px 16px rgba(0, 0, 0, 0.28),
+    0 0 12px rgba(8, 103, 255, 0.10) !important;
   overflow: hidden !important;
   backdrop-filter: blur(10px) !important;
   -webkit-backdrop-filter: blur(10px) !important;
@@ -174,17 +173,19 @@
   button[data-clara-learning-hub-toggle="true"][aria-label="Back to Learning Hub categories."] > svg {
   position: relative !important;
   z-index: 2 !important;
-  width: 20px !important;
-  height: 20px !important;
+  width: 14px !important;
+  min-width: 14px !important;
+  height: 14px !important;
+  min-height: 14px !important;
   margin: 0 !important;
-  color: #d9ecff !important;
-  stroke-width: 2.2 !important;
+  color: rgba(221, 237, 255, 0.90) !important;
+  stroke-width: 2 !important;
 }
 
 .clara-community-root[data-clara-learning-page="true"]
   .clara-community-home-learning-hub
   button[data-clara-learning-hub-toggle="true"][aria-label="Back to Learning Hub categories."]:active {
-  transform: scale(0.95) !important;
+  transform: scale(0.94) !important;
 }
 
 .clara-community-root[data-clara-learning-page="true"]
