@@ -27,6 +27,7 @@ import "./runtime/installClaraRuntimePatches";
 import "./runtime/installManualExpenseKeyboardGuard";
 import "./runtime/installCommunityViewerCommentsRuntime";
 import "./runtime/installBudgetRecentReuse";
+import "./runtime/installBudgetDocumentationHeaderCleanup";
 import "./index.css";
 import "./support-orb-position.css";
 import "./messages-back-to-community-label.css";
