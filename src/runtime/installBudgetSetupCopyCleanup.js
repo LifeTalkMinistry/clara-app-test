@@ -14,6 +14,7 @@ const HIDDEN_MARKER = "data-clara-budget-copy-hidden";
 const PROGRESS_HIDDEN_MARKER = "data-clara-budget-progress-hidden";
 const STEP4_INFO_MARKER = "data-clara-budget-step4-info";
 const STEP4_RELATIONSHIP_MARKER = "data-clara-budget-step4-relationship-info";
+const STEP5_POLISH_MARKER = "data-clara-budget-step5-polished";
 const STEP_NAMES = ["Budget Items", "Commitments", "Review", "Timeframe", "Activate"];
 const MANUAL_EXPENSE_CLEANUP_STYLE_ID = "clara-manual-expense-copy-cleanup";
 
@@ -190,6 +191,49 @@ function installManualExpenseCleanupStyles() {
       margin: 0 !important;
     }
 
+    /* Final summary: remove duplicate Step 5 eyebrow and give the title/body cleaner rhythm. */
+    #root [${STEP5_POLISH_MARKER}="true"] {
+      align-items: center !important;
+      gap: 0.85rem !important;
+    }
+
+    #root [${STEP5_POLISH_MARKER}="true"] > div:last-child {
+      min-width: 0 !important;
+      flex: 1 1 auto !important;
+    }
+
+    #root [${STEP5_POLISH_MARKER}="true"] > div:last-child > p:first-child {
+      display: none !important;
+    }
+
+    #root [${STEP5_POLISH_MARKER}="true"] h2 {
+      margin-top: 0 !important;
+      max-width: 15rem !important;
+      color: #ffffff !important;
+      font-size: 1.05rem !important;
+      font-weight: 800 !important;
+      line-height: 1.34 !important;
+      letter-spacing: -0.022em !important;
+      text-wrap: balance;
+    }
+
+    #root [${STEP5_POLISH_MARKER}="true"] h2 + p {
+      margin-top: 0.55rem !important;
+      max-width: 15.5rem !important;
+      color: rgba(239,246,255,0.72) !important;
+      font-size: 0.76rem !important;
+      font-weight: 600 !important;
+      line-height: 1.55 !important;
+      letter-spacing: 0 !important;
+    }
+
+    #root [${STEP5_POLISH_MARKER}="true"] > div:first-child {
+      width: 2.55rem !important;
+      height: 2.55rem !important;
+      flex: 0 0 2.55rem !important;
+      border-radius: 0.9rem !important;
+    }
+
     #root [data-clara-budget-copy-hidden="true"] {
       display: none !important;
     }
@@ -363,6 +407,28 @@ function installStep4RelationshipInfo(root) {
   });
 }
 
+function polishStep5Summary(root) {
+  if (!root) return;
+
+  root.querySelectorAll("div.flex.items-start.gap-3").forEach((header) => {
+    if (header.getAttribute(STEP5_POLISH_MARKER) === "true") return;
+
+    const text = normalizeText(header.textContent);
+    if (!text.includes("Step 5") || !text.includes("You created a") || !text.includes("This budget is intended to cover")) {
+      return;
+    }
+
+    const section = header.closest("section");
+    if (!section) return;
+    const hasActivateButton = Array.from(section.querySelectorAll("button")).some((button) =>
+      normalizeText(button.textContent).toLowerCase().includes("activate budget"),
+    );
+    if (!hasActivateButton) return;
+
+    header.setAttribute(STEP5_POLISH_MARKER, "true");
+  });
+}
+
 function hideMatchingCopy(root) {
   if (!root) return;
 
@@ -402,6 +468,7 @@ function hideMatchingCopy(root) {
   hideRedundantProgressCard(root);
   installStep4Info(root);
   installStep4RelationshipInfo(root);
+  polishStep5Summary(root);
 }
 
 export function installBudgetSetupCopyCleanup() {
