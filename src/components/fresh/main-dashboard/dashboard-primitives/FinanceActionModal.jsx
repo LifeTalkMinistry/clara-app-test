@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 const MONEY_ACTION_TITLES = new Set(["Add money", "Transfer money"]);
@@ -173,6 +174,7 @@ export default function FinanceActionModal({
   const [moneyAmount, setMoneyAmount] = useState("");
   const usesClaraMoneyKeypad = MONEY_ACTION_TITLES.has(title);
   const isBudgetSetupModal = BUDGET_SETUP_TITLES.has(title);
+  const isDeleteWalletModal = title === "Delete wallet";
   const displayTitle = getDisplayTitle(title);
   const displayDescription = getDisplayDescription(title, description);
 
@@ -238,38 +240,59 @@ export default function FinanceActionModal({
     return () => window.cancelAnimationFrame(frame);
   }, [open, usesClaraMoneyKeypad]);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  const modalShellClassName =
-    "relative z-[200] flex max-h-[calc(100svh-1.25rem)] w-full max-w-[402px] overflow-visible rounded-[34px] border border-cyan-100/[0.18] bg-[radial-gradient(circle_at_50%_0%,rgba(20,184,166,0.14),transparent_42%),linear-gradient(135deg,rgba(5,44,62,0.99),rgba(7,20,48,0.995)_48%,rgba(38,16,77,0.995))] shadow-[0_28px_90px_rgba(0,0,0,0.62),0_0_0_1px_rgba(255,255,255,0.08),0_0_54px_rgba(34,211,238,0.12)]";
-  const formClassName =
-    "flex max-h-[calc(100svh-1.25rem)] min-h-0 w-full flex-col overflow-visible";
-  const headerClassName = isBudgetSetupModal
-    ? "shrink-0 border-b border-white/10 bg-white/[0.03] px-5 py-3"
-    : "shrink-0 border-b border-white/10 bg-white/[0.035] px-5 py-3.5";
-  const titleClassName = isBudgetSetupModal
-    ? "text-[22px] font-black leading-[1.05] tracking-[-0.035em] text-white"
-    : "text-[28px] font-black tracking-[-0.04em] text-white";
-  const descriptionClassName =
-    "mt-1 max-w-[270px] text-[13px] font-semibold leading-5 text-white/64";
-  const closeButtonClassName = isBudgetSetupModal
-    ? "mt-0.5 shrink-0 rounded-full border border-white/15 bg-white/[0.075] p-2.5 text-white/70 transition hover:bg-white/10 hover:text-white"
-    : "mt-1 shrink-0 rounded-full border border-white/15 bg-white/[0.075] p-3 text-white/70 transition hover:bg-white/10 hover:text-white";
-  const scrollBodyClassName = isBudgetSetupModal
-    ? "relative z-[220] min-h-0 max-h-[calc(100svh-8rem)] space-y-2.5 overflow-y-auto overflow-x-visible overscroll-contain px-5 py-2.5 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-    : "relative z-[220] min-h-0 max-h-[calc(100svh-10rem)] space-y-3 overflow-y-auto overflow-x-visible overscroll-contain px-5 py-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
-  const footerClassName =
-    "shrink-0 border-t border-white/10 bg-[#071120]/92 px-5 pb-[calc(0.65rem+env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-xl";
+  const modalShellClassName = isDeleteWalletModal
+    ? "relative z-[10001] flex w-full max-w-[342px] overflow-hidden rounded-[28px] border border-blue-300/20 bg-[linear-gradient(145deg,#082a60_0%,#071f49_38%,#061735_72%,#091126_100%)] shadow-[0_26px_80px_rgba(0,0,0,0.58),inset_0_1px_0_rgba(255,255,255,0.08)]"
+    : "relative z-[200] flex max-h-[calc(100svh-1.25rem)] w-full max-w-[402px] overflow-visible rounded-[34px] border border-cyan-100/[0.18] bg-[radial-gradient(circle_at_50%_0%,rgba(20,184,166,0.14),transparent_42%),linear-gradient(135deg,rgba(5,44,62,0.99),rgba(7,20,48,0.995)_48%,rgba(38,16,77,0.995))] shadow-[0_28px_90px_rgba(0,0,0,0.62),0_0_0_1px_rgba(255,255,255,0.08),0_0_54px_rgba(34,211,238,0.12)]";
+  const formClassName = isDeleteWalletModal
+    ? "flex w-full min-h-0 flex-col overflow-hidden"
+    : "flex max-h-[calc(100svh-1.25rem)] min-h-0 w-full flex-col overflow-visible";
+  const headerClassName = isDeleteWalletModal
+    ? "shrink-0 border-b border-blue-200/10 bg-blue-950/20 px-5 pb-3.5 pt-4"
+    : isBudgetSetupModal
+      ? "shrink-0 border-b border-white/10 bg-white/[0.03] px-5 py-3"
+      : "shrink-0 border-b border-white/10 bg-white/[0.035] px-5 py-3.5";
+  const titleClassName = isDeleteWalletModal
+    ? "text-[21px] font-black leading-tight tracking-[-0.03em] text-white"
+    : isBudgetSetupModal
+      ? "text-[22px] font-black leading-[1.05] tracking-[-0.035em] text-white"
+      : "text-[28px] font-black tracking-[-0.04em] text-white";
+  const descriptionClassName = isDeleteWalletModal
+    ? "mt-1.5 max-w-[245px] text-[12px] font-semibold leading-[1.55] text-blue-50/64"
+    : "mt-1 max-w-[270px] text-[13px] font-semibold leading-5 text-white/64";
+  const closeButtonClassName = isDeleteWalletModal
+    ? "shrink-0 rounded-full border border-blue-200/15 bg-blue-950/35 p-2.5 text-blue-50/70 transition hover:bg-blue-900/45 hover:text-white"
+    : isBudgetSetupModal
+      ? "mt-0.5 shrink-0 rounded-full border border-white/15 bg-white/[0.075] p-2.5 text-white/70 transition hover:bg-white/10 hover:text-white"
+      : "mt-1 shrink-0 rounded-full border border-white/15 bg-white/[0.075] p-3 text-white/70 transition hover:bg-white/10 hover:text-white";
+  const scrollBodyClassName = isDeleteWalletModal
+    ? "relative min-h-0 space-y-3 px-5 py-4"
+    : isBudgetSetupModal
+      ? "relative z-[220] min-h-0 max-h-[calc(100svh-8rem)] space-y-2.5 overflow-y-auto overflow-x-visible overscroll-contain px-5 py-2.5 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      : "relative z-[220] min-h-0 max-h-[calc(100svh-10rem)] space-y-3 overflow-y-auto overflow-x-visible overscroll-contain px-5 py-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+  const footerClassName = isDeleteWalletModal
+    ? "shrink-0 border-t border-blue-200/10 bg-[#06162f] px-5 pb-4 pt-3"
+    : "shrink-0 border-t border-white/10 bg-[#071120]/92 px-5 pb-[calc(0.65rem+env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-xl";
   const submitButtonClassName = `w-full rounded-2xl px-4 py-3 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-55 ${
     danger
-      ? "bg-gradient-to-r from-rose-500 to-red-600 shadow-[0_10px_30px_rgba(244,63,94,0.24)]"
+      ? submitDisabled
+        ? "border border-rose-300/12 bg-rose-500/30 text-rose-100/60 shadow-none"
+        : "bg-gradient-to-r from-rose-500 to-red-600 shadow-[0_10px_30px_rgba(244,63,94,0.24)]"
       : submitDisabled
         ? "border border-white/15 bg-white/[0.09] text-white/55 shadow-none"
         : "bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 shadow-[0_10px_30px_rgba(16,185,129,0.24)]"
   }`;
 
-  return (
-    <div className="fixed inset-0 z-[120] flex min-h-[100svh] items-start justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_20%,rgba(15,23,42,0.42),rgba(2,6,23,0.72)_54%,rgba(2,6,23,0.86))] px-1.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-0 backdrop-blur-[16px]">
+  const modal = (
+    <div
+      className={
+        isDeleteWalletModal
+          ? "fixed inset-0 z-[10000] flex min-h-[100svh] items-center justify-center overflow-y-auto bg-slate-950/78 px-4 pb-[max(20px,env(safe-area-inset-bottom))] pt-[max(84px,calc(env(safe-area-inset-top)+20px))] backdrop-blur-[14px]"
+          : "fixed inset-0 z-[10000] flex min-h-[100svh] items-start justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_20%,rgba(15,23,42,0.42),rgba(2,6,23,0.72)_54%,rgba(2,6,23,0.86))] px-1.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-0 backdrop-blur-[16px]"
+      }
+      role="presentation"
+    >
       <div className={modalShellClassName}>
         <form ref={formRef} onSubmit={onSubmit} className={formClassName}>
           <div className={headerClassName}>
@@ -328,4 +351,6 @@ export default function FinanceActionModal({
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }
