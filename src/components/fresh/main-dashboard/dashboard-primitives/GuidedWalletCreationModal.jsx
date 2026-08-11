@@ -59,6 +59,7 @@ export default function GuidedWalletCreationModal({
   const [step, setStep] = useState("choose_wallet");
   const [activeGroupKey, setActiveGroupKey] = useState("");
   const [search, setSearch] = useState("");
+  const [providerChosen, setProviderChosen] = useState(false);
   const [moneyMode, setMoneyMode] = useState(financeForm.startingBalanceMode || "skip");
 
   useEffect(() => {
@@ -66,6 +67,7 @@ export default function GuidedWalletCreationModal({
     setStep("choose_wallet");
     setActiveGroupKey("");
     setSearch("");
+    setProviderChosen(false);
     setMoneyMode(financeForm.startingBalanceMode || "skip");
   }, [open]);
 
@@ -114,6 +116,7 @@ export default function GuidedWalletCreationModal({
       startingBalance: "0",
       startingBalanceMode: "skip",
     });
+    setProviderChosen(true);
     setMoneyMode("skip");
     setSearch("");
     setActiveGroupKey("");
@@ -175,7 +178,7 @@ export default function GuidedWalletCreationModal({
               <div className="flex h-full min-h-0 flex-col space-y-3">
                 <input value={search} onChange={(event) => { setSearch(event.target.value); setActiveGroupKey(""); }} placeholder="Search wallet, bank, or e-wallet" className="min-h-[52px] w-full rounded-[24px] border border-white/[0.12] bg-white/[0.055] px-4 text-sm font-semibold outline-none placeholder:text-white/34" />
                 {search.trim() ? (
-                  <div className="grid gap-2 overflow-y-auto pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{filteredProviders.length ? filteredProviders.map((provider) => <ProviderButton key={provider.key} provider={provider} selected={selectedProvider.key === provider.key} onClick={() => selectProvider(provider)} />) : <p className="rounded-[22px] border border-white/10 bg-white/[0.04] p-4 text-sm font-semibold text-white/55">No match. Try Custom Wallet.</p>}</div>
+                  <div className="grid gap-2 overflow-y-auto pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{filteredProviders.length ? filteredProviders.map((provider) => <ProviderButton key={provider.key} provider={provider} selected={providerChosen && selectedProvider.key === provider.key} onClick={() => selectProvider(provider)} />) : <p className="rounded-[22px] border border-white/10 bg-white/[0.04] p-4 text-sm font-semibold text-white/55">No match. Try Custom Wallet.</p>}</div>
                 ) : activeGroup ? (
                   <div className="flex min-h-0 flex-1 flex-col space-y-3">
                     <button type="button" onClick={() => setActiveGroupKey("")} className="w-fit text-xs font-black uppercase tracking-[0.18em] text-cyan-100/68">← Popular</button>
@@ -183,14 +186,14 @@ export default function GuidedWalletCreationModal({
                       <p className="text-[11px] font-black uppercase tracking-[0.16em]">{activeGroup.label}</p>
                       <p className="mt-1 text-[11px] font-semibold text-white/46">Alphabetical list. Choose one wallet identity.</p>
                       <div className="mt-3 grid max-h-[calc(100dvh-18rem)] grid-cols-1 gap-2 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid-cols-2">
-                        {activeGroup.providers.map((provider) => <ProviderButton key={provider.key} provider={provider} selected={selectedProvider.key === provider.key} onClick={() => selectProvider(provider)} />)}
+                        {activeGroup.providers.map((provider) => <ProviderButton key={provider.key} provider={provider} selected={providerChosen && selectedProvider.key === provider.key} onClick={() => selectProvider(provider)} />)}
                       </div>
                     </div>
                   </div>
                 ) : (
                   <div className="min-h-0 flex-1 overflow-y-auto pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/48">Popular</p>
-                    <div className="mt-2 grid gap-2">{popularProviders.map((provider) => <ProviderButton key={provider.key} provider={provider} selected={selectedProvider.key === provider.key} onClick={() => selectProvider(provider)} />)}</div>
+                    <div className="mt-2 grid gap-2">{popularProviders.map((provider) => <ProviderButton key={provider.key} provider={provider} selected={providerChosen && selectedProvider.key === provider.key} onClick={() => selectProvider(provider)} />)}</div>
                     <div className="grid gap-2 pt-3">
                       <button type="button" onClick={() => setActiveGroupKey(OTHER_PROVIDER_GROUP_KEY)} className="flex items-center justify-between gap-3 rounded-[22px] border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-left">
                         <div className="min-w-0"><p className="text-[11px] font-black uppercase tracking-[0.15em]">Other Banks / Wallets</p><p className="truncate text-[10px] font-semibold text-white/42">Alphabetical list of other banks and money apps.</p></div>
