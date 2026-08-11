@@ -1,5 +1,6 @@
 const MARKER = "data-clara-budget-documentation-clean";
 const INFO_MARKER = "data-clara-budget-documentation-info";
+const POPOVER_MARKER = "data-clara-budget-documentation-popover";
 const TITLE_TEXT = "Unplanned & undocumented";
 
 function normalizeText(value) {
@@ -61,7 +62,7 @@ function createInfoButton() {
 function createPopover() {
   const panel = document.createElement("div");
   panel.hidden = true;
-  panel.setAttribute("data-clara-budget-documentation-popover", "true");
+  panel.setAttribute(POPOVER_MARKER, "true");
   panel.style.cssText = [
     "width:100%",
     "margin-top:10px",
@@ -80,59 +81,87 @@ function createPopover() {
   return panel;
 }
 
+function getCopyRoot(title) {
+  let node = title.parentElement;
+  let outermostManagedRow = null;
+
+  while (node?.getAttribute?.(MARKER) === "true") {
+    outermostManagedRow = node;
+    node = node.parentElement;
+  }
+
+  return {
+    copy: node || title.parentElement,
+    managedRow: outermostManagedRow,
+  };
+}
+
+function wireInfoButton(button, popover) {
+  if (!button || !popover || button.dataset.claraBudgetDocumentationWired === "true") return;
+  button.dataset.claraBudgetDocumentationWired = "true";
+
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const opening = popover.hidden;
+    popover.hidden = !opening;
+    button.setAttribute("aria-expanded", opening ? "true" : "false");
+    button.style.borderColor = opening ? "#75b7f0" : "#3f78ad";
+    button.style.backgroundImage = opening
+      ? "linear-gradient(145deg,#1d5d9f 0%,#0d3768 100%)"
+      : "linear-gradient(145deg,#154d86 0%,#0a2b52 100%)";
+  });
+}
+
 function cleanHeader(title) {
-  const copy = title.parentElement;
+  const { copy, managedRow } = getCopyRoot(title);
   const header = copy?.parentElement;
   if (!copy || !header) return;
 
   const paragraphs = Array.from(copy.children).filter((node) => node.tagName === "P");
-  const eyebrow = paragraphs.find((node) => normalizeText(node.textContent).toLowerCase() === "budget documentation");
-  const description = paragraphs.find((node) => normalizeText(node.textContent).startsWith("Full view of spending outside"));
-  const explanation = normalizeText(description?.textContent) || "Full view of spending outside this cycle’s plan.";
+  const eyebrow = paragraphs.find(
+    (node) => normalizeText(node.textContent).toLowerCase() === "budget documentation",
+  );
+  const description = paragraphs.find((node) =>
+    normalizeText(node.textContent).startsWith("Full view of spending outside"),
+  );
+  const explanation =
+    normalizeText(description?.textContent) || "Full view of spending outside this cycle’s plan.";
 
   if (eyebrow) eyebrow.style.display = "none";
   if (description) description.style.display = "none";
 
-  let row = copy.querySelector(`[${MARKER}="true"]`);
-  let button;
-  let popover;
+  // Repair any duplicate/nested rows produced by an older runtime version.
+  const existingRows = Array.from(copy.querySelectorAll(`[${MARKER}="true"]`));
+  let row = managedRow || existingRows[0] || null;
 
-  if (!row) {
+  if (row) {
+    row.replaceChildren(title);
+  } else {
     row = document.createElement("div");
     row.setAttribute(MARKER, "true");
-    row.style.cssText = "display:flex;align-items:center;gap:9px;min-width:0;";
-
     title.before(row);
     row.appendChild(title);
-
-    title.style.margin = "0";
-    title.style.minWidth = "0";
-    title.style.flex = "0 1 auto";
-
-    button = createInfoButton();
-    popover = createPopover();
-    row.appendChild(button);
-    copy.insertBefore(popover, row.nextSibling);
-
-    button.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const opening = popover.hidden;
-      popover.hidden = !opening;
-      button.setAttribute("aria-expanded", opening ? "true" : "false");
-      button.style.borderColor = opening ? "#75b7f0" : "#3f78ad";
-      button.style.backgroundImage = opening
-        ? "linear-gradient(145deg,#1d5d9f 0%,#0d3768 100%)"
-        : "linear-gradient(145deg,#154d86 0%,#0a2b52 100%)";
-    });
-  } else {
-    button = row.querySelector(`[${INFO_MARKER}="true"]`);
-    popover = copy.querySelector('[data-clara-budget-documentation-popover="true"]');
   }
 
-  if (popover && normalizeText(popover.textContent) !== explanation) {
-    popover.textContent = explanation;
-  }
+  row.style.cssText = "display:flex;align-items:center;gap:9px;min-width:0;";
+  title.style.margin = "0";
+  title.style.minWidth = "0";
+  title.style.flex = "0 1 auto";
+
+  // There must be exactly one info icon and one explanation panel.
+  copy.querySelectorAll(`[${INFO_MARKER}="true"]`).forEach((node) => node.remove());
+  copy.querySelectorAll(`[${POPOVER_MARKER}="true"]`).forEach((node) => node.remove());
+  existingRows.forEach((candidate) => {
+    if (candidate !== row && candidate.isConnected) candidate.remove();
+  });
+
+  const button = createInfoButton();
+  const popover = createPopover();
+  popover.textContent = explanation;
+  row.appendChild(button);
+  copy.insertBefore(popover, row.nextSibling);
+  wireInfoButton(button, popover);
 }
 
 function run() {
@@ -149,8 +178,18 @@ export function installBudgetDocumentationHeaderCleanup() {
   window.__claraBudgetDocumentationHeaderCleanupInstalled = true;
 
   const start = () => {
+    let scheduled = false;
+    const schedule = () => {
+      if (scheduled) return;
+      scheduled = true;
+      requestAnimationFrame(() => {
+        scheduled = false;
+        run();
+      });
+    };
+
     run();
-    const observer = new MutationObserver(() => requestAnimationFrame(run));
+    const observer = new MutationObserver(schedule);
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
   };
 
