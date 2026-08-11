@@ -1,3 +1,4 @@
+import "@/emergency-fund-empty-state-alignment.css";
 import EmergencyFundCard from "@/components/fresh/main-dashboard/carousel/EmergencyFundCardStorageWalletSynced";
 import { EmergencyFundCreateWalletContext } from "@/components/fresh/main-dashboard/carousel/EmergencyFundSetupFlow";
 
