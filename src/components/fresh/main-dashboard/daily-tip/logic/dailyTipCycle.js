@@ -1,6 +1,6 @@
 const CYCLE_STORAGE_PREFIX = "clara_daily_tip_cycle_v3";
 const LEGACY_CYCLE_STORAGE_KEY = "clara_daily_tip_cycle_v2";
-export const DAILY_TIP_CYCLE_VERSION = 3;
+export const DAILY_TIP_CYCLE_VERSION = 4;
 
 export function normalizeDailyTipUserId(userId) {
   return String(userId || "").trim() || "guest";
@@ -11,27 +11,36 @@ export function dailyTipCycleStorageKey(userId) {
 }
 
 export function buildDailyTipCatalog(tips) {
+  const seenIds = new Set();
   const seenTexts = new Set();
   const catalog = [];
 
   (Array.isArray(tips) ? tips : []).forEach((value, index) => {
-    const text = typeof value === "string" ? value.trim() : "";
-    if (!text || seenTexts.has(text)) return;
+    const text =
+      typeof value === "string"
+        ? value.trim()
+        : typeof value?.text === "string"
+          ? value.text.trim()
+          : "";
+    const explicitId =
+      typeof value === "object" && value !== null && typeof value.id === "string"
+        ? value.id.trim()
+        : "";
+    const id = explicitId || `daily-money-tip-${String(index + 1).padStart(3, "0")}`;
 
+    if (!text || seenTexts.has(text) || seenIds.has(id)) return;
+
+    seenIds.add(id);
     seenTexts.add(text);
-    catalog.push({
-      id: `daily-money-tip-${String(index + 1).padStart(3, "0")}`,
-      text,
-      index,
-    });
+    catalog.push({ id, text, index });
   });
 
   return catalog;
 }
 
-export function createDailyTipOrder(catalog, userId, cycleNumber) {
+export function createDailyTipOrder(catalog, userId, cycleNumber, previousTipId = null) {
   const ids = catalog.map((tip) => tip.id);
-  const signature = catalog.map((tip) => `${tip.id}:${tip.text}`).join("|");
+  const signature = catalog.map((tip) => tip.id).join("|");
   const seed = hashString(
     `${normalizeDailyTipUserId(userId)}|${Math.max(0, Math.floor(Number(cycleNumber) || 0))}|${signature}`,
   );
@@ -40,6 +49,13 @@ export function createDailyTipOrder(catalog, userId, cycleNumber) {
   for (let index = ids.length - 1; index > 0; index -= 1) {
     const swapIndex = Math.floor(random() * (index + 1));
     [ids[index], ids[swapIndex]] = [ids[swapIndex], ids[index]];
+  }
+
+  if (previousTipId && ids.length > 1 && ids[0] === previousTipId) {
+    const replacementIndex = ids.findIndex((tipId, index) => index > 0 && tipId !== previousTipId);
+    if (replacementIndex > 0) {
+      [ids[0], ids[replacementIndex]] = [ids[replacementIndex], ids[0]];
+    }
   }
 
   return ids;
@@ -51,11 +67,15 @@ export function resolveDailyTipAssignment({ storage, userId, dayKey, tips }) {
 
   const resolvedUserId = normalizeDailyTipUserId(userId);
   const storageKey = dailyTipCycleStorageKey(resolvedUserId);
-  const catalogSignature = catalog.map((tip) => `${tip.id}:${tip.text}`).join("|");
+  const catalogSignature = catalog.map((tip) => tip.id).join("|");
   let cycle = safeParse(safeGet(storage, storageKey));
 
   if (!isValidCycle(cycle, { userId: resolvedUserId, catalog, catalogSignature })) {
-    cycle = createCycle(catalog, resolvedUserId, 0, catalogSignature);
+    cycle = migrateCompatibleCycle(cycle, {
+      userId: resolvedUserId,
+      catalog,
+      catalogSignature,
+    }) || createCycle(catalog, resolvedUserId, 0, catalogSignature);
   }
 
   const existingAssignment = cycle.assignments.find((assignment) => assignment.dayKey === dayKey);
@@ -66,7 +86,13 @@ export function resolveDailyTipAssignment({ storage, userId, dayKey, tips }) {
   }
 
   if (cycle.usedTipIds.length >= catalog.length) {
-    cycle = createCycle(catalog, resolvedUserId, cycle.cycleNumber + 1, catalogSignature);
+    cycle = createCycle(
+      catalog,
+      resolvedUserId,
+      cycle.cycleNumber + 1,
+      catalogSignature,
+      getLastUsedTipId(cycle),
+    );
   }
 
   const usedIds = new Set(cycle.usedTipIds);
@@ -99,7 +125,7 @@ export function commitDailyTipAssignment({ storage, userId, dayKey, tips }) {
   if (!cycle || !isValidCycle(cycle, {
     userId: resolvedUserId,
     catalog,
-    catalogSignature: catalog.map((tip) => `${tip.id}:${tip.text}`).join("|"),
+    catalogSignature: catalog.map((tip) => tip.id).join("|"),
   })) {
     return preview;
   }
@@ -135,18 +161,66 @@ export function commitDailyTipAssignment({ storage, userId, dayKey, tips }) {
   return assignmentResult(assignment, catalog, cycle.cycleNumber, true);
 }
 
-function createCycle(catalog, userId, cycleNumber, catalogSignature) {
+function createCycle(catalog, userId, cycleNumber, catalogSignature, previousTipId = null) {
   const now = new Date().toISOString();
   return {
     version: DAILY_TIP_CYCLE_VERSION,
     userId,
     cycleNumber,
     catalogSignature,
-    order: createDailyTipOrder(catalog, userId, cycleNumber),
+    order: createDailyTipOrder(catalog, userId, cycleNumber, previousTipId),
     usedTipIds: [],
     assignments: [],
     pending: null,
     createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function migrateCompatibleCycle(value, { userId, catalog, catalogSignature }) {
+  if (!value || typeof value !== "object") return null;
+  if (value.userId !== userId) return null;
+  if (!Number.isInteger(value.cycleNumber) || value.cycleNumber < 0) return null;
+  if (!Array.isArray(value.order) || !Array.isArray(value.usedTipIds) || !Array.isArray(value.assignments)) {
+    return null;
+  }
+
+  const expectedIds = new Set(catalog.map((tip) => tip.id));
+  const fallbackOrder = createDailyTipOrder(catalog, userId, value.cycleNumber);
+  const preservedOrder = uniqueValidIds(value.order, expectedIds);
+  const order = [
+    ...preservedOrder,
+    ...fallbackOrder.filter((tipId) => !preservedOrder.includes(tipId)),
+  ];
+  const usedTipIds = uniqueValidIds(value.usedTipIds, expectedIds);
+  const assignments = value.assignments.filter(
+    (assignment) =>
+      assignment &&
+      typeof assignment === "object" &&
+      typeof assignment.dayKey === "string" &&
+      expectedIds.has(assignment.tipId),
+  );
+  const pending =
+    value.pending &&
+    typeof value.pending === "object" &&
+    typeof value.pending.dayKey === "string" &&
+    expectedIds.has(value.pending.tipId) &&
+    !usedTipIds.includes(value.pending.tipId)
+      ? value.pending
+      : null;
+  const now = new Date().toISOString();
+
+  return {
+    ...value,
+    version: DAILY_TIP_CYCLE_VERSION,
+    userId,
+    cycleNumber: value.cycleNumber,
+    catalogSignature,
+    order,
+    usedTipIds,
+    assignments,
+    pending,
+    createdAt: typeof value.createdAt === "string" ? value.createdAt : now,
     updatedAt: now,
   };
 }
@@ -165,6 +239,8 @@ function isValidCycle(value, { userId, catalog, catalogSignature }) {
   if (orderIds.size !== expectedIds.size) return false;
   if (!value.order.every((tipId) => expectedIds.has(tipId))) return false;
   if (!value.usedTipIds.every((tipId) => expectedIds.has(tipId))) return false;
+  if (!value.assignments.every((assignment) => assignment && expectedIds.has(assignment.tipId))) return false;
+  if (value.pending && !expectedIds.has(value.pending.tipId)) return false;
 
   return true;
 }
@@ -192,6 +268,15 @@ function emptyAssignment(dayKey) {
     cycleDay: 0,
     committed: false,
   };
+}
+
+function uniqueValidIds(values, expectedIds) {
+  return [...new Set(values.filter((tipId) => expectedIds.has(tipId)))];
+}
+
+function getLastUsedTipId(cycle) {
+  if (!Array.isArray(cycle?.usedTipIds) || cycle.usedTipIds.length === 0) return null;
+  return cycle.usedTipIds[cycle.usedTipIds.length - 1] || null;
 }
 
 function hashString(value) {
