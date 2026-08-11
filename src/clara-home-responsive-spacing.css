@@ -9,13 +9,13 @@
 .clara-community-root[data-community-view="home"] .clara-community-home-view {
   --clara-home-top-space: clamp(14px, 2.1dvh, 22px);
   --clara-home-section-gap: clamp(16px, 2.4dvh, 24px);
-  --clara-home-bottom-space: clamp(28px, 4.2dvh, 48px);
-  /* Android/Capacitor can report a zero safe-area inset even while the native
-     navigation bar overlays the web view. Keep a responsive fallback rail so
-     the final Money Left card can always scroll completely above that edge. */
+  --clara-home-bottom-space: clamp(14px, 2.2dvh, 22px);
+  /* Keep only a modest native-navigation fallback. The previous 52–80px rail
+     created a large empty block below Money Left on Android devices whose
+     WebView already excludes most of the system navigation area. */
   --clara-home-system-bottom-clearance: max(
     env(safe-area-inset-bottom, 0px),
-    clamp(52px, 7.5dvh, 76px)
+    clamp(12px, 2dvh, 20px)
   );
 
   box-sizing: border-box !important;
@@ -85,57 +85,18 @@
   padding: 0 !important;
 }
 
-/* Short phones still need breathing room without sacrificing the protected
-   native-navigation clearance. */
+/* Short phones keep the ORIGINAL finance-card geometry. Only the vertical
+   spaces around sections become slightly tighter; card internals are never
+   compressed, so Income/Budget/Wallet layouts cannot overlap or distort. */
 @media (max-height: 740px) {
   .clara-community-root[data-community-view="home"] .clara-community-home-view {
     --clara-home-top-space: 12px;
     --clara-home-section-gap: 14px;
-    --clara-home-bottom-space: 20px;
+    --clara-home-bottom-space: 12px;
     --clara-home-system-bottom-clearance: max(
       env(safe-area-inset-bottom, 0px),
-      clamp(48px, 8dvh, 64px)
+      12px
     );
-  }
-}
-
-/* Compact-height phones need more than bottom padding: the collapsed finance
-   slide itself must scale with the usable viewport, otherwise Money Left begins
-   behind Android's navigation rail before the user has even scrolled. These
-   selectors target the actual Community Home carousel (the older dashboard
-   spacing rules only target .theme-page-shell and do not apply here). */
-@media (max-width: 430px) and (max-height: 860px) {
-  .clara-community-root[data-community-view="home"] .clara-community-home-view {
-    --clara-home-top-space: clamp(10px, 1.5dvh, 12px);
-    --clara-home-section-gap: clamp(9px, 1.5dvh, 12px);
-  }
-
-  .clara-community-root[data-community-view="home"]
-    .clara-community-home-financial-carousel
-    .clara-finance-slide-shell[data-expanded="false"],
-  .clara-community-root[data-community-view="home"]
-    .clara-community-home-financial-carousel
-    .clara-finance-slide-shell[data-expanded="false"]
-    > .clara-finance-slide-surface {
-    height: clamp(286px, 40dvh, 326px) !important;
-    min-height: clamp(286px, 40dvh, 326px) !important;
-  }
-
-  .clara-community-root[data-community-view="home"]
-    .clara-community-home-financial-carousel
-    .clara-finance-slide-shell[data-expanded="false"]
-    [data-finance-card] {
-    height: 100% !important;
-    min-height: 100% !important;
-  }
-
-  .clara-community-root[data-community-view="home"]
-    .clara-community-home-money-left
-    > section[data-clara-dashboard-section="money-summary"],
-  .clara-community-root[data-community-view="home"]
-    .clara-community-home-money-left
-    [data-clara-summary-card="money-left"] {
-    min-height: clamp(100px, 14dvh, 112px) !important;
   }
 }
 
@@ -145,10 +106,10 @@
   .clara-community-root[data-community-view="home"] .clara-community-home-view {
     --clara-home-top-space: 20px;
     --clara-home-section-gap: 22px;
-    --clara-home-bottom-space: 40px;
+    --clara-home-bottom-space: 20px;
     --clara-home-system-bottom-clearance: max(
       env(safe-area-inset-bottom, 0px),
-      clamp(56px, 6.5dvh, 80px)
+      16px
     );
   }
 }
