@@ -427,15 +427,7 @@ export default function SupportClaraBubble({ user }) {
                   </p>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="mt-5 w-full rounded-xl border border-white/10 bg-white/5 py-3 text-sm font-semibold text-white/70"
-                >
-                  Maybe Later
-                </button>
-
-                <p className="mt-3 text-center text-[10px] leading-4 text-white/35">
+                <p className="mt-5 text-center text-[10px] leading-4 text-white/35">
                   App features stay free whether you support CLARA or not. Coaching benefits are separate from core app access.
                 </p>
               </>
