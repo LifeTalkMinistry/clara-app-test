@@ -18,7 +18,6 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import useUserRole from "../hooks/useUserRole";
 import {
   backendRequest,
   getStoredBackendToken,
@@ -241,13 +240,13 @@ function MediaLimitDialog({ notice, onClose, onPickReplacement }) {
 export default function CommunityBackend() {
   const navigate = useNavigate();
   const composerRef = useRef(null);
-  const { access, isAdmin, isFree, isPending } = useUserRole();
   const backendUser = getStoredBackendUser();
   const token = getStoredBackendToken();
   const currentUserId = backendUser?.id || null;
   const currentUserName = backendUser?.name || backendUser?.email || "CLARA Member";
-  const isLocked = isFree || isPending || !access.community;
-  const canPost = isAdmin || access.communityPosting;
+  // Community is a core CLARA feature. Membership or payment status must never gate it.
+  const isLocked = false;
+  const canPost = true;
 
   const [posts, setPosts] = useState([]);
   const [comments, setComments] = useState([]);
