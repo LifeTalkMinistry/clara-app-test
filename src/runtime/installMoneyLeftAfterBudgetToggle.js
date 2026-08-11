@@ -167,7 +167,16 @@ export function applyAfterBudgetToggle() {
     const projectedAmount = captureProjectedAmount(toggle);
     const currentAmount = normalize(amountNode.textContent);
 
-    if (!afterBudgetActive && currentAmount && !isMaskedAmount(currentAmount)) {
+    // Only learn a new base value when the DOM is genuinely showing the
+    // current Money Left. Immediately after turning the projection off the
+    // DOM still contains lastProjectedText; treating that as the new base
+    // makes the toggle appear clickable but prevents the amount restoring.
+    if (
+      !afterBudgetActive &&
+      currentAmount &&
+      !isMaskedAmount(currentAmount) &&
+      (!lastProjectedText || currentAmount !== lastProjectedText)
+    ) {
       baseMoneyLeftText = currentAmount;
     }
 
