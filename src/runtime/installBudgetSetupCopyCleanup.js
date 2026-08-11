@@ -5,8 +5,12 @@ const TOTAL_EXPLANATION =
 const EMPTY_STATE_EXPLANATION =
   "You can continue without a regular item if this budget will contain only protected money or a confirmed obligation.";
 const REVIEW_INTRO_TITLE = "Your budget is taking shape";
+const STEP4_INFO_TITLE = "How long should this budget cover?";
+const STEP4_INFO_BODY =
+  "The timeframe gives meaning to the total you built. It will not change or prorate your amounts automatically.";
 const HIDDEN_MARKER = "data-clara-budget-copy-hidden";
 const PROGRESS_HIDDEN_MARKER = "data-clara-budget-progress-hidden";
+const STEP4_INFO_MARKER = "data-clara-budget-step4-info";
 const STEP_NAMES = ["Budget Items", "Commitments", "Review", "Timeframe", "Activate"];
 const MANUAL_EXPENSE_CLEANUP_STYLE_ID = "clara-manual-expense-copy-cleanup";
 
@@ -37,6 +41,76 @@ function installManualExpenseCleanupStyles() {
 
     .clara-manual-expense-sheet div:has(+ div > section[data-expense-step="wallet"]) {
       display: none !important;
+    }
+
+    .clara-budget-step4-info-row {
+      position: relative;
+      z-index: 80;
+      display: flex;
+      width: 100%;
+      justify-content: flex-end;
+      margin-bottom: 0.75rem;
+    }
+
+    .clara-budget-step-info-button {
+      display: inline-flex;
+      width: 2rem;
+      height: 2rem;
+      flex: 0 0 2rem;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #3f78ad !important;
+      border-radius: 9999px !important;
+      background-color: #0b315b !important;
+      background-image: linear-gradient(145deg, #154d86 0%, #0a2b52 100%) !important;
+      color: #eef7ff !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 8px 18px rgba(0,0,0,0.30) !important;
+      cursor: pointer;
+    }
+
+    .clara-budget-step-info-button[aria-expanded="true"] {
+      border-color: #75b7f0 !important;
+      background-color: #174b86 !important;
+      background-image: linear-gradient(145deg, #1d5d9f 0%, #0d3768 100%) !important;
+    }
+
+    .clara-budget-step-info-popover {
+      position: absolute;
+      top: 2.55rem;
+      right: 0;
+      z-index: 120;
+      width: min(19rem, calc(100vw - 5rem));
+      padding: 0.9rem 1rem;
+      border: 1px solid #2f628f !important;
+      border-radius: 1rem !important;
+      background-color: #071a31 !important;
+      background-image: linear-gradient(180deg, #0b2746 0%, #071a31 100%) !important;
+      color: #f4f9ff !important;
+      opacity: 1 !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 20px 50px rgba(0,0,0,0.65) !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      isolation: isolate;
+    }
+
+    .clara-budget-step-info-popover[hidden] {
+      display: none !important;
+    }
+
+    .clara-budget-step-info-popover strong {
+      display: block;
+      margin-bottom: 0.35rem;
+      color: #ffffff;
+      font-size: 0.82rem;
+      line-height: 1.25rem;
+    }
+
+    .clara-budget-step-info-popover p {
+      margin: 0;
+      color: rgba(239,246,255,0.78);
+      font-size: 0.75rem;
+      font-weight: 600;
+      line-height: 1.15rem;
     }
   `;
   document.head.appendChild(style);
@@ -94,6 +168,77 @@ function hideRedundantProgressCard(root) {
   });
 }
 
+function createInfoIcon() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "16");
+  svg.setAttribute("height", "16");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+
+  const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  circle.setAttribute("cx", "12");
+  circle.setAttribute("cy", "12");
+  circle.setAttribute("r", "10");
+
+  const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  line.setAttribute("d", "M12 16v-4");
+
+  const dot = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  dot.setAttribute("d", "M12 8h.01");
+
+  svg.append(circle, line, dot);
+  return svg;
+}
+
+function installStep4Info(root) {
+  if (!root) return;
+
+  root.querySelectorAll("div.flex.items-start.gap-3").forEach((header) => {
+    const text = normalizeText(header.textContent);
+    if (!text.includes(STEP4_INFO_TITLE) || !text.includes(STEP4_INFO_BODY)) return;
+
+    const section = header.closest("section");
+    if (!section || section.querySelector(`[${STEP4_INFO_MARKER}="true"]`)) return;
+
+    const row = document.createElement("div");
+    row.className = "clara-budget-step4-info-row";
+    row.setAttribute(STEP4_INFO_MARKER, "true");
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "clara-budget-step-info-button";
+    button.setAttribute("aria-label", "About timeframe");
+    button.setAttribute("aria-expanded", "false");
+    button.appendChild(createInfoIcon());
+
+    const popover = document.createElement("div");
+    popover.className = "clara-budget-step-info-popover";
+    popover.hidden = true;
+
+    const title = document.createElement("strong");
+    title.textContent = STEP4_INFO_TITLE;
+
+    const body = document.createElement("p");
+    body.textContent = STEP4_INFO_BODY;
+
+    popover.append(title, body);
+
+    button.addEventListener("click", () => {
+      const opening = popover.hidden;
+      popover.hidden = !opening;
+      button.setAttribute("aria-expanded", opening ? "true" : "false");
+    });
+
+    row.append(button, popover);
+    header.replaceWith(row);
+  });
+}
+
 function hideMatchingCopy(root) {
   if (!root) return;
 
@@ -131,6 +276,7 @@ function hideMatchingCopy(root) {
   });
 
   hideRedundantProgressCard(root);
+  installStep4Info(root);
 }
 
 export function installBudgetSetupCopyCleanup() {
