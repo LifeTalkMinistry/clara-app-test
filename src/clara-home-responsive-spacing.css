@@ -9,24 +9,36 @@
 .clara-community-root[data-community-view="home"] .clara-community-home-view {
   --clara-home-top-space: clamp(14px, 2.1dvh, 22px);
   --clara-home-section-gap: clamp(16px, 2.4dvh, 24px);
-  --clara-home-bottom-space: clamp(14px, 2.2dvh, 22px);
-  /* Keep only a modest native-navigation fallback. The previous 52–80px rail
-     created a large empty block below Money Left on Android devices whose
-     WebView already excludes most of the system navigation area. */
-  --clara-home-system-bottom-clearance: max(
-    env(safe-area-inset-bottom, 0px),
-    clamp(12px, 2dvh, 20px)
-  );
+  --clara-home-bottom-space: clamp(10px, 1.7dvh, 16px);
 
   box-sizing: border-box !important;
   padding-top: var(--clara-home-top-space) !important;
-  padding-bottom: calc(
-    var(--clara-home-system-bottom-clearance) + var(--clara-home-bottom-space)
-  ) !important;
+  padding-bottom: var(--clara-home-bottom-space) !important;
   scroll-padding-top: var(--clara-home-top-space);
-  scroll-padding-bottom: calc(
-    var(--clara-home-system-bottom-clearance) + var(--clara-home-bottom-space)
-  );
+  scroll-padding-bottom: max(env(safe-area-inset-bottom, 0px), 56px);
+  overscroll-behavior-y: contain;
+}
+
+/*
+ * IMPORTANT: Android navigation protection belongs at the END of the scroll
+ * content, not in the card geometry and not as a large permanent Home padding.
+ *
+ * Some Android WebViews report env(safe-area-inset-bottom) as 0 even while the
+ * three-button navigation rail overlays the bottom of the WebView. A terminal
+ * scroll guard gives the final Money Left card enough travel to clear that
+ * overlay while preserving the exact Daily Tip / finance / Money Left sizes.
+ * The guard itself naturally sits behind the system navigation rail at rest.
+ */
+@media (max-width: 768px) {
+  .clara-community-root[data-community-view="home"]
+    .clara-community-home-view
+    > div:first-child::after {
+    content: "";
+    display: block;
+    width: 100%;
+    height: max(env(safe-area-inset-bottom, 0px), 56px);
+    pointer-events: none;
+  }
 }
 
 /* The old Learning Hub launcher row is gone from Home. Do not let its hidden
@@ -57,9 +69,7 @@
 .clara-community-root[data-community-view="home"] .clara-community-home-money-left {
   margin-top: var(--clara-home-section-gap) !important;
   margin-bottom: 0 !important;
-  scroll-margin-bottom: calc(
-    var(--clara-home-system-bottom-clearance) + var(--clara-home-bottom-space)
-  );
+  scroll-margin-bottom: max(env(safe-area-inset-bottom, 0px), 56px);
 }
 
 /* Keep the Money Left surface fluid on narrow devices instead of allowing any
@@ -92,11 +102,7 @@
   .clara-community-root[data-community-view="home"] .clara-community-home-view {
     --clara-home-top-space: 12px;
     --clara-home-section-gap: 14px;
-    --clara-home-bottom-space: 12px;
-    --clara-home-system-bottom-clearance: max(
-      env(safe-area-inset-bottom, 0px),
-      12px
-    );
+    --clara-home-bottom-space: 8px;
   }
 }
 
@@ -106,11 +112,7 @@
   .clara-community-root[data-community-view="home"] .clara-community-home-view {
     --clara-home-top-space: 20px;
     --clara-home-section-gap: 22px;
-    --clara-home-bottom-space: 20px;
-    --clara-home-system-bottom-clearance: max(
-      env(safe-area-inset-bottom, 0px),
-      16px
-    );
+    --clara-home-bottom-space: 14px;
   }
 }
 
