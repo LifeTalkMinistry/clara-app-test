@@ -99,6 +99,46 @@
   }
 }
 
+/* Compact-height phones need more than bottom padding: the collapsed finance
+   slide itself must scale with the usable viewport, otherwise Money Left begins
+   behind Android's navigation rail before the user has even scrolled. These
+   selectors target the actual Community Home carousel (the older dashboard
+   spacing rules only target .theme-page-shell and do not apply here). */
+@media (max-width: 430px) and (max-height: 860px) {
+  .clara-community-root[data-community-view="home"] .clara-community-home-view {
+    --clara-home-top-space: clamp(10px, 1.5dvh, 12px);
+    --clara-home-section-gap: clamp(9px, 1.5dvh, 12px);
+  }
+
+  .clara-community-root[data-community-view="home"]
+    .clara-community-home-financial-carousel
+    .clara-finance-slide-shell[data-expanded="false"],
+  .clara-community-root[data-community-view="home"]
+    .clara-community-home-financial-carousel
+    .clara-finance-slide-shell[data-expanded="false"]
+    > .clara-finance-slide-surface {
+    height: clamp(286px, 40dvh, 326px) !important;
+    min-height: clamp(286px, 40dvh, 326px) !important;
+  }
+
+  .clara-community-root[data-community-view="home"]
+    .clara-community-home-financial-carousel
+    .clara-finance-slide-shell[data-expanded="false"]
+    [data-finance-card] {
+    height: 100% !important;
+    min-height: 100% !important;
+  }
+
+  .clara-community-root[data-community-view="home"]
+    .clara-community-home-money-left
+    > section[data-clara-dashboard-section="money-summary"],
+  .clara-community-root[data-community-view="home"]
+    .clara-community-home-money-left
+    [data-clara-summary-card="money-left"] {
+    min-height: clamp(100px, 14dvh, 112px) !important;
+  }
+}
+
 /* Taller phones get a little more calm negative space rather than stretched
    component heights. */
 @media (min-height: 900px) {
