@@ -1,7 +1,7 @@
 /*
- * CLARA Financial Home — final brand-completion pass.
- * Adds the missing identity hierarchy used across Challenges / Community while
- * preserving every existing Home function and interaction.
+ * CLARA Financial Home — visual-only brand completion.
+ * No injected hero, headings, labels, or extra content. Existing Home structure
+ * stays intact; this file only completes the official CLARA visual language.
  */
 
 .clara-community-root[data-community-view="home"] {
@@ -9,197 +9,9 @@
   --clara-home-blue-soft: #78b7ff;
   --clara-home-gold: #ffd84a;
   --clara-home-red: #f32645;
-  --clara-home-ink: #020817;
 }
 
-/* -------------------------------------------------------------------------- */
-/* COMPACT HOME IDENTITY                                                       */
-/* -------------------------------------------------------------------------- */
-.clara-community-root[data-community-view="home"] .clara-home-brand-hero {
-  position: relative;
-  isolation: isolate;
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  min-height: 104px;
-  margin: 0 14px 14px;
-  padding: 16px 17px;
-  overflow: hidden;
-  border: 1px solid rgba(93, 157, 241, 0.28);
-  border-radius: 26px;
-  background:
-    radial-gradient(circle at 4% 0%, rgba(8, 103, 255, 0.25), transparent 36%),
-    radial-gradient(circle at 70% -20%, rgba(255, 216, 74, 0.07), transparent 34%),
-    radial-gradient(circle at 105% 22%, rgba(243, 38, 69, 0.10), transparent 40%),
-    linear-gradient(145deg, #0b3674 0%, #08285a 38%, #071d43 68%, #0b142d 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.085),
-    inset 0 -1px 0 rgba(0,0,0,0.16),
-    0 16px 38px rgba(0,0,0,0.18);
-}
-
-.clara-community-root[data-community-view="home"] .clara-home-brand-hero::before {
-  content: "";
-  position: absolute;
-  z-index: 2;
-  inset: 0 18px auto;
-  height: 2px;
-  border-radius: 999px;
-  pointer-events: none;
-  background: linear-gradient(
-    90deg,
-    var(--clara-home-blue) 0%,
-    var(--clara-home-blue) 58%,
-    var(--clara-home-gold) 58%,
-    var(--clara-home-gold) 78%,
-    var(--clara-home-red) 78%,
-    var(--clara-home-red) 100%
-  );
-  opacity: 0.94;
-}
-
-.clara-community-root[data-community-view="home"] .clara-home-brand-hero::after {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  right: -34px;
-  bottom: -54px;
-  width: 145px;
-  height: 145px;
-  border-radius: 999px;
-  pointer-events: none;
-  background: radial-gradient(circle, rgba(243,38,69,0.10), transparent 68%);
-}
-
-.clara-community-root[data-community-view="home"] .clara-home-brand-hero__icon,
-.clara-community-root[data-community-view="home"] .clara-home-brand-hero__copy {
-  position: relative;
-  z-index: 1;
-}
-
-.clara-community-root[data-community-view="home"] .clara-home-brand-hero__icon {
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  min-width: 48px;
-  border: 1px solid rgba(123, 183, 255, 0.32);
-  border-radius: 17px;
-  background: linear-gradient(145deg, rgba(12, 59, 126, 0.92), rgba(4, 20, 49, 0.95));
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.09),
-    0 10px 24px rgba(0,0,0,0.18),
-    0 0 20px rgba(8,103,255,0.10);
-}
-
-.clara-community-root[data-community-view="home"] .clara-home-brand-hero__icon img {
-  display: block;
-  width: 36px;
-  height: 36px;
-  object-fit: contain;
-  filter: drop-shadow(0 5px 10px rgba(0,0,0,0.28));
-}
-
-.clara-community-root[data-community-view="home"] .clara-home-brand-hero__copy {
-  min-width: 0;
-  flex: 1;
-}
-
-.clara-community-root[data-community-view="home"] .clara-home-brand-hero__eyebrow {
-  margin: 0;
-  color: rgba(255, 224, 99, 0.94);
-  font-size: 8.5px;
-  font-weight: 900;
-  line-height: 1;
-  letter-spacing: 0.20em;
-  text-transform: uppercase;
-}
-
-.clara-community-root[data-community-view="home"] .clara-home-brand-hero__title {
-  margin: 6px 0 0;
-  color: #ffffff;
-  font-size: clamp(19px, 5vw, 23px);
-  font-weight: 900;
-  line-height: 1.02;
-  letter-spacing: -0.04em;
-  text-shadow: 0 3px 14px rgba(0,0,0,0.22);
-}
-
-.clara-community-root[data-community-view="home"] .clara-home-brand-hero__subtitle {
-  max-width: 36rem;
-  margin: 7px 0 0;
-  color: rgba(219, 235, 255, 0.62);
-  font-size: 10.5px;
-  font-weight: 650;
-  line-height: 1.5;
-}
-
-/* -------------------------------------------------------------------------- */
-/* SECTION HIERARCHY                                                           */
-/* -------------------------------------------------------------------------- */
-.clara-community-root[data-community-view="home"]
-.clara-community-home-financial-carousel::before {
-  content: none !important;
-  display: none !important;
-}
-
-.clara-community-root[data-community-view="home"] .clara-home-brand-section {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 3px 4px 11px;
-  padding: 0 2px;
-}
-
-.clara-community-root[data-community-view="home"] .clara-home-brand-section--position {
-  margin-top: 17px;
-  margin-bottom: 8px;
-}
-
-.clara-community-root[data-community-view="home"] .clara-home-brand-section__marker {
-  width: 4px;
-  height: 31px;
-  flex: 0 0 4px;
-  border-radius: 999px;
-  background: linear-gradient(
-    180deg,
-    var(--clara-home-blue) 0%,
-    var(--clara-home-blue) 56%,
-    var(--clara-home-gold) 56%,
-    var(--clara-home-gold) 77%,
-    var(--clara-home-red) 77%,
-    var(--clara-home-red) 100%
-  );
-  box-shadow: 0 0 12px rgba(8,103,255,0.14);
-}
-
-.clara-community-root[data-community-view="home"] .clara-home-brand-section__eyebrow {
-  margin: 0;
-  color: rgba(255, 216, 74, 0.76);
-  font-size: 8px;
-  font-weight: 900;
-  line-height: 1;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-.clara-community-root[data-community-view="home"] .clara-home-brand-section__title {
-  margin: 4px 0 0;
-  color: rgba(248, 251, 255, 0.96);
-  font-size: 14px;
-  font-weight: 900;
-  line-height: 1.05;
-  letter-spacing: -0.025em;
-}
-
-.clara-community-root[data-community-view="home"]
-.clara-home-brand-section--position + .clara-community-home-money-left {
-  margin-top: 7px !important;
-}
-
-/* -------------------------------------------------------------------------- */
-/* DAILY TIP — FINISH THE BLUE / GOLD / RED SIGNATURE                         */
-/* -------------------------------------------------------------------------- */
+/* Daily Money Tip: finish the official blue / gold / red signature. */
 .clara-community-root[data-community-view="home"]
 [data-clara-daily-tip-card="true"] .clara-daily-tip-face::after {
   background:
@@ -229,9 +41,7 @@
   background-position: top, center !important;
 }
 
-/* -------------------------------------------------------------------------- */
-/* FINANCE CARDS — ONE CLARA CHASSIS, EACH WITH A BRAND SIGNATURE             */
-/* -------------------------------------------------------------------------- */
+/* Finance cards: one shared CLARA chassis with the official signature line. */
 #root .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
 .clara-finance-slide-shell > .clara-finance-slide-surface {
@@ -277,7 +87,7 @@
   box-shadow: 0 0 10px rgba(8,103,255,0.10) !important;
 }
 
-/* Budget is a control surface: replace leftover legacy green with CLARA gold. */
+/* Budget: remove leftover legacy green and use restrained CLARA gold. */
 #root .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
 [data-finance-card="budget"]
@@ -293,9 +103,7 @@
   text-shadow: 0 0 14px rgba(255,216,74,0.08) !important;
 }
 
-/* -------------------------------------------------------------------------- */
-/* MONEY LEFT — COMPLETE THE PALETTE WITHOUT MAKING IT LOUD                   */
-/* -------------------------------------------------------------------------- */
+/* Money Left: complete the palette without adding new labels or content. */
 .clara-community-root[data-community-view="home"]
 .clara-community-home-money-left
 > section[data-clara-dashboard-section="money-summary"] {
@@ -314,38 +122,4 @@
 [data-clara-after-budget-total="true"]:hover {
   border-color: rgba(255,216,74,0.44) !important;
   color: #ffe16a !important;
-}
-
-/* Keep the injected identity visually calm on the narrowest Android widths. */
-@media (max-width: 390px) {
-  .clara-community-root[data-community-view="home"] .clara-home-brand-hero {
-    min-height: 98px;
-    margin-left: 10px;
-    margin-right: 10px;
-    padding: 14px 14px;
-    gap: 11px;
-    border-radius: 23px;
-  }
-
-  .clara-community-root[data-community-view="home"] .clara-home-brand-hero__icon {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
-    border-radius: 15px;
-  }
-
-  .clara-community-root[data-community-view="home"] .clara-home-brand-hero__icon img {
-    width: 33px;
-    height: 33px;
-  }
-
-  .clara-community-root[data-community-view="home"] .clara-home-brand-hero__subtitle {
-    font-size: 9.8px;
-    line-height: 1.45;
-  }
-
-  .clara-community-root[data-community-view="home"] .clara-home-brand-section {
-    margin-left: 1px;
-    margin-right: 1px;
-  }
 }
