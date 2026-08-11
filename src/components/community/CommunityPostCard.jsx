@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { backendRequest } from "@/lib/clara-backend-client";
+import { backendRequest, getStoredBackendUser } from "@/lib/clara-backend-client";
 import { uploadCommunityMedia, validateCommunityMediaFile } from "@/lib/community-media-client";
 import CommunityPostMedia from "@/components/community/CommunityPostMedia";
 import SupportTierBadge from "@/components/support/SupportTierBadge";
@@ -143,6 +143,9 @@ export default function CommunityPostCard({
   reportError,
 }) {
   const ownsPost = String(post.author_id) === String(currentUserId);
+  const backendUser = getStoredBackendUser();
+  const isAdmin = String(backendUser?.role || "").trim().toLowerCase() === "admin";
+  const canManagePost = ownsPost || isAdmin;
   const postType = POST_TYPE_BY_KEY[post.post_type] || POST_TYPE_BY_KEY.win;
   const TypeIcon = postType.icon;
   const counts = post?.reaction_summary && typeof post.reaction_summary === "object"
@@ -231,7 +234,10 @@ export default function CommunityPostCard({
 
   const deletePost = async () => {
     setPostMenuOpen(false);
-    if (!window.confirm("Delete this post? This cannot be undone.")) return;
+    const confirmation = ownsPost
+      ? "Delete this post? This cannot be undone."
+      : `Delete ${authorName}'s post as administrator? It will disappear from Community immediately.`;
+    if (!window.confirm(confirmation)) return;
     try {
       await backendRequest(`/api/community/posts/${post.id}`, { method: "DELETE", token });
       await refresh();
@@ -344,24 +350,30 @@ export default function CommunityPostCard({
             </div>
           </div>
 
-          {ownsPost ? (
+          {canManagePost ? (
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setPostMenuOpen((value) => !value)}
                 className="flex h-9 w-9 items-center justify-center rounded-xl text-white/42 transition hover:bg-white/[0.05] hover:text-white/70"
-                aria-label="Post options"
+                aria-label={ownsPost ? "Post options" : "Administrator post options"}
               >
                 <MoreHorizontal className="h-5 w-5" />
               </button>
 
               {postMenuOpen ? (
-                <div className="absolute right-0 top-10 z-30 w-36 rounded-2xl border border-white/10 bg-[#0d1f2e] p-1.5 shadow-2xl">
-                  <button type="button" onClick={startPostEdit} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold text-white/75 hover:bg-white/[0.05]">
-                    <Pencil className="h-3.5 w-3.5" /> Edit post
-                  </button>
+                <div className="absolute right-0 top-10 z-30 w-40 rounded-2xl border border-white/10 bg-[#0d1f2e] p-1.5 shadow-2xl">
+                  {ownsPost ? (
+                    <button type="button" onClick={startPostEdit} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold text-white/75 hover:bg-white/[0.05]">
+                      <Pencil className="h-3.5 w-3.5" /> Edit post
+                    </button>
+                  ) : (
+                    <div className="px-3 pb-1.5 pt-2 text-[9px] font-black uppercase tracking-[0.14em] text-[#73f5ed]/55">
+                      Admin moderation
+                    </div>
+                  )}
                   <button type="button" onClick={deletePost} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/[0.06]">
-                    <Trash2 className="h-3.5 w-3.5" /> Delete post
+                    <Trash2 className="h-3.5 w-3.5" /> {ownsPost ? "Delete post" : "Delete as admin"}
                   </button>
                 </div>
               ) : null}
@@ -517,7 +529,6 @@ export default function CommunityPostCard({
           {comments.length > 3 ? (
             <p className="mb-2 text-[10px] font-bold text-white/34">Showing latest 3 of {comments.length} comments</p>
           ) : null}
-
           {comments.slice(-3).map((comment) => {
             const ownsComment = String(comment.author_id) === String(currentUserId);
             const editing = String(editingComment?.id || "") === String(comment.id);
