@@ -1,9 +1,4 @@
-const TOP_EXPLANATION =
-  "Add each expense or responsibility one at a time. CLARA will calculate your real budget total as you go.";
-const TOTAL_EXPLANATION =
-  "This total grows from the items you add. There is no preset ceiling.";
 const EMPTY_STATE_PREFIX = "You can continue without a regular item";
-const REVIEW_INTRO_TITLE = "Your budget is taking shape";
 const STEP4_INFO_TITLE = "How long should this budget cover?";
 const STEP4_INFO_BODY =
   "The timeframe gives meaning to the total you built. It will not change or prorate your amounts automatically.";
@@ -11,20 +6,17 @@ const STEP4_RELATIONSHIP_LABEL = "Relationship to your total";
 const STEP4_RELATIONSHIP_BODY =
   "The same amount can mean something very different over seven days versus a full month. CLARA records both together.";
 
+const STYLE_ID = "clara-budget-setup-cleanup-style";
 const HIDDEN_MARKER = "data-clara-budget-copy-hidden";
-const PROGRESS_HIDDEN_MARKER = "data-clara-budget-progress-hidden";
+const TRANSIT_REVIEW_MARKER = "data-clara-budget-transit-review";
 const STEP4_INFO_MARKER = "data-clara-budget-step4-info";
 const STEP4_RELATIONSHIP_MARKER = "data-clara-budget-step4-relationship-info";
-const STEP5_SCREEN_MARKER = "data-clara-budget-final-owned";
-const STEP5_HERO_MARKER = "data-clara-budget-final-hero-owned";
-const STEP5_HIDE_MARKER = "data-clara-budget-final-summary-hidden";
-const STEP5_MESSAGE_INDEX = "data-clara-budget-message-index";
-const STEP5_ORIGINAL_CYCLE = "data-clara-budget-original-cycle";
-const STEP5_ORIGINAL_DATES = "data-clara-budget-original-dates";
+const FINAL_SCREEN_MARKER = "data-clara-budget-final-owned";
+const FINAL_HERO_MARKER = "data-clara-budget-final-hero-owned";
+const FINAL_MESSAGE_INDEX = "data-clara-budget-message-index";
+const FINAL_ORIGINAL_CYCLE = "data-clara-budget-original-cycle";
+const FINAL_ORIGINAL_DATES = "data-clara-budget-original-dates";
 const LAST_MESSAGE_STORAGE_KEY = "clara_last_budget_motivation_index";
-
-const STEP_NAMES = ["Budget Items", "Commitments", "Review", "Timeframe", "Activate"];
-const STYLE_ID = "clara-budget-setup-cleanup-style";
 
 const MOTIVATION_MESSAGES = [
   "You gave your money a direction before it had the chance to disappear.",
@@ -60,9 +52,6 @@ const MOTIVATION_MESSAGES = [
 ];
 
 const normalizeText = (value) => String(value || "").replace(/\s+/g, " ").trim();
-const isEmptyStateCopy = (text) => normalizeText(text).startsWith(EMPTY_STATE_PREFIX);
-const shouldHideCopy = (text) =>
-  text === TOP_EXPLANATION || text === TOTAL_EXPLANATION || isEmptyStateCopy(text);
 
 function installStyles() {
   if (typeof document === "undefined" || document.getElementById(STYLE_ID)) return;
@@ -70,26 +59,7 @@ function installStyles() {
   const style = document.createElement("style");
   style.id = STYLE_ID;
   style.textContent = `
-    .clara-manual-expense-sheet section[data-expense-step="amount"] > p:first-child,
-    .clara-manual-expense-sheet section[data-expense-step="amount"] > h3 + p,
-    .clara-manual-expense-sheet section[data-expense-step="budget"] > p:first-child,
-    .clara-manual-expense-sheet section[data-expense-step="budget"] > h3 + p,
-    .clara-manual-expense-sheet section[data-expense-step="wallet"] > p:first-child,
-    .clara-manual-expense-sheet section[data-expense-step="wallet"] > h3 + p {
-      display: none !important;
-    }
-
-    .clara-manual-expense-sheet section[data-expense-step="amount"] > h3,
-    .clara-manual-expense-sheet section[data-expense-step="budget"] > h3,
-    .clara-manual-expense-sheet section[data-expense-step="wallet"] > h3 {
-      margin-top: 0 !important;
-    }
-
-    .clara-manual-expense-sheet div:has(+ div > section[data-expense-step="wallet"]) {
-      display: none !important;
-    }
-
-    /* Existing React info hints: solid, inline, and never floating over fields. */
+    /* Keep the small help panels solid and in-flow instead of floating over inputs. */
     #root [class*="circle_at_top_left"] :is(
       .flex.items-start.justify-between.gap-3,
       .flex.items-center.justify-between.gap-3
@@ -108,6 +78,11 @@ function installStyles() {
       position: relative !important;
       z-index: 90 !important;
       flex: 0 0 2rem !important;
+      background: linear-gradient(145deg, #154d86 0%, #0a2b52 100%) !important;
+      border-color: #3f78ad !important;
+      color: #eef7ff !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
     }
 
     #root [class*="circle_at_top_left"] button[aria-label^="About "] + div {
@@ -129,15 +104,34 @@ function installStyles() {
       -webkit-backdrop-filter: none !important;
     }
 
+    #root [${HIDDEN_MARKER}="true"],
+    #root [${TRANSIT_REVIEW_MARKER}="true"] {
+      display: none !important;
+    }
+
+    /* Timeframe is now the visible Step 3. */
     .clara-budget-step4-info-row {
       position: relative;
       z-index: 80;
       display: flex;
       width: 100%;
+      min-height: 2.25rem;
       align-items: center;
       justify-content: space-between;
       gap: 0.85rem;
       margin-bottom: 0.8rem;
+    }
+
+    .clara-budget-step4-info-row::before {
+      content: "TIMEFRAME";
+      display: block;
+      color: #ffffff;
+      font-size: 0.92rem;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-shadow: 0 4px 18px rgba(0,0,0,0.28);
     }
 
     .clara-budget-step-info-button {
@@ -175,23 +169,6 @@ function installStyles() {
       -webkit-backdrop-filter: none !important;
     }
 
-    .clara-budget-step4-info-row:has(.clara-budget-step-info-popover:not([hidden])) {
-      display: grid !important;
-      grid-template-columns: 1fr auto !important;
-      align-items: start !important;
-    }
-
-    .clara-budget-step4-info-row:has(.clara-budget-step-info-popover:not([hidden])) .clara-budget-step-info-popover {
-      grid-column: 1 / -1 !important;
-      grid-row: 2 !important;
-    }
-
-    .clara-budget-step4-info-row:has(.clara-budget-step-info-popover:not([hidden])) .clara-budget-step-info-button {
-      grid-column: 2 !important;
-      grid-row: 1 !important;
-      justify-self: end !important;
-    }
-
     .clara-budget-step-info-popover[hidden] {
       display: none !important;
     }
@@ -212,6 +189,29 @@ function installStyles() {
       line-height: 1.15rem;
     }
 
+    .clara-budget-step4-info-row:has(.clara-budget-step-info-popover:not([hidden])) {
+      display: grid !important;
+      grid-template-columns: 1fr auto !important;
+      align-items: start !important;
+    }
+
+    .clara-budget-step4-info-row:has(.clara-budget-step-info-popover:not([hidden]))::before {
+      grid-column: 1 !important;
+      grid-row: 1 !important;
+      align-self: center !important;
+    }
+
+    .clara-budget-step4-info-row:has(.clara-budget-step-info-popover:not([hidden])) .clara-budget-step-info-button {
+      grid-column: 2 !important;
+      grid-row: 1 !important;
+      justify-self: end !important;
+    }
+
+    .clara-budget-step4-info-row:has(.clara-budget-step-info-popover:not([hidden])) .clara-budget-step-info-popover {
+      grid-column: 1 / -1 !important;
+      grid-row: 2 !important;
+    }
+
     .clara-budget-relationship-info-head {
       display: flex !important;
       align-items: center !important;
@@ -224,14 +224,8 @@ function installStyles() {
       margin: 0 !important;
     }
 
-    #root [${HIDDEN_MARKER}="true"],
-    #root [${PROGRESS_HIDDEN_MARKER}="true"],
-    #root [${STEP5_HIDE_MARKER}="true"] {
-      display: none !important;
-    }
-
-    /* Final activate screen: the motivation + consolidated summary is the hero. */
-    #root [${STEP5_SCREEN_MARKER}="true"] > div:first-child {
+    /* Final screen is now the only Review step. */
+    #root [${FINAL_SCREEN_MARKER}="true"] > div:first-child {
       display: block !important;
       padding: 1rem !important;
       border-bottom-color: rgba(96,165,250,0.22) !important;
@@ -240,25 +234,25 @@ function installStyles() {
         linear-gradient(145deg, #0d3d7b 0%, #0a2b5b 56%, #09264f 100%) !important;
     }
 
-    #root [${STEP5_HERO_MARKER}="true"] {
+    #root [${FINAL_HERO_MARKER}="true"] {
       display: flex !important;
       align-items: flex-start !important;
       width: 100% !important;
       gap: 0 !important;
     }
 
-    #root [${STEP5_HERO_MARKER}="true"] > div:first-child {
+    #root [${FINAL_HERO_MARKER}="true"] > div:first-child {
       display: none !important;
     }
 
-    #root [${STEP5_HERO_MARKER}="true"] > div:last-child {
+    #root [${FINAL_HERO_MARKER}="true"] > div:last-child {
       display: block !important;
       width: 100% !important;
       min-width: 0 !important;
       flex: 1 1 100% !important;
     }
 
-    #root [${STEP5_HERO_MARKER}="true"] > div:last-child > p:first-child {
+    #root [${FINAL_HERO_MARKER}="true"] > div:last-child > p:first-child {
       display: block !important;
       margin: 0 !important;
       color: #f7c948 !important;
@@ -269,7 +263,7 @@ function installStyles() {
       text-transform: uppercase !important;
     }
 
-    #root [${STEP5_HERO_MARKER}="true"] h2 {
+    #root [${FINAL_HERO_MARKER}="true"] h2 {
       display: block !important;
       margin: 0.62rem 0 0 !important;
       max-width: 20rem !important;
@@ -281,73 +275,12 @@ function installStyles() {
       text-wrap: balance;
     }
 
-    #root [${STEP5_HERO_MARKER}="true"] h2 + p {
-      display: block !important;
-      margin: 0.95rem 0 0 !important;
-      max-width: 100% !important;
-      padding-top: 0.85rem !important;
-      border-top: 1px solid rgba(191,219,254,0.16) !important;
-      color: rgba(239,246,255,0.74) !important;
-      font-size: 0.72rem !important;
-      font-weight: 700 !important;
-      line-height: 1.62 !important;
-      letter-spacing: 0 !important;
-      white-space: pre-line !important;
-    }
-
-    #root [${STEP5_HERO_MARKER}="true"] h2 + p::first-line {
-      color: #f7c948 !important;
-      font-size: 0.96rem !important;
-      font-weight: 900 !important;
-    }
-
-    #root [${STEP5_SCREEN_MARKER}="true"] > div.p-4 > div.mt-4.grid.grid-cols-3 {
-      margin-top: 0 !important;
+    /* The old date/total sentence under the motivation is intentionally removed. */
+    #root [${FINAL_HERO_MARKER}="true"] h2 + p {
+      display: none !important;
     }
   `;
   document.head.appendChild(style);
-}
-
-function isReviewIntroBlock(element) {
-  if (!element) return false;
-  const text = normalizeText(element.textContent);
-  return text.includes(REVIEW_INTRO_TITLE) && text.includes("Step 3");
-}
-
-function isRedundantProgressCard(element) {
-  if (!element || element.tagName !== "SECTION") return false;
-  const text = normalizeText(element.textContent);
-  if (!text) return false;
-
-  return STEP_NAMES.some((name, index) => {
-    const step = index + 1;
-    return text === `Step ${step} of 5 ${name} ${step * 20}%`;
-  });
-}
-
-function restoreReusedElements(root) {
-  root.querySelectorAll(`[${HIDDEN_MARKER}="true"]`).forEach((element) => {
-    const text = normalizeText(element.textContent);
-    if (shouldHideCopy(text) || isReviewIntroBlock(element)) return;
-    element.hidden = false;
-    element.style.removeProperty("display");
-    element.removeAttribute(HIDDEN_MARKER);
-  });
-
-  root.querySelectorAll(`[${PROGRESS_HIDDEN_MARKER}="true"]`).forEach((element) => {
-    if (isRedundantProgressCard(element)) return;
-    element.hidden = false;
-    element.style.removeProperty("display");
-    element.removeAttribute(PROGRESS_HIDDEN_MARKER);
-  });
-}
-
-function hideRedundantProgressCard(root) {
-  root.querySelectorAll("section").forEach((section) => {
-    if (!isRedundantProgressCard(section)) return;
-    section.setAttribute(PROGRESS_HIDDEN_MARKER, "true");
-    section.hidden = true;
-  });
 }
 
 function createInfoIcon() {
@@ -406,7 +339,7 @@ function wireInfoToggle(button, popover) {
   });
 }
 
-function installStep4Info(root) {
+function installTimeframeInfo(root) {
   root.querySelectorAll("div.flex.items-start.gap-3").forEach((header) => {
     const text = normalizeText(header.textContent);
     if (!text.includes(STEP4_INFO_TITLE) || !text.includes(STEP4_INFO_BODY)) return;
@@ -426,7 +359,7 @@ function installStep4Info(root) {
   });
 }
 
-function installStep4RelationshipInfo(root) {
+function installRelationshipInfo(root) {
   root.querySelectorAll("p").forEach((body) => {
     if (normalizeText(body.textContent) !== STEP4_RELATIONSHIP_BODY) return;
 
@@ -453,50 +386,76 @@ function installStep4RelationshipInfo(root) {
   });
 }
 
-function hideMatchingCopy(root) {
-  restoreReusedElements(root);
-
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  const elementsToHide = new Set();
-  let node = walker.nextNode();
-
-  while (node) {
-    const text = normalizeText(node.nodeValue);
-
-    if (text === TOP_EXPLANATION || text === TOTAL_EXPLANATION) {
-      const paragraph = node.parentElement?.closest("p");
-      if (paragraph) elementsToHide.add(paragraph);
-    }
-
-    if (isEmptyStateCopy(text)) {
-      const explanationCard = node.parentElement?.closest("div");
-      if (explanationCard) elementsToHide.add(explanationCard);
-    }
-
-    if (text === REVIEW_INTRO_TITLE) {
-      const reviewIntro = node.parentElement?.closest("div.flex.items-start.gap-3");
-      if (reviewIntro) elementsToHide.add(reviewIntro);
-    }
-
-    node = walker.nextNode();
-  }
-
-  elementsToHide.forEach((element) => {
-    element.setAttribute(HIDDEN_MARKER, "true");
-    element.hidden = true;
+function hideEmptyBudgetCopy(root) {
+  root.querySelectorAll(`[${HIDDEN_MARKER}="true"]`).forEach((element) => {
+    if (normalizeText(element.textContent).startsWith(EMPTY_STATE_PREFIX)) return;
+    element.hidden = false;
+    element.removeAttribute(HIDDEN_MARKER);
   });
 
-  hideRedundantProgressCard(root);
+  root.querySelectorAll("div").forEach((element) => {
+    if (!normalizeText(element.textContent).startsWith(EMPTY_STATE_PREFIX)) return;
+    const card = element.closest("div.rounded-2xl") || element;
+    card.setAttribute(HIDDEN_MARKER, "true");
+    card.hidden = true;
+  });
 }
 
-function findStat(section, label) {
-  const labelNode = Array.from(section.querySelectorAll("p")).find(
-    (node) => normalizeText(node.textContent).toLowerCase() === label.toLowerCase(),
+function findButton(section, matcher) {
+  return Array.from(section?.querySelectorAll("button") || []).find((button) => matcher(normalizeText(button.textContent)));
+}
+
+function detectActualStep(root) {
+  const sections = Array.from(root.querySelectorAll("section"));
+
+  for (const section of sections) {
+    if (findButton(section, (text) => text.toLowerCase().includes("activate budget"))) return { step: 5, section };
+  }
+
+  for (const section of sections) {
+    const text = normalizeText(section.textContent);
+    if (text.includes("Every 2 weeks") && text.includes("Custom")) return { step: 4, section };
+  }
+
+  for (const section of sections) {
+    if (normalizeText(section.textContent).includes("Total budget needed")) return { step: 3, section };
+  }
+
+  for (const section of sections) {
+    if (findButton(section, (text) => text === "Back to items")) return { step: 2, section };
+  }
+
+  for (const section of sections) {
+    if (findButton(section, (text) => text === "Add item" || text === "Update item")) return { step: 1, section };
+  }
+
+  return { step: 0, section: null };
+}
+
+function setButtonLabel(button, label) {
+  if (!button || normalizeText(button.textContent) === label) return;
+  const textNode = Array.from(button.childNodes).find(
+    (node) => node.nodeType === Node.TEXT_NODE && normalizeText(node.nodeValue),
   );
-  const card = labelNode?.closest("div.rounded-2xl");
-  if (!card) return "₱0";
-  const paragraphs = Array.from(card.querySelectorAll(":scope > p"));
-  return normalizeText(paragraphs[1]?.textContent) || "₱0";
+  if (textNode) textNode.nodeValue = `${label} `;
+  else button.insertBefore(document.createTextNode(`${label} `), button.firstChild);
+}
+
+function setVirtualHeader(root, actualStep) {
+  const labels = {
+    1: "Step 1 of 4 · Budget Items",
+    2: "Step 2 of 4 · Protected Money",
+    3: "Step 3 of 4 · Timeframe",
+    4: "Step 3 of 4 · Timeframe",
+    5: "Step 4 of 4 · Review",
+  };
+  const next = labels[actualStep];
+  if (!next) return;
+
+  const stickyHeader = root.querySelector("header.sticky");
+  if (!stickyHeader) return;
+  const progress = Array.from(stickyHeader.querySelectorAll("p")).find((node) => /Step\s+\d+\s+of\s+\d+/i.test(node.textContent));
+  if (progress && normalizeText(progress.textContent) !== next) progress.textContent = next;
 }
 
 function pickMessageIndex() {
@@ -505,92 +464,127 @@ function pickMessageIndex() {
     lastIndex = Number.parseInt(localStorage.getItem(LAST_MESSAGE_STORAGE_KEY) || "-1", 10);
   } catch {}
 
-  const available = MOTIVATION_MESSAGES.map((_, index) => index).filter((index) => index !== lastIndex);
-  const index = available[Math.floor(Math.random() * available.length)] ?? 0;
-
+  const choices = MOTIVATION_MESSAGES.map((_, index) => index).filter((index) => index !== lastIndex);
+  const index = choices[Math.floor(Math.random() * choices.length)] ?? 0;
   try {
     localStorage.setItem(LAST_MESSAGE_STORAGE_KEY, String(index));
   } catch {}
-
   return index;
 }
 
-function enhanceStep5(root) {
-  root.querySelectorAll("section").forEach((section) => {
-    const activateButton = Array.from(section.querySelectorAll("button")).find((button) =>
-      normalizeText(button.textContent).toLowerCase().includes("activate budget"),
-    );
-    if (!activateButton) return;
+function enhanceFinalReview(section) {
+  if (!section) return;
 
-    const headerShell = section.firstElementChild;
-    const body = Array.from(section.children).find((child) => child.classList?.contains("p-4"));
-    if (!headerShell || !body) return;
+  const headerShell = section.firstElementChild;
+  const header = headerShell?.querySelector("div.flex.items-start.gap-3");
+  const textWrap = header?.querySelector(":scope > div:last-child");
+  const eyebrow = textWrap?.querySelector(":scope > p:first-child");
+  const title = header?.querySelector("h2");
+  const summary = title?.nextElementSibling;
+  if (!headerShell || !header || !textWrap || !eyebrow || !title || !summary) return;
 
-    const header = headerShell.querySelector("div.flex.items-start.gap-3");
-    const title = header?.querySelector("h2");
-    const textWrap = header?.querySelector(":scope > div:last-child");
-    const eyebrow = textWrap?.querySelector(":scope > p:first-child");
-    const summary = title?.nextElementSibling;
-    if (!header || !title || !eyebrow || !summary) return;
+  section.setAttribute(FINAL_SCREEN_MARKER, "true");
+  header.setAttribute(FINAL_HERO_MARKER, "true");
+  header.removeAttribute("data-clara-budget-step5-polished");
 
-    /* Clear markers left by the earlier experimental runtime. */
-    section.querySelectorAll("[data-clara-budget-final-original], [data-clara-budget-final-hide]").forEach((element) => {
-      element.removeAttribute("data-clara-budget-final-original");
-      element.removeAttribute("data-clara-budget-final-hide");
-    });
-    header.removeAttribute("data-clara-budget-step5-polished");
+  if (!section.getAttribute(FINAL_ORIGINAL_CYCLE)) {
+    const originalTitle = normalizeText(title.textContent);
+    const cycle = originalTitle
+      .replace(/^You created a\s+/i, "")
+      .replace(/^₱[\d,.]+\s+/i, "")
+      .replace(/\s+budget$/i, "") || "Budget";
+    section.setAttribute(FINAL_ORIGINAL_CYCLE, cycle);
+  }
 
-    section.setAttribute(STEP5_SCREEN_MARKER, "true");
-    header.setAttribute(STEP5_HERO_MARKER, "true");
+  if (!section.getAttribute(FINAL_ORIGINAL_DATES)) {
+    const originalSummary = normalizeText(summary.textContent);
+    const dates = originalSummary
+      .replace(/^This budget is intended to cover\s+/i, "")
+      .replace(/\.$/, "");
+    section.setAttribute(FINAL_ORIGINAL_DATES, dates);
+  }
 
-    const regular = findStat(section, "Regular items");
-    const protectedMoney = findStat(section, "Protected money");
-    const debt = findStat(section, "Debt & obligations");
-    const total = findStat(section, "Calculated total");
+  let messageIndex = Number.parseInt(section.getAttribute(FINAL_MESSAGE_INDEX) || "", 10);
+  if (!Number.isInteger(messageIndex) || !MOTIVATION_MESSAGES[messageIndex]) {
+    messageIndex = pickMessageIndex();
+    section.setAttribute(FINAL_MESSAGE_INDEX, String(messageIndex));
+  }
 
-    if (!section.getAttribute(STEP5_ORIGINAL_CYCLE)) {
-      const originalTitle = normalizeText(title.textContent);
-      const cycle = originalTitle
-        .replace(/^You created a\s+/i, "")
-        .replace(/^₱[\d,.]+\s+/i, "")
-        .replace(/\s+budget$/i, "") || "Budget";
-      section.setAttribute(STEP5_ORIGINAL_CYCLE, cycle);
-    }
+  eyebrow.textContent = "YOUR BUDGET IS READY";
+  title.textContent = MOTIVATION_MESSAGES[messageIndex];
+}
 
-    if (!section.getAttribute(STEP5_ORIGINAL_DATES)) {
-      const originalSummary = normalizeText(summary.textContent);
-      const dates = originalSummary
-        .replace(/^This budget is intended to cover\s+/i, "")
-        .replace(/\.$/, "");
-      section.setAttribute(STEP5_ORIGINAL_DATES, dates);
-    }
+let transitionDirection = "forward";
+let transitBusy = false;
 
-    let messageIndex = Number.parseInt(section.getAttribute(STEP5_MESSAGE_INDEX) || "", 10);
-    if (!Number.isInteger(messageIndex) || !MOTIVATION_MESSAGES[messageIndex]) {
-      messageIndex = pickMessageIndex();
-      section.setAttribute(STEP5_MESSAGE_INDEX, String(messageIndex));
-    }
+function installNavigationCapture(root) {
+  if (root.dataset.claraBudgetFourStepCapture === "true") return;
+  root.dataset.claraBudgetFourStepCapture = "true";
 
-    const cycle = section.getAttribute(STEP5_ORIGINAL_CYCLE) || "Budget";
-    const dates = section.getAttribute(STEP5_ORIGINAL_DATES) || "";
-    const message = MOTIVATION_MESSAGES[messageIndex];
+  root.addEventListener(
+    "click",
+    (event) => {
+      const button = event.target?.closest?.("button");
+      if (!button) return;
+      const { step, section } = detectActualStep(root);
+      if (!section || !section.contains(button)) return;
+      const label = normalizeText(button.textContent);
 
-    if (eyebrow.textContent !== "YOUR BUDGET IS READY") eyebrow.textContent = "YOUR BUDGET IS READY";
-    if (title.textContent !== message) title.textContent = message;
+      if (step === 2 && (label === "Review total" || label === "Set timeframe")) {
+        transitionDirection = "forward";
+      } else if (step === 4 && label === "Back") {
+        transitionDirection = "back";
+      }
+    },
+    true,
+  );
+}
 
-    const consolidated = `${total} TOTAL BUDGET\n${cycle}${dates ? ` · ${dates}` : ""}\nItems ${regular} · Protected ${protectedMoney} · Obligations ${debt}`;
-    if (summary.textContent !== consolidated) summary.textContent = consolidated;
+function skipRedundantReview(section) {
+  if (!section || transitBusy) return;
+  section.setAttribute(TRANSIT_REVIEW_MARKER, "true");
+  transitBusy = true;
 
-    const statsGrid = Array.from(body.children).find(
-      (child) => child.classList?.contains("grid") && child.classList?.contains("grid-cols-2"),
-    );
-    if (statsGrid) statsGrid.setAttribute(STEP5_HIDE_MARKER, "true");
+  requestAnimationFrame(() => {
+    const target =
+      transitionDirection === "back"
+        ? findButton(section, (text) => text === "Back")
+        : findButton(section, (text) => text === "Set timeframe");
 
-    const explanation = Array.from(body.children).find((child) =>
-      normalizeText(child.textContent).startsWith("It includes "),
-    );
-    if (explanation) explanation.setAttribute(STEP5_HIDE_MARKER, "true");
+    if (target) target.click();
+    transitionDirection = "forward";
+    window.setTimeout(() => {
+      transitBusy = false;
+    }, 80);
   });
+}
+
+function applyFourStepFlow(root) {
+  const { step, section } = detectActualStep(root);
+  if (!step || !section) return;
+
+  setVirtualHeader(root, step);
+
+  if (step === 2) {
+    const next = findButton(section, (text) => text === "Review total" || text === "Set timeframe");
+    setButtonLabel(next, "Set timeframe");
+  }
+
+  if (step === 3) {
+    skipRedundantReview(section);
+    return;
+  }
+
+  if (step === 4) {
+    const next = findButton(section, (text) => text === "Final summary" || text === "Review budget");
+    setButtonLabel(next, "Review budget");
+    installTimeframeInfo(root);
+    installRelationshipInfo(root);
+  }
+
+  if (step === 5) {
+    enhanceFinalReview(section);
+  }
 }
 
 export function installBudgetSetupCopyCleanup() {
@@ -603,15 +597,14 @@ export function installBudgetSetupCopyCleanup() {
     const root = document.getElementById("root");
     if (!root) return;
 
+    installNavigationCapture(root);
+
     let scheduled = false;
     const run = () => {
       scheduled = false;
-      hideMatchingCopy(root);
-      installStep4Info(root);
-      installStep4RelationshipInfo(root);
-      enhanceStep5(root);
+      hideEmptyBudgetCopy(root);
+      applyFourStepFlow(root);
     };
-
     const schedule = () => {
       if (scheduled) return;
       scheduled = true;
