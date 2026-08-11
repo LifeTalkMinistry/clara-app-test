@@ -28,3 +28,12 @@
 #root [class*="circle_at_top_left"] .clara-budget-step4-info-row:has(.clara-budget-step-info-popover:not([hidden])) .clara-budget-step-info-button {
   align-self: center !important;
 }
+
+/* Step 5: the amount breakdown already lives in the four summary pills below.
+   Keep the motivational hero clean by removing the duplicate total/timeframe/detail strip. */
+#root [class*="circle_at_top_left"] [data-clara-budget-final-hero-owned="true"] h2 + p {
+  display: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
