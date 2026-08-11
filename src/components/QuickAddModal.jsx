@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,7 @@ import {
 } from "lucide-react";
 import useUserRole from "../hooks/useUserRole";
 import useFinancialData from "@/hooks/useFinancialData";
+import useDashboardManualExpenseBudgetOptions from "@/components/fresh/main-dashboard/budget/useDashboardManualExpenseBudgetOptions";
 import {
   getWalletDisplayBalance,
   getWalletDisplayName,
@@ -27,19 +29,7 @@ import {
 } from "@/utils/dashboard/dashboardHelpers";
 
 const PH_TIME_ZONE = "Asia/Manila";
-
-const categories = [
-  "food",
-  "transport",
-  "housing",
-  "utilities",
-  "entertainment",
-  "shopping",
-  "health",
-  "education",
-  "personal",
-  "other",
-];
+const OUTSIDE_BUDGET_KEY = "__unplanned__";
 
 const ACTION_TYPES = [
   { id: "expense", label: "Expense", icon: Receipt },
@@ -53,6 +43,17 @@ const normalizeNumber = (value) => {
   return Number.isFinite(numeric) ? numeric : 0;
 };
 
+const normalizeText = (value) => String(value ?? "").trim();
+const normalizeLower = (value) => normalizeText(value).toLowerCase();
+
+const formatPhp = (value) =>
+  new Intl.NumberFormat("en-PH", {
+    style: "currency",
+    currency: "PHP",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(normalizeNumber(value));
+
 const getPHDateString = (value = new Date()) => {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: PH_TIME_ZONE,
@@ -60,18 +61,87 @@ const getPHDateString = (value = new Date()) => {
     month: "2-digit",
     day: "2-digit",
   }).formatToParts(value);
-  const map = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  const map = Object.fromEntries(
+    parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]),
+  );
   return `${map.year}-${map.month}-${map.day}`;
+};
+
+const getRecordDateString = (record) => {
+  const raw =
+    record?.date ||
+    record?.transaction_date ||
+    record?.expense_date ||
+    record?.created_at ||
+    record?.createdAt ||
+    "";
+  if (!raw) return "";
+  const text = String(raw);
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.slice(0, 10);
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? "" : getPHDateString(parsed);
+};
+
+const isBudgetHeader = (budget) =>
+  Boolean(
+    budget?.is_plan_header === true ||
+      normalizeLower(budget?.plan_type) === "monthly_budget" ||
+      normalizeLower(budget?.category) === "__monthly_budget__" ||
+      normalizeLower(budget?.budget_category) === "__monthly_budget__" ||
+      normalizeLower(budget?.type) === "monthly_budget",
+  );
+
+const isLiveBudgetRecord = (budget) => {
+  const status = normalizeLower(budget?.status);
+  return Boolean(
+    budget &&
+      !budget?.deletedAt &&
+      !budget?.deleted_at &&
+      budget?.is_active !== false &&
+      budget?.active !== false &&
+      !["inactive", "archived", "deleted", "closed"].includes(status),
+  );
+};
+
+const getBudgetRange = (budget, today) => {
+  const start = normalizeText(
+    budget?.cycle_start ||
+      budget?.budget_cycle_start ||
+      budget?.period_start ||
+      budget?.range_start ||
+      budget?.tracking_start_date ||
+      budget?.tracking_started_at ||
+      budget?.start_date,
+  ).slice(0, 10);
+  const end = normalizeText(
+    budget?.cycle_end ||
+      budget?.budget_cycle_end ||
+      budget?.period_end ||
+      budget?.range_end ||
+      budget?.end_date,
+  ).slice(0, 10);
+
+  if (start && end) return { start, end };
+
+  const monthKey = normalizeText(
+    budget?.month || budget?.budget_month || budget?.month_key || today.slice(0, 7),
+  ).slice(0, 7);
+  const [year, month] = monthKey.split("-").map(Number);
+  if (!year || !month) return { start: `${today.slice(0, 7)}-01`, end: today };
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return {
+    start: `${monthKey}-01`,
+    end: `${monthKey}-${String(lastDay).padStart(2, "0")}`,
+  };
 };
 
 const getDefaultExpenseForm = (walletId = "") => ({
   amount: "",
-  category: "food",
+  budget_list_key: "",
+  unplanned_label: "",
   wallet_id: walletId,
   notes: "",
   need_type: "need",
-  planning_status: "planned",
-  unplanned_reason: "",
 });
 
 const getDefaultIncomeForm = (walletId = "") => ({
@@ -135,7 +205,12 @@ function CalculatorPopover({ open, value, onValueChange, onApply, onClose }) {
     <div className="absolute right-0 top-[calc(100%+8px)] z-[120] w-[280px] rounded-2xl border border-emerald-500/20 bg-[#06162d] p-3 shadow-2xl">
       <div className="mb-3 flex items-center justify-between">
         <div className="text-sm font-semibold text-white">Calculator</div>
-        <button type="button" onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-white/5 hover:text-white" aria-label="Close calculator">
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-md p-1 text-slate-400 hover:bg-white/5 hover:text-white"
+          aria-label="Close calculator"
+        >
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -166,8 +241,21 @@ function CalculatorPopover({ open, value, onValueChange, onApply, onClose }) {
         ))}
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <Button type="button" variant="outline" onClick={onClose} className="border-slate-700 bg-transparent text-slate-200">Close</Button>
-        <Button type="button" onClick={() => onApply(previewResult || value)} className="bg-emerald-600 text-white">Apply</Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onClose}
+          className="border-slate-700 bg-transparent text-slate-200"
+        >
+          Close
+        </Button>
+        <Button
+          type="button"
+          onClick={() => onApply(previewResult || value)}
+          className="bg-emerald-600 text-white"
+        >
+          Apply
+        </Button>
       </div>
     </div>
   );
@@ -180,10 +268,13 @@ export default function QuickAddModal({
   initialAction = "expense",
   initialExpenseData = null,
 }) {
+  const navigate = useNavigate();
   const { user } = useUserRole();
   const finance = useFinancialData(user);
   const {
     wallets = [],
+    expenses = [],
+    budgets = [],
     loading: loadingWallets = false,
     refreshing = false,
     addExpense,
@@ -192,10 +283,90 @@ export default function QuickAddModal({
     refreshData,
   } = finance;
 
+  const rawBudgetOptions = useDashboardManualExpenseBudgetOptions({ budgets });
+  const today = getPHDateString();
+
+  const activeBudgetHeader = useMemo(() => {
+    const candidates = (Array.isArray(budgets) ? budgets : [])
+      .filter((budget) => isBudgetHeader(budget) && isLiveBudgetRecord(budget))
+      .filter((budget) => {
+        const range = getBudgetRange(budget, today);
+        return today >= range.start && today <= range.end;
+      });
+    return candidates[0] || null;
+  }, [budgets, today]);
+
+  const budgetPeriod = useMemo(
+    () => getBudgetRange(activeBudgetHeader || {}, today),
+    [activeBudgetHeader, today],
+  );
+
+  const budgetSetupExists = useMemo(() => {
+    if (activeBudgetHeader || rawBudgetOptions.length) return true;
+    return (Array.isArray(budgets) ? budgets : []).some((budget) => {
+      if (!isLiveBudgetRecord(budget)) return false;
+      const range = getBudgetRange(budget, today);
+      return today >= range.start && today <= range.end;
+    });
+  }, [activeBudgetHeader, budgets, rawBudgetOptions.length, today]);
+
+  const budgetItems = useMemo(() => {
+    const safeExpenses = (Array.isArray(expenses) ? expenses : []).filter(
+      (expense) => !expense?.deletedAt && !expense?.deleted_at,
+    );
+
+    return rawBudgetOptions
+      .filter((item) => {
+        const record = item?.budget || item || {};
+        const protectionType = normalizeLower(
+          record?.protection_type || record?.linked_target_type || record?.protected_type,
+        );
+        return !record?.is_protected_commitment && !["emergency_fund", "savings_goal"].includes(protectionType);
+      })
+      .map((item) => {
+        const itemId = normalizeText(item?.id || item?.budget?.id);
+        const itemKey = normalizeText(item?.key);
+        const itemTitle = normalizeText(item?.title);
+        const titleLower = normalizeLower(itemTitle);
+
+        const spent = safeExpenses.reduce((sum, expense) => {
+          const date = getRecordDateString(expense);
+          if (!date || date < budgetPeriod.start || date > budgetPeriod.end) return sum;
+          if (["unplanned", "undocumented"].includes(normalizeLower(expense?.planning_status))) return sum;
+
+          const expenseId = normalizeText(
+            expense?.budget_item_id || expense?.budget_category_id || expense?.budgetCategoryId,
+          );
+          const expenseKey = normalizeText(expense?.budget_list_key || expense?.budgetListKey);
+          const expenseTitle = normalizeLower(
+            expense?.budget_item_name || expense?.budget_category || expense?.category,
+          );
+          const matches =
+            (itemId && expenseId && itemId === expenseId) ||
+            (itemKey && expenseKey && itemKey === expenseKey) ||
+            (titleLower && expenseTitle && titleLower === expenseTitle);
+
+          return matches ? sum + Math.abs(normalizeNumber(expense?.amount)) : sum;
+        }, 0);
+
+        const allocated = Math.max(normalizeNumber(item?.allocated), 0);
+        return {
+          ...item,
+          allocated,
+          spent,
+          remaining: allocated - spent,
+        };
+      });
+  }, [budgetPeriod.end, budgetPeriod.start, expenses, rawBudgetOptions]);
+
   const activeWallets = useMemo(
     () =>
       (Array.isArray(wallets) ? wallets : []).filter(
-        (wallet) => !wallet?.deletedAt && !wallet?.deleted_at && !wallet?.is_archived && !wallet?.isArchived,
+        (wallet) =>
+          !wallet?.deletedAt &&
+          !wallet?.deleted_at &&
+          !wallet?.is_archived &&
+          !wallet?.isArchived,
       ),
     [wallets],
   );
@@ -214,9 +385,19 @@ export default function QuickAddModal({
   const [calculatorOpen, setCalculatorOpen] = useState(false);
   const [calculatorValue, setCalculatorValue] = useState("");
 
+  const selectedBudgetItem = useMemo(
+    () =>
+      budgetItems.find((item) => String(item.key) === String(expenseForm.budget_list_key)) || null,
+    [budgetItems, expenseForm.budget_list_key],
+  );
+  const isOutsideBudget = expenseForm.budget_list_key === OUTSIDE_BUDGET_KEY;
+  const requiresUnplannedLabel = !budgetSetupExists || isOutsideBudget;
+
   useEffect(() => {
     if (!open) return;
-    const nextAction = ["expense", "income", "transfer"].includes(initialAction) ? initialAction : "expense";
+    const nextAction = ["expense", "income", "transfer"].includes(initialAction)
+      ? initialAction
+      : "expense";
     setActionType(nextAction);
     setError("");
     setCalculatorOpen(false);
@@ -225,21 +406,30 @@ export default function QuickAddModal({
   useEffect(() => {
     if (!open || !activeWallets.length) return;
     const firstWalletId = String(activeWallets[0]?.id || "");
-    const secondWalletId = String(activeWallets.find((wallet) => String(wallet.id) !== firstWalletId)?.id || "");
+    const secondWalletId = String(
+      activeWallets.find((wallet) => String(wallet.id) !== firstWalletId)?.id || "",
+    );
 
     setExpenseForm((prev) => ({
       ...prev,
-      wallet_id: prev.wallet_id && walletMap.has(String(prev.wallet_id)) ? prev.wallet_id : firstWalletId,
+      wallet_id:
+        prev.wallet_id && walletMap.has(String(prev.wallet_id)) ? prev.wallet_id : firstWalletId,
     }));
     setIncomeForm((prev) => ({
       ...prev,
-      wallet_id: prev.wallet_id && walletMap.has(String(prev.wallet_id)) ? prev.wallet_id : firstWalletId,
+      wallet_id:
+        prev.wallet_id && walletMap.has(String(prev.wallet_id)) ? prev.wallet_id : firstWalletId,
     }));
     setTransferForm((prev) => ({
       ...prev,
-      from_wallet_id: prev.from_wallet_id && walletMap.has(String(prev.from_wallet_id)) ? prev.from_wallet_id : firstWalletId,
+      from_wallet_id:
+        prev.from_wallet_id && walletMap.has(String(prev.from_wallet_id))
+          ? prev.from_wallet_id
+          : firstWalletId,
       to_wallet_id:
-        prev.to_wallet_id && walletMap.has(String(prev.to_wallet_id)) && String(prev.to_wallet_id) !== firstWalletId
+        prev.to_wallet_id &&
+        walletMap.has(String(prev.to_wallet_id)) &&
+        String(prev.to_wallet_id) !== firstWalletId
           ? prev.to_wallet_id
           : secondWalletId,
     }));
@@ -248,20 +438,57 @@ export default function QuickAddModal({
   useEffect(() => {
     if (!open || !initialExpenseData) return;
     const amount = normalizeNumber(initialExpenseData?.amount);
+    const requestedKey = normalizeText(
+      initialExpenseData?.budget_list_key || initialExpenseData?.budgetListKey,
+    );
+    const requestedId = normalizeText(
+      initialExpenseData?.budget_item_id || initialExpenseData?.budget_category_id,
+    );
+    const requestedTitle = normalizeLower(
+      initialExpenseData?.budget_item_name ||
+        initialExpenseData?.budget_category ||
+        initialExpenseData?.category,
+    );
+    const matchedBudget = budgetItems.find((item) => {
+      const id = normalizeText(item?.id || item?.budget?.id);
+      return Boolean(
+        (requestedKey && String(item.key) === requestedKey) ||
+          (requestedId && id === requestedId) ||
+          (requestedTitle && normalizeLower(item.title) === requestedTitle),
+      );
+    });
+
     setExpenseForm((prev) => ({
       ...prev,
       amount: amount > 0 ? String(amount) : prev.amount,
-      category: String(initialExpenseData?.category || prev.category || "food").toLowerCase(),
+      budget_list_key: matchedBudget
+        ? String(matchedBudget.key)
+        : requestedTitle
+          ? OUTSIDE_BUDGET_KEY
+          : prev.budget_list_key,
+      unplanned_label: matchedBudget
+        ? ""
+        : normalizeText(
+            initialExpenseData?.budget_item_name ||
+              initialExpenseData?.budget_category ||
+              initialExpenseData?.category ||
+              prev.unplanned_label,
+          ),
       notes: initialExpenseData?.notes || initialExpenseData?.note || prev.notes || "",
-      need_type: initialExpenseData?.need_type || initialExpenseData?.needType || prev.need_type || "need",
-      planning_status:
-        initialExpenseData?.planning_status || initialExpenseData?.planningStatus || prev.planning_status || "planned",
+      need_type:
+        initialExpenseData?.need_type ||
+        initialExpenseData?.needType ||
+        matchedBudget?.needType ||
+        prev.need_type ||
+        "need",
     }));
-  }, [initialExpenseData, open]);
+  }, [budgetItems, initialExpenseData, open]);
 
   const resetForms = () => {
     const firstWalletId = String(activeWallets[0]?.id || "");
-    const secondWalletId = String(activeWallets.find((wallet) => String(wallet.id) !== firstWalletId)?.id || "");
+    const secondWalletId = String(
+      activeWallets.find((wallet) => String(wallet.id) !== firstWalletId)?.id || "",
+    );
     setExpenseForm(getDefaultExpenseForm(firstWalletId));
     setIncomeForm(getDefaultIncomeForm(firstWalletId));
     setTransferForm(getDefaultTransferForm(firstWalletId, secondWalletId));
@@ -276,10 +503,30 @@ export default function QuickAddModal({
     window.setTimeout(resetForms, 120);
   };
 
+  const goSetUpBudget = () => {
+    if (saving) return;
+    onClose?.();
+    navigate("/budget-plan");
+    window.setTimeout(resetForms, 120);
+  };
+
   const nowPayload = () => {
     const now = new Date();
     const iso = now.toISOString();
-    return { now, iso, phDate: getPHDateString(now) };
+    return { iso, phDate: getPHDateString(now) };
+  };
+
+  const handleBudgetSelection = (value) => {
+    const item = budgetItems.find((candidate) => String(candidate.key) === String(value));
+    setExpenseForm((prev) => ({
+      ...prev,
+      budget_list_key: value,
+      unplanned_label: value === OUTSIDE_BUDGET_KEY ? prev.unplanned_label : "",
+      need_type:
+        item?.needType && ["need", "want", "savings"].includes(normalizeLower(item.needType))
+          ? normalizeLower(item.needType)
+          : prev.need_type,
+    }));
   };
 
   const handleCreateExpense = async () => {
@@ -293,24 +540,52 @@ export default function QuickAddModal({
       throw new Error("Not enough spendable balance in this wallet.");
     }
 
-    const planningStatus = ["planned", "unplanned", "undocumented"].includes(expenseForm.planning_status)
-      ? expenseForm.planning_status
-      : "planned";
-    const reason = String(expenseForm.unplanned_reason || "").trim();
-    if (planningStatus === "unplanned" && !reason) {
-      throw new Error("Reason is required for an unplanned expense.");
+    if (budgetSetupExists && !selectedBudgetItem && !isOutsideBudget) {
+      throw new Error("Choose which budget item this expense belongs to.");
     }
+
+    const unplannedLabel = normalizeText(expenseForm.unplanned_label);
+    if (!selectedBudgetItem && !unplannedLabel) {
+      throw new Error("Tell CLARA what this expense was for.");
+    }
+
+    const selectedRecord = selectedBudgetItem?.budget || selectedBudgetItem || null;
+    const selectedBudgetKey = selectedBudgetItem ? normalizeText(selectedBudgetItem.key) : "";
+    const selectedBudgetId = selectedBudgetItem
+      ? normalizeText(selectedBudgetItem.id || selectedRecord?.id || selectedBudgetKey)
+      : "";
+    const selectedPlanId = selectedBudgetItem
+      ? normalizeText(
+          selectedRecord?.budget_id ||
+            selectedRecord?.plan_id ||
+            selectedRecord?.monthly_budget_id ||
+            activeBudgetHeader?.id,
+        )
+      : "";
+    const budgetCategory = selectedBudgetItem ? normalizeText(selectedBudgetItem.title) : unplannedLabel;
+    const planningStatus = selectedBudgetItem ? "planned" : "unplanned";
+    const unplannedReason = selectedBudgetItem
+      ? null
+      : budgetSetupExists
+        ? `Not in active budget: ${unplannedLabel}`
+        : `No active budget: ${unplannedLabel}`;
 
     const { iso, phDate } = nowPayload();
     await addExpense?.({
       amount,
       wallet_id: String(expenseForm.wallet_id),
       walletId: String(expenseForm.wallet_id),
-      category: expenseForm.category,
-      budget_category: expenseForm.category,
+      category: budgetCategory,
+      budget_category: budgetCategory,
+      budget_item_name: budgetCategory,
+      budget_category_id: selectedBudgetId || null,
+      budget_item_id: selectedBudgetId || null,
+      budget_list_key: selectedBudgetKey || null,
+      budgetListKey: selectedBudgetKey || null,
+      budget_id: selectedPlanId || activeBudgetHeader?.id || null,
       need_type: expenseForm.need_type,
       planning_status: planningStatus,
-      unplanned_reason: planningStatus === "unplanned" ? reason : null,
+      unplanned_reason: unplannedReason,
       notes: expenseForm.notes || "",
       source_type: "Manual Log Expense",
       date: phDate,
@@ -348,7 +623,9 @@ export default function QuickAddModal({
   const handleCreateTransfer = async () => {
     const amount = normalizeNumber(transferForm.amount);
     if (amount <= 0) throw new Error("Enter a valid transfer amount.");
-    if (!transferForm.from_wallet_id || !transferForm.to_wallet_id) throw new Error("Please select both wallets.");
+    if (!transferForm.from_wallet_id || !transferForm.to_wallet_id) {
+      throw new Error("Please select both wallets.");
+    }
     if (String(transferForm.from_wallet_id) === String(transferForm.to_wallet_id)) {
       throw new Error("Source and destination wallets must be different.");
     }
@@ -403,6 +680,13 @@ export default function QuickAddModal({
   const selectedTransferFromWallet = walletMap.get(String(transferForm.from_wallet_id));
   const selectedTransferToWallet = walletMap.get(String(transferForm.to_wallet_id));
 
+  const expenseAmount = normalizeNumber(expenseForm.amount);
+  const projectedBudgetRemaining = selectedBudgetItem
+    ? selectedBudgetItem.remaining - expenseAmount
+    : null;
+  const wouldExceedBudget =
+    selectedBudgetItem && expenseAmount > 0 && projectedBudgetRemaining < 0;
+
   const openCalculatorForCurrentAction = () => {
     setCalculatorValue(
       actionType === "expense"
@@ -417,11 +701,21 @@ export default function QuickAddModal({
   const applyCalculatorValue = (value) => {
     const computedValue = String(value ?? "").trim();
     if (!computedValue) return setCalculatorOpen(false);
-    if (actionType === "expense") setExpenseForm((prev) => ({ ...prev, amount: computedValue }));
-    else if (actionType === "income") setIncomeForm((prev) => ({ ...prev, amount: computedValue }));
-    else setTransferForm((prev) => ({ ...prev, amount: computedValue }));
+    if (actionType === "expense") {
+      setExpenseForm((prev) => ({ ...prev, amount: computedValue }));
+    } else if (actionType === "income") {
+      setIncomeForm((prev) => ({ ...prev, amount: computedValue }));
+    } else {
+      setTransferForm((prev) => ({ ...prev, amount: computedValue }));
+    }
     setCalculatorOpen(false);
   };
+
+  const expenseReady = Boolean(
+    expenseForm.amount &&
+      expenseForm.wallet_id &&
+      (selectedBudgetItem || (requiresUnplannedLabel && normalizeText(expenseForm.unplanned_label))),
+  );
 
   const isDisabled =
     saving ||
@@ -429,7 +723,7 @@ export default function QuickAddModal({
     refreshing ||
     activeWallets.length === 0 ||
     (actionType === "expense"
-      ? !expenseForm.amount || !expenseForm.wallet_id
+      ? !expenseReady
       : actionType === "income"
         ? !incomeForm.amount || !incomeForm.wallet_id
         : !transferForm.amount || !transferForm.from_wallet_id || !transferForm.to_wallet_id);
@@ -447,11 +741,22 @@ export default function QuickAddModal({
           className="border-emerald-500/40 bg-[#071a34] pr-12 text-lg font-bold text-white"
           autoFocus
         />
-        <button type="button" onClick={openCalculatorForCurrentAction} className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-emerald-400 hover:bg-emerald-500/10" aria-label="Open calculator">
+        <button
+          type="button"
+          onClick={openCalculatorForCurrentAction}
+          className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-emerald-400 hover:bg-emerald-500/10"
+          aria-label="Open calculator"
+        >
           <Calculator className="h-4 w-4" />
         </button>
       </div>
-      <CalculatorPopover open={calculatorOpen} value={calculatorValue} onValueChange={setCalculatorValue} onApply={applyCalculatorValue} onClose={() => setCalculatorOpen(false)} />
+      <CalculatorPopover
+        open={calculatorOpen}
+        value={calculatorValue}
+        onValueChange={setCalculatorValue}
+        onApply={applyCalculatorValue}
+        onClose={() => setCalculatorOpen(false)}
+      />
     </div>
   );
 
@@ -486,21 +791,68 @@ export default function QuickAddModal({
 
         {actionType === "expense" ? (
           <div className="space-y-3">
-            <AmountField value={expenseForm.amount} onChange={(event) => setExpenseForm((prev) => ({ ...prev, amount: event.target.value }))} />
+            <AmountField
+              value={expenseForm.amount}
+              onChange={(event) =>
+                setExpenseForm((prev) => ({ ...prev, amount: event.target.value }))
+              }
+            />
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label className="mb-1 block text-xs text-slate-200">Category</Label>
-                <Select value={expenseForm.category} onValueChange={(value) => setExpenseForm((prev) => ({ ...prev, category: value }))}>
-                  <SelectTrigger className="border-slate-700 bg-[#071a34] text-white"><SelectValue /></SelectTrigger>
-                  <SelectContent>{categories.map((category) => <SelectItem key={category} value={category}>{category.charAt(0).toUpperCase() + category.slice(1)}</SelectItem>)}</SelectContent>
-                </Select>
+                <Label className="mb-1 block text-xs text-slate-200">Budget Item</Label>
+                {budgetSetupExists ? (
+                  <Select value={expenseForm.budget_list_key} onValueChange={handleBudgetSelection}>
+                    <SelectTrigger className="border-slate-700 bg-[#071a34] text-white">
+                      <SelectValue placeholder="Select budget item" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {budgetItems.map((item) => {
+                        const remainingLabel =
+                          item.remaining >= 0
+                            ? `${formatPhp(item.remaining)} left`
+                            : `${formatPhp(Math.abs(item.remaining))} over`;
+                        return (
+                          <SelectItem key={item.key} value={String(item.key)} textValue={item.title}>
+                            <div className="flex min-w-[220px] items-center justify-between gap-4">
+                              <span className="font-semibold">{item.title}</span>
+                              <span className={item.remaining < 0 ? "text-rose-300" : "text-slate-400"}>
+                                {remainingLabel}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                      <SelectItem value={OUTSIDE_BUDGET_KEY} textValue="Not in my budget">
+                        Not in my budget
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="flex h-10 items-center rounded-md border border-slate-700 bg-[#071a34] px-3 text-sm text-slate-400">
+                    No active budget yet
+                  </div>
+                )}
+                {selectedBudgetItem ? (
+                  <p className="mt-1 text-[11px] leading-4 text-slate-400">
+                    {selectedBudgetItem.remaining >= 0
+                      ? `${formatPhp(selectedBudgetItem.remaining)} left · ${formatPhp(selectedBudgetItem.allocated)} budget`
+                      : `${formatPhp(Math.abs(selectedBudgetItem.remaining))} over · ${formatPhp(selectedBudgetItem.allocated)} budget`}
+                  </p>
+                ) : null}
               </div>
 
               <div>
                 <Label className="mb-1 block text-xs text-slate-200">Need Type</Label>
-                <Select value={expenseForm.need_type} onValueChange={(value) => setExpenseForm((prev) => ({ ...prev, need_type: value }))}>
-                  <SelectTrigger className="border-slate-700 bg-[#071a34] text-white"><SelectValue /></SelectTrigger>
+                <Select
+                  value={expenseForm.need_type}
+                  onValueChange={(value) =>
+                    setExpenseForm((prev) => ({ ...prev, need_type: value }))
+                  }
+                >
+                  <SelectTrigger className="border-slate-700 bg-[#071a34] text-white">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="need">Need</SelectItem>
                     <SelectItem value="want">Want</SelectItem>
@@ -508,99 +860,240 @@ export default function QuickAddModal({
                   </SelectContent>
                 </Select>
               </div>
-
-              <div className="col-span-2">
-                <Label className="mb-1 block text-xs text-slate-200">Planning Status</Label>
-                <Select
-                  value={expenseForm.planning_status}
-                  onValueChange={(value) => setExpenseForm((prev) => ({ ...prev, planning_status: value, unplanned_reason: value === "unplanned" ? prev.unplanned_reason : "" }))}
-                >
-                  <SelectTrigger className="border-slate-700 bg-[#071a34] text-white"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="planned">Planned</SelectItem>
-                    <SelectItem value="unplanned">Unplanned</SelectItem>
-                    <SelectItem value="undocumented">Undocumented</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
 
-            {expenseForm.planning_status === "unplanned" ? (
+            {!budgetSetupExists ? (
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.07] px-3 py-2.5">
+                <p className="text-[11px] font-medium leading-4 text-amber-100/80">
+                  You can still log this expense. CLARA will treat it as outside an active budget.
+                </p>
+                <button
+                  type="button"
+                  onClick={goSetUpBudget}
+                  className="shrink-0 rounded-lg border border-amber-300/20 bg-amber-300/10 px-2.5 py-1.5 text-[10px] font-bold text-amber-100"
+                >
+                  Set up budget
+                </button>
+              </div>
+            ) : null}
+
+            {requiresUnplannedLabel ? (
               <div>
-                <Label className="mb-1 block text-xs text-slate-200">Reason</Label>
-                <Input value={expenseForm.unplanned_reason} onChange={(event) => setExpenseForm((prev) => ({ ...prev, unplanned_reason: event.target.value }))} placeholder="Why did this need to happen?" className="border-slate-700 bg-[#071a34] text-white" />
+                <Label className="mb-1 block text-xs text-slate-200">What was this for?</Label>
+                <Input
+                  value={expenseForm.unplanned_label}
+                  onChange={(event) =>
+                    setExpenseForm((prev) => ({ ...prev, unplanned_label: event.target.value }))
+                  }
+                  placeholder="e.g., Medicine, unexpected fare"
+                  className="border-slate-700 bg-[#071a34] text-white"
+                />
+                <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                  This will be logged automatically as unplanned spending.
+                </p>
+              </div>
+            ) : null}
+
+            {wouldExceedBudget ? (
+              <div className="rounded-xl border border-amber-400/20 bg-amber-400/[0.07] px-3 py-2 text-[11px] font-semibold leading-4 text-amber-100/90">
+                This would put {selectedBudgetItem.title} {formatPhp(Math.abs(projectedBudgetRemaining))} over budget. You can still record it.
               </div>
             ) : null}
 
             <div>
               <Label className="mb-1 block text-xs text-slate-200">Wallet</Label>
-              <Select value={expenseForm.wallet_id} onValueChange={(value) => setExpenseForm((prev) => ({ ...prev, wallet_id: value }))}>
-                <SelectTrigger className="border-slate-700 bg-[#071a34] text-white"><SelectValue placeholder={loadingWallets ? "Loading wallets..." : "Select wallet"} /></SelectTrigger>
-                <SelectContent>{activeWallets.map((wallet) => <SelectItem key={wallet.id} value={String(wallet.id)}>{getWalletDisplayName(wallet)}</SelectItem>)}</SelectContent>
+              <Select
+                value={expenseForm.wallet_id}
+                onValueChange={(value) =>
+                  setExpenseForm((prev) => ({ ...prev, wallet_id: value }))
+                }
+              >
+                <SelectTrigger className="border-slate-700 bg-[#071a34] text-white">
+                  <SelectValue placeholder={loadingWallets ? "Loading wallets..." : "Select wallet"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeWallets.map((wallet) => (
+                    <SelectItem key={wallet.id} value={String(wallet.id)}>
+                      {getWalletDisplayName(wallet)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
-              {selectedExpenseWallet ? <p className="mt-1 text-xs text-slate-400">Spendable: ₱{getWalletSpendableBalance(selectedExpenseWallet).toLocaleString()}</p> : null}
+              {selectedExpenseWallet ? (
+                <p className="mt-1 text-xs text-slate-400">
+                  Spendable: {formatPhp(getWalletSpendableBalance(selectedExpenseWallet))}
+                </p>
+              ) : null}
             </div>
 
             <div>
               <Label className="mb-1 block text-xs text-slate-200">Note (optional)</Label>
-              <Input placeholder="What was this for?" value={expenseForm.notes} onChange={(event) => setExpenseForm((prev) => ({ ...prev, notes: event.target.value }))} className="border-slate-700 bg-[#071a34] text-white" />
+              <Input
+                placeholder="What was this for?"
+                value={expenseForm.notes}
+                onChange={(event) =>
+                  setExpenseForm((prev) => ({ ...prev, notes: event.target.value }))
+                }
+                className="border-slate-700 bg-[#071a34] text-white"
+              />
             </div>
 
-            <p className="text-[11px] leading-4 text-slate-500">Date and time are recorded automatically when you save.</p>
+            <p className="text-[11px] leading-4 text-slate-500">
+              Date, time, and planning status are handled automatically when you save.
+            </p>
           </div>
         ) : null}
 
         {actionType === "income" ? (
           <div className="space-y-3">
-            <AmountField value={incomeForm.amount} onChange={(event) => setIncomeForm((prev) => ({ ...prev, amount: event.target.value }))} />
+            <AmountField
+              value={incomeForm.amount}
+              onChange={(event) =>
+                setIncomeForm((prev) => ({ ...prev, amount: event.target.value }))
+              }
+            />
             <div>
               <Label className="mb-1 block text-xs text-slate-200">Source / Description</Label>
-              <Input placeholder="e.g., Salary, Freelance" value={incomeForm.source} onChange={(event) => setIncomeForm((prev) => ({ ...prev, source: event.target.value }))} className="border-slate-700 bg-[#071a34] text-white" />
+              <Input
+                placeholder="e.g., Salary, Freelance"
+                value={incomeForm.source}
+                onChange={(event) =>
+                  setIncomeForm((prev) => ({ ...prev, source: event.target.value }))
+                }
+                className="border-slate-700 bg-[#071a34] text-white"
+              />
             </div>
             <div>
               <Label className="mb-1 block text-xs text-slate-200">Wallet</Label>
-              <Select value={incomeForm.wallet_id} onValueChange={(value) => setIncomeForm((prev) => ({ ...prev, wallet_id: value }))}>
-                <SelectTrigger className="border-slate-700 bg-[#071a34] text-white"><SelectValue placeholder={loadingWallets ? "Loading wallets..." : "Select wallet"} /></SelectTrigger>
-                <SelectContent>{activeWallets.map((wallet) => <SelectItem key={wallet.id} value={String(wallet.id)}>{getWalletDisplayName(wallet)}</SelectItem>)}</SelectContent>
+              <Select
+                value={incomeForm.wallet_id}
+                onValueChange={(value) =>
+                  setIncomeForm((prev) => ({ ...prev, wallet_id: value }))
+                }
+              >
+                <SelectTrigger className="border-slate-700 bg-[#071a34] text-white">
+                  <SelectValue placeholder={loadingWallets ? "Loading wallets..." : "Select wallet"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeWallets.map((wallet) => (
+                    <SelectItem key={wallet.id} value={String(wallet.id)}>
+                      {getWalletDisplayName(wallet)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
-              {selectedIncomeWallet ? <p className="mt-1 text-xs text-slate-400">Current balance: ₱{getWalletDisplayBalance(selectedIncomeWallet).toLocaleString()}</p> : null}
+              {selectedIncomeWallet ? (
+                <p className="mt-1 text-xs text-slate-400">
+                  Current balance: {formatPhp(getWalletDisplayBalance(selectedIncomeWallet))}
+                </p>
+              ) : null}
             </div>
             <div>
               <Label className="mb-1 block text-xs text-slate-200">Note (optional)</Label>
-              <Input placeholder="Additional details" value={incomeForm.notes} onChange={(event) => setIncomeForm((prev) => ({ ...prev, notes: event.target.value }))} className="border-slate-700 bg-[#071a34] text-white" />
+              <Input
+                placeholder="Additional details"
+                value={incomeForm.notes}
+                onChange={(event) =>
+                  setIncomeForm((prev) => ({ ...prev, notes: event.target.value }))
+                }
+                className="border-slate-700 bg-[#071a34] text-white"
+              />
             </div>
-            <p className="text-[11px] leading-4 text-slate-500">Date and time are recorded automatically when you save.</p>
+            <p className="text-[11px] leading-4 text-slate-500">
+              Date and time are recorded automatically when you save.
+            </p>
           </div>
         ) : null}
 
         {actionType === "transfer" ? (
           <div className="space-y-3">
-            <AmountField value={transferForm.amount} onChange={(event) => setTransferForm((prev) => ({ ...prev, amount: event.target.value }))} />
+            <AmountField
+              value={transferForm.amount}
+              onChange={(event) =>
+                setTransferForm((prev) => ({ ...prev, amount: event.target.value }))
+              }
+            />
             <div>
               <Label className="mb-1 block text-xs text-slate-200">From Wallet</Label>
-              <Select value={transferForm.from_wallet_id} onValueChange={(value) => setTransferForm((prev) => ({ ...prev, from_wallet_id: value, to_wallet_id: String(prev.to_wallet_id) === String(value) ? "" : prev.to_wallet_id }))}>
-                <SelectTrigger className="border-slate-700 bg-[#071a34] text-white"><SelectValue placeholder="Select wallet" /></SelectTrigger>
-                <SelectContent>{activeWallets.map((wallet) => <SelectItem key={wallet.id} value={String(wallet.id)}>{getWalletDisplayName(wallet)}</SelectItem>)}</SelectContent>
+              <Select
+                value={transferForm.from_wallet_id}
+                onValueChange={(value) =>
+                  setTransferForm((prev) => ({
+                    ...prev,
+                    from_wallet_id: value,
+                    to_wallet_id:
+                      String(prev.to_wallet_id) === String(value) ? "" : prev.to_wallet_id,
+                  }))
+                }
+              >
+                <SelectTrigger className="border-slate-700 bg-[#071a34] text-white">
+                  <SelectValue placeholder="Select wallet" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeWallets.map((wallet) => (
+                    <SelectItem key={wallet.id} value={String(wallet.id)}>
+                      {getWalletDisplayName(wallet)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
-              {selectedTransferFromWallet ? <p className="mt-1 text-xs text-slate-400">Spendable: ₱{getWalletSpendableBalance(selectedTransferFromWallet).toLocaleString()}</p> : null}
+              {selectedTransferFromWallet ? (
+                <p className="mt-1 text-xs text-slate-400">
+                  Spendable: {formatPhp(getWalletSpendableBalance(selectedTransferFromWallet))}
+                </p>
+              ) : null}
             </div>
             <div>
               <Label className="mb-1 block text-xs text-slate-200">To Wallet</Label>
-              <Select value={transferForm.to_wallet_id} onValueChange={(value) => setTransferForm((prev) => ({ ...prev, to_wallet_id: value }))}>
-                <SelectTrigger className="border-slate-700 bg-[#071a34] text-white"><SelectValue placeholder="Select wallet" /></SelectTrigger>
-                <SelectContent>{activeWallets.filter((wallet) => String(wallet.id) !== String(transferForm.from_wallet_id)).map((wallet) => <SelectItem key={wallet.id} value={String(wallet.id)}>{getWalletDisplayName(wallet)}</SelectItem>)}</SelectContent>
+              <Select
+                value={transferForm.to_wallet_id}
+                onValueChange={(value) =>
+                  setTransferForm((prev) => ({ ...prev, to_wallet_id: value }))
+                }
+              >
+                <SelectTrigger className="border-slate-700 bg-[#071a34] text-white">
+                  <SelectValue placeholder="Select wallet" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeWallets
+                    .filter(
+                      (wallet) => String(wallet.id) !== String(transferForm.from_wallet_id),
+                    )
+                    .map((wallet) => (
+                      <SelectItem key={wallet.id} value={String(wallet.id)}>
+                        {getWalletDisplayName(wallet)}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
               </Select>
-              {selectedTransferToWallet ? <p className="mt-1 text-xs text-slate-400">Destination balance: ₱{getWalletDisplayBalance(selectedTransferToWallet).toLocaleString()}</p> : null}
+              {selectedTransferToWallet ? (
+                <p className="mt-1 text-xs text-slate-400">
+                  Destination balance: {formatPhp(getWalletDisplayBalance(selectedTransferToWallet))}
+                </p>
+              ) : null}
             </div>
             <div>
               <Label className="mb-1 block text-xs text-slate-200">Note (optional)</Label>
-              <Input placeholder="Transfer details" value={transferForm.notes} onChange={(event) => setTransferForm((prev) => ({ ...prev, notes: event.target.value }))} className="border-slate-700 bg-[#071a34] text-white" />
+              <Input
+                placeholder="Transfer details"
+                value={transferForm.notes}
+                onChange={(event) =>
+                  setTransferForm((prev) => ({ ...prev, notes: event.target.value }))
+                }
+                className="border-slate-700 bg-[#071a34] text-white"
+              />
             </div>
-            <p className="text-[11px] leading-4 text-slate-500">Date and time are recorded automatically when you save.</p>
+            <p className="text-[11px] leading-4 text-slate-500">
+              Date and time are recorded automatically when you save.
+            </p>
           </div>
         ) : null}
 
-        {error ? <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</div> : null}
+        {error ? (
+          <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+            {error}
+          </div>
+        ) : null}
 
         {!activeWallets.length && !loadingWallets ? (
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
@@ -608,8 +1101,18 @@ export default function QuickAddModal({
           </div>
         ) : null}
 
-        <Button onClick={handleSubmit} disabled={isDisabled} className="mt-3 w-full bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-60">
-          {saving ? "Saving..." : actionType === "expense" ? "Add Expense" : actionType === "income" ? "Add Funds" : "Transfer Money"}
+        <Button
+          onClick={handleSubmit}
+          disabled={isDisabled}
+          className="mt-3 w-full bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-60"
+        >
+          {saving
+            ? "Saving..."
+            : actionType === "expense"
+              ? "Add Expense"
+              : actionType === "income"
+                ? "Add Funds"
+                : "Transfer Money"}
         </Button>
       </DialogContent>
     </Dialog>
