@@ -8,6 +8,9 @@ const Input = React.forwardRef(({ className, type, ...props }, forwardedRef) => 
   const localRef = React.useRef(null)
   const preserveQuickAmountFocus =
     type === "number" && String(props.placeholder || "") === "0.00"
+  const cleanQuickUnplannedShell = String(props.placeholder || "").startsWith(
+    "What was this for?"
+  )
   const focusSignature = preserveQuickAmountFocus
     ? `${type}|${props.name || ""}|${props.placeholder || ""}|${props["aria-label"] || ""}`
     : ""
@@ -47,6 +50,27 @@ const Input = React.forwardRef(({ className, type, ...props }, forwardedRef) => 
       }
     }
   }, [focusSignature, preserveQuickAmountFocus])
+
+  React.useLayoutEffect(() => {
+    const node = localRef.current
+    const shell = cleanQuickUnplannedShell ? node?.parentElement : null
+    if (!shell) return undefined
+
+    const previousStyle = shell.getAttribute("style")
+    shell.style.setProperty("border", "0", "important")
+    shell.style.setProperty("background", "transparent", "important")
+    shell.style.setProperty("background-color", "transparent", "important")
+    shell.style.setProperty("background-image", "none", "important")
+    shell.style.setProperty("padding", "0", "important")
+    shell.style.setProperty("box-shadow", "none", "important")
+    shell.style.setProperty("backdrop-filter", "none", "important")
+    shell.style.setProperty("-webkit-backdrop-filter", "none", "important")
+
+    return () => {
+      if (previousStyle === null) shell.removeAttribute("style")
+      else shell.setAttribute("style", previousStyle)
+    }
+  }, [cleanQuickUnplannedShell])
 
   return (
     (<input
