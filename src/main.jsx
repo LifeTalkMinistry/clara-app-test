@@ -57,6 +57,7 @@ import "./community-top-nav-geometry-lock.css";
 import "./community-profile-official-brand.css";
 import "./clara-budget-plan-official.css";
 import "./clara-budget-timeframe-heading.css";
+import "./clara-quick-actions-safe-footer.css";
 
 const App = React.lazy(() => import("./App.jsx"));
 
