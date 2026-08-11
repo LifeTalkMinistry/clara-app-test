@@ -12,6 +12,7 @@ import {
   Send,
   Trash2,
   Trophy,
+  UsersRound,
   Video,
   X,
 } from "lucide-react";
@@ -23,6 +24,7 @@ import SupportTierBadge from "@/components/support/SupportTierBadge";
 
 const POST_TYPES = [
   { key: "win", label: "Win", icon: Trophy },
+  { key: "u_day", label: "U Day", icon: UsersRound },
   { key: "question", label: "Question", icon: CircleHelp },
   { key: "struggle", label: "Struggle", icon: HeartHandshake },
   { key: "money_lesson", label: "Tip", icon: Lightbulb },
@@ -383,7 +385,7 @@ export default function CommunityPostCard({
 
         {editingPost ? (
           <div className="mt-5 rounded-[20px] border border-[#22c7b8]/20 bg-[#071725] p-3.5">
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
               {POST_TYPES.map((type) => {
                 const Icon = type.icon;
                 const selected = editingPost.postType === type.key;
@@ -472,6 +474,12 @@ export default function CommunityPostCard({
             {post.post_type === "win" ? (
               <div className="mt-4 inline-flex h-9 items-center gap-2 rounded-full border border-[#19d5c9]/35 bg-[#10bfae]/[0.08] px-3.5 text-[11px] font-black text-[#38eadf]">
                 <Trophy className="h-3.5 w-3.5" /> Big Win
+              </div>
+            ) : null}
+
+            {post.post_type === "u_day" ? (
+              <div className="mt-4 inline-flex h-9 items-center gap-2 rounded-full border border-[#67f5ed]/35 bg-[#22d3c5]/[0.08] px-3.5 text-[11px] font-black text-[#8ffbf4]">
+                <UsersRound className="h-3.5 w-3.5" /> Tuesday is U Day
               </div>
             ) : null}
 
