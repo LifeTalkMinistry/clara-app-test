@@ -2,8 +2,10 @@ const TOP_EXPLANATION =
   "Add each expense or responsibility one at a time. CLARA will calculate your real budget total as you go.";
 const TOTAL_EXPLANATION =
   "This total grows from the items you add. There is no preset ceiling.";
-const EMPTY_STATE_EXPLANATION =
-  "You can continue without a regular item if this budget will contain only protected money or a confirmed obligation.";
+const EMPTY_STATE_EXPLANATIONS = new Set([
+  "You can continue without a regular item if this budget will contain only protected money or a confirmed obligation.",
+  "You can continue without a regular item if this budget will contain only protected money or a saved obligation.",
+]);
 const REVIEW_INTRO_TITLE = "Your budget is taking shape";
 const STEP4_INFO_TITLE = "How long should this budget cover?";
 const STEP4_INFO_BODY =
@@ -16,7 +18,7 @@ const MANUAL_EXPENSE_CLEANUP_STYLE_ID = "clara-manual-expense-copy-cleanup";
 
 const normalizeText = (value) => String(value || "").replace(/\s+/g, " ").trim();
 const shouldHideCopy = (text) =>
-  text === TOP_EXPLANATION || text === TOTAL_EXPLANATION || text === EMPTY_STATE_EXPLANATION;
+  text === TOP_EXPLANATION || text === TOTAL_EXPLANATION || EMPTY_STATE_EXPLANATIONS.has(text);
 
 function installManualExpenseCleanupStyles() {
   if (typeof document === "undefined" || document.getElementById(MANUAL_EXPENSE_CLEANUP_STYLE_ID)) return;
@@ -41,6 +43,52 @@ function installManualExpenseCleanupStyles() {
 
     .clara-manual-expense-sheet div:has(+ div > section[data-expense-step="wallet"]) {
       display: none !important;
+    }
+
+    /* React info controls: keep the explanation inside the card flow instead of floating over fields. */
+    #root [class*="circle_at_top_left"] :is(
+      .flex.items-start.justify-between.gap-3,
+      .flex.items-center.justify-between.gap-3
+    ):has(> div.relative > button[aria-label^="About "]) {
+      position: relative !important;
+      z-index: 70;
+    }
+
+    #root [class*="circle_at_top_left"] div.relative:has(> button[aria-label^="About "]) {
+      position: static !important;
+      z-index: 80 !important;
+    }
+
+    #root [class*="circle_at_top_left"] div:has(
+      > :is(.flex.items-start.justify-between.gap-3, .flex.items-center.justify-between.gap-3)
+        > div.relative
+        > button[aria-label^="About "][aria-expanded="true"]
+    ) {
+      padding-bottom: 6.25rem !important;
+    }
+
+    #root [class*="circle_at_top_left"] button[aria-label^="About "] + div {
+      position: absolute !important;
+      top: calc(100% + 0.65rem) !important;
+      right: 0 !important;
+      left: 0 !important;
+      z-index: 120 !important;
+      width: auto !important;
+      max-width: none !important;
+      min-height: 0 !important;
+      padding: 0.85rem 1rem !important;
+      border: 1px solid #315f8a !important;
+      border-radius: 0.9rem !important;
+      background-color: #071a31 !important;
+      background-image: linear-gradient(180deg, #0c2949 0%, #071a31 100%) !important;
+      color: #f4f9ff !important;
+      opacity: 1 !important;
+      overflow: visible !important;
+      white-space: normal !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 16px 34px rgba(0,0,0,0.44) !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      isolation: isolate;
     }
 
     .clara-budget-step4-info-row {
@@ -75,11 +123,9 @@ function installManualExpenseCleanupStyles() {
     }
 
     .clara-budget-step-info-popover {
-      position: absolute;
-      top: 2.55rem;
-      right: 0;
-      z-index: 120;
-      width: min(19rem, calc(100vw - 5rem));
+      position: static;
+      width: 100%;
+      margin-top: 0.7rem;
       padding: 0.9rem 1rem;
       border: 1px solid #2f628f !important;
       border-radius: 1rem !important;
@@ -87,10 +133,27 @@ function installManualExpenseCleanupStyles() {
       background-image: linear-gradient(180deg, #0b2746 0%, #071a31 100%) !important;
       color: #f4f9ff !important;
       opacity: 1 !important;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 20px 50px rgba(0,0,0,0.65) !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 14px 30px rgba(0,0,0,0.42) !important;
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
       isolation: isolate;
+    }
+
+    .clara-budget-step4-info-row:has(.clara-budget-step-info-popover:not([hidden])) {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: start;
+    }
+
+    .clara-budget-step4-info-row:has(.clara-budget-step-info-popover:not([hidden])) .clara-budget-step-info-popover {
+      grid-column: 1 / -1;
+      grid-row: 2;
+    }
+
+    .clara-budget-step4-info-row:has(.clara-budget-step-info-popover:not([hidden])) .clara-budget-step-info-button {
+      grid-column: 2;
+      grid-row: 1;
+      justify-self: end;
     }
 
     .clara-budget-step-info-popover[hidden] {
@@ -256,7 +319,7 @@ function hideMatchingCopy(root) {
       if (paragraph) elementsToHide.add(paragraph);
     }
 
-    if (text === EMPTY_STATE_EXPLANATION) {
+    if (EMPTY_STATE_EXPLANATIONS.has(text)) {
       const explanationCard = node.parentElement?.closest("div");
       if (explanationCard) elementsToHide.add(explanationCard);
     }
@@ -292,7 +355,7 @@ export function installBudgetSetupCopyCleanup() {
     hideMatchingCopy(root);
 
     const observer = new MutationObserver(() => hideMatchingCopy(root));
-    observer.observe(root, { childList: true, subtree: true, characterData: true });
+    observer.observe(root, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["aria-expanded", "hidden"] });
   };
 
   if (document.readyState === "loading") {
