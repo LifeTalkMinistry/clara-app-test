@@ -10,6 +10,7 @@ const GUIDE_EXIT_EVENT = "clara:guide-exit";
 const GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
 const GUIDE_TARGET_CHANGE_EVENT = "clara:guide-target-change";
 const GUIDE_ORB_FEATURE = "money-left-orb";
+const MANUAL_EXPENSE_OPEN_EVENT = "clara:open-manual-expense";
 
 export default function useMoneyLeftOrbGestures({
   isGuideMode,
@@ -85,6 +86,20 @@ export default function useMoneyLeftOrbGestures({
   const openManualExpense = useCallback(
     (event, initialAmount) => {
       if (isGuideMode) return;
+
+      const isCommunityHome =
+        typeof document !== "undefined" &&
+        Boolean(document.querySelector('.clara-community-root[data-community-view="home"]'));
+
+      if (isCommunityHome && typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent(MANUAL_EXPENSE_OPEN_EVENT, {
+            detail: { initialAmount },
+          }),
+        );
+        return;
+      }
+
       handleMoneyLeftOrbClick?.(event, { resolvedGesture: true, initialAmount });
     },
     [handleMoneyLeftOrbClick, isGuideMode],
