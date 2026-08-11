@@ -193,3 +193,43 @@
   filter: saturate(0.72);
   opacity: 0.52 !important;
 }
+
+/* Budget Setup info controls — fully opaque so help copy never blends into live content. */
+#root [class*="circle_at_top_left"] button[aria-label^="About "] {
+  background-color: #0b2a50 !important;
+  background-image: linear-gradient(145deg, #123a69 0%, #0a2446 100%) !important;
+  border-color: #2e6598 !important;
+  color: #dbeafe !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    0 8px 22px rgba(0,0,0,0.28) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+#root [class*="circle_at_top_left"] button[aria-label^="About "][aria-expanded="true"] {
+  background-color: #123d70 !important;
+  background-image: linear-gradient(145deg, #174b86 0%, #0b2e59 100%) !important;
+  border-color: #64a6e8 !important;
+  color: #ffffff !important;
+}
+
+#root [class*="circle_at_top_left"] div.relative:has(> button[aria-label^="About "][aria-expanded="true"]) {
+  z-index: 140 !important;
+}
+
+#root [class*="circle_at_top_left"] button[aria-label^="About "] + div {
+  background-color: #071a31 !important;
+  background-image: linear-gradient(180deg, #0b2746 0%, #071a31 100%) !important;
+  border-color: #2b5d8d !important;
+  color: #f4f9ff !important;
+  opacity: 1 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    0 18px 46px rgba(0,0,0,0.62),
+    0 0 0 1px rgba(23,105,224,0.10) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  isolation: isolate;
+  z-index: 150 !important;
+}
