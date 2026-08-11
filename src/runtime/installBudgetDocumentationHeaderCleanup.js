@@ -104,6 +104,35 @@ function wireInfoButton(button, popover) {
   });
 }
 
+function cleanSummaryMetrics(title) {
+  const { copy } = getCopyRoot(title);
+  const modal = copy?.parentElement?.parentElement;
+  if (!modal) return;
+
+  const summaryLabels = Array.from(modal.querySelectorAll("p"));
+  const unplannedLabel = summaryLabels.find(
+    (node) => normalizeText(node.textContent).toLowerCase() === "unplanned",
+  );
+  if (!unplannedLabel) return;
+
+  const grid = unplannedLabel.parentElement?.parentElement;
+  if (!grid) return;
+
+  const hasUndocumented = Array.from(grid.querySelectorAll("p")).some(
+    (node) => normalizeText(node.textContent).toLowerCase() === "undocumented",
+  );
+  if (!hasUndocumented) return;
+
+  Array.from(grid.children).forEach((card) => {
+    const label = Array.from(card.querySelectorAll("p")).find(
+      (node) => normalizeText(node.textContent).toLowerCase() === "outside plan",
+    );
+    if (label) card.remove();
+  });
+
+  grid.style.gridTemplateColumns = "repeat(2, minmax(0, 1fr))";
+}
+
 function cleanHeader(title) {
   const { copy, managedRow } = getCopyRoot(title);
   if (!copy?.parentElement) return;
@@ -120,6 +149,8 @@ function cleanHeader(title) {
 
   if (eyebrow && eyebrow.style.display !== "none") eyebrow.style.display = "none";
   if (description && description.style.display !== "none") description.style.display = "none";
+
+  cleanSummaryMetrics(title);
 
   const existingRows = Array.from(copy.querySelectorAll(`[${MARKER}="true"]`));
   const existingButtons = Array.from(copy.querySelectorAll(`[${INFO_MARKER}="true"]`));
