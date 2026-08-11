@@ -1,8 +1,140 @@
 @import "./support-orb-choreography.css";
 
+/*
+ * Official CLARA support branding.
+ * Keep the support experience dark, premium and calm while using the
+ * Philippine-inspired CLARA hierarchy: blue first, gold highlight, red accent.
+ */
+#clara-support-world {
+  --clara-support-blue: #0038a8;
+  --clara-support-blue-bright: #2563eb;
+  --clara-support-red: #ce1126;
+  --clara-support-gold: #fcd116;
+  --clara-support-navy: #020817;
+  --clara-support-surface: #061126;
+}
+
 #clara-support-world [data-clara-support-bubble] {
   right: 1.25rem !important;
   bottom: calc(5.7rem + env(safe-area-inset-bottom, 0px)) !important;
+  color: rgba(248, 250, 252, 0.96) !important;
+  border-color: rgba(37, 99, 235, 0.58) !important;
+  background:
+    radial-gradient(circle at 18% 38%, rgba(37, 99, 235, 0.28), transparent 38%),
+    linear-gradient(118deg, rgba(5, 18, 47, 0.99) 0%, rgba(3, 12, 31, 0.99) 70%, rgba(206, 17, 38, 0.20) 100%) !important;
+  box-shadow:
+    0 0 0 1px rgba(37, 99, 235, 0.10) inset,
+    0 0 18px rgba(37, 99, 235, 0.24),
+    0 14px 38px rgba(0, 0, 0, 0.52) !important;
+}
+
+/* Blue-dominant halo with restrained gold/red identity hints. */
+#clara-support-world [data-clara-support-halo] {
+  background:
+    radial-gradient(
+      circle,
+      rgba(37, 99, 235, 0.28) 0%,
+      rgba(0, 56, 168, 0.16) 42%,
+      rgba(252, 209, 22, 0.07) 56%,
+      rgba(206, 17, 38, 0.05) 66%,
+      transparent 76%
+    ) !important;
+}
+
+/*
+ * The heart remains the Support symbol, but its core now carries CLARA's
+ * official color balance: mostly blue, a warm gold focal point, red secondary.
+ */
+#clara-support-world [data-clara-support-bubble] > span:nth-of-type(2) {
+  border: 1px solid transparent !important;
+  background:
+    linear-gradient(145deg, rgba(7, 24, 58, 0.98), rgba(2, 8, 23, 0.99)) padding-box,
+    conic-gradient(
+      from 28deg,
+      var(--clara-support-red) 0deg 28deg,
+      var(--clara-support-gold) 28deg 54deg,
+      var(--clara-support-blue-bright) 54deg 360deg
+    ) border-box !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 0 13px rgba(37, 99, 235, 0.30),
+    0 5px 16px rgba(0, 0, 0, 0.38) !important;
+}
+
+#clara-support-world [data-clara-support-heart] {
+  color: var(--clara-support-gold) !important;
+  fill: rgba(252, 209, 22, 0.28) !important;
+  filter: drop-shadow(0 0 5px rgba(252, 209, 22, 0.32)) !important;
+}
+
+#clara-support-world [data-clara-support-bubble] > span:nth-of-type(3) {
+  color: rgba(248, 250, 252, 0.96) !important;
+  text-shadow: 0 0 12px rgba(37, 99, 235, 0.24) !important;
+}
+
+/* Rebrand the full Support modal, including the payment flow, not just the orb. */
+#clara-support-world [data-clara-support-modal] > section {
+  position: relative;
+  border-color: rgba(37, 99, 235, 0.22) !important;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(0, 56, 168, 0.19), transparent 34%),
+    radial-gradient(circle at 100% 0%, rgba(206, 17, 38, 0.07), transparent 29%),
+    linear-gradient(180deg, rgba(5, 17, 43, 0.99), rgba(1, 7, 19, 0.995)) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.025) inset,
+    0 26px 90px rgba(0, 0, 0, 0.62) !important;
+}
+
+#clara-support-world [data-clara-support-modal] > section::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--clara-support-blue-bright) 0% 62%,
+    var(--clara-support-gold) 62% 72%,
+    var(--clara-support-red) 72% 100%
+  );
+  opacity: 0.82;
+  pointer-events: none;
+}
+
+/* Replace the legacy cyan accent language throughout Support with CLARA colors. */
+#clara-support-world [data-clara-support-modal] [class*="text-cyan"] {
+  color: var(--clara-support-gold) !important;
+}
+
+#clara-support-world [data-clara-support-modal] [class*="fill-cyan"] {
+  fill: rgba(252, 209, 22, 0.24) !important;
+}
+
+#clara-support-world [data-clara-support-modal] [class*="border-cyan"] {
+  border-color: rgba(37, 99, 235, 0.34) !important;
+}
+
+#clara-support-world [data-clara-support-modal] [class*="bg-cyan"] {
+  background-color: rgba(0, 56, 168, 0.11) !important;
+}
+
+/* The Support title icon is a gold clarity point, not the old cyan heart. */
+#clara-support-world [data-clara-support-modal] h2 + * {
+  color: inherit;
+}
+
+#clara-support-world [data-clara-support-modal] h2 {
+  color: rgba(248, 250, 252, 0.98) !important;
+}
+
+/* Selected/recommended controls receive a subtle blue authority glow. */
+#clara-support-world [data-clara-support-modal] button[class*="border-cyan"],
+#clara-support-world [data-clara-support-modal] label[class*="border-cyan"] {
+  box-shadow:
+    0 0 0 1px rgba(37, 99, 235, 0.06) inset,
+    0 10px 30px rgba(0, 56, 168, 0.10) !important;
 }
 
 @media (min-width: 640px) {
