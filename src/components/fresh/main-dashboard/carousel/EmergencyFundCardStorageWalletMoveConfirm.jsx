@@ -135,17 +135,34 @@ function getStatus(months, targetMonths) {
 }
 
 function EmergencySetupEmptyState({ expanded = false, onSetup }) {
+  const [showInfo, setShowInfo] = useState(false);
+
   return (
     <div className={`relative overflow-hidden rounded-[28px] border border-white/[0.045] bg-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] ${expanded ? "flex min-h-[360px] flex-1 flex-col justify-center px-5 py-7" : "px-4 py-5"}`}>
       <div className="pointer-events-none absolute -right-16 -top-20 h-44 w-44 rounded-full bg-cyan-300/[0.07] blur-[58px]" />
       <div className="pointer-events-none absolute -bottom-20 -left-16 h-44 w-44 rounded-full bg-violet-500/[0.10] blur-[62px]" />
-      <div className="relative">
+      <div className="relative flex flex-col items-center text-center">
         <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-200/18 bg-cyan-300/[0.08] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.10)]">
           <Shield className="h-5 w-5" />
         </div>
-        <p className="text-xl font-black tracking-[-0.025em] text-white">Emergency Fund</p>
+        <div className="flex items-center justify-center gap-2">
+          <p className="text-xl font-black tracking-[-0.025em] text-white">Emergency Fund</p>
+          <button
+            type="button"
+            aria-label="About Emergency Fund setup"
+            aria-expanded={showInfo}
+            onClick={() => setShowInfo((current) => !current)}
+            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[12px] font-black transition ${showInfo ? "border-cyan-200/30 bg-cyan-300/[0.14] text-cyan-100" : "border-white/12 bg-white/[0.055] text-white/58 hover:border-cyan-200/24 hover:text-cyan-100"}`}
+          >
+            i
+          </button>
+        </div>
         <button type="button" onClick={onSetup} className="mt-5 flex w-full items-center justify-center rounded-2xl border border-cyan-200/20 bg-cyan-300/[0.11] px-4 py-3.5 text-sm font-black text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.08)] transition hover:bg-cyan-300/[0.16]">Set up my emergency fund</button>
-        <p className="mt-3 text-center text-[11px] font-semibold leading-5 text-white/42">You’ll choose your monthly survival cost, storage wallet, and protection goal.</p>
+        {showInfo ? (
+          <div className="mt-3 w-full rounded-2xl border border-cyan-200/12 bg-cyan-300/[0.055] px-3.5 py-2.5 text-[11px] font-semibold leading-5 text-white/58 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+            You’ll choose your monthly survival cost, storage wallet, and protection goal.
+          </div>
+        ) : null}
       </div>
     </div>
   );
