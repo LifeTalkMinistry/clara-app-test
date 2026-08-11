@@ -233,3 +233,8 @@
   isolation: isolate;
   z-index: 150 !important;
 }
+
+/* Final summary already has the four amount cards; remove the duplicate prose breakdown beneath them. */
+#root [class*="circle_at_top_left"] section.overflow-hidden > div.p-4:last-child > div.mt-4.rounded-2xl.text-sm.font-semibold.leading-6 {
+  display: none !important;
+}
