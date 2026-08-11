@@ -23,13 +23,10 @@ function createInfoIcon() {
   circle.setAttribute("cx", "12");
   circle.setAttribute("cy", "12");
   circle.setAttribute("r", "10");
-
   const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
   line.setAttribute("d", "M12 16v-4");
-
   const dot = document.createElementNS("http://www.w3.org/2000/svg", "path");
   dot.setAttribute("d", "M12 8h.01");
-
   svg.append(circle, line, dot);
   return svg;
 }
@@ -84,22 +81,16 @@ function createPopover() {
 function getCopyRoot(title) {
   let node = title.parentElement;
   let outermostManagedRow = null;
-
   while (node?.getAttribute?.(MARKER) === "true") {
     outermostManagedRow = node;
     node = node.parentElement;
   }
-
-  return {
-    copy: node || title.parentElement,
-    managedRow: outermostManagedRow,
-  };
+  return { copy: node || title.parentElement, managedRow: outermostManagedRow };
 }
 
 function wireInfoButton(button, popover) {
   if (!button || !popover || button.dataset.claraBudgetDocumentationWired === "true") return;
   button.dataset.claraBudgetDocumentationWired = "true";
-
   button.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -115,8 +106,7 @@ function wireInfoButton(button, popover) {
 
 function cleanHeader(title) {
   const { copy, managedRow } = getCopyRoot(title);
-  const header = copy?.parentElement;
-  if (!copy || !header) return;
+  if (!copy?.parentElement) return;
 
   const paragraphs = Array.from(copy.children).filter((node) => node.tagName === "P");
   const eyebrow = paragraphs.find(
@@ -128,48 +118,65 @@ function cleanHeader(title) {
   const explanation =
     normalizeText(description?.textContent) || "Full view of spending outside this cycle’s plan.";
 
-  if (eyebrow) eyebrow.style.display = "none";
-  if (description) description.style.display = "none";
+  if (eyebrow && eyebrow.style.display !== "none") eyebrow.style.display = "none";
+  if (description && description.style.display !== "none") description.style.display = "none";
 
-  // Repair any duplicate/nested rows produced by an older runtime version.
   const existingRows = Array.from(copy.querySelectorAll(`[${MARKER}="true"]`));
-  let row = managedRow || existingRows[0] || null;
+  const existingButtons = Array.from(copy.querySelectorAll(`[${INFO_MARKER}="true"]`));
+  const existingPopovers = Array.from(copy.querySelectorAll(`[${POPOVER_MARKER}="true"]`));
+  const row = managedRow || existingRows[0] || null;
 
-  if (row) {
-    row.replaceChildren(title);
-  } else {
-    row = document.createElement("div");
-    row.setAttribute(MARKER, "true");
-    title.before(row);
-    row.appendChild(title);
+  const alreadyClean =
+    row &&
+    existingRows.length === 1 &&
+    existingButtons.length === 1 &&
+    existingPopovers.length === 1 &&
+    row.contains(title) &&
+    row.contains(existingButtons[0]) &&
+    existingPopovers[0].parentElement === copy;
+
+  if (alreadyClean) {
+    const popover = existingPopovers[0];
+    if (normalizeText(popover.textContent) !== explanation) popover.textContent = explanation;
+    wireInfoButton(existingButtons[0], popover);
+    return;
   }
 
-  row.style.cssText = "display:flex;align-items:center;gap:9px;min-width:0;";
+  // Repair duplicate/nested rows from the previous version in one pass.
+  let cleanRow = row;
+  if (cleanRow) {
+    cleanRow.replaceChildren(title);
+  } else {
+    cleanRow = document.createElement("div");
+    cleanRow.setAttribute(MARKER, "true");
+    title.before(cleanRow);
+    cleanRow.appendChild(title);
+  }
+
+  cleanRow.setAttribute(MARKER, "true");
+  cleanRow.style.cssText = "display:flex;align-items:center;gap:9px;min-width:0;";
   title.style.margin = "0";
   title.style.minWidth = "0";
   title.style.flex = "0 1 auto";
 
-  // There must be exactly one info icon and one explanation panel.
-  copy.querySelectorAll(`[${INFO_MARKER}="true"]`).forEach((node) => node.remove());
-  copy.querySelectorAll(`[${POPOVER_MARKER}="true"]`).forEach((node) => node.remove());
+  existingButtons.forEach((node) => node.remove());
+  existingPopovers.forEach((node) => node.remove());
   existingRows.forEach((candidate) => {
-    if (candidate !== row && candidate.isConnected) candidate.remove();
+    if (candidate !== cleanRow && candidate.isConnected) candidate.remove();
   });
 
   const button = createInfoButton();
   const popover = createPopover();
   popover.textContent = explanation;
-  row.appendChild(button);
-  copy.insertBefore(popover, row.nextSibling);
+  cleanRow.appendChild(button);
+  copy.insertBefore(popover, cleanRow.nextSibling);
   wireInfoButton(button, popover);
 }
 
 function run() {
   if (typeof document === "undefined") return;
-
   document.querySelectorAll("h3").forEach((title) => {
-    if (normalizeText(title.textContent) !== TITLE_TEXT) return;
-    cleanHeader(title);
+    if (normalizeText(title.textContent) === TITLE_TEXT) cleanHeader(title);
   });
 }
 
@@ -187,7 +194,6 @@ export function installBudgetDocumentationHeaderCleanup() {
         run();
       });
     };
-
     run();
     const observer = new MutationObserver(schedule);
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
