@@ -7,9 +7,13 @@ const REVIEW_INTRO_TITLE = "Your budget is taking shape";
 const STEP4_INFO_TITLE = "How long should this budget cover?";
 const STEP4_INFO_BODY =
   "The timeframe gives meaning to the total you built. It will not change or prorate your amounts automatically.";
+const STEP4_RELATIONSHIP_LABEL = "Relationship to your total";
+const STEP4_RELATIONSHIP_BODY =
+  "The same amount can mean something very different over seven days versus a full month. CLARA records both together.";
 const HIDDEN_MARKER = "data-clara-budget-copy-hidden";
 const PROGRESS_HIDDEN_MARKER = "data-clara-budget-progress-hidden";
 const STEP4_INFO_MARKER = "data-clara-budget-step4-info";
+const STEP4_RELATIONSHIP_MARKER = "data-clara-budget-step4-relationship-info";
 const STEP_NAMES = ["Budget Items", "Commitments", "Review", "Timeframe", "Activate"];
 const MANUAL_EXPENSE_CLEANUP_STYLE_ID = "clara-manual-expense-copy-cleanup";
 
@@ -174,6 +178,18 @@ function installManualExpenseCleanupStyles() {
       line-height: 1.15rem;
     }
 
+    .clara-budget-relationship-info-head {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      gap: 0.75rem !important;
+    }
+
+    .clara-budget-relationship-info-head > p {
+      min-width: 0 !important;
+      margin: 0 !important;
+    }
+
     #root [data-clara-budget-copy-hidden="true"] {
       display: none !important;
     }
@@ -260,6 +276,39 @@ function createInfoIcon() {
   return svg;
 }
 
+function createInfoButton(label) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "clara-budget-step-info-button";
+  button.setAttribute("aria-label", label);
+  button.setAttribute("aria-expanded", "false");
+  button.appendChild(createInfoIcon());
+  return button;
+}
+
+function createInfoPopover(titleText, bodyText) {
+  const popover = document.createElement("div");
+  popover.className = "clara-budget-step-info-popover";
+  popover.hidden = true;
+
+  const title = document.createElement("strong");
+  title.textContent = titleText;
+
+  const body = document.createElement("p");
+  body.textContent = bodyText;
+
+  popover.append(title, body);
+  return popover;
+}
+
+function wireInfoToggle(button, popover) {
+  button.addEventListener("click", () => {
+    const opening = popover.hidden;
+    popover.hidden = !opening;
+    button.setAttribute("aria-expanded", opening ? "true" : "false");
+  });
+}
+
 function installStep4Info(root) {
   if (!root) return;
 
@@ -274,33 +323,43 @@ function installStep4Info(root) {
     row.className = "clara-budget-step4-info-row";
     row.setAttribute(STEP4_INFO_MARKER, "true");
 
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "clara-budget-step-info-button";
-    button.setAttribute("aria-label", "About timeframe");
-    button.setAttribute("aria-expanded", "false");
-    button.appendChild(createInfoIcon());
-
-    const popover = document.createElement("div");
-    popover.className = "clara-budget-step-info-popover";
-    popover.hidden = true;
-
-    const title = document.createElement("strong");
-    title.textContent = STEP4_INFO_TITLE;
-
-    const body = document.createElement("p");
-    body.textContent = STEP4_INFO_BODY;
-
-    popover.append(title, body);
-
-    button.addEventListener("click", () => {
-      const opening = popover.hidden;
-      popover.hidden = !opening;
-      button.setAttribute("aria-expanded", opening ? "true" : "false");
-    });
+    const button = createInfoButton("About timeframe");
+    const popover = createInfoPopover(STEP4_INFO_TITLE, STEP4_INFO_BODY);
+    wireInfoToggle(button, popover);
 
     row.append(button, popover);
     header.replaceWith(row);
+  });
+}
+
+function installStep4RelationshipInfo(root) {
+  if (!root) return;
+
+  root.querySelectorAll("p").forEach((body) => {
+    if (normalizeText(body.textContent) !== STEP4_RELATIONSHIP_BODY) return;
+
+    const card = body.closest("div.rounded-2xl");
+    if (!card || card.getAttribute(STEP4_RELATIONSHIP_MARKER) === "true") return;
+
+    const directParagraphs = Array.from(card.children).filter((child) => child.tagName === "P");
+    const label = directParagraphs.find(
+      (paragraph) => normalizeText(paragraph.textContent).toLowerCase() === STEP4_RELATIONSHIP_LABEL.toLowerCase(),
+    );
+    if (!label) return;
+
+    card.setAttribute(STEP4_RELATIONSHIP_MARKER, "true");
+
+    const head = document.createElement("div");
+    head.className = "clara-budget-relationship-info-head";
+    label.replaceWith(head);
+    head.appendChild(label);
+
+    const button = createInfoButton("About relationship to your total");
+    const popover = createInfoPopover("Why timeframe matters", STEP4_RELATIONSHIP_BODY);
+    wireInfoToggle(button, popover);
+
+    head.appendChild(button);
+    body.replaceWith(popover);
   });
 }
 
@@ -342,6 +401,7 @@ function hideMatchingCopy(root) {
 
   hideRedundantProgressCard(root);
   installStep4Info(root);
+  installStep4RelationshipInfo(root);
 }
 
 export function installBudgetSetupCopyCleanup() {
