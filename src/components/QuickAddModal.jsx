@@ -864,22 +864,28 @@ export default function QuickAddModal({
                   <SelectTrigger className="border-slate-700 bg-[#071a34] text-white">
                     <SelectValue placeholder="Select budget item" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={UNPLANNED_KEY} textValue="Unplanned">
-                      <div className="flex min-w-[220px] flex-col py-0.5">
-                        <span className="font-bold text-amber-200">Unplanned</span>
-                        <span className="text-[11px] text-slate-400">I know what I spent on, but it was not in the plan</span>
-                      </div>
+                  <SelectContent className="rounded-2xl border-white/15 bg-[#07162f] shadow-[0_28px_80px_rgba(0,0,0,0.62)]">
+                    <SelectItem
+                      value={UNPLANNED_KEY}
+                      textValue="Unplanned"
+                      className="my-1 rounded-xl border border-amber-300/20 bg-amber-400/[0.07] py-3.5 pl-4 text-[15px] font-black text-amber-100 focus:bg-amber-300 focus:text-[#07162f] data-[highlighted]:bg-amber-300 data-[highlighted]:text-[#07162f] data-[state=checked]:bg-amber-300 data-[state=checked]:text-[#07162f]"
+                    >
+                      <span className="text-base font-black tracking-tight">Unplanned</span>
                     </SelectItem>
-                    <SelectItem value={UNDOCUMENTED_KEY} textValue="Undocumented">
-                      <div className="flex min-w-[220px] flex-col py-0.5">
-                        <span className="font-bold text-cyan-200">Undocumented</span>
-                        <span className="text-[11px] text-slate-400">Money was spent, but the details are incomplete</span>
-                      </div>
+                    <SelectItem
+                      value={UNDOCUMENTED_KEY}
+                      textValue="Undocumented"
+                      className="my-1 rounded-xl border border-cyan-300/20 bg-cyan-400/[0.07] py-3.5 pl-4 text-[15px] font-black text-cyan-100 focus:bg-cyan-300 focus:text-[#07162f] data-[highlighted]:bg-cyan-300 data-[highlighted]:text-[#07162f] data-[state=checked]:bg-cyan-300 data-[state=checked]:text-[#07162f]"
+                    >
+                      <span className="text-base font-black tracking-tight">Undocumented</span>
                     </SelectItem>
 
-                    <SelectItem value={BUDGET_SECTION_KEY} disabled>
-                      <span className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
+                    <SelectItem
+                      value={BUDGET_SECTION_KEY}
+                      disabled
+                      className="mt-2 rounded-none border-t border-white/10 bg-transparent pb-2 pt-3 pl-3 pr-3 data-[disabled]:opacity-100"
+                    >
+                      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/40">
                         Your budget items
                       </span>
                     </SelectItem>
@@ -891,10 +897,23 @@ export default function QuickAddModal({
                             ? `${formatPhp(item.remaining)} left`
                             : `${formatPhp(Math.abs(item.remaining))} over`;
                         return (
-                          <SelectItem key={item.key} value={String(item.key)} textValue={item.title}>
+                          <SelectItem
+                            key={item.key}
+                            value={String(item.key)}
+                            textValue={item.title}
+                            className="my-1 rounded-xl border border-white/[0.08] bg-white/[0.035] py-3 pl-4 pr-10 text-white focus:border-cyan-300/30 focus:bg-cyan-300/10 focus:text-white data-[highlighted]:border-cyan-300/30 data-[highlighted]:bg-cyan-300/10 data-[highlighted]:text-white data-[state=checked]:border-cyan-300/35 data-[state=checked]:bg-cyan-300/12 data-[state=checked]:text-white"
+                          >
                             <div className="flex min-w-[220px] items-center justify-between gap-4">
-                              <span className="font-semibold">{item.title}</span>
-                              <span className={item.remaining < 0 ? "text-rose-300" : "text-slate-400"}>
+                              <span className="text-[14px] font-black tracking-tight text-white">
+                                {item.title}
+                              </span>
+                              <span
+                                className={`rounded-lg border px-2 py-1 text-[11px] font-black tabular-nums ${
+                                  item.remaining < 0
+                                    ? "border-rose-300/20 bg-rose-400/10 text-rose-200"
+                                    : "border-cyan-300/15 bg-cyan-300/[0.07] text-cyan-100/80"
+                                }`}
+                              >
                                 {remainingLabel}
                               </span>
                             </div>
@@ -902,8 +921,12 @@ export default function QuickAddModal({
                         );
                       })
                     ) : (
-                      <SelectItem value={NO_BUDGET_ITEMS_KEY} disabled>
-                        <span className="text-slate-500">No active budget items yet</span>
+                      <SelectItem
+                        value={NO_BUDGET_ITEMS_KEY}
+                        disabled
+                        className="my-1 rounded-xl border border-white/[0.06] bg-white/[0.025] py-3 pl-4 data-[disabled]:opacity-100"
+                      >
+                        <span className="text-sm font-bold text-white/35">No active budget items yet</span>
                       </SelectItem>
                     )}
                   </SelectContent>
