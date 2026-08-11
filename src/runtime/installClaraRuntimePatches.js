@@ -197,3 +197,7 @@ import "../clara-buy-check-report-focus-mode.css";
 
 // Final budget activation screen: motivational copy + consolidated summary.
 import "./installBudgetFinalMotivation";
+
+// Home Money Left: the former projected-total pill is now one icon that toggles
+// the main Money Left amount between current wallet funds and after-budget funds.
+import "./installMoneyLeftAfterBudgetToggle";
