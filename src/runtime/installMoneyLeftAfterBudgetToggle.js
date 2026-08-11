@@ -46,7 +46,7 @@ function createToggleIcon() {
   wrap.dataset.claraAfterBudgetIcon = 'true';
   wrap.setAttribute('aria-hidden', 'true');
   wrap.innerHTML = `
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M20 7H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2Z" />
       <path d="M16 13h4" />
       <path d="M6 7V5a2 2 0 0 1 2-2h8" />
@@ -90,10 +90,11 @@ function installStyles() {
       position: absolute !important;
       z-index: 58 !important;
       top: clamp(12px, 3.4vw, 16px) !important;
-      left: calc(clamp(112px, 33vw, 132px) + 54px) !important;
+      left: calc(clamp(112px, 33vw, 132px) + 40px) !important;
       width: 32px !important;
       min-width: 32px !important;
       height: 32px !important;
+      min-height: 32px !important;
       padding: 0 !important;
       display: flex !important;
       align-items: center !important;
@@ -106,6 +107,8 @@ function installStyles() {
       background: rgba(3, 18, 43, 0.68) !important;
       color: #b9d9ff !important;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.08) !important;
+      line-height: 1 !important;
+      transform: translateX(-50%) !important;
       transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, color 140ms ease, box-shadow 140ms ease !important;
       -webkit-tap-highlight-color: transparent;
     }
@@ -117,7 +120,7 @@ function installStyles() {
     }
 
     ${HOME_MONEY_LEFT_SELECTOR} ${PROJECTION_SELECTOR}:active {
-      transform: scale(0.95) !important;
+      transform: translateX(-50%) scale(0.95) !important;
     }
 
     ${HOME_MONEY_LEFT_SELECTOR} ${PROJECTION_SELECTOR}:focus-visible {
@@ -134,8 +137,8 @@ function installStyles() {
 
     ${HOME_MONEY_LEFT_SELECTOR} ${PROJECTION_SELECTOR} > span[data-clara-after-budget-icon="true"] {
       display: flex !important;
-      width: 16px !important;
-      height: 16px !important;
+      width: 14px !important;
+      height: 14px !important;
       align-items: center !important;
       justify-content: center !important;
       color: currentColor !important;
@@ -143,8 +146,8 @@ function installStyles() {
 
     ${HOME_MONEY_LEFT_SELECTOR} ${PROJECTION_SELECTOR} > span[data-clara-after-budget-icon="true"] svg {
       display: block !important;
-      width: 16px !important;
-      height: 16px !important;
+      width: 14px !important;
+      height: 14px !important;
     }
   `;
   document.head.appendChild(style);
