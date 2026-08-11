@@ -83,7 +83,7 @@ export function GlassDropdown({
       </button>
 
       <div
-        className={`relative z-[90] mt-2 grid overflow-hidden rounded-[24px] border border-cyan-100/12 bg-[#0b111c]/96 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-2xl transition-all duration-300 sm:absolute sm:left-0 sm:right-0 sm:top-[calc(100%+8px)] sm:mt-0 ${
+        className={`absolute left-0 right-0 top-[calc(100%+8px)] z-[90] grid overflow-hidden rounded-[24px] border border-cyan-100/12 bg-[#0b111c]/96 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-2xl transition-all duration-300 ${
           open
             ? "grid-rows-[1fr] opacity-100"
             : "pointer-events-none grid-rows-[0fr] opacity-0"
