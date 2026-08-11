@@ -37,3 +37,52 @@
   padding: 0 !important;
   border: 0 !important;
 }
+
+/* Final review: the blue quote card becomes the visual header.
+   Hide the redundant Budget Setup / Step copy while keeping Back + Draft available. */
+#root [class*="circle_at_top_left"]:has([data-clara-budget-final-owned="true"]) header.sticky h1,
+#root [class*="circle_at_top_left"]:has([data-clara-budget-final-owned="true"]) header.sticky div.min-w-0.flex-1 > p {
+  display: none !important;
+}
+
+/* Keep the empty title column as a flexible spacer so Back stays on the left
+   and Draft stays on the right without introducing a new header label. */
+#root [class*="circle_at_top_left"]:has([data-clara-budget-final-owned="true"]) header.sticky div.min-w-0.flex-1 {
+  min-height: 1px !important;
+}
+
+/* Make YOUR BUDGET IS READY the centered top label of the blue quote card,
+   with the rotating motivation directly beneath it as the only hero message. */
+#root [class*="circle_at_top_left"] [data-clara-budget-final-owned="true"] > div:first-child {
+  display: flex !important;
+  min-height: 116px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 1.15rem 1.25rem 1.25rem !important;
+}
+
+#root [class*="circle_at_top_left"] [data-clara-budget-final-hero-owned="true"] {
+  display: flex !important;
+  width: 100% !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+}
+
+#root [class*="circle_at_top_left"] [data-clara-budget-final-hero-owned="true"] > div:last-child {
+  width: 100% !important;
+  text-align: center !important;
+}
+
+#root [class*="circle_at_top_left"] [data-clara-budget-final-hero-owned="true"] > div:last-child > p:first-child {
+  width: 100% !important;
+  margin: 0 !important;
+  text-align: center !important;
+}
+
+#root [class*="circle_at_top_left"] [data-clara-budget-final-hero-owned="true"] h2 {
+  max-width: 19rem !important;
+  margin: 0.68rem auto 0 !important;
+  text-align: center !important;
+  text-wrap: balance;
+}
