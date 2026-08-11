@@ -6,9 +6,8 @@ import {
   ChevronRight,
   CreditCard,
   Edit3,
-  ListChecks,
+  Info,
   Plus,
-  ShieldCheck,
   Trash2,
   Wallet,
 } from "lucide-react";
@@ -204,6 +203,33 @@ function QuestionHeader({ icon: Icon, eyebrow, title, body }) {
         <h2 className="mt-1 text-xl font-black leading-tight tracking-[-0.035em]">{title}</h2>
         {body ? <p className="mt-2 text-sm font-semibold leading-6 text-white/52">{body}</p> : null}
       </div>
+    </div>
+  );
+}
+
+function InfoHint({ label, children }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className={`flex h-8 w-8 items-center justify-center rounded-full border transition active:scale-95 ${
+          open
+            ? "border-cyan-300/35 bg-cyan-400/15 text-cyan-100"
+            : "border-white/10 bg-white/[0.045] text-white/45"
+        }`}
+        aria-label={`About ${label}`}
+        aria-expanded={open}
+      >
+        <Info className="h-4 w-4" />
+      </button>
+      {open ? (
+        <div className="absolute right-0 top-10 z-20 w-[min(290px,calc(100vw-3.5rem))] rounded-2xl border border-cyan-200/15 bg-[#07172a]/98 p-3.5 text-xs font-semibold leading-5 text-white/68 shadow-[0_18px_44px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -743,21 +769,18 @@ export default function MonthlyBudgetPlanGuided() {
 
         {step === 1 ? (
           <section className={`${card} p-4`}>
-            <QuestionHeader
-              icon={ListChecks}
-              eyebrow="Step 1"
-              title="What do you need to prepare money for?"
-              body="Add each expense or responsibility one at a time. CLARA will calculate your real budget total as you go."
-            />
-
-            <div className="mt-5 rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.07] px-4 py-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-emerald-100/48">
-                Current planned total
-              </p>
-              <p className="mt-1 text-2xl font-black text-emerald-100">{fmt(regularTotal)}</p>
-              <p className="mt-1 text-xs font-semibold text-emerald-50/45">
-                This total grows from the items you add. There is no preset ceiling.
-              </p>
+            <div className="rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.07] px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[0.13em] text-emerald-100/48">
+                    Current planned total
+                  </p>
+                  <p className="mt-1 text-2xl font-black text-emerald-100">{fmt(regularTotal)}</p>
+                </div>
+                <InfoHint label="budget items">
+                  Add each expense or responsibility one at a time. CLARA updates this total as you add items, with no preset ceiling.
+                </InfoHint>
+              </div>
             </div>
 
             <div className="mt-4 space-y-3 rounded-2xl border border-white/8 bg-black/12 p-3.5">
@@ -850,18 +873,16 @@ export default function MonthlyBudgetPlanGuided() {
 
         {step === 2 ? (
           <section className={`${card} p-4`}>
-            <QuestionHeader
-              icon={ShieldCheck}
-              eyebrow="Step 2"
-              title="Protected money"
-              body="Choose which savings goals and emergency reserves you want to protect in this budget."
-            />
-
-            <div className="mt-5 space-y-4">
+            <div className="space-y-4">
               <div className="rounded-2xl border border-emerald-300/14 bg-emerald-400/[0.05] p-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-100/45">
-                  Protected money
-                </p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-100/45">
+                    Protected money
+                  </p>
+                  <InfoHint label="protected money">
+                    Choose which savings goals and emergency reserves you want to protect in this budget. Only amounts you include here are added to the budget total.
+                  </InfoHint>
+                </div>
                 {emergencyAvailable ? (
                   <div className="mt-3 rounded-2xl border border-white/8 bg-black/12 p-3.5">
                     <button
