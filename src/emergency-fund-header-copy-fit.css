@@ -92,9 +92,20 @@
   }
 }
 
-/* Emergency Fund setup information should behave like a real modal rather
-   than expanding the finance card. The existing React info toggle still owns
-   open/close state; this layer only presents that message above the dashboard. */
+/* Emergency Fund setup information behaves like a true modal. A dedicated
+   page-level backdrop sits above dashboard cards/FABs so nothing else looks
+   selected while the info message is open. */
+body:has([data-finance-card="emergencyFund"] button[aria-label="About Emergency Fund setup"][aria-expanded="true"])::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2147483500;
+  background: rgba(1, 7, 20, 0.76);
+  backdrop-filter: blur(1.5px);
+  -webkit-backdrop-filter: blur(1.5px);
+  pointer-events: auto;
+}
+
 [data-finance-card="emergencyFund"]
   div:has(> div > button[aria-label="About Emergency Fund setup"][aria-expanded="true"])
   > button[type="button"] + div:last-child {
@@ -111,7 +122,6 @@
   background: linear-gradient(145deg, rgba(7, 27, 49, 0.985), rgba(6, 16, 39, 0.99) 56%, rgba(24, 12, 52, 0.985)) !important;
   color: rgba(255, 255, 255, 0.76) !important;
   box-shadow:
-    0 0 0 100vmax rgba(1, 7, 20, 0.74),
     0 28px 80px rgba(0, 0, 0, 0.52),
     inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
   font-size: 12.5px !important;
