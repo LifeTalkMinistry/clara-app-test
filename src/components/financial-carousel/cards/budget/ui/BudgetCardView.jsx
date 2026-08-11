@@ -1,10 +1,6 @@
 import BudgetCard from "@/components/BudgetCard";
 
-const budgetCardRhythmClassName = [
-  "h-full min-h-[inherit] flex flex-col",
-  "[&_[data-finance-card='budget'][data-expanded='false']>div.relative.z-10>div.relative.flex>div:first-child]:block",
-  "[&_[data-finance-card='budget'][data-expanded='false']>div.relative.z-10>div.relative.flex>div:first-child]:flex-none",
-].join(" ");
+const budgetCardRhythmClassName = "h-full min-h-[inherit] flex flex-col";
 
 export default function BudgetCardView({
   data = {},
