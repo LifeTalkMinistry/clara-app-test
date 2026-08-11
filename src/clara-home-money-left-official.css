@@ -1,6 +1,6 @@
 /*
  * CLARA Home — Money Left official branding
- * Home-only presentation. Keeps privacy, calculator, orb gestures, and routing intact.
+ * Home-only presentation. Keeps privacy, after-budget toggle, orb gestures, and routing intact.
  * IMPORTANT: the CLARA orb is intentionally not styled here.
  */
 
@@ -100,13 +100,10 @@
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.22) !important;
 }
 
-/* Privacy + after-budget + calculator are one compact, equal-size utility row. */
+/* Privacy + after-budget are one compact, equal-size utility row. */
 .clara-community-root[data-community-view="home"]
   .clara-community-home-money-left
-  :is(
-    [data-clara-summary-privacy-toggle="true"],
-    [data-clara-money-calculator-toggle="true"]
-  ) {
+  [data-clara-summary-privacy-toggle="true"] {
   top: clamp(12px, 3.4vw, 16px) !important;
   width: 32px !important;
   min-width: 32px !important;
@@ -129,20 +126,14 @@
 
 .clara-community-root[data-community-view="home"]
   .clara-community-home-money-left
-  :is(
-    [data-clara-summary-privacy-toggle="true"],
-    [data-clara-money-calculator-toggle="true"]
-  ) svg {
+  [data-clara-summary-privacy-toggle="true"] svg {
   width: 14px !important;
   height: 14px !important;
 }
 
 .clara-community-root[data-community-view="home"]
   .clara-community-home-money-left
-  :is(
-    [data-clara-summary-privacy-toggle="true"],
-    [data-clara-money-calculator-toggle="true"]
-  ):hover {
+  [data-clara-summary-privacy-toggle="true"]:hover {
   border-color: rgba(255, 216, 74, 0.46) !important;
   color: #ffffff !important;
   background: rgba(7, 31, 71, 0.92) !important;
@@ -150,10 +141,7 @@
 
 .clara-community-root[data-community-view="home"]
   .clara-community-home-money-left
-  :is(
-    [data-clara-summary-privacy-toggle="true"],
-    [data-clara-money-calculator-toggle="true"]
-  ):focus-visible {
+  [data-clara-summary-privacy-toggle="true"]:focus-visible {
   outline: 2px solid rgba(255, 216, 74, 0.82) !important;
   outline-offset: 2px !important;
 }
@@ -193,10 +181,13 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Calculator is intentionally removed from the Home Money Left card.
+   Manual Log owns the calculator now, avoiding duplicate entry points. */
 .clara-community-root[data-community-view="home"]
   .clara-community-home-money-left
   [data-clara-money-calculator-toggle="true"] {
-  left: calc(clamp(112px, 33vw, 132px) + 80px) !important;
+  display: none !important;
+  pointer-events: none !important;
 }
 
 /* The runtime replaces the old text projection with an icon; keep any stale
