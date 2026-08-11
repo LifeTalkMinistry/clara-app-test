@@ -10,11 +10,23 @@
   --clara-home-top-space: clamp(14px, 2.1dvh, 22px);
   --clara-home-section-gap: clamp(16px, 2.4dvh, 24px);
   --clara-home-bottom-space: clamp(28px, 4.2dvh, 48px);
+  /* Android/Capacitor can report a zero safe-area inset even while the native
+     navigation bar overlays the web view. Keep a responsive fallback rail so
+     the final Money Left card can always scroll completely above that edge. */
+  --clara-home-system-bottom-clearance: max(
+    env(safe-area-inset-bottom, 0px),
+    clamp(52px, 7.5dvh, 76px)
+  );
 
+  box-sizing: border-box !important;
   padding-top: var(--clara-home-top-space) !important;
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--clara-home-bottom-space)) !important;
+  padding-bottom: calc(
+    var(--clara-home-system-bottom-clearance) + var(--clara-home-bottom-space)
+  ) !important;
   scroll-padding-top: var(--clara-home-top-space);
-  scroll-padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--clara-home-bottom-space));
+  scroll-padding-bottom: calc(
+    var(--clara-home-system-bottom-clearance) + var(--clara-home-bottom-space)
+  );
 }
 
 /* The old Learning Hub launcher row is gone from Home. Do not let its hidden
@@ -45,6 +57,23 @@
 .clara-community-root[data-community-view="home"] .clara-community-home-money-left {
   margin-top: var(--clara-home-section-gap) !important;
   margin-bottom: 0 !important;
+  scroll-margin-bottom: calc(
+    var(--clara-home-system-bottom-clearance) + var(--clara-home-bottom-space)
+  );
+}
+
+/* Keep the Money Left surface fluid on narrow devices instead of allowing any
+   fixed/min-content width to push it into the screen edges. */
+.clara-community-root[data-community-view="home"]
+  .clara-community-home-money-left
+  > section[data-clara-dashboard-section="money-summary"],
+.clara-community-root[data-community-view="home"]
+  .clara-community-home-money-left
+  [data-clara-summary-card="money-left"] {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
 }
 
 /* The removed red divider must not consume visual or layout space. */
@@ -56,12 +85,17 @@
   padding: 0 !important;
 }
 
-/* Short phones still need breathing room, but we avoid wasting scarce height. */
+/* Short phones still need breathing room without sacrificing the protected
+   native-navigation clearance. */
 @media (max-height: 740px) {
   .clara-community-root[data-community-view="home"] .clara-community-home-view {
     --clara-home-top-space: 12px;
     --clara-home-section-gap: 14px;
-    --clara-home-bottom-space: 24px;
+    --clara-home-bottom-space: 20px;
+    --clara-home-system-bottom-clearance: max(
+      env(safe-area-inset-bottom, 0px),
+      clamp(48px, 8dvh, 64px)
+    );
   }
 }
 
@@ -72,6 +106,10 @@
     --clara-home-top-space: 20px;
     --clara-home-section-gap: 22px;
     --clara-home-bottom-space: 40px;
+    --clara-home-system-bottom-clearance: max(
+      env(safe-area-inset-bottom, 0px),
+      clamp(56px, 6.5dvh, 80px)
+    );
   }
 }
 
