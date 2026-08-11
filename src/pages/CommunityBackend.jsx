@@ -30,6 +30,7 @@ import CommunityPostCard from "@/components/community/CommunityPostCard";
 
 const POST_TYPES = [
   { key: "win", label: "Win", icon: Trophy },
+  { key: "u_day", label: "U Day", icon: UsersRound },
   { key: "question", label: "Question", icon: CircleHelp },
   { key: "struggle", label: "Struggle", icon: HeartHandshake },
   { key: "money_lesson", label: "Tip", icon: Lightbulb },
@@ -37,10 +38,15 @@ const POST_TYPES = [
 
 const FEED_FILTERS = [
   { key: "all", label: "All", icon: null },
+  { key: "u_day", label: "U Day", icon: UsersRound },
   { key: "win", label: "Wins", icon: Trophy },
   { key: "question", label: "Questions", icon: CircleHelp },
   { key: "money_lesson", label: "Tips", icon: Lightbulb },
 ];
+
+function defaultPostType() {
+  return new Date().getDay() === 2 ? "u_day" : "win";
+}
 
 function initialsFor(value) {
   return String(value || "CLARA Member")
@@ -246,7 +252,7 @@ export default function CommunityBackend() {
   const [posts, setPosts] = useState([]);
   const [comments, setComments] = useState([]);
   const [body, setBody] = useState("");
-  const [selectedPostType, setSelectedPostType] = useState("win");
+  const [selectedPostType, setSelectedPostType] = useState(defaultPostType);
   const [feedFilter, setFeedFilter] = useState("all");
   const [mediaFile, setMediaFile] = useState(null);
   const [mediaLimitNotice, setMediaLimitNotice] = useState(null);
@@ -346,7 +352,7 @@ export default function CommunityBackend() {
         },
       });
       setBody("");
-      setSelectedPostType("win");
+      setSelectedPostType(defaultPostType());
       setMediaFile(null);
       setComposerOpen(false);
       setFeedFilter("all");
@@ -432,12 +438,14 @@ export default function CommunityBackend() {
                         value={body}
                         onFocus={() => setComposerOpen(true)}
                         onChange={(event) => setBody(event.target.value)}
-                        placeholder="Share your win, question, or money thought..."
+                        placeholder={selectedPostType === "u_day"
+                          ? "Share your Tuesday U Day answer..."
+                          : "Share your win, question, or money thought..."}
                         className="w-full resize-none bg-transparent px-1 py-2 text-[15px] font-semibold leading-6 text-white outline-none placeholder:text-white/38 sm:text-base"
                       />
 
                       {composerOpen ? (
-                        <div className="mt-2 flex flex-wrap gap-2">
+                        <div className="mt-2 flex flex-nowrap items-center justify-between gap-1.5">
                           {POST_TYPES.map((postType) => {
                             const Icon = postType.icon;
                             const selected = selectedPostType === postType.key;
@@ -447,13 +455,13 @@ export default function CommunityBackend() {
                                 type="button"
                                 aria-pressed={selected}
                                 onClick={() => setSelectedPostType(postType.key)}
-                                className={`inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-[10px] font-black transition ${
+                                className={`inline-flex h-9 min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border px-1.5 text-[9px] font-black transition sm:gap-1.5 sm:px-3 sm:text-[10px] ${
                                   selected
                                     ? "border-[#9afff8] bg-[#31d8d1] text-[#032f34] shadow-[0_0_18px_rgba(49,216,209,0.22)]"
                                     : "border-white/10 bg-white/[0.035] text-white/48 hover:border-white/20 hover:text-white/70"
                                 }`}
                               >
-                                <Icon className="h-3.5 w-3.5" /> {postType.label}
+                                <Icon className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" /> {postType.label}
                               </button>
                             );
                           })}
