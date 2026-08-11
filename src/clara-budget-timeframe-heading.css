@@ -88,25 +88,30 @@
 
 #root [class*="circle_at_top_left"]:has([data-clara-budget-final-owned="true"]) header.sticky div.min-w-0.flex-1 {
   display: flex !important;
-  min-height: 2.5rem !important;
+  min-height: 2.75rem !important;
   align-items: center !important;
   justify-content: center !important;
   overflow: visible !important;
+  padding: 0 0.35rem !important;
 }
 
 #root [class*="circle_at_top_left"]:has([data-clara-budget-final-owned="true"]) header.sticky div.min-w-0.flex-1::after {
   content: "YOUR BUDGET IS READY";
   display: block;
   width: 100%;
-  color: #f7c948;
-  font-size: 0.66rem;
-  font-weight: 900;
-  line-height: 1.15;
-  letter-spacing: 0.12em;
+  background: linear-gradient(90deg, #ffe99a 0%, #f7c948 48%, #fff1b8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: clamp(0.82rem, 3.35vw, 0.92rem);
+  font-weight: 950;
+  line-height: 1.05;
+  letter-spacing: 0.075em;
   text-align: center;
   text-transform: uppercase;
   white-space: nowrap;
-  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
+  filter: drop-shadow(0 2px 8px rgba(247, 201, 72, 0.16));
+  text-shadow: none;
 }
 
 /* The blue card now owns only the rotating motivational quote. */
