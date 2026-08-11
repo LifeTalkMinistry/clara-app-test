@@ -16,6 +16,7 @@ import { installCommunityVideoAutoplay } from "./runtime/installCommunityVideoAu
 import { installCommunityProfileEditShortcut } from "./runtime/installCommunityProfileEditShortcut";
 import { installCommunityNotificationRuntime } from "./runtime/installCommunityNotificationRuntime";
 import { installClaraBackgroundRuntimeGuard } from "./runtime/installClaraBackgroundRuntimeGuard";
+import { installClaraHomeBrandCompletion } from "./runtime/installClaraHomeBrandCompletion";
 import { installBudgetSetupCopyCleanup } from "./runtime/installBudgetSetupCopyCleanup";
 import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
 import {
@@ -53,6 +54,7 @@ import "./clara-home-finance-card-system.css";
 import "./clara-home-money-left-official.css";
 import "./clara-universal-background.css";
 import "./clara-home-responsive-spacing.css";
+import "./clara-home-brand-completion.css";
 import "./community-top-nav-geometry-lock.css";
 import "./community-profile-official-brand.css";
 import "./clara-budget-plan-official.css";
@@ -122,6 +124,12 @@ try {
   installClaraBackgroundRuntimeGuard();
 } catch (error) {
   console.warn("CLARA background runtime guard failed to init:", error);
+}
+
+try {
+  installClaraHomeBrandCompletion();
+} catch (error) {
+  console.warn("CLARA Home brand completion failed to init:", error);
 }
 
 try {
