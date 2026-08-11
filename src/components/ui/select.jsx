@@ -12,20 +12,62 @@ const SelectGroup = SelectPrimitive.Group
 
 const SelectValue = SelectPrimitive.Value
 
-const SelectTrigger = React.forwardRef(({ className, children, ...props }, ref) => (
-  <SelectPrimitive.Trigger
-    ref={ref}
-    className={cn(
-      "theme-input flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md px-3 py-2 text-sm shadow-sm ring-offset-background data-[placeholder]:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
-      className
-    )}
-    {...props}>
-    {children}
-    <SelectPrimitive.Icon asChild>
-      <ChevronDown className="h-4 w-4 opacity-50" />
-    </SelectPrimitive.Icon>
-  </SelectPrimitive.Trigger>
-))
+const SelectTrigger = React.forwardRef(({ className, children, ...props }, forwardedRef) => {
+  const localRef = React.useRef(null)
+  const cleanQuickUndocumentedShell = React.Children.toArray(children).some(
+    (child) =>
+      React.isValidElement(child) &&
+      String(child.props?.placeholder || "").startsWith("Why is this undocumented?")
+  )
+
+  const setRef = React.useCallback(
+    (node) => {
+      localRef.current = node
+      if (typeof forwardedRef === "function") {
+        forwardedRef(node)
+      } else if (forwardedRef) {
+        forwardedRef.current = node
+      }
+    },
+    [forwardedRef]
+  )
+
+  React.useLayoutEffect(() => {
+    const node = localRef.current
+    const shell = cleanQuickUndocumentedShell ? node?.parentElement : null
+    if (!shell) return undefined
+
+    const previousStyle = shell.getAttribute("style")
+    shell.style.setProperty("border", "0", "important")
+    shell.style.setProperty("background", "transparent", "important")
+    shell.style.setProperty("background-color", "transparent", "important")
+    shell.style.setProperty("background-image", "none", "important")
+    shell.style.setProperty("padding", "0", "important")
+    shell.style.setProperty("box-shadow", "none", "important")
+    shell.style.setProperty("backdrop-filter", "none", "important")
+    shell.style.setProperty("-webkit-backdrop-filter", "none", "important")
+
+    return () => {
+      if (previousStyle === null) shell.removeAttribute("style")
+      else shell.setAttribute("style", previousStyle)
+    }
+  }, [cleanQuickUndocumentedShell])
+
+  return (
+    <SelectPrimitive.Trigger
+      ref={setRef}
+      className={cn(
+        "theme-input flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md px-3 py-2 text-sm shadow-sm ring-offset-background data-[placeholder]:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
+        className
+      )}
+      {...props}>
+      {children}
+      <SelectPrimitive.Icon asChild>
+        <ChevronDown className="h-4 w-4 opacity-50" />
+      </SelectPrimitive.Icon>
+    </SelectPrimitive.Trigger>
+  )
+})
 SelectTrigger.displayName = SelectPrimitive.Trigger.displayName
 
 const SelectScrollUpButton = React.forwardRef(({ className, ...props }, ref) => (
