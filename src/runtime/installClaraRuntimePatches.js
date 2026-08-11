@@ -194,3 +194,6 @@ import "../clara-buy-check-bottom-position.css";
 import "../clara-buy-check-report-card-polish.css";
 import "../clara-buy-check-report-content-polish.css";
 import "../clara-buy-check-report-focus-mode.css";
+
+// Final budget activation screen: motivational copy + consolidated summary.
+import "./installBudgetFinalMotivation";
