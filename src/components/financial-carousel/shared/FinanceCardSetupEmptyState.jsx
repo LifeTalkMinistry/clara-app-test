@@ -20,16 +20,10 @@ export default function FinanceCardSetupEmptyState({
 
   return (
     <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
-      <div
-        className={`relative flex min-h-0 flex-col gap-4 ${
-          expanded ? "flex-1" : ""
-        }`}
-      >
+      <div className="relative flex min-h-0 flex-1 flex-col gap-4">
         <div
-          className={`relative overflow-hidden rounded-[28px] border border-white/[0.045] bg-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] ${
-            expanded
-              ? "flex min-h-[360px] flex-1 flex-col justify-center px-5 py-7"
-              : "px-4 py-5"
+          className={`relative flex min-h-0 flex-1 flex-col justify-center overflow-hidden rounded-[28px] border border-white/[0.045] bg-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] ${
+            expanded ? "min-h-[360px] px-5 py-7" : "px-4 py-5"
           }`}
         >
           <div className="pointer-events-none absolute -right-16 -top-20 h-44 w-44 rounded-full bg-cyan-300/[0.07] blur-[58px]" />
