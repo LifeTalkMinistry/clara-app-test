@@ -167,11 +167,12 @@ body:has([data-finance-card="emergencyFund"] button[aria-label="About Emergency 
 }
 
 /* Reuse the same clickable info control as the modal close button while the
-   message is open, so no extra React behavior or finance logic is introduced. */
+   message is open, so no extra React behavior or finance logic is introduced.
+   Align it with the modal header instead of letting it float above the title. */
 [data-finance-card="emergencyFund"]
   button[aria-label="About Emergency Fund setup"][aria-expanded="true"] {
   position: fixed !important;
-  top: calc(50% - 69px) !important;
+  top: calc(50% - 48px) !important;
   right: max(30px, calc((100vw - 330px) / 2 + 16px)) !important;
   z-index: 2147483601 !important;
   width: 30px !important;
