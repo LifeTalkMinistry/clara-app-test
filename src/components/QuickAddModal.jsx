@@ -22,6 +22,7 @@ import {
 import useUserRole from "../hooks/useUserRole";
 import useFinancialData from "@/hooks/useFinancialData";
 import useDashboardManualExpenseBudgetOptions from "@/components/fresh/main-dashboard/budget/useDashboardManualExpenseBudgetOptions";
+import { UNDOCUMENTED_SPENDING_REASONS } from "@/components/fresh/main-dashboard/finance-form/financeFormConstants";
 import {
   getWalletDisplayBalance,
   getWalletDisplayName,
@@ -29,7 +30,10 @@ import {
 } from "@/utils/dashboard/dashboardHelpers";
 
 const PH_TIME_ZONE = "Asia/Manila";
-const OUTSIDE_BUDGET_KEY = "__unplanned__";
+const UNPLANNED_KEY = "__unplanned__";
+const UNDOCUMENTED_KEY = "__undocumented__";
+const BUDGET_SECTION_KEY = "__budget_items_header__";
+const NO_BUDGET_ITEMS_KEY = "__no_budget_items__";
 
 const ACTION_TYPES = [
   { id: "expense", label: "Expense", icon: Receipt },
@@ -138,7 +142,9 @@ const getBudgetRange = (budget, today) => {
 const getDefaultExpenseForm = (walletId = "") => ({
   amount: "",
   budget_list_key: "",
-  unplanned_label: "",
+  unplanned_reason: "",
+  undocumented_reason: "",
+  undocumented_note: "",
   wallet_id: walletId,
   notes: "",
   need_type: "need",
@@ -321,7 +327,10 @@ export default function QuickAddModal({
         const protectionType = normalizeLower(
           record?.protection_type || record?.linked_target_type || record?.protected_type,
         );
-        return !record?.is_protected_commitment && !["emergency_fund", "savings_goal"].includes(protectionType);
+        return (
+          !record?.is_protected_commitment &&
+          !["emergency_fund", "savings_goal"].includes(protectionType)
+        );
       })
       .map((item) => {
         const itemId = normalizeText(item?.id || item?.budget?.id);
@@ -332,7 +341,9 @@ export default function QuickAddModal({
         const spent = safeExpenses.reduce((sum, expense) => {
           const date = getRecordDateString(expense);
           if (!date || date < budgetPeriod.start || date > budgetPeriod.end) return sum;
-          if (["unplanned", "undocumented"].includes(normalizeLower(expense?.planning_status))) return sum;
+          if (["unplanned", "undocumented"].includes(normalizeLower(expense?.planning_status))) {
+            return sum;
+          }
 
           const expenseId = normalizeText(
             expense?.budget_item_id || expense?.budget_category_id || expense?.budgetCategoryId,
@@ -387,11 +398,13 @@ export default function QuickAddModal({
 
   const selectedBudgetItem = useMemo(
     () =>
-      budgetItems.find((item) => String(item.key) === String(expenseForm.budget_list_key)) || null,
+      budgetItems.find((item) => String(item.key) === String(expenseForm.budget_list_key)) ||
+      null,
     [budgetItems, expenseForm.budget_list_key],
   );
-  const isOutsideBudget = expenseForm.budget_list_key === OUTSIDE_BUDGET_KEY;
-  const requiresUnplannedLabel = !budgetSetupExists || isOutsideBudget;
+
+  const isUnplanned = expenseForm.budget_list_key === UNPLANNED_KEY;
+  const isUndocumented = expenseForm.budget_list_key === UNDOCUMENTED_KEY;
 
   useEffect(() => {
     if (!open) return;
@@ -437,7 +450,11 @@ export default function QuickAddModal({
 
   useEffect(() => {
     if (!open || !initialExpenseData) return;
+
     const amount = normalizeNumber(initialExpenseData?.amount);
+    const planningStatus = normalizeLower(
+      initialExpenseData?.planning_status || initialExpenseData?.planningStatus,
+    );
     const requestedKey = normalizeText(
       initialExpenseData?.budget_list_key || initialExpenseData?.budgetListKey,
     );
@@ -458,29 +475,46 @@ export default function QuickAddModal({
       );
     });
 
+    const savedUndocumentedReason = normalizeText(
+      initialExpenseData?.undocumented_reason || initialExpenseData?.undocumentedReason,
+    );
+    const savedFallbackReason = normalizeText(initialExpenseData?.unplanned_reason);
+    const matchedUndocumentedReason = UNDOCUMENTED_SPENDING_REASONS.includes(
+      savedUndocumentedReason,
+    )
+      ? savedUndocumentedReason
+      : UNDOCUMENTED_SPENDING_REASONS.includes(savedFallbackReason)
+        ? savedFallbackReason
+        : "";
+
     setExpenseForm((prev) => ({
       ...prev,
       amount: amount > 0 ? String(amount) : prev.amount,
-      budget_list_key: matchedBudget
-        ? String(matchedBudget.key)
-        : requestedTitle
-          ? OUTSIDE_BUDGET_KEY
-          : prev.budget_list_key,
-      unplanned_label: matchedBudget
-        ? ""
-        : normalizeText(
-            initialExpenseData?.budget_item_name ||
-              initialExpenseData?.budget_category ||
-              initialExpenseData?.category ||
-              prev.unplanned_label,
-          ),
+      budget_list_key:
+        planningStatus === "unplanned"
+          ? UNPLANNED_KEY
+          : planningStatus === "undocumented"
+            ? UNDOCUMENTED_KEY
+            : matchedBudget
+              ? String(matchedBudget.key)
+              : prev.budget_list_key,
+      unplanned_reason:
+        planningStatus === "unplanned"
+          ? normalizeText(initialExpenseData?.unplanned_reason || initialExpenseData?.notes)
+          : "",
+      undocumented_reason:
+        planningStatus === "undocumented"
+          ? matchedUndocumentedReason || "Other undocumented reason"
+          : "",
+      undocumented_note:
+        planningStatus === "undocumented" && !matchedUndocumentedReason
+          ? normalizeText(initialExpenseData?.notes || savedFallbackReason)
+          : "",
       notes: initialExpenseData?.notes || initialExpenseData?.note || prev.notes || "",
       need_type:
-        initialExpenseData?.need_type ||
-        initialExpenseData?.needType ||
-        matchedBudget?.needType ||
-        prev.need_type ||
-        "need",
+        matchedBudget?.needType && ["need", "want", "savings"].includes(normalizeLower(matchedBudget.needType))
+          ? normalizeLower(matchedBudget.needType)
+          : prev.need_type,
     }));
   }, [budgetItems, initialExpenseData, open]);
 
@@ -521,7 +555,9 @@ export default function QuickAddModal({
     setExpenseForm((prev) => ({
       ...prev,
       budget_list_key: value,
-      unplanned_label: value === OUTSIDE_BUDGET_KEY ? prev.unplanned_label : "",
+      unplanned_reason: value === UNPLANNED_KEY ? prev.unplanned_reason : "",
+      undocumented_reason: value === UNDOCUMENTED_KEY ? prev.undocumented_reason : "",
+      undocumented_note: value === UNDOCUMENTED_KEY ? prev.undocumented_note : "",
       need_type:
         item?.needType && ["need", "want", "savings"].includes(normalizeLower(item.needType))
           ? normalizeLower(item.needType)
@@ -540,13 +576,19 @@ export default function QuickAddModal({
       throw new Error("Not enough spendable balance in this wallet.");
     }
 
-    if (budgetSetupExists && !selectedBudgetItem && !isOutsideBudget) {
-      throw new Error("Choose which budget item this expense belongs to.");
+    if (!selectedBudgetItem && !isUnplanned && !isUndocumented) {
+      throw new Error("Choose Unplanned, Undocumented, or one of your budget items.");
     }
 
-    const unplannedLabel = normalizeText(expenseForm.unplanned_label);
-    if (!selectedBudgetItem && !unplannedLabel) {
-      throw new Error("Tell CLARA what this expense was for.");
+    const unplannedReason = normalizeText(expenseForm.unplanned_reason);
+    const undocumentedReason = normalizeText(expenseForm.undocumented_reason);
+    const undocumentedNote = normalizeText(expenseForm.undocumented_note);
+
+    if (isUnplanned && !unplannedReason) {
+      throw new Error("Tell CLARA what this unplanned expense was for.");
+    }
+    if (isUndocumented && !undocumentedReason) {
+      throw new Error("Choose why this spending is undocumented.");
     }
 
     const selectedRecord = selectedBudgetItem?.budget || selectedBudgetItem || null;
@@ -562,13 +604,27 @@ export default function QuickAddModal({
             activeBudgetHeader?.id,
         )
       : "";
-    const budgetCategory = selectedBudgetItem ? normalizeText(selectedBudgetItem.title) : unplannedLabel;
-    const planningStatus = selectedBudgetItem ? "planned" : "unplanned";
-    const unplannedReason = selectedBudgetItem
-      ? null
-      : budgetSetupExists
-        ? `Not in active budget: ${unplannedLabel}`
-        : `No active budget: ${unplannedLabel}`;
+
+    const undocumentedFallbackNote = normalizeText(
+      [undocumentedReason, undocumentedNote].filter(Boolean).join(" — "),
+    );
+    const budgetCategory = selectedBudgetItem
+      ? normalizeText(selectedBudgetItem.title)
+      : isUnplanned
+        ? "Unplanned Spending"
+        : "Undocumented Spending";
+    const planningStatus = selectedBudgetItem
+      ? "planned"
+      : isUnplanned
+        ? "unplanned"
+        : "undocumented";
+    const needType = selectedBudgetItem ? expenseForm.need_type : "other";
+    const statusReason = isUnplanned
+      ? unplannedReason
+      : isUndocumented
+        ? undocumentedFallbackNote || "Undocumented Spending"
+        : null;
+    const notesValue = normalizeText(expenseForm.notes) || statusReason || "";
 
     const { iso, phDate } = nowPayload();
     await addExpense?.({
@@ -577,16 +633,18 @@ export default function QuickAddModal({
       walletId: String(expenseForm.wallet_id),
       category: budgetCategory,
       budget_category: budgetCategory,
-      budget_item_name: budgetCategory,
+      budget_item_name: selectedBudgetItem ? budgetCategory : null,
       budget_category_id: selectedBudgetId || null,
       budget_item_id: selectedBudgetId || null,
-      budget_list_key: selectedBudgetKey || null,
-      budgetListKey: selectedBudgetKey || null,
-      budget_id: selectedPlanId || activeBudgetHeader?.id || null,
-      need_type: expenseForm.need_type,
+      budget_list_key: selectedBudgetKey || (isUnplanned ? UNPLANNED_KEY : UNDOCUMENTED_KEY),
+      budgetListKey: selectedBudgetKey || (isUnplanned ? UNPLANNED_KEY : UNDOCUMENTED_KEY),
+      budget_id: selectedBudgetItem ? selectedPlanId || activeBudgetHeader?.id || null : null,
+      need_type: needType,
       planning_status: planningStatus,
-      unplanned_reason: unplannedReason,
-      notes: expenseForm.notes || "",
+      unplanned_reason: statusReason,
+      undocumented_reason: isUndocumented ? undocumentedReason : null,
+      undocumented_note: isUndocumented ? undocumentedNote || null : null,
+      notes: notesValue,
       source_type: "Manual Log Expense",
       date: phDate,
       created_at: iso,
@@ -714,7 +772,9 @@ export default function QuickAddModal({
   const expenseReady = Boolean(
     expenseForm.amount &&
       expenseForm.wallet_id &&
-      (selectedBudgetItem || (requiresUnplannedLabel && normalizeText(expenseForm.unplanned_label))),
+      (selectedBudgetItem || isUnplanned || isUndocumented) &&
+      (!isUnplanned || normalizeText(expenseForm.unplanned_reason)) &&
+      (!isUndocumented || normalizeText(expenseForm.undocumented_reason)),
   );
 
   const isDisabled =
@@ -798,16 +858,35 @@ export default function QuickAddModal({
               }
             />
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className={selectedBudgetItem ? "grid grid-cols-2 gap-2" : "grid grid-cols-1 gap-2"}>
               <div>
                 <Label className="mb-1 block text-xs text-slate-200">Budget Item</Label>
-                {budgetSetupExists ? (
-                  <Select value={expenseForm.budget_list_key} onValueChange={handleBudgetSelection}>
-                    <SelectTrigger className="border-slate-700 bg-[#071a34] text-white">
-                      <SelectValue placeholder="Select budget item" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {budgetItems.map((item) => {
+                <Select value={expenseForm.budget_list_key} onValueChange={handleBudgetSelection}>
+                  <SelectTrigger className="border-slate-700 bg-[#071a34] text-white">
+                    <SelectValue placeholder="Select budget item" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={UNPLANNED_KEY} textValue="Unplanned">
+                      <div className="flex min-w-[220px] flex-col py-0.5">
+                        <span className="font-bold text-amber-200">Unplanned</span>
+                        <span className="text-[11px] text-slate-400">I know what I spent on, but it was not in the plan</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value={UNDOCUMENTED_KEY} textValue="Undocumented">
+                      <div className="flex min-w-[220px] flex-col py-0.5">
+                        <span className="font-bold text-cyan-200">Undocumented</span>
+                        <span className="text-[11px] text-slate-400">Money was spent, but the details are incomplete</span>
+                      </div>
+                    </SelectItem>
+
+                    <SelectItem value={BUDGET_SECTION_KEY} disabled>
+                      <span className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
+                        Your budget items
+                      </span>
+                    </SelectItem>
+
+                    {budgetItems.length ? (
+                      budgetItems.map((item) => {
                         const remainingLabel =
                           item.remaining >= 0
                             ? `${formatPhp(item.remaining)} left`
@@ -822,17 +901,15 @@ export default function QuickAddModal({
                             </div>
                           </SelectItem>
                         );
-                      })}
-                      <SelectItem value={OUTSIDE_BUDGET_KEY} textValue="Not in my budget">
-                        Not in my budget
+                      })
+                    ) : (
+                      <SelectItem value={NO_BUDGET_ITEMS_KEY} disabled>
+                        <span className="text-slate-500">No active budget items yet</span>
                       </SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <div className="flex h-10 items-center rounded-md border border-slate-700 bg-[#071a34] px-3 text-sm text-slate-400">
-                    No active budget yet
-                  </div>
-                )}
+                    )}
+                  </SelectContent>
+                </Select>
+
                 {selectedBudgetItem ? (
                   <p className="mt-1 text-[11px] leading-4 text-slate-400">
                     {selectedBudgetItem.remaining >= 0
@@ -842,30 +919,32 @@ export default function QuickAddModal({
                 ) : null}
               </div>
 
-              <div>
-                <Label className="mb-1 block text-xs text-slate-200">Need Type</Label>
-                <Select
-                  value={expenseForm.need_type}
-                  onValueChange={(value) =>
-                    setExpenseForm((prev) => ({ ...prev, need_type: value }))
-                  }
-                >
-                  <SelectTrigger className="border-slate-700 bg-[#071a34] text-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="need">Need</SelectItem>
-                    <SelectItem value="want">Want</SelectItem>
-                    <SelectItem value="savings">Savings</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {selectedBudgetItem ? (
+                <div>
+                  <Label className="mb-1 block text-xs text-slate-200">Need Type</Label>
+                  <Select
+                    value={expenseForm.need_type}
+                    onValueChange={(value) =>
+                      setExpenseForm((prev) => ({ ...prev, need_type: value }))
+                    }
+                  >
+                    <SelectTrigger className="border-slate-700 bg-[#071a34] text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="need">Need</SelectItem>
+                      <SelectItem value="want">Want</SelectItem>
+                      <SelectItem value="savings">Savings</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
             </div>
 
             {!budgetSetupExists ? (
               <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.07] px-3 py-2.5">
                 <p className="text-[11px] font-medium leading-4 text-amber-100/80">
-                  You can still log this expense. CLARA will treat it as outside an active budget.
+                  Unplanned and Undocumented are always available. Set up a budget to add planned choices here too.
                 </p>
                 <button
                   type="button"
@@ -877,19 +956,64 @@ export default function QuickAddModal({
               </div>
             ) : null}
 
-            {requiresUnplannedLabel ? (
-              <div>
-                <Label className="mb-1 block text-xs text-slate-200">What was this for?</Label>
+            {isUnplanned ? (
+              <div className="rounded-xl border border-amber-400/20 bg-amber-400/[0.07] p-3">
+                <Label className="mb-1 block text-xs text-amber-100">What was this for?</Label>
                 <Input
-                  value={expenseForm.unplanned_label}
+                  value={expenseForm.unplanned_reason}
                   onChange={(event) =>
-                    setExpenseForm((prev) => ({ ...prev, unplanned_label: event.target.value }))
+                    setExpenseForm((prev) => ({ ...prev, unplanned_reason: event.target.value }))
                   }
                   placeholder="e.g., Medicine, unexpected fare"
-                  className="border-slate-700 bg-[#071a34] text-white"
+                  className="border-amber-300/20 bg-[#071a34] text-white"
                 />
-                <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                <p className="mt-1 text-[11px] leading-4 text-amber-100/60">
                   This will be logged automatically as unplanned spending.
+                </p>
+              </div>
+            ) : null}
+
+            {isUndocumented ? (
+              <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/[0.07] p-3">
+                <Label className="mb-1 block text-xs text-cyan-100">Why is this undocumented?</Label>
+                <Select
+                  value={expenseForm.undocumented_reason}
+                  onValueChange={(value) =>
+                    setExpenseForm((prev) => ({
+                      ...prev,
+                      undocumented_reason: value,
+                      undocumented_note:
+                        value === "Other undocumented reason" ? prev.undocumented_note : "",
+                    }))
+                  }
+                >
+                  <SelectTrigger className="border-cyan-300/20 bg-[#071a34] text-white">
+                    <SelectValue placeholder="Choose the closest reason" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {UNDOCUMENTED_SPENDING_REASONS.map((reason) => (
+                      <SelectItem key={reason} value={reason}>
+                        {reason}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {expenseForm.undocumented_reason === "Other undocumented reason" ? (
+                  <div className="mt-2">
+                    <Input
+                      value={expenseForm.undocumented_note}
+                      onChange={(event) =>
+                        setExpenseForm((prev) => ({ ...prev, undocumented_note: event.target.value }))
+                      }
+                      placeholder="Add a short note, if needed"
+                      className="border-cyan-300/20 bg-[#071a34] text-white"
+                    />
+                  </div>
+                ) : null}
+
+                <p className="mt-1 text-[11px] leading-4 text-cyan-100/60">
+                  This will be logged automatically as undocumented spending.
                 </p>
               </div>
             ) : null}
@@ -929,7 +1053,7 @@ export default function QuickAddModal({
             <div>
               <Label className="mb-1 block text-xs text-slate-200">Note (optional)</Label>
               <Input
-                placeholder="What was this for?"
+                placeholder="Additional details"
                 value={expenseForm.notes}
                 onChange={(event) =>
                   setExpenseForm((prev) => ({ ...prev, notes: event.target.value }))
