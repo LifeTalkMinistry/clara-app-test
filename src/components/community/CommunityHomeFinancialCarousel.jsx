@@ -139,6 +139,21 @@ export default function CommunityHomeFinancialCarousel() {
     emergencyFund,
   });
 
+  const afterMonthlyBudgetMoney = useMemo(() => {
+    const rawRemaining = Number(
+      monthlyBudgetPlan?.remaining ?? monthlyBudgetPlan?.remaining_amount ?? 0
+    );
+    const remainingMonthlyCommitment = Number.isFinite(rawRemaining)
+      ? Math.max(rawRemaining, 0)
+      : 0;
+    const currentWalletBalance = Number(totalWalletBalance);
+    return (Number.isFinite(currentWalletBalance) ? currentWalletBalance : 0) - remainingMonthlyCommitment;
+  }, [
+    monthlyBudgetPlan?.remaining,
+    monthlyBudgetPlan?.remaining_amount,
+    totalWalletBalance,
+  ]);
+
   const {
     walletPreviewTransactions = [],
     totalSavingsTarget = 0,
@@ -618,6 +633,20 @@ export default function CommunityHomeFinancialCarousel() {
             thisMonthSpent={thisMonthSpent}
             fmt={formatPhpCurrency}
           />
+          <div
+            data-clara-after-budget-total="true"
+            aria-label={`Projected money left after the monthly budget is fully spent: ${formatPhpCurrency(
+              afterMonthlyBudgetMoney
+            )}`}
+            title="Projected after monthly budget"
+          >
+            <span>After budget</span>
+            <strong>
+              {moneySummaryVisible
+                ? formatPhpCurrency(afterMonthlyBudgetMoney)
+                : "₱••••"}
+            </strong>
+          </div>
         </div>
 
         <span className="sr-only">
