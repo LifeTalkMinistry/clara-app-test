@@ -1,0 +1,84 @@
+/* CLARA Quick Actions — final premium footer polish.
+   Keeps the form logic untouched while giving the primary action a deliberate
+   premium treatment and preventing unrelated floating controls from sitting on
+   top of the modal. */
+
+/* Nothing should visually compete with Quick Actions while its dialog is open. */
+body:has([role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"])
+  #clara-support-world [data-clara-support-bubble],
+body:has([role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"])
+  [data-fab="clara-quick-circle"] {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+/* Give the bottom of the form deliberate breathing room. */
+[role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"] {
+  padding-bottom: 20px !important;
+}
+
+[role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"] p[class~="text-slate-500"] {
+  margin-bottom: 2px !important;
+}
+
+/* The save action is a full-width premium CTA — never a small gray blob. */
+[role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"] > button[class~="bg-emerald-600"] {
+  position: relative !important;
+  z-index: 6 !important;
+  display: flex !important;
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: none !important;
+  min-height: 54px !important;
+  margin: 16px 0 0 !important;
+  padding: 0 18px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(147,197,253,0.30) !important;
+  border-radius: 17px !important;
+  background:
+    radial-gradient(circle at 22% 0%, rgba(255,255,255,0.16), transparent 34%),
+    linear-gradient(100deg, #0e4ba8 0%, #1769e0 56%, #237cf2 100%) !important;
+  color: #ffffff !important;
+  font-size: 0.95rem !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.015em !important;
+  line-height: 1 !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.18),
+    inset 0 -1px 0 rgba(0,0,0,0.18),
+    0 16px 34px rgba(23,105,224,0.24) !important;
+  transform: none !important;
+}
+
+[role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"] > button[class~="bg-emerald-600"]:hover:not(:disabled) {
+  filter: brightness(1.06) !important;
+  border-color: rgba(191,219,254,0.46) !important;
+}
+
+/* Disabled still looks intentional and premium, just quieter. */
+[role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"] > button[class~="bg-emerald-600"]:disabled {
+  opacity: 1 !important;
+  filter: none !important;
+  cursor: not-allowed !important;
+  border-color: rgba(96,165,250,0.16) !important;
+  background:
+    linear-gradient(145deg, rgba(11,47,100,0.86), rgba(6,29,65,0.96)) !important;
+  color: rgba(219,234,254,0.42) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.05),
+    0 10px 24px rgba(0,0,0,0.16) !important;
+}
+
+/* Small screens: keep the CTA fully inside the rounded sheet. */
+@media (max-width: 380px) {
+  [role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"] > button[class~="bg-emerald-600"] {
+    min-height: 52px !important;
+    border-radius: 16px !important;
+    font-size: 0.92rem !important;
+  }
+}
