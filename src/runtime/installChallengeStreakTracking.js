@@ -5,10 +5,15 @@ import {
   isStoredTokenLive,
   readJwtPayload,
 } from "@/lib/clara-backend-client";
+import { addLocalDays, getEligibleDayKey } from "@/lib/challenge-schedule.js";
+import { createDailyCheckInEvent } from "@/components/fresh/main-dashboard/daily-tip/logic/dailyCheckInEngine.js";
+import { loadState, writeState } from "@/components/fresh/main-dashboard/daily-tip/logic/dailyCheckInPersistence.js";
 
 const DAILY_CHECK_IN_STORAGE_PREFIX = "clara_daily_check_in_v3:";
 const DAILY_CHECK_IN_UPDATE_EVENT = "clara:daily-check-in-updated";
 const LAST_SENT_PREFIX = "clara:challenge-streak:last-sent:v1:";
+const ADMIN_RESTORE_APPLIED_PREFIX = "clara:challenge-streak:admin-restore-applied:v1:";
+const ADMIN_RESTORE_SOURCE = "admin_streak_recovery";
 const RETRY_INTERVAL_MS = 5 * 60 * 1000;
 let syncPromise = null;
 let queuedSync = false;
@@ -98,9 +103,101 @@ function writeLastSent(userId, fingerprint) {
   }
 }
 
+function appliedAdminRestoreKey(userId) {
+  return `${ADMIN_RESTORE_APPLIED_PREFIX}${userId}`;
+}
+
+function readAppliedAdminRestoreVersion(userId) {
+  try {
+    return finiteInteger(safeStorage()?.getItem(appliedAdminRestoreKey(userId)), 0);
+  } catch {
+    return 0;
+  }
+}
+
+function writeAppliedAdminRestoreVersion(userId, version) {
+  try {
+    safeStorage()?.setItem(appliedAdminRestoreKey(userId), String(version));
+  } catch {
+    // The restore is still safe to retry if the acknowledgement cannot persist.
+  }
+}
+
+function restoredEvents(userId, endDay, streak) {
+  if (!endDay || streak < 1) return [];
+  return Array.from({ length: streak }, (_, index) => {
+    const eligibleDay = addLocalDays(endDay, -(streak - 1 - index));
+    return createDailyCheckInEvent({
+      userId,
+      eligibleDay,
+      source: ADMIN_RESTORE_SOURCE,
+    });
+  });
+}
+
+async function applyPendingAdminStreakRestore(identity) {
+  let serverState = null;
+  try {
+    serverState = await backendRequest("/api/users/me/challenge-streak", {
+      token: identity.token,
+      timeoutMs: 8000,
+    });
+  } catch {
+    return;
+  }
+
+  const restoreVersion = finiteInteger(serverState?.admin_restore_version, 0);
+  if (restoreVersion < 1) return;
+  if (readAppliedAdminRestoreVersion(identity.userId) >= restoreVersion) return;
+
+  const requestedStreak = finiteInteger(serverState?.admin_restore_streak, 0);
+  const todayKey = getEligibleDayKey();
+  const localState = loadState(identity.userId, todayKey);
+  const localStreak = finiteInteger(localState?.currentStreak, 0);
+
+  // Recovery is intentionally non-destructive. If the device already has a
+  // higher real streak, acknowledge the admin request without lowering it.
+  if (requestedStreak <= localStreak) {
+    writeAppliedAdminRestoreVersion(identity.userId, restoreVersion);
+    return;
+  }
+
+  const completedToday = Array.isArray(localState?.completedDates)
+    && localState.completedDates.includes(todayKey);
+  const endDay = completedToday ? todayKey : addLocalDays(todayKey, -1);
+  const recoveryEvents = restoredEvents(identity.userId, endDay, requestedStreak);
+  const recoveryStartDay = recoveryEvents[0]?.eligibleDay || null;
+  const updatedAt = new Date().toISOString();
+
+  const writeResult = writeState(
+    identity.userId,
+    {
+      ...localState,
+      checkInEvents: [...(localState?.checkInEvents || []), ...recoveryEvents],
+      completedDates: [
+        ...(localState?.completedDates || []),
+        ...recoveryEvents.map((event) => event.eligibleDay),
+      ],
+      challengeStartDay: localState?.challengeStartDay || recoveryStartDay,
+      cycleStartedAt: localState?.challengeStartDay || recoveryStartDay,
+      longestStreak: Math.max(finiteInteger(localState?.longestStreak), requestedStreak),
+      lifetimeCheckIns: Math.max(finiteInteger(localState?.lifetimeCheckIns), requestedStreak),
+      updatedAt,
+    },
+    "admin_streak_recovery",
+    todayKey,
+  );
+
+  if (writeResult.ok) {
+    writeAppliedAdminRestoreVersion(identity.userId, restoreVersion);
+  }
+}
+
 async function performSync({ force = false } = {}) {
   const identity = getAuthenticatedIdentity();
   if (!identity || navigator?.onLine === false) return;
+
+  await applyPendingAdminStreakRestore(identity);
 
   const state = readChallengeState(identity.userId);
   if (!state || !hasChallengeActivity(state)) return;
