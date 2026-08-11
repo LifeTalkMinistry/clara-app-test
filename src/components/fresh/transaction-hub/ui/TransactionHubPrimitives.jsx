@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, ChevronDown, CircleDot } from "lucide-react";
 
 import { DEFAULT_THEME } from "../logic/transactionHubUtils";
+import "../../../../transaction-hub-official-branding.css";
 
 export function useClickOutside(ref, onClose) {
   useEffect(() => {
