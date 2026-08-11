@@ -29,6 +29,47 @@
   align-self: center !important;
 }
 
+/* Steps 1-3: one compact sticky-header line only.
+   The final Review screen is intentionally not included here. */
+#root [class*="circle_at_top_left"]:has(input[placeholder="Example: Food"]) header.sticky h1::after {
+  content: " · Step 1 of 4";
+}
+
+#root [class*="circle_at_top_left"]:has(button[aria-label="About protected money"]) header.sticky h1::after {
+  content: " · Step 2 of 4";
+}
+
+#root [class*="circle_at_top_left"]:has(.clara-budget-step4-info-row) header.sticky h1::after {
+  content: " · Step 3 of 4";
+}
+
+#root [class*="circle_at_top_left"]:has(input[placeholder="Example: Food"]) header.sticky div.min-w-0.flex-1 > p,
+#root [class*="circle_at_top_left"]:has(button[aria-label="About protected money"]) header.sticky div.min-w-0.flex-1 > p,
+#root [class*="circle_at_top_left"]:has(.clara-budget-step4-info-row) header.sticky div.min-w-0.flex-1 > p {
+  display: none !important;
+}
+
+#root [class*="circle_at_top_left"]:has(input[placeholder="Example: Food"]) header.sticky h1,
+#root [class*="circle_at_top_left"]:has(button[aria-label="About protected money"]) header.sticky h1,
+#root [class*="circle_at_top_left"]:has(.clara-budget-step4-info-row) header.sticky h1 {
+  display: block !important;
+  margin: 0 !important;
+  color: #ffffff !important;
+  font-size: 1rem !important;
+  font-weight: 900 !important;
+  line-height: 1.15 !important;
+  letter-spacing: -0.025em !important;
+  white-space: nowrap !important;
+}
+
+#root [class*="circle_at_top_left"]:has(input[placeholder="Example: Food"]) header.sticky div.min-w-0.flex-1,
+#root [class*="circle_at_top_left"]:has(button[aria-label="About protected money"]) header.sticky div.min-w-0.flex-1,
+#root [class*="circle_at_top_left"]:has(.clara-budget-step4-info-row) header.sticky div.min-w-0.flex-1 {
+  display: flex !important;
+  min-width: 0 !important;
+  align-items: center !important;
+}
+
 /* Step 5: the amount breakdown already lives in the four summary pills below.
    Keep the motivational hero clean by removing the duplicate total/timeframe/detail strip. */
 #root [class*="circle_at_top_left"] [data-clara-budget-final-hero-owned="true"] h2 + p {
