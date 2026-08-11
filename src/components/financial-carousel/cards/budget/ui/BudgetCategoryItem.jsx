@@ -61,13 +61,13 @@ import {
 const BUDGET_ICON_STORAGE_KEY = "clara_budget_category_icons_v1";
 
 const RESERVE_TONES = {
-  neutral: { name: "Neutral Slate", rgb: "148 163 184" },
-  frost: { name: "Frost Blue", rgb: "125 211 252" },
-  cyan: { name: "Cyan", rgb: "34 211 238" },
-  teal: { name: "Aqua Teal", rgb: "45 212 191" },
-  sapphire: { name: "Sapphire", rgb: "96 165 250" },
-  violet: { name: "Royal Violet", rgb: "167 139 250" },
-  gold: { name: "Premium Gold", rgb: "232 201 122" },
+  neutral: { name: "CLARA White", rgb: "226 232 240" },
+  frost: { name: "CLARA Soft Blue", rgb: "147 197 253" },
+  cyan: { name: "CLARA Blue", rgb: "96 165 250" },
+  teal: { name: "CLARA Yellow", rgb: "252 209 22" },
+  sapphire: { name: "CLARA Royal Blue", rgb: "59 130 246" },
+  violet: { name: "CLARA Deep Blue", rgb: "0 56 168" },
+  gold: { name: "CLARA Gold", rgb: "252 209 22" },
 };
 
 const ICON_OPTIONS = [
@@ -256,7 +256,7 @@ function getHealthState({ allocated, spent, isProtected }) {
   if (ratio >= 1) {
     return {
       state: "danger",
-      progressRgb: "248 113 113",
+      progressRgb: "206 17 38",
       ratio,
     };
   }
@@ -264,7 +264,7 @@ function getHealthState({ allocated, spent, isProtected }) {
   if (ratio >= 0.8) {
     return {
       state: "warning",
-      progressRgb: "251 191 36",
+      progressRgb: "252 209 22",
       ratio,
     };
   }
@@ -518,8 +518,9 @@ export default function BudgetCategoryItem({ item }) {
       ? "Over budget"
       : "Remaining";
   const heroTone = health.state === "danger"
-    ? "text-rose-100"
+    ? "text-red-100"
     : "text-white/96";
+  const accentRgb = health.state === "danger" ? "206 17 38" : reserveTone.rgb;
 
   const stopCardInteraction = (event) => {
     event?.stopPropagation?.();
@@ -555,29 +556,29 @@ export default function BudgetCategoryItem({ item }) {
       <article
         className="relative rounded-[18px] border p-3 pl-4 transition-[border-color,box-shadow,transform] duration-300 hover:-translate-y-px"
         style={{
-          borderColor: `rgb(${reserveTone.rgb} / 0.22)`,
-          background: `radial-gradient(circle at 12% 0%, rgb(${reserveTone.rgb} / 0.115), transparent 38%), linear-gradient(145deg, rgba(8,20,38,0.97), rgba(8,13,31,0.985))`,
-          boxShadow: `inset 0 1px 0 rgba(255,255,255,0.065), 0 10px 22px rgba(0,0,0,0.20), 0 0 18px rgb(${reserveTone.rgb} / 0.04)`,
+          borderColor: `rgb(${accentRgb} / 0.30)`,
+          background: "radial-gradient(circle at 10% -8%, rgba(252,209,22,0.11), transparent 32%), radial-gradient(circle at 100% 100%, rgba(206,17,38,0.10), transparent 42%), linear-gradient(145deg, rgba(0,56,168,0.78), rgba(13,53,116,0.89) 54%, rgba(7,39,92,0.96))",
+          boxShadow: `inset 0 1px 0 rgba(255,255,255,0.085), 0 10px 22px rgba(0,0,0,0.18), 0 0 20px rgb(${accentRgb} / 0.055)`,
         }}
       >
         <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
           <div
             className="absolute inset-x-5 top-0 h-px"
             style={{
-              background: `linear-gradient(90deg, transparent, rgb(${reserveTone.rgb} / 0.42), transparent)`,
+              background: `linear-gradient(90deg, transparent, rgb(${accentRgb} / 0.52), rgba(252,209,22,0.28), transparent)`,
             }}
           />
           <div
             className="absolute -right-10 -top-12 h-24 w-24 rounded-full blur-3xl"
-            style={{ backgroundColor: `rgb(${reserveTone.rgb} / 0.08)` }}
+            style={{ backgroundColor: "rgba(206,17,38,0.10)" }}
           />
         </div>
 
         <div
           className="pointer-events-none absolute bottom-2.5 left-0 top-2.5 w-[3px] rounded-r-full"
           style={{
-            backgroundColor: `rgb(${reserveTone.rgb})`,
-            boxShadow: `0 0 12px rgb(${reserveTone.rgb} / 0.28)`,
+            backgroundColor: `rgb(${accentRgb})`,
+            boxShadow: `0 0 12px rgb(${accentRgb} / 0.34)`,
           }}
         />
 
@@ -586,7 +587,7 @@ export default function BudgetCategoryItem({ item }) {
             <p className={`truncate text-[20px] font-black leading-none tracking-[-0.045em] ${heroTone}`}>
               {fmt(heroAmount)}
             </p>
-            <p className="mt-1.5 truncate text-[9px] font-black uppercase leading-none tracking-[0.14em] text-white/42">
+            <p className="mt-1.5 truncate text-[9px] font-black uppercase leading-none tracking-[0.14em] text-white/50">
               {heroLabel}
             </p>
           </div>
@@ -602,10 +603,10 @@ export default function BudgetCategoryItem({ item }) {
               }}
               className="group relative grid h-8 w-8 place-items-center rounded-[11px] border transition hover:-translate-y-px active:scale-[0.96]"
               style={{
-                color: `rgb(${reserveTone.rgb})`,
-                borderColor: `rgb(${reserveTone.rgb} / 0.20)`,
-                backgroundColor: `rgb(${reserveTone.rgb} / 0.08)`,
-                boxShadow: `inset 0 1px 0 rgb(255 255 255 / 0.05), 0 0 12px rgb(${reserveTone.rgb} / 0.05)`,
+                color: `rgb(${accentRgb})`,
+                borderColor: `rgb(${accentRgb} / 0.30)`,
+                backgroundColor: `rgb(${accentRgb} / 0.13)`,
+                boxShadow: `inset 0 1px 0 rgb(255 255 255 / 0.07), 0 0 14px rgb(${accentRgb} / 0.08)`,
               }}
               aria-label={`Change icon for ${item?.title || "budget category"}`}
               aria-haspopup="dialog"
@@ -614,24 +615,24 @@ export default function BudgetCategoryItem({ item }) {
             >
               <Icon className="h-4 w-4 transition-transform group-hover:scale-105" strokeWidth={2} />
               <span
-                className="pointer-events-none absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full border border-[#081426]"
-                style={{ backgroundColor: `rgb(${reserveTone.rgb})` }}
+                className="pointer-events-none absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full border border-[#0B2F73]"
+                style={{ backgroundColor: `rgb(${accentRgb})` }}
               />
             </button>
 
-            <p className="max-h-[24px] w-full overflow-hidden whitespace-normal break-words text-center text-[10px] font-bold leading-[1.15] text-white/70">
+            <p className="max-h-[24px] w-full overflow-hidden whitespace-normal break-words text-center text-[10px] font-bold leading-[1.15] text-white/80">
               {item?.title || "Budget category"}
             </p>
           </div>
         </div>
 
-        <div className="relative mt-2.5 h-1.5 overflow-hidden rounded-full border border-white/[0.055] bg-black/[0.30] shadow-[inset_0_1px_2px_rgba(0,0,0,0.32)]">
+        <div className="relative mt-2.5 h-1.5 overflow-hidden rounded-full border border-blue-100/[0.09] bg-[#06275F]/[0.82] shadow-[inset_0_1px_2px_rgba(0,0,0,0.28)]">
           <div
             className="h-full rounded-full transition-[width] duration-500 ease-out"
             style={{
               width: `${displayProgress}%`,
-              background: `linear-gradient(90deg, rgb(${progressRgb} / 0.78), rgb(${progressRgb}))`,
-              boxShadow: `0 0 10px rgb(${progressRgb} / 0.28)`,
+              background: `linear-gradient(90deg, rgb(${progressRgb} / 0.82), rgb(${progressRgb}))`,
+              boxShadow: `0 0 10px rgb(${progressRgb} / 0.32)`,
             }}
           />
         </div>
