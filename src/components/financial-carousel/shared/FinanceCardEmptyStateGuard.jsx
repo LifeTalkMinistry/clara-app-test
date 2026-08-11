@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CircleDollarSign,
-  Info,
   PiggyBank,
   ShieldAlert,
   WalletCards,
@@ -14,7 +13,7 @@ import {
   getIncomeHubLocalUserId,
   getIncomeSources,
 } from "@/lib/incomeHubRepository";
-import FinanceCardExpandButton from "./FinanceCardExpandButton";
+import FinanceCardSetupEmptyState from "./FinanceCardSetupEmptyState";
 import FinanceCardShell from "./FinanceCardShell";
 
 const CARD_CONFIG = {
@@ -129,7 +128,6 @@ export default function FinanceCardEmptyStateGuard({
   const { user } = useAuth();
   const config = CARD_CONFIG[type];
   const setupRootRef = useRef(null);
-  const [infoOpen, setInfoOpen] = useState(false);
   const [remoteConfigured, setRemoteConfigured] = useState(null);
   const [setupMode, setSetupMode] = useState(false);
   const [autoOpenPending, setAutoOpenPending] = useState(false);
@@ -265,11 +263,7 @@ export default function FinanceCardEmptyStateGuard({
     );
   }
 
-  const { Icon } = config;
-
   const handleSetup = () => {
-    setInfoOpen(false);
-
     if (type === "wallet") {
       onCreateWallet?.();
       return;
@@ -295,57 +289,20 @@ export default function FinanceCardEmptyStateGuard({
       surfaceClassName={config.surfaceClassName}
       shadowClass={config.shadowClass}
     >
-      <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
-        <div className="flex min-h-0 flex-1 items-center justify-center">
-          <div className="w-full rounded-[28px] border border-white/[0.07] bg-black/[0.08] px-4 py-7 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-sm">
-            <div
-              className={`mx-auto flex h-11 w-11 items-center justify-center rounded-2xl border shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${config.iconClass}`}
-            >
-              <Icon className="h-4.5 w-4.5" />
-            </div>
-
-            <div className="mt-3 flex items-center justify-center gap-2">
-              <h3 className="text-[17px] font-black tracking-[-0.025em] text-white/94">
-                {config.title}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setInfoOpen((value) => !value)}
-                aria-label={`About ${config.title}`}
-                aria-expanded={infoOpen}
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/[0.10] bg-black/[0.18] text-white/68 transition hover:border-white/20 hover:text-white"
-              >
-                <Info className="h-3.5 w-3.5" />
-              </button>
-            </div>
-
-            {infoOpen ? (
-              <div className="mt-3 rounded-2xl border border-blue-200/[0.12] bg-[#071a31] px-3.5 py-3 text-left text-[11.5px] font-semibold leading-5 text-white/68 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_10px_24px_rgba(0,0,0,0.24)]">
-                {config.info}
-              </div>
-            ) : null}
-
-            <button
-              type="button"
-              onClick={handleSetup}
-              className={`mt-4 flex min-h-[46px] w-full items-center justify-center rounded-2xl border px-4 py-3 text-sm font-black transition ${config.buttonClass}`}
-            >
-              {config.cta}
-            </button>
-          </div>
-        </div>
-
-        <div className="shrink-0 border-t border-white/[0.04] pt-3">
-          <FinanceCardExpandButton
-            detailKey={config.detailKey}
-            expanded={isExpanded}
-            onToggleDetails={() => toggleFinanceDetails?.(config.detailKey)}
-            collapsedLabel={config.collapsedLabel}
-            expandedLabel={config.expandedLabel}
-            className="border-white/[0.05] bg-black/[0.12] py-3 font-medium text-white/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.03),0_10px_22px_rgba(0,0,0,0.14)]"
-          />
-        </div>
-      </div>
+      <FinanceCardSetupEmptyState
+        title={config.title}
+        info={config.info}
+        cta={config.cta}
+        Icon={config.Icon}
+        iconClass={config.iconClass}
+        buttonClass={config.buttonClass}
+        detailKey={config.detailKey}
+        expanded={isExpanded}
+        onSetup={handleSetup}
+        onToggleDetails={() => toggleFinanceDetails?.(config.detailKey)}
+        collapsedLabel={config.collapsedLabel}
+        expandedLabel={config.expandedLabel}
+      />
     </FinanceCardShell>
   );
 }
