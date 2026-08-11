@@ -1,0 +1,56 @@
+/*
+ * Quick Actions footer geometry lock.
+ * Keeps the primary action visibly detached from the modal border on every viewport.
+ */
+
+[role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"] {
+  box-sizing: border-box !important;
+  padding-bottom: 40px !important;
+  scroll-padding-bottom: 40px !important;
+}
+
+[role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"] > button[class~="bg-emerald-600"] {
+  position: sticky !important;
+  bottom: 18px !important;
+  z-index: 8 !important;
+  width: calc(100% - 28px) !important;
+  max-width: calc(100% - 28px) !important;
+  min-height: 52px !important;
+  margin: 20px auto 16px !important;
+  border-radius: 17px !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.08), transparent 38%),
+    linear-gradient(100deg, #0d4ba6 0%, #1769e0 54%, #2479eb 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.16),
+    inset 0 -1px 0 rgba(0,0,0,0.14),
+    0 10px 24px rgba(0,0,0,0.24),
+    0 0 0 1px rgba(96,165,250,0.08) !important;
+}
+
+[role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"] > button[class~="bg-emerald-600"]:disabled {
+  border-color: rgba(96,165,250,0.22) !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.035), transparent 42%),
+    linear-gradient(100deg, #0a244c 0%, #0c2f63 52%, #09264f 100%) !important;
+  color: rgba(219,234,254,0.46) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    inset 0 -1px 0 rgba(0,0,0,0.18),
+    0 8px 20px rgba(0,0,0,0.18) !important;
+  opacity: 1 !important;
+}
+
+@media (max-width: 390px) {
+  [role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"] {
+    padding: 16px 16px 40px !important;
+    scroll-padding-bottom: 40px !important;
+  }
+
+  [role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"] > button[class~="bg-emerald-600"] {
+    bottom: 16px !important;
+    width: calc(100% - 24px) !important;
+    max-width: calc(100% - 24px) !important;
+    margin: 20px auto 16px !important;
+  }
+}
