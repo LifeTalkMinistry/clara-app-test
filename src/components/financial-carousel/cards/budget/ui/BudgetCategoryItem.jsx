@@ -325,8 +325,9 @@ function BudgetIconPickerModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/78 px-4 py-5 backdrop-blur-xl"
+      className="fixed inset-0 z-[10000] flex items-center justify-center bg-[#020B20]/82 px-4 py-5 backdrop-blur-xl"
       role="presentation"
+      data-clara-budget-icon-overlay="true"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose?.();
       }}
@@ -336,33 +337,34 @@ function BudgetIconPickerModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="budget-icon-picker-title"
-        className="relative flex max-h-[min(86dvh,680px)] w-full max-w-[390px] flex-col overflow-hidden rounded-[30px] border border-cyan-100/[0.14] bg-[linear-gradient(145deg,rgba(5,18,38,0.985),rgba(8,23,54,0.985)_52%,rgba(31,20,72,0.985))] text-white shadow-[0_30px_90px_rgba(0,0,0,0.66),0_0_54px_rgba(34,211,238,0.11)]"
+        data-clara-budget-icon-picker="true"
+        className="relative flex max-h-[min(86dvh,680px)] w-full max-w-[390px] flex-col overflow-hidden rounded-[30px] border border-blue-200/[0.18] bg-[linear-gradient(145deg,rgba(0,56,168,0.98),rgba(8,42,103,0.99)_54%,rgba(6,29,76,0.995))] text-white shadow-[0_30px_90px_rgba(0,0,0,0.62),0_0_48px_rgba(0,56,168,0.22),0_0_24px_rgba(252,209,22,0.06)]"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="pointer-events-none absolute -left-16 -top-20 h-44 w-44 rounded-full bg-cyan-300/[0.10] blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 -right-14 h-52 w-52 rounded-full bg-violet-400/[0.13] blur-3xl" />
+        <div className="pointer-events-none absolute -left-16 -top-20 h-44 w-44 rounded-full bg-yellow-300/[0.12] blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 -right-14 h-52 w-52 rounded-full bg-red-500/[0.14] blur-3xl" />
 
-        <header className="relative flex items-start gap-3 border-b border-white/[0.065] px-4 pb-4 pt-4">
+        <header className="relative flex items-start gap-3 border-b border-blue-100/[0.10] bg-[linear-gradient(90deg,rgba(252,209,22,0.035),transparent_36%,rgba(206,17,38,0.045))] px-4 pb-4 pt-4">
           <div
             className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border"
             style={{
               color: `rgb(${reserveTone.rgb})`,
-              borderColor: `rgb(${reserveTone.rgb} / 0.24)`,
-              backgroundColor: `rgb(${reserveTone.rgb} / 0.10)`,
-              boxShadow: `inset 0 1px 0 rgb(255 255 255 / 0.06), 0 0 18px rgb(${reserveTone.rgb} / 0.08)`,
+              borderColor: `rgb(${reserveTone.rgb} / 0.34)`,
+              backgroundColor: `rgb(${reserveTone.rgb} / 0.13)`,
+              boxShadow: `inset 0 1px 0 rgb(255 255 255 / 0.08), 0 0 18px rgb(${reserveTone.rgb} / 0.11)`,
             }}
           >
             <SelectedIcon className="h-5 w-5" strokeWidth={2} />
           </div>
 
           <div className="min-w-0 flex-1 pt-0.5">
-            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-cyan-100/52">
+            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-yellow-200/78">
               Budget category
             </p>
-            <h2 id="budget-icon-picker-title" className="mt-1 truncate text-[18px] font-black tracking-[-0.035em] text-white/94">
+            <h2 id="budget-icon-picker-title" className="mt-1 truncate text-[18px] font-black tracking-[-0.035em] text-white/96">
               Choose an icon
             </h2>
-            <p className="mt-1 truncate text-[11px] font-semibold text-white/50">
+            <p className="mt-1 truncate text-[11px] font-semibold text-blue-100/66">
               {categoryTitle || "Budget category"}
             </p>
           </div>
@@ -370,22 +372,22 @@ function BudgetIconPickerModal({
           <button
             type="button"
             onClick={onClose}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/[0.09] bg-white/[0.055] text-white/58 transition hover:bg-white/[0.10] hover:text-white"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-blue-100/[0.14] bg-[#082A67]/80 text-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:border-red-300/30 hover:bg-red-500/[0.12] hover:text-white"
             aria-label="Close icon picker"
           >
             <X className="h-4 w-4" />
           </button>
         </header>
 
-        <div className="relative border-b border-white/[0.05] px-4 py-3.5">
+        <div className="relative border-b border-blue-100/[0.08] bg-[#082A67]/28 px-4 py-3.5">
           <label className="relative block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-100/48" />
             <input
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search icons"
-              className="h-11 w-full rounded-2xl border border-white/[0.08] bg-black/[0.18] pl-10 pr-3 text-[12px] font-semibold text-white/88 outline-none transition placeholder:text-white/28 focus:border-cyan-200/24 focus:bg-black/[0.24]"
+              className="h-11 w-full rounded-2xl border border-blue-100/[0.13] bg-[#06275F]/80 pl-10 pr-3 text-[12px] font-semibold text-white/92 outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] transition placeholder:text-blue-100/38 focus:border-yellow-200/34 focus:bg-[#06275F] focus:ring-1 focus:ring-yellow-200/10"
             />
           </label>
 
@@ -399,8 +401,8 @@ function BudgetIconPickerModal({
                   onClick={() => setActiveGroup(group)}
                   className={`shrink-0 rounded-full border px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.12em] transition ${
                     active
-                      ? "border-cyan-200/24 bg-cyan-300/[0.13] text-cyan-50"
-                      : "border-white/[0.07] bg-white/[0.035] text-white/40 hover:bg-white/[0.065] hover:text-white/68"
+                      ? "border-yellow-200/52 bg-yellow-300/[0.13] text-yellow-100 shadow-[0_0_16px_rgba(252,209,22,0.07)]"
+                      : "border-blue-100/[0.10] bg-[#0A2D6B]/62 text-blue-100/50 hover:border-blue-100/20 hover:bg-[#0C377F]/70 hover:text-white/76"
                   }`}
                 >
                   {group}
@@ -410,7 +412,7 @@ function BudgetIconPickerModal({
           </div>
         </div>
 
-        <div className="relative min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <div className="relative min-h-0 flex-1 overflow-y-auto bg-[linear-gradient(180deg,rgba(5,31,78,0.12),rgba(4,22,57,0.36))] px-4 py-4">
           {filteredIcons.length ? (
             <div className="grid grid-cols-4 gap-2.5">
               {filteredIcons.map((option) => {
@@ -424,22 +426,22 @@ function BudgetIconPickerModal({
                     onClick={() => onSelect?.(option.key)}
                     className={`relative flex min-h-[76px] flex-col items-center justify-center gap-2 rounded-[18px] border px-1.5 py-2.5 text-center transition active:scale-[0.97] ${
                       selected
-                        ? "border-cyan-200/30 bg-cyan-300/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_20px_rgba(34,211,238,0.08)]"
-                        : "border-white/[0.065] bg-white/[0.035] hover:border-white/[0.12] hover:bg-white/[0.065]"
+                        ? "border-yellow-200/46 bg-[linear-gradient(145deg,rgba(252,209,22,0.13),rgba(0,56,168,0.36))] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_20px_rgba(252,209,22,0.07)]"
+                        : "border-blue-100/[0.10] bg-[linear-gradient(145deg,rgba(18,59,130,0.70),rgba(8,34,84,0.88))] shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] hover:border-blue-100/20 hover:bg-[linear-gradient(145deg,rgba(24,71,151,0.78),rgba(9,39,96,0.92))]"
                     }`}
                     aria-pressed={selected}
                     aria-label={`Use ${option.label} icon`}
                   >
                     {selected ? (
-                      <span className="absolute right-1.5 top-1.5 grid h-4 w-4 place-items-center rounded-full bg-cyan-200 text-slate-950">
+                      <span className="absolute right-1.5 top-1.5 grid h-4 w-4 place-items-center rounded-full bg-yellow-300 text-[#082A67] shadow-[0_0_10px_rgba(252,209,22,0.22)]">
                         <Check className="h-2.5 w-2.5" strokeWidth={3} />
                       </span>
                     ) : null}
                     <OptionIcon
-                      className={`h-5 w-5 ${selected ? "text-cyan-100" : "text-white/58"}`}
+                      className={`h-5 w-5 ${selected ? "text-yellow-100" : "text-white/78"}`}
                       strokeWidth={2}
                     />
-                    <span className={`line-clamp-2 text-[9px] font-bold leading-[1.15] ${selected ? "text-white/90" : "text-white/48"}`}>
+                    <span className={`line-clamp-2 text-[9px] font-bold leading-[1.15] ${selected ? "text-white/94" : "text-blue-50/66"}`}>
                       {option.label}
                     </span>
                   </button>
@@ -448,19 +450,19 @@ function BudgetIconPickerModal({
             </div>
           ) : (
             <div className="flex min-h-[220px] flex-col items-center justify-center text-center">
-              <Search className="h-7 w-7 text-white/20" />
-              <p className="mt-3 text-sm font-black text-white/70">No icon found</p>
-              <p className="mt-1 text-[11px] font-semibold text-white/35">Try a simpler search word.</p>
+              <Search className="h-7 w-7 text-yellow-200/34" />
+              <p className="mt-3 text-sm font-black text-white/82">No icon found</p>
+              <p className="mt-1 text-[11px] font-semibold text-blue-100/48">Try a simpler search word.</p>
             </div>
           )}
         </div>
 
-        <footer className="relative flex items-center justify-between gap-3 border-t border-white/[0.055] bg-black/[0.10] px-4 py-3.5">
-          <p className="text-[10px] font-semibold text-white/34">Tap an icon to apply it instantly.</p>
+        <footer className="relative flex items-center justify-between gap-3 border-t border-blue-100/[0.10] bg-[linear-gradient(90deg,rgba(6,39,95,0.96),rgba(11,42,101,0.98)_64%,rgba(206,17,38,0.08))] px-4 py-3.5">
+          <p className="text-[10px] font-semibold text-blue-50/52">Tap an icon to apply it instantly.</p>
           <button
             type="button"
             onClick={onReset}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-white/[0.075] bg-white/[0.04] px-3 py-2 text-[9px] font-black uppercase tracking-[0.10em] text-white/48 transition hover:bg-white/[0.08] hover:text-white/72"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-yellow-200/28 bg-yellow-300/[0.075] px-3 py-2 text-[9px] font-black uppercase tracking-[0.10em] text-yellow-100 transition hover:border-yellow-200/46 hover:bg-yellow-300/[0.14]"
           >
             <RotateCcw className="h-3.5 w-3.5" />
             Automatic
