@@ -38,27 +38,43 @@
   border: 0 !important;
 }
 
-/* Final review: the blue quote card becomes the visual header.
-   Hide the redundant Budget Setup / Step copy while keeping Back + Draft available. */
+/* Final review header: remove Budget Setup / Step copy, then use the freed
+   middle column for the single final-state label requested by the design. */
 #root [class*="circle_at_top_left"]:has([data-clara-budget-final-owned="true"]) header.sticky h1,
 #root [class*="circle_at_top_left"]:has([data-clara-budget-final-owned="true"]) header.sticky div.min-w-0.flex-1 > p {
   display: none !important;
 }
 
-/* Keep the empty title column as a flexible spacer so Back stays on the left
-   and Draft stays on the right without introducing a new header label. */
 #root [class*="circle_at_top_left"]:has([data-clara-budget-final-owned="true"]) header.sticky div.min-w-0.flex-1 {
-  min-height: 1px !important;
-}
-
-/* Make YOUR BUDGET IS READY the centered top label of the blue quote card,
-   with the rotating motivation directly beneath it as the only hero message. */
-#root [class*="circle_at_top_left"] [data-clara-budget-final-owned="true"] > div:first-child {
   display: flex !important;
-  min-height: 116px !important;
+  min-height: 2.5rem !important;
   align-items: center !important;
   justify-content: center !important;
-  padding: 1.15rem 1.25rem 1.25rem !important;
+  overflow: visible !important;
+}
+
+#root [class*="circle_at_top_left"]:has([data-clara-budget-final-owned="true"]) header.sticky div.min-w-0.flex-1::after {
+  content: "YOUR BUDGET IS READY";
+  display: block;
+  width: 100%;
+  color: #f7c948;
+  font-size: 0.66rem;
+  font-weight: 900;
+  line-height: 1.15;
+  letter-spacing: 0.12em;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
+}
+
+/* The blue card now owns only the rotating motivational quote. */
+#root [class*="circle_at_top_left"] [data-clara-budget-final-owned="true"] > div:first-child {
+  display: flex !important;
+  min-height: 112px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 1.2rem 1.25rem !important;
 }
 
 #root [class*="circle_at_top_left"] [data-clara-budget-final-hero-owned="true"] {
@@ -75,14 +91,12 @@
 }
 
 #root [class*="circle_at_top_left"] [data-clara-budget-final-hero-owned="true"] > div:last-child > p:first-child {
-  width: 100% !important;
-  margin: 0 !important;
-  text-align: center !important;
+  display: none !important;
 }
 
 #root [class*="circle_at_top_left"] [data-clara-budget-final-hero-owned="true"] h2 {
   max-width: 19rem !important;
-  margin: 0.68rem auto 0 !important;
+  margin: 0 auto !important;
   text-align: center !important;
   text-wrap: balance;
 }
