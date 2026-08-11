@@ -799,7 +799,6 @@ export default function QuickAddModal({
           value={value}
           onChange={onChange}
           className="border-emerald-500/40 bg-[#071a34] pr-12 text-lg font-bold text-white"
-          autoFocus
         />
         <button
           type="button"
