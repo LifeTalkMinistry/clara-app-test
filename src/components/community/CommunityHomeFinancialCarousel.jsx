@@ -458,7 +458,7 @@ export default function CommunityHomeFinancialCarousel() {
     ]
   );
 
-  const deleteWalletInline = useCallback(async () => {
+  const deleteWalletInline = useCallback(async ({ clearBalance = false } = {}) => {
     if (walletActionLoading) return;
     const wallet = walletModal.payload;
     const walletId = getWalletId(wallet);
@@ -474,8 +474,8 @@ export default function CommunityHomeFinancialCarousel() {
       );
       return;
     }
-    if (Math.abs(balance) > 0.000001) {
-      toast.error("Transfer or clear the wallet balance before removing it.");
+    if (Math.abs(balance) > 0.000001 && !clearBalance) {
+      toast.error("Choose Transfer Balance or Clear & Remove.");
       return;
     }
 
@@ -499,9 +499,11 @@ export default function CommunityHomeFinancialCarousel() {
       await refreshFinanceSection();
       closeWalletModal();
       toast.success(
-        hasHistory
-          ? "Wallet archived. Its transaction history was preserved."
-          : "Wallet deleted."
+        Math.abs(balance) > 0.000001 && clearBalance
+          ? `${formatPhpCurrency(Math.abs(balance))} cleared and wallet removed from your active wallet total.`
+          : hasHistory
+            ? "Wallet archived. Its transaction history was preserved."
+            : "Wallet deleted."
       );
     } catch (error) {
       toast.error(error?.message || "CLARA could not remove this wallet yet.");
@@ -562,9 +564,10 @@ export default function CommunityHomeFinancialCarousel() {
   const deleteWalletProtected = walletProtectedAmount(walletModal.payload);
   const deleteWalletHasLinks = walletLinkedFunds(walletModal.payload);
   const deleteWalletBlocked =
-    deleteWalletProtected > 0 ||
-    deleteWalletHasLinks ||
-    Math.abs(deleteWalletBalance) > 0.000001;
+    deleteWalletProtected > 0 || deleteWalletHasLinks;
+  const deleteWalletHasBalance = Math.abs(deleteWalletBalance) > 0.000001;
+  const deleteWalletCanTransfer =
+    deleteWalletBalance > 0.000001 && !deleteWalletBlocked;
 
   const transferSpendable = getWalletSpendableBalance(walletModal.payload);
   const transferAmount = Number(walletForm.amount);
@@ -818,33 +821,49 @@ export default function CommunityHomeFinancialCarousel() {
         onClose={closeWalletModal}
         onSubmit={(event) => {
           event.preventDefault();
-          void deleteWalletInline();
+          void deleteWalletInline({ clearBalance: deleteWalletHasBalance });
         }}
-        submitLabel="Remove wallet"
-        submitDisabled={deleteWalletBlocked}
-        submitDisabledLabel={
-          deleteWalletProtected > 0 || deleteWalletHasLinks
-            ? "Linked Funds"
-            : "Clear Balance First"
+        submitLabel={
+          deleteWalletHasBalance
+            ? `Clear ${formatPhpCurrency(Math.abs(deleteWalletBalance))} & Remove`
+            : "Remove wallet"
         }
+        submitDisabled={deleteWalletBlocked}
+        submitDisabledLabel="Linked Funds"
         loading={walletActionLoading}
         danger
       >
         <div
           className={`rounded-2xl border p-4 text-sm leading-6 ${
-            deleteWalletBlocked
+            deleteWalletBlocked || deleteWalletHasBalance
               ? "border-amber-300/15 bg-amber-500/10 text-amber-100"
               : "border-rose-400/15 bg-rose-500/10 text-rose-100"
           }`}
         >
           {deleteWalletProtected > 0 || deleteWalletHasLinks
             ? "This wallet is linked to an Emergency Fund or Savings Goal. Reassign that link before removing it."
-            : Math.abs(deleteWalletBalance) > 0.000001
-              ? `Transfer or clear the remaining ${formatPhpCurrency(
+            : deleteWalletHasBalance
+              ? `This wallet still has ${formatPhpCurrency(
                   deleteWalletBalance
-                )} before removing this wallet.`
+                )}. Transfer it to another wallet, or clear this balance and remove the wallet from CLARA.`
               : "A wallet with transaction history will be archived so your past records stay accurate."}
         </div>
+
+        {deleteWalletCanTransfer ? (
+          <button
+            type="button"
+            onClick={() => openTransferMoney(walletModal.payload)}
+            className="flex w-full items-center justify-center rounded-2xl border border-blue-300/20 bg-blue-500/10 px-4 py-3 text-sm font-bold text-blue-100 transition hover:border-blue-300/30 hover:bg-blue-500/16 active:scale-[0.99]"
+          >
+            Transfer {formatPhpCurrency(deleteWalletBalance)} instead
+          </button>
+        ) : null}
+
+        {deleteWalletHasBalance && !deleteWalletBlocked ? (
+          <p className="px-1 text-[11px] font-semibold leading-5 text-white/46">
+            Or use the red button below to clear the remaining balance from your active wallet total and remove this wallet.
+          </p>
+        ) : null}
       </FinanceActionModal>
     </>
   );
