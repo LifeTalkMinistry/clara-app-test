@@ -7,6 +7,7 @@ import EmergencyFundCardView from "../cards/emergency-fund/ui/EmergencyFundCardV
 import SavingsGoalsCardView from "../cards/savings-goals/ui/SavingsGoalsCardView";
 import InvestmentCardView from "../cards/investment/ui/InvestmentCardView";
 import DebtCardView from "../cards/debt/ui/DebtCardView";
+import FinanceCardEmptyStateGuard from "../shared/FinanceCardEmptyStateGuard";
 import { FinanceCardPerformanceModeProvider } from "../shared/FinanceCardShell";
 
 function LockedFinanceShell({ item, performanceMode = "lite", children }) {
@@ -206,12 +207,27 @@ function CarouselItemCard(props) {
     card = <ComingSoonCard item={item} />;
   }
 
+  const guardedCard = (
+    <FinanceCardEmptyStateGuard
+      type={item.type}
+      data={data}
+      expandedFinanceCard={expandedFinanceCard}
+      toggleFinanceDetails={toggleFinanceDetails}
+      onCreateWallet={onCreateWallet}
+      onSaveSavingsGoal={onSaveSavingsGoal}
+      loading={Boolean(loading)}
+      disabled={Boolean(props.isGuideMode || item.locked)}
+    >
+      {card}
+    </FinanceCardEmptyStateGuard>
+  );
+
   const renderedCard = item.locked ? (
     <LockedFinanceShell item={item} performanceMode={resolvedPerformanceMode}>
-      {card}
+      {guardedCard}
     </LockedFinanceShell>
   ) : (
-    card
+    guardedCard
   );
 
   return (
