@@ -980,24 +980,19 @@ export default function QuickAddModal({
 
             {isUnplanned ? (
               <div className="rounded-xl border border-amber-400/20 bg-amber-400/[0.07] p-3">
-                <Label className="mb-1 block text-xs text-amber-100">What was this for?</Label>
                 <Input
                   value={expenseForm.unplanned_reason}
                   onChange={(event) =>
                     setExpenseForm((prev) => ({ ...prev, unplanned_reason: event.target.value }))
                   }
-                  placeholder="e.g., Medicine, unexpected fare"
+                  placeholder="What was this for? e.g., Medicine, unexpected fare"
                   className="border-amber-300/20 bg-[#071a34] text-white"
                 />
-                <p className="mt-1 text-[11px] leading-4 text-amber-100/60">
-                  This will be logged automatically as unplanned spending.
-                </p>
               </div>
             ) : null}
 
             {isUndocumented ? (
               <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/[0.07] p-3">
-                <Label className="mb-1 block text-xs text-cyan-100">Why is this undocumented?</Label>
                 <Select
                   value={expenseForm.undocumented_reason}
                   onValueChange={(value) =>
@@ -1010,7 +1005,7 @@ export default function QuickAddModal({
                   }
                 >
                   <SelectTrigger className="border-cyan-300/20 bg-[#071a34] text-white">
-                    <SelectValue placeholder="Choose the closest reason" />
+                    <SelectValue placeholder="Why is this undocumented? Choose the closest reason" />
                   </SelectTrigger>
                   <SelectContent>
                     {UNDOCUMENTED_SPENDING_REASONS.map((reason) => (
@@ -1033,10 +1028,6 @@ export default function QuickAddModal({
                     />
                   </div>
                 ) : null}
-
-                <p className="mt-1 text-[11px] leading-4 text-cyan-100/60">
-                  This will be logged automatically as undocumented spending.
-                </p>
               </div>
             ) : null}
 
