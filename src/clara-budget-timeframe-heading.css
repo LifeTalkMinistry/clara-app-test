@@ -1,0 +1,30 @@
+/* Step 4 Timeframe heading polish: restore a clear premium section label beside the info control. */
+#root [class*="circle_at_top_left"] .clara-budget-step4-info-row {
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 0.85rem !important;
+  min-height: 2.25rem !important;
+  margin-bottom: 0.8rem !important;
+}
+
+#root [class*="circle_at_top_left"] .clara-budget-step4-info-row::before {
+  content: "TIMEFRAME";
+  display: block;
+  color: #ffffff;
+  font-size: 0.92rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
+}
+
+#root [class*="circle_at_top_left"] .clara-budget-step4-info-row:has(.clara-budget-step-info-popover:not([hidden]))::before {
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  align-self: center !important;
+}
+
+#root [class*="circle_at_top_left"] .clara-budget-step4-info-row:has(.clara-budget-step-info-popover:not([hidden])) .clara-budget-step-info-button {
+  align-self: center !important;
+}
