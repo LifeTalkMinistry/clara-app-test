@@ -1,5 +1,8 @@
 const STYLE_ID = "clara-budget-final-motivation-style";
-const HERO_CLASS = "clara-budget-final-hero";
+const SCREEN_MARKER = "data-clara-budget-final-screen";
+const HERO_MARKER = "data-clara-budget-final-hero";
+const HIDE_MARKER = "data-clara-budget-final-hide";
+const MESSAGE_SIGNATURE_MARKER = "data-clara-budget-final-message-signature";
 const MESSAGE_STORAGE_KEY = "clara_last_budget_motivation_index";
 
 const MOTIVATION_MESSAGES = [
@@ -35,7 +38,6 @@ const MOTIVATION_MESSAGES = [
   "You finished the plan. Now your job is simple: follow the direction you already chose.",
 ];
 
-const messageBySignature = new Map();
 const normalize = (value) => String(value || "").replace(/\s+/g, " ").trim();
 
 function installStyles() {
@@ -44,181 +46,78 @@ function installStyles() {
   const style = document.createElement("style");
   style.id = STYLE_ID;
   style.textContent = `
-    #root .${HERO_CLASS} {
-      position: relative;
-      overflow: hidden;
-      border: 1px solid rgba(96, 165, 250, 0.28);
-      border-radius: 1.25rem;
-      background: linear-gradient(145deg, #0d3d7b 0%, #0b2f65 52%, #0b2755 100%);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.09), 0 16px 34px rgba(0,0,0,0.24);
-      padding: 1rem;
+    #root [${SCREEN_MARKER}="true"] [${HERO_MARKER}="true"] {
+      align-items: flex-start !important;
+      gap: 0 !important;
+      width: 100% !important;
     }
 
-    #root .${HERO_CLASS}::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      background: radial-gradient(circle at 90% 0%, rgba(247,201,72,0.10), transparent 34%);
-    }
-
-    #root .clara-budget-final-kicker {
-      position: relative;
-      z-index: 1;
-      margin: 0;
-      color: rgba(247,201,72,0.88);
-      font-size: 0.62rem;
-      font-weight: 900;
-      line-height: 1;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-    }
-
-    #root .clara-budget-final-message {
-      position: relative;
-      z-index: 1;
-      margin: 0.55rem 0 0;
-      max-width: 19rem;
-      color: #ffffff;
-      font-size: 1.08rem;
-      font-weight: 900;
-      line-height: 1.32;
-      letter-spacing: -0.025em;
-      text-wrap: balance;
-    }
-
-    #root .clara-budget-final-summary {
-      position: relative;
-      z-index: 1;
-      margin-top: 1rem;
-      padding-top: 0.9rem;
-      border-top: 1px solid rgba(191,219,254,0.16);
-    }
-
-    #root .clara-budget-final-total-row {
-      display: flex;
-      align-items: end;
-      justify-content: space-between;
-      gap: 0.85rem;
-    }
-
-    #root .clara-budget-final-label {
-      display: block;
-      margin: 0;
-      color: rgba(219,234,254,0.60);
-      font-size: 0.58rem;
-      font-weight: 900;
-      line-height: 1;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-    }
-
-    #root .clara-budget-final-total {
-      display: block;
-      margin-top: 0.3rem;
-      color: #f7c948;
-      font-size: 1.55rem;
-      font-weight: 950;
-      line-height: 1;
-      letter-spacing: -0.035em;
-    }
-
-    #root .clara-budget-final-cycle {
-      margin: 0;
-      color: #ffffff;
-      font-size: 0.78rem;
-      font-weight: 850;
-      line-height: 1.2;
-      text-align: right;
-      text-transform: capitalize;
-    }
-
-    #root .clara-budget-final-dates {
-      margin: 0.3rem 0 0;
-      color: rgba(219,234,254,0.62);
-      font-size: 0.67rem;
-      font-weight: 650;
-      line-height: 1.35;
-      text-align: right;
-    }
-
-    #root .clara-budget-final-breakdown {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 0.45rem;
-      margin-top: 0.85rem;
-    }
-
-    #root .clara-budget-final-breakdown > div {
-      min-width: 0;
-      border: 1px solid rgba(147,197,253,0.14);
-      border-radius: 0.85rem;
-      background: #0a2854;
-      padding: 0.62rem 0.68rem;
-    }
-
-    #root .clara-budget-final-breakdown span {
-      display: block;
-      overflow: hidden;
-      color: rgba(219,234,254,0.52);
-      font-size: 0.52rem;
-      font-weight: 900;
-      line-height: 1;
-      letter-spacing: 0.08em;
-      text-overflow: ellipsis;
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
-
-    #root .clara-budget-final-breakdown strong {
-      display: block;
-      margin-top: 0.35rem;
-      overflow: hidden;
-      color: #ffffff;
-      font-size: 0.82rem;
-      font-weight: 900;
-      line-height: 1.05;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    #root [data-clara-budget-final-original="true"] {
+    /* Remove the decorative completion icon; the message is the hero. */
+    #root [${HERO_MARKER}="true"] > div:first-child {
       display: none !important;
     }
 
-    @media (max-width: 360px) {
-      #root .clara-budget-final-total-row {
-        align-items: flex-start;
-        flex-direction: column;
-      }
+    #root [${HERO_MARKER}="true"] > div:last-child {
+      width: 100% !important;
+      min-width: 0 !important;
+      flex: 1 1 100% !important;
+    }
 
-      #root .clara-budget-final-cycle,
-      #root .clara-budget-final-dates {
-        text-align: left;
-      }
+    /* Override the older Step 5 cleanup: this kicker is useful and intentional. */
+    #root [${HERO_MARKER}="true"] > div:last-child > p:first-child {
+      display: block !important;
+      margin: 0 !important;
+      color: rgba(247, 201, 72, 0.90) !important;
+      font-size: 0.60rem !important;
+      font-weight: 900 !important;
+      line-height: 1 !important;
+      letter-spacing: 0.17em !important;
+      text-transform: uppercase !important;
+    }
+
+    #root [${HERO_MARKER}="true"] h2 {
+      margin: 0.58rem 0 0 !important;
+      max-width: 19rem !important;
+      color: #ffffff !important;
+      font-size: 1.08rem !important;
+      font-weight: 900 !important;
+      line-height: 1.34 !important;
+      letter-spacing: -0.028em !important;
+      text-wrap: balance;
+    }
+
+    #root [${HERO_MARKER}="true"] h2 + p {
+      margin: 0.9rem 0 0 !important;
+      max-width: 100% !important;
+      padding-top: 0.8rem !important;
+      border-top: 1px solid rgba(191, 219, 254, 0.16) !important;
+      color: rgba(239, 246, 255, 0.72) !important;
+      font-size: 0.72rem !important;
+      font-weight: 700 !important;
+      line-height: 1.58 !important;
+      letter-spacing: 0 !important;
+      white-space: pre-line !important;
+    }
+
+    #root [${SCREEN_MARKER}="true"] > div:first-child {
+      background:
+        radial-gradient(circle at 92% 0%, rgba(247, 201, 72, 0.09), transparent 34%),
+        linear-gradient(145deg, rgba(14, 62, 126, 0.96), rgba(10, 42, 91, 0.98)) !important;
+      border-bottom-color: rgba(96, 165, 250, 0.22) !important;
+      padding: 1rem !important;
+    }
+
+    /* The old four statistic cards and paragraph are now represented in the consolidated hero. */
+    #root [${HIDE_MARKER}="true"] {
+      display: none !important;
+    }
+
+    /* Pull the edit controls up after removing the duplicate stat block. */
+    #root [${SCREEN_MARKER}="true"] > div.p-4 > div.mt-4.grid.grid-cols-3 {
+      margin-top: 0 !important;
     }
   `;
   document.head.appendChild(style);
-}
-
-function pickMessage(signature) {
-  if (messageBySignature.has(signature)) return messageBySignature.get(signature);
-
-  let lastIndex = -1;
-  try {
-    lastIndex = Number.parseInt(localStorage.getItem(MESSAGE_STORAGE_KEY) || "-1", 10);
-  } catch {}
-
-  const available = MOTIVATION_MESSAGES.map((_, index) => index).filter((index) => index !== lastIndex);
-  const index = available[Math.floor(Math.random() * available.length)] ?? 0;
-
-  try {
-    localStorage.setItem(MESSAGE_STORAGE_KEY, String(index));
-  } catch {}
-
-  const message = MOTIVATION_MESSAGES[index];
-  messageBySignature.set(signature, message);
-  return message;
 }
 
 function findStat(section, label) {
@@ -231,131 +130,108 @@ function findStat(section, label) {
   return normalize(paragraphs[1]?.textContent) || "₱0";
 }
 
-function makeBreakdownItem(label, value) {
-  const item = document.createElement("div");
-  const name = document.createElement("span");
-  const amount = document.createElement("strong");
-  name.textContent = label;
-  amount.textContent = value;
-  item.append(name, amount);
-  return item;
+function pickMessage() {
+  let lastIndex = -1;
+  try {
+    lastIndex = Number.parseInt(localStorage.getItem(MESSAGE_STORAGE_KEY) || "-1", 10);
+  } catch {}
+
+  const available = MOTIVATION_MESSAGES.map((_, index) => index).filter((index) => index !== lastIndex);
+  const index = available[Math.floor(Math.random() * available.length)] ?? 0;
+
+  try {
+    localStorage.setItem(MESSAGE_STORAGE_KEY, String(index));
+  } catch {}
+
+  return MOTIVATION_MESSAGES[index];
 }
 
-function buildHero({ message, total, cycle, dates, regular, protectedMoney, debt }) {
-  const hero = document.createElement("div");
-  hero.className = HERO_CLASS;
-
-  const kicker = document.createElement("p");
-  kicker.className = "clara-budget-final-kicker";
-  kicker.textContent = "YOUR BUDGET IS READY";
-
-  const messageNode = document.createElement("p");
-  messageNode.className = "clara-budget-final-message";
-  messageNode.textContent = message;
-
-  const summary = document.createElement("div");
-  summary.className = "clara-budget-final-summary";
-
-  const totalRow = document.createElement("div");
-  totalRow.className = "clara-budget-final-total-row";
-
-  const totalWrap = document.createElement("div");
-  const totalLabel = document.createElement("span");
-  totalLabel.className = "clara-budget-final-label";
-  totalLabel.textContent = "TOTAL BUDGET";
-  const totalValue = document.createElement("strong");
-  totalValue.className = "clara-budget-final-total";
-  totalValue.textContent = total;
-  totalWrap.append(totalLabel, totalValue);
-
-  const cycleWrap = document.createElement("div");
-  const cycleNode = document.createElement("p");
-  cycleNode.className = "clara-budget-final-cycle";
-  cycleNode.textContent = cycle;
-  const datesNode = document.createElement("p");
-  datesNode.className = "clara-budget-final-dates";
-  datesNode.textContent = dates;
-  cycleWrap.append(cycleNode, datesNode);
-
-  totalRow.append(totalWrap, cycleWrap);
-
-  const breakdown = document.createElement("div");
-  breakdown.className = "clara-budget-final-breakdown";
-  breakdown.append(
-    makeBreakdownItem("Items", regular),
-    makeBreakdownItem("Protected", protectedMoney),
-    makeBreakdownItem("Obligations", debt),
+function extractFinalScreen(section) {
+  const activateButton = Array.from(section.querySelectorAll("button")).find((button) =>
+    normalize(button.textContent).toLowerCase().includes("activate budget"),
   );
+  if (!activateButton) return null;
 
-  summary.append(totalRow, breakdown);
-  hero.append(kicker, messageNode, summary);
-  return hero;
-}
-
-function hideOriginalSummary(section) {
-  const header = Array.from(section.children).find((child) =>
-    child.querySelector?.("h2") && normalize(child.textContent).includes("You created a"),
+  const title = Array.from(section.querySelectorAll("h2")).find((node) =>
+    normalize(node.textContent).startsWith("You created a ") || node.getAttribute(MESSAGE_SIGNATURE_MARKER),
   );
-  if (header) header.setAttribute("data-clara-budget-final-original", "true");
+  if (!title) return null;
 
+  const header = title.closest("div.flex.items-start.gap-3");
   const body = Array.from(section.children).find((child) => child.classList?.contains("p-4"));
-  if (!body) return null;
+  if (!header || !body) return null;
 
-  const stats = Array.from(body.children).find(
-    (child) => child.classList?.contains("grid") && child.classList?.contains("grid-cols-2"),
-  );
-  if (stats) stats.setAttribute("data-clara-budget-final-original", "true");
-
-  const explanation = Array.from(body.children).find((child) =>
-    normalize(child.textContent).startsWith("It includes "),
-  );
-  if (explanation) explanation.setAttribute("data-clara-budget-final-original", "true");
-
-  return body;
+  return { activateButton, title, header, body };
 }
 
 function enhanceFinalBudgetSummary(root) {
   if (!root) return;
 
   root.querySelectorAll("section").forEach((section) => {
-    const activateButton = Array.from(section.querySelectorAll("button")).find((button) =>
-      normalize(button.textContent).toLowerCase().includes("activate budget"),
-    );
-    if (!activateButton) return;
+    const match = extractFinalScreen(section);
+    if (!match) return;
 
-    const title = Array.from(section.querySelectorAll("h2")).find((node) =>
-      normalize(node.textContent).startsWith("You created a "),
-    );
-    if (!title) return;
+    const { title, header, body } = match;
+    section.setAttribute(SCREEN_MARKER, "true");
+    header.setAttribute(HERO_MARKER, "true");
 
-    const total = findStat(section, "Calculated total");
     const regular = findStat(section, "Regular items");
     const protectedMoney = findStat(section, "Protected money");
     const debt = findStat(section, "Debt & obligations");
+    const total = findStat(section, "Calculated total");
 
-    const titleText = normalize(title.textContent);
-    const cycle = titleText
-      .replace(/^You created a\s+/i, "")
-      .replace(new RegExp(`^${total.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s+`, "i"), "")
-      .replace(/\s+budget$/i, "") || "Budget";
+    const currentTitle = normalize(title.textContent);
+    let cycle = "Budget";
+    if (currentTitle.startsWith("You created a ")) {
+      cycle = currentTitle
+        .replace(/^You created a\s+/i, "")
+        .replace(/^₱[\d,.]+\s+/i, "")
+        .replace(/\s+budget$/i, "") || "Budget";
+    } else {
+      cycle = title.dataset.claraBudgetCycle || "Budget";
+    }
 
     const coverage = Array.from(section.querySelectorAll("p")).find((node) =>
-      normalize(node.textContent).startsWith("This budget is intended to cover "),
+      normalize(node.textContent).startsWith("This budget is intended to cover ") ||
+      node.dataset?.claraBudgetCoverage === "true",
     );
-    const dates = normalize(coverage?.textContent)
-      .replace(/^This budget is intended to cover\s+/i, "")
-      .replace(/\.$/, "");
+    let dates = "";
+    if (coverage) {
+      const coverageText = normalize(coverage.textContent);
+      dates = coverageText
+        .replace(/^This budget is intended to cover\s+/i, "")
+        .replace(/\.$/, "");
+    }
 
     const signature = `${total}|${cycle}|${dates}`;
-    const message = pickMessage(signature);
-    const body = hideOriginalSummary(section);
-    if (!body) return;
-
-    let hero = body.querySelector(`:scope > .${HERO_CLASS}`);
-    if (!hero) {
-      hero = buildHero({ message, total, cycle, dates, regular, protectedMoney, debt });
-      body.prepend(hero);
+    if (title.getAttribute(MESSAGE_SIGNATURE_MARKER) !== signature) {
+      title.dataset.claraBudgetCycle = cycle;
+      title.setAttribute(MESSAGE_SIGNATURE_MARKER, signature);
+      title.textContent = pickMessage();
     }
+
+    const eyebrow = header.querySelector(":scope > div:last-child > p:first-child");
+    if (eyebrow) eyebrow.textContent = "YOUR BUDGET IS READY";
+
+    if (coverage) {
+      coverage.dataset.claraBudgetCoverage = "true";
+      coverage.textContent = `${total} total · ${cycle}\n${dates}\nItems ${regular} · Protected ${protectedMoney} · Obligations ${debt}`;
+    }
+
+    const statsGrid = Array.from(body.children).find(
+      (child) => child.classList?.contains("grid") && child.classList?.contains("grid-cols-2"),
+    );
+    if (statsGrid) statsGrid.setAttribute(HIDE_MARKER, "true");
+
+    const explanation = Array.from(body.children).find((child) =>
+      normalize(child.textContent).startsWith("It includes "),
+    );
+    if (explanation) explanation.setAttribute(HIDE_MARKER, "true");
+
+    /* Remove stale markers from the first implementation so the React-owned header cannot disappear. */
+    section.querySelectorAll('[data-clara-budget-final-original="true"]').forEach((node) =>
+      node.removeAttribute("data-clara-budget-final-original"),
+    );
   });
 }
 
