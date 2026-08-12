@@ -125,6 +125,8 @@ html body #root .clara-community-root[data-community-view="orb"] .clara-communit
   background-image: none !important;
 }
 
+html body #root .clara-community-root[data-community-view="orb"]::before,
+html body #root .clara-community-root[data-community-view="orb"]::after,
 html body #root .clara-community-root[data-community-view="orb"]
   .clara-community-orb-view::before,
 html body #root .clara-community-root[data-community-view="orb"]
