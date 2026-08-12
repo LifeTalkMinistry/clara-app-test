@@ -151,3 +151,225 @@
     0 1px 0 rgba(255, 255, 255, 0.05),
     0 3px 8px rgba(120, 8, 27, 0.18) !important;
 }
+
+/* --------------------------------------------------------------------------
+ * Dedicated Learning Hub — official CLARA brand pass
+ * Blue is the primary material, yellow is the learning/highlight signal, and
+ * red is reserved for a controlled accent. This intentionally replaces the
+ * older teal/violet treatment only on the dedicated Learning Hub destination.
+ * -------------------------------------------------------------------------- */
+
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-community-home-view {
+  background:
+    radial-gradient(circle at 5% 0%, rgba(8, 103, 255, 0.15), transparent 31%),
+    radial-gradient(circle at 100% 10%, rgba(243, 38, 69, 0.055), transparent 29%),
+    linear-gradient(180deg, #030914 0%, #06111f 48%, #040a16 100%) !important;
+}
+
+/* Hero card: quieter, more premium CLARA blue instead of teal/violet. */
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-community-learning-page-hero {
+  border-color: rgba(112, 174, 255, 0.26) !important;
+  background:
+    radial-gradient(circle at 2% 0%, rgba(8, 103, 255, 0.22), transparent 41%),
+    radial-gradient(circle at 100% 8%, rgba(243, 38, 69, 0.075), transparent 36%),
+    linear-gradient(138deg, rgba(5, 31, 67, 0.995) 0%, rgba(4, 20, 45, 0.995) 54%, rgba(6, 13, 31, 0.995) 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.065),
+    0 18px 44px rgba(0, 0, 0, 0.24),
+    0 0 0 1px rgba(8, 103, 255, 0.025) !important;
+}
+
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-community-learning-page-hero::after {
+  height: 3px !important;
+  background: linear-gradient(
+    90deg,
+    #0867ff 0% 44%,
+    #ffd84a 44% 57%,
+    #f32645 57% 100%
+  ) !important;
+  opacity: 0.96 !important;
+  box-shadow:
+    0 -1px 10px rgba(8, 103, 255, 0.10),
+    0 -1px 9px rgba(255, 216, 74, 0.07),
+    0 -1px 10px rgba(243, 38, 69, 0.08) !important;
+}
+
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-community-learning-page-hero .clara-learning-page-eyebrow {
+  color: #ffd84a !important;
+  text-shadow: 0 0 16px rgba(255, 216, 74, 0.10);
+}
+
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-community-learning-page-hero h1 {
+  color: #ffffff !important;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.18);
+}
+
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-community-learning-page-hero .clara-learning-page-copy {
+  color: rgba(213, 229, 251, 0.68) !important;
+}
+
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-community-learning-page-hero .clara-learning-page-pills span {
+  border-color: rgba(105, 169, 255, 0.24) !important;
+  background: linear-gradient(145deg, rgba(8, 103, 255, 0.11), rgba(5, 43, 96, 0.20)) !important;
+  color: rgba(232, 242, 255, 0.80) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-community-learning-page-hero .clara-learning-page-pills span:last-child {
+  border-color: rgba(255, 216, 74, 0.20) !important;
+  color: rgba(255, 235, 158, 0.84) !important;
+}
+
+/* Carousel stage: official deep-blue presentation with controlled red support. */
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-learning-hub-stage {
+  border-color: rgba(105, 169, 255, 0.22) !important;
+  background:
+    radial-gradient(circle at -12% -24%, rgba(8, 103, 255, 0.25), transparent 46%),
+    radial-gradient(circle at 104% 112%, rgba(243, 38, 69, 0.13), transparent 52%),
+    linear-gradient(135deg, rgba(4, 38, 82, 0.96), rgba(4, 18, 42, 0.985) 52%, rgba(7, 14, 32, 0.99)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 14px 36px rgba(0, 0, 0, 0.19) !important;
+}
+
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-learning-hub-stage > .pointer-events-none.absolute:nth-child(1) {
+  background: rgba(8, 103, 255, 0.10) !important;
+}
+
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-learning-hub-stage > .pointer-events-none.absolute:nth-child(2) {
+  background: rgba(243, 38, 69, 0.075) !important;
+}
+
+/* Rebrand the generated carousel card material while preserving uploaded covers. */
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-learning-hub-card > div > div.relative.z-10 {
+  border-color: rgba(115, 177, 255, 0.24) !important;
+  background-color: #041022 !important;
+  box-shadow:
+    0 16px 30px rgba(0, 0, 0, 0.30),
+    0 0 0 1px rgba(8, 103, 255, 0.035) !important;
+}
+
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-learning-hub-card > div > div.relative.z-10::after {
+  content: "";
+  position: absolute;
+  z-index: 50;
+  left: 14px;
+  right: 14px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 999px 999px 0 0;
+  background: linear-gradient(90deg, #0867ff 0% 44%, #ffd84a 44% 57%, #f32645 57% 100%);
+  opacity: 0.88;
+  pointer-events: none;
+}
+
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-learning-hub-card > div > div.relative.z-10 > div.absolute.inset-0 > div:first-child {
+  background:
+    radial-gradient(circle at -14% -18%, rgba(8, 103, 255, 0.26), transparent 47%),
+    radial-gradient(circle at 96% 108%, rgba(243, 38, 69, 0.12), transparent 55%),
+    linear-gradient(138deg, rgba(4, 37, 81, 0.985), rgba(4, 18, 43, 0.99) 52%, rgba(7, 14, 31, 0.985)) !important;
+}
+
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-learning-hub-card .mb-2.inline-flex {
+  border-color: rgba(255, 216, 74, 0.24) !important;
+  background: rgba(255, 216, 74, 0.075) !important;
+  color: rgba(255, 235, 158, 0.94) !important;
+}
+
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-learning-hub-card .mt-auto.flex.items-center.justify-between > span:first-child {
+  border-color: rgba(104, 168, 255, 0.26) !important;
+  background: rgba(8, 103, 255, 0.14) !important;
+  color: rgba(239, 247, 255, 0.94) !important;
+}
+
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-learning-hub-card .mt-auto.flex.items-center.justify-between > span:last-child {
+  border-color: rgba(255, 216, 74, 0.20) !important;
+  background: rgba(255, 216, 74, 0.07) !important;
+  color: rgba(255, 233, 148, 0.84) !important;
+}
+
+/* Detail board beneath the carousel now belongs to the same official system. */
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-community-home-learning-hub section[aria-live="polite"][aria-label$=" details"] {
+  border-color: rgba(112, 174, 255, 0.24) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(8, 103, 255, 0.17), transparent 40%),
+    radial-gradient(circle at 100% 100%, rgba(243, 38, 69, 0.085), transparent 44%),
+    linear-gradient(138deg, rgba(5, 27, 59, 0.98), rgba(4, 18, 42, 0.985) 55%, rgba(6, 13, 30, 0.99)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 16px 42px rgba(0, 0, 0, 0.22) !important;
+}
+
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-community-home-learning-hub section[aria-live="polite"][aria-label$=" details"]::after {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 999px 999px 0 0;
+  background: linear-gradient(90deg, #0867ff 0% 44%, #ffd84a 44% 57%, #f32645 57% 100%);
+  opacity: 0.86;
+  pointer-events: none;
+}
+
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-community-home-learning-hub section[aria-live="polite"][aria-label$=" details"]
+  > .pointer-events-none.absolute:nth-of-type(1) {
+  border-color: rgba(243, 38, 69, 0.12) !important;
+  background-color: rgba(243, 38, 69, 0.035) !important;
+}
+
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-community-home-learning-hub section[aria-live="polite"][aria-label$=" details"]
+  > .pointer-events-none.absolute:nth-of-type(2) {
+  border-color: rgba(8, 103, 255, 0.13) !important;
+  background-color: rgba(8, 103, 255, 0.035) !important;
+}
+
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-community-home-learning-hub section[aria-live="polite"][aria-label$=" details"]
+  .relative.z-10 > .flex > span:first-child {
+  border-color: rgba(104, 168, 255, 0.24) !important;
+  background: rgba(8, 103, 255, 0.13) !important;
+  color: rgba(209, 230, 255, 0.94) !important;
+}
+
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-community-home-learning-hub section[aria-live="polite"][aria-label$=" details"]
+  .relative.z-10 > .flex p:first-child {
+  color: #ffd84a !important;
+}
+
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-community-home-learning-hub section[aria-live="polite"][aria-label$=" details"]
+  [aria-label="Main features"] > span {
+  border-color: rgba(105, 169, 255, 0.21) !important;
+  background: rgba(8, 103, 255, 0.09) !important;
+  color: rgba(222, 237, 255, 0.78) !important;
+}
+
+.clara-community-root[data-community-view="home"][data-clara-learning-page="true"]
+  .clara-community-home-learning-hub section[aria-live="polite"][aria-label$=" details"]
+  .border-t {
+  border-color: rgba(112, 174, 255, 0.12) !important;
+}
