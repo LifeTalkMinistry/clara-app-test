@@ -120,31 +120,33 @@ export default function ClaraOrbPage() {
         <div className="absolute inset-x-0 bottom-0 h-[45%] bg-[linear-gradient(180deg,rgba(2,8,23,0),rgba(2,6,18,.92))]" />
       </div>
 
-      <div className="relative z-10 mx-auto flex h-full min-h-full w-full max-w-3xl flex-col items-center justify-center px-5 pb-[max(34px,env(safe-area-inset-bottom))] pt-6 text-center text-white">
-        <div className="mb-1 select-none">
-          <p className="text-[10px] font-black uppercase tracking-[0.34em] text-white/42">CLARA ORB</p>
-          <div className="mx-auto mt-3 h-px w-24 bg-[linear-gradient(90deg,transparent,#168bff,#ffd84a,#f32645,transparent)] opacity-70" />
-        </div>
+      <div className="absolute inset-0 z-10 grid place-items-center overflow-hidden px-5 text-center text-white">
+        <div className="flex w-full max-w-3xl flex-col items-center justify-center">
+          <div className="mb-1 select-none">
+            <p className="text-[10px] font-black uppercase tracking-[0.34em] text-white/42">CLARA ORB</p>
+            <div className="mx-auto mt-3 h-px w-24 bg-[linear-gradient(90deg,transparent,#168bff,#ffd84a,#f32645,transparent)] opacity-70" />
+          </div>
 
-        <button
-          type="button"
-          onClick={openClara}
-          disabled={launching}
-          className="group relative mt-1 grid aspect-square w-[min(78vw,315px)] max-h-[54dvh] place-items-center rounded-full outline-none transition active:scale-[0.99] disabled:cursor-default focus-visible:ring-2 focus-visible:ring-[#ffd84a]/70 focus-visible:ring-offset-4 focus-visible:ring-offset-[#020817]"
-          aria-label="Tap CLARA to start Ask Before You Spend"
-          data-clara-orb-launcher="true"
-          data-clara-orb-visual-source="money-left-current"
-        >
-          <MoneyLeftOrbVisual launching={launching} />
-        </button>
+          <button
+            type="button"
+            onClick={openClara}
+            disabled={launching}
+            className="group relative mt-1 grid aspect-square w-[min(78vw,46dvh,315px)] place-items-center rounded-full outline-none transition active:scale-[0.99] disabled:cursor-default focus-visible:ring-2 focus-visible:ring-[#ffd84a]/70 focus-visible:ring-offset-4 focus-visible:ring-offset-[#020817]"
+            aria-label="Tap CLARA to start Ask Before You Spend"
+            data-clara-orb-launcher="true"
+            data-clara-orb-visual-source="money-left-current"
+          >
+            <MoneyLeftOrbVisual launching={launching} />
+          </button>
 
-        <div className="-mt-1 select-none">
-          <h1 className="text-[21px] font-black tracking-[-0.035em] text-white sm:text-[24px]">
-            Ask before you spend.
-          </h1>
-          <p className="mt-2 text-[12px] font-semibold tracking-[0.01em] text-white/48 sm:text-[13px]">
-            Tap CLARA to start
-          </p>
+          <div className="-mt-1 select-none">
+            <h1 className="text-[21px] font-black tracking-[-0.035em] text-white sm:text-[24px]">
+              Ask before you spend.
+            </h1>
+            <p className="mt-2 text-[12px] font-semibold tracking-[0.01em] text-white/48 sm:text-[13px]">
+              Tap CLARA to start
+            </p>
+          </div>
         </div>
       </div>
     </main>
