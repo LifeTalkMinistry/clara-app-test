@@ -25,8 +25,15 @@
 }
 
 /* -------------------------------------------------------------------------- */
-/* THREE OUTLIERS — use one full-height collapsed stack                        */
+/* THREE OUTLIERS — fill the AVAILABLE inner flex area, never parent height    */
 /* -------------------------------------------------------------------------- */
+/*
+ * Important: the direct content wrapper already lives inside a padded h-full
+ * card body. Forcing this wrapper to height:100% makes its content + the
+ * parent's pb-4 exceed the usable card box, which is why the CTA rail appears
+ * to leak through the bottom edge on Income Hub and Budget. Flex sizing uses
+ * only the parent's available content area and keeps that bottom inset intact.
+ */
 #root .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
 [data-finance-card="investmentFund"][data-expanded="false"]
@@ -42,13 +49,15 @@
   width: 100% !important;
   max-width: 100% !important;
   min-width: 0 !important;
-  height: 100% !important;
+  height: auto !important;
+  max-height: 100% !important;
   min-height: 0 !important;
   box-sizing: border-box !important;
-  flex: 1 1 auto !important;
+  flex: 1 1 0% !important;
 }
 
-/* Pin View income / View budget / View debt to the same lower rail. */
+/* Pin View income / View budget / View debt to the lower rail, but keep the
+ * rail inside the padded content box rather than extending the stack itself. */
 #root .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
 [data-finance-card="investmentFund"][data-expanded="false"]
