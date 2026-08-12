@@ -78,6 +78,17 @@
   flex: 0 0 auto !important;
 }
 
+/* Budget is now structurally correct; its CTA rail just needs a small visual
+ * floor so it does not kiss the outer rounded chassis on compact Android
+ * heights. Keep this Budget-only so Income/Debt and the already-correct cards
+ * are not shifted again. */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card="budget"][data-expanded="false"]
+> div > div:nth-child(2) > div:last-child {
+  margin-bottom: 10px !important;
+}
+
 /* -------------------------------------------------------------------------- */
 /* PRIMARY PANELS — natural height, never squeeze/crop their summary content   */
 /* -------------------------------------------------------------------------- */
