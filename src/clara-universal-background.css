@@ -140,4 +140,31 @@ html body #root .clara-community-root[data-community-view="orb"]
 html body #root .clara-community-root[data-community-view="orb"]
   [data-clara-orb-launcher="true"] {
   -webkit-tap-highlight-color: transparent;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* The sphere's SVG filters were intentionally generous while the orb was being
+   reconstructed. Their blur was spilling outside the orb and tinting the page,
+   which looked like a second background color. Keep the premium vector itself,
+   but contain the environmental light to the mark. */
+html body #root .clara-community-root[data-community-view="orb"]
+  [data-clara-orb-launcher="true"] .clara-orb-vector > circle:nth-of-type(1),
+html body #root .clara-community-root[data-community-view="orb"]
+  [data-clara-orb-launcher="true"] .clara-orb-vector > circle:nth-of-type(2),
+html body #root .clara-community-root[data-community-view="orb"]
+  [data-clara-orb-launcher="true"] .clara-orb-vector > ellipse:first-of-type {
+  filter: none !important;
+}
+
+html body #root .clara-community-root[data-community-view="orb"]
+  [data-clara-orb-launcher="true"] .clara-orb-vector > ellipse:first-of-type {
+  opacity: 0.20 !important;
+}
+
+html body #root .clara-community-root[data-community-view="orb"]
+  [data-clara-orb-visual-offset] > div:last-child {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
 }
