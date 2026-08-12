@@ -18,7 +18,7 @@ function MoneyLeftOrbVisual({ launching = false }) {
   return (
     <span
       aria-hidden="true"
-      className={`relative isolate flex h-full w-full items-center justify-center ${
+      className={`clara-orb-asset-shell relative isolate flex h-full w-full items-center justify-center ${
         launching ? "clara-money-left-orb-launching" : "clara-money-left-orb-idle"
       }`}
     >
@@ -27,7 +27,7 @@ function MoneyLeftOrbVisual({ launching = false }) {
         alt=""
         aria-hidden="true"
         draggable={false}
-        className="h-full w-full select-none object-contain"
+        className="clara-orb-page-image h-full w-full select-none object-contain"
       />
     </span>
   );
@@ -101,7 +101,7 @@ export default function ClaraOrbPage() {
   return (
     <main
       ref={pageRef}
-      className="clara-community-orb-view relative flex w-full items-center justify-center overflow-hidden bg-[#010217] px-5 text-center text-white"
+      className="clara-community-orb-view relative flex w-full items-center justify-center overflow-hidden px-5 text-center text-white"
       style={measuredViewportStyle}
       aria-label="CLARA Orb"
       data-clara-orb-page="true"
@@ -109,6 +109,56 @@ export default function ClaraOrbPage() {
       <style>{`
         body.clara-orb-page-active #clara-support-world {
           display: none !important;
+        }
+
+        .clara-community-root[data-community-view="orb"] {
+          background: #010217 !important;
+        }
+
+        .clara-community-orb-view {
+          isolation: isolate;
+          background:
+            radial-gradient(circle at 50% 41%, rgba(22, 139, 255, 0.075), transparent 28%),
+            radial-gradient(circle at 65% 43%, rgba(243, 38, 69, 0.045), transparent 23%),
+            linear-gradient(180deg, #010217 0%, #02091b 57%, #020714 100%);
+        }
+
+        .clara-community-orb-view::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+          pointer-events: none;
+          background:
+            radial-gradient(ellipse 72% 34% at 50% 54%, rgba(16, 117, 255, 0.035), transparent 72%),
+            linear-gradient(90deg, rgba(0, 0, 0, 0.12), transparent 14%, transparent 86%, rgba(0, 0, 0, 0.12));
+        }
+
+        .clara-orb-asset-shell {
+          border-radius: 999px;
+        }
+
+        .clara-orb-page-image {
+          display: block;
+          -webkit-mask-image: radial-gradient(
+            ellipse 67% 67% at 50% 48%,
+            #000 0%,
+            #000 64%,
+            rgba(0, 0, 0, 0.99) 72%,
+            rgba(0, 0, 0, 0.88) 80%,
+            rgba(0, 0, 0, 0.42) 91%,
+            transparent 100%
+          );
+          mask-image: radial-gradient(
+            ellipse 67% 67% at 50% 48%,
+            #000 0%,
+            #000 64%,
+            rgba(0, 0, 0, 0.99) 72%,
+            rgba(0, 0, 0, 0.88) 80%,
+            rgba(0, 0, 0, 0.42) 91%,
+            transparent 100%
+          );
+          filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.16));
         }
 
         @keyframes clara-money-left-orb-breathe {
