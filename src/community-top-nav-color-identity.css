@@ -114,27 +114,25 @@
 /*
  * CLARA Orb top-nav mark
  *
- * The full orb artwork is intentionally rich on the Orb page, but that same
- * full-color/glow treatment reads as a permanently-selected jewel at 17-20px.
- * Keep the official mark, mute it while inactive, and only restore its real
- * blue/red/gold identity when Orb is actually the current destination.
+ * The artwork itself must remain identical on every destination. Selection is
+ * communicated by the nav surface/ring/underline only; never dim, recolor,
+ * grayscale, resize, or transform the Orb logo when another page is active.
  */
 .clara-community-root[data-community-view]
   .clara-community-shell-nav > a[aria-label="Open CLARA Orb"]
-  .clara-orb-vector {
-  opacity: 0.58;
-  filter: grayscale(0.82) saturate(0.24) brightness(0.90) contrast(0.96);
-  transition: opacity 180ms ease, filter 180ms ease, transform 180ms ease;
-}
-
+  .clara-orb-vector,
 .clara-community-root[data-community-view]
   .clara-community-shell-nav > a[aria-label="Open CLARA Orb"]:hover
   .clara-orb-vector,
 .clara-community-root[data-community-view]
   .clara-community-shell-nav > a[aria-label="Open CLARA Orb"]:focus-visible
+  .clara-orb-vector,
+.clara-community-root[data-community-view]
+  .clara-community-shell-nav > a[aria-label="Open CLARA Orb"][aria-current="page"]
   .clara-orb-vector {
-  opacity: 0.78;
-  filter: grayscale(0.48) saturate(0.52) brightness(0.96);
+  opacity: 1 !important;
+  filter: none !important;
+  transform: none !important;
 }
 
 .clara-community-root[data-community-view]
@@ -152,14 +150,6 @@
     inset 0 0 16px rgba(47, 128, 255, 0.055),
     0 0 0 1px rgba(47, 128, 255, 0.08),
     0 0 17px rgba(47, 128, 255, 0.14) !important;
-}
-
-.clara-community-root[data-community-view]
-  .clara-community-shell-nav > a[aria-label="Open CLARA Orb"][aria-current="page"]
-  .clara-orb-vector {
-  opacity: 0.96;
-  filter: grayscale(0) saturate(0.92) brightness(0.98) contrast(1.02);
-  transform: scale(0.96);
 }
 
 .clara-community-root[data-community-view]
