@@ -26,15 +26,17 @@ function recoveryState(current, userMessage, error) {
       ...current.messages,
       userMessage,
       createMessage("clara", current.step === "price"
-        ? "I couldn’t finish the budget scan, but we can continue. Why do you want to buy it?"
+        ? "I couldn’t finish the budget scan, but we can continue. What makes this purchase important right now?"
         : "Something in your saved money data could not be read. Please try that answer again."),
     ],
   };
 }
 
-function buildConfirmationState(current, confirmationTextValue, clarification = "") {
+function buildConfirmationState(current, confirmationTextValue, clarification = "", interpretedReason = "") {
+  const resolvedReason = clean(interpretedReason) || clean(current.reason);
   const next = {
     ...current,
+    reason: resolvedReason,
     clarification,
     followUpAnswer: clarification,
     purchaseContext: clarification,
@@ -45,7 +47,7 @@ function buildConfirmationState(current, confirmationTextValue, clarification = 
   next.confirmation = {
     item: next.item,
     price: next.price,
-    reason: next.reason,
+    reason: resolvedReason,
     clarification,
     followUpAnswer: clarification,
     purchaseContext: clarification,
@@ -88,6 +90,7 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
           item: snapshot.item,
           price: snapshot.price,
           reason: answer,
+          history: snapshot.messages,
           assistantContext,
         });
 
@@ -104,7 +107,12 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
             };
           }
 
-          return buildConfirmationState(current, conversation.confirmation, "");
+          return buildConfirmationState(
+            current,
+            conversation.confirmation,
+            "",
+            conversation.interpretedReason,
+          );
         });
       } catch (error) {
         setState((current) => current.sessionId !== snapshot.sessionId
@@ -137,12 +145,18 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
           price: snapshot.price,
           reason: snapshot.reason,
           clarification: answer,
+          history: snapshot.messages,
           assistantContext,
         });
 
         setState((current) => current.sessionId !== snapshot.sessionId || current.step !== "clarification"
           ? current
-          : buildConfirmationState(current, conversation.confirmation, answer));
+          : buildConfirmationState(
+            current,
+            conversation.confirmation,
+            answer,
+            conversation.interpretedReason,
+          ));
       } catch (error) {
         setState((current) => current.sessionId !== snapshot.sessionId
           ? current
@@ -170,6 +184,7 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
       const reply = await generateBuyCheckCoachReply({
         stage: "ask_price",
         item: answer,
+        history: snapshot.messages,
         assistantContext,
         fallback,
       });
@@ -206,6 +221,7 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
         const reply = await generateBuyCheckCoachReply({
           stage: "invalid_price",
           item: snapshot.item,
+          history: snapshot.messages,
           assistantContext,
           fallback,
         });
@@ -243,6 +259,7 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
             stage: "confirm_planned",
             item: snapshot.item,
             price,
+            history: snapshot.messages,
             assistantContext,
             fallback,
           });
@@ -283,6 +300,7 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
           stage: "ask_reason",
           item: snapshot.item,
           price,
+          history: snapshot.messages,
           assistantContext,
           fallback,
         });
@@ -334,7 +352,7 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
         messages: [
           ...current.messages,
           createMessage("user", "No"),
-          createMessage("clara", "No problem. Please tell me the correct reason you want to buy it."),
+          createMessage("clara", "No problem. Tell me what I misunderstood about why you want to buy it."),
         ],
       };
     });
@@ -364,7 +382,7 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
         messages: [
           ...current.messages,
           createMessage("user", "Adjust amount"),
-          createMessage("clara", `Enter the new price for ${current.item}.`),
+          createMessage("clara", `What is the new price for ${current.item}?`),
         ],
       };
     });
@@ -388,12 +406,13 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
   const confirm = useCallback(async () => {
     if (state.step !== "confirm" || state.busy || !state.confirmation) return;
     const snapshot = state;
-    const checkingFallback = "Got it. I’m checking your live money context now.";
+    const checkingFallback = "Got it. I have enough context now, so I’m checking your live money situation.";
     const checkingReply = await generateBuyCheckCoachReply({
       stage: "checking",
       item: snapshot.item,
       price: snapshot.price,
       reason: snapshot.reason,
+      history: snapshot.messages,
       assistantContext,
       fallback: checkingFallback,
     });
