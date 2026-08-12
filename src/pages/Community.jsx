@@ -18,6 +18,7 @@ import MessagesBackend from "./MessagesBackend";
 import CommunityProfile from "./CommunityProfile";
 import CommunityGuideTour from "@/components/community/CommunityGuideTour";
 import CommunityHomeFinancialCarousel from "@/components/community/CommunityHomeFinancialCarousel";
+import ClaraOrbPage, { ClaraOrbMark } from "@/components/community/ClaraOrbPage";
 import FreeDailyTipCard from "@/components/fresh/main-dashboard/daily-tip";
 import LearningHub from "@/components/fresh/main-dashboard/learning-hub/LearningHub";
 import DashboardSchedulePanel from "@/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardSchedulePanel";
@@ -61,6 +62,17 @@ function CommunityShellHeader({ activeView, unreadCount }) {
   return (
     <header className="clara-community-shell-header shrink-0 border-b border-white/[0.06] bg-[linear-gradient(180deg,rgba(5,15,34,0.99),rgba(5,17,34,0.97))] px-3 pb-4 pt-[max(14px,env(safe-area-inset-top))] backdrop-blur-xl sm:px-5">
       <div className="clara-community-shell-nav mx-auto flex w-full max-w-3xl items-center justify-between gap-0.5 sm:gap-2">
+        <Link
+          to="/community?view=orb"
+          className={itemClass(activeView === "orb")}
+          aria-label="Open CLARA Orb"
+          title="CLARA Orb"
+          aria-current={activeView === "orb" ? "page" : undefined}
+        >
+          <ClaraOrbMark className="h-[19px] w-[19px] max-[420px]:h-[17px] max-[420px]:w-[17px] sm:h-[20px] sm:w-[20px]" title="CLARA Orb" />
+          <ActiveMarker active={activeView === "orb"} />
+        </Link>
+
         <Link
           to="/community?view=home"
           className={itemClass(activeView === "home")}
@@ -247,7 +259,7 @@ export default function Community() {
   const [communityGuideOpen, setCommunityGuideOpen] = useState(false);
   const token = getStoredBackendToken();
   const requestedView = searchParams.get("view") || "feed";
-  const activeView = ["home", "feed", "schedule", "circles", "challenges", "messages", "notifications", "profile"].includes(requestedView)
+  const activeView = ["orb", "home", "feed", "schedule", "circles", "challenges", "messages", "notifications", "profile"].includes(requestedView)
     ? requestedView
     : "feed";
 
@@ -419,7 +431,9 @@ export default function Community() {
         }
       `}</style>
 
-      {activeView === "home" ? (
+      {activeView === "orb" ? (
+        <ClaraOrbPage />
+      ) : activeView === "home" ? (
         <main
           className="clara-community-home-view min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(circle_at_88%_8%,rgba(79,70,229,0.12),transparent_30%),radial-gradient(circle_at_12%_22%,rgba(20,184,166,0.07),transparent_30%),#06111f] pb-[calc(env(safe-area-inset-bottom)+30px)] pt-4 sm:pt-6"
           aria-label="CLARA Home"
