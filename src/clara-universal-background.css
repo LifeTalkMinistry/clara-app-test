@@ -114,110 +114,30 @@ body,
 }
 
 /* -------------------------------------------------------------------------- */
-/* CLARA ORB — premium restraint environment                                  */
-/* Keep #010217 as the official foundation. Ambient light is deliberately      */
-/* faint so the native vector orb remains the only hero.                       */
+/* CLARA ORB — one uninterrupted official background                          */
+/* No gradients, halos, vignettes, or section color changes.                   */
+/* The native vector orb itself supplies all of the visual depth.               */
 /* -------------------------------------------------------------------------- */
 
-html body #root .clara-community-root[data-community-view="orb"] {
-  background: #010217 !important;
-}
-
-html body #root .clara-community-root[data-community-view="orb"]
-  .clara-community-orb-view {
+html body #root .clara-community-root[data-community-view="orb"],
+html body #root .clara-community-root[data-community-view="orb"] .clara-community-orb-view {
   background-color: #010217 !important;
-  background-image:
-    radial-gradient(
-      ellipse 70% 42% at 50% 35%,
-      rgba(20, 116, 255, 0.105) 0%,
-      rgba(11, 73, 173, 0.055) 35%,
-      rgba(1, 2, 23, 0) 72%
-    ),
-    radial-gradient(
-      circle at 76% 43%,
-      rgba(243, 38, 69, 0.045) 0%,
-      rgba(243, 38, 69, 0) 30%
-    ),
-    radial-gradient(
-      circle at 47% 29%,
-      rgba(255, 216, 74, 0.025) 0%,
-      rgba(255, 216, 74, 0) 22%
-    ),
-    linear-gradient(
-      180deg,
-      #010217 0%,
-      #02051a 46%,
-      #010217 100%
-    ) !important;
-  background-repeat: no-repeat !important;
-  background-size: 100% 100% !important;
+  background-image: none !important;
 }
 
-/* A single quiet halo behind the hero gives the screen depth without adding
-   cards, particles, or decorative objects. */
 html body #root .clara-community-root[data-community-view="orb"]
-  .clara-community-orb-view::before {
-  content: "" !important;
-  display: block !important;
-  position: absolute !important;
-  z-index: 0 !important;
-  pointer-events: none !important;
-  left: 50% !important;
-  top: clamp(115px, 17dvh, 165px) !important;
-  width: min(112vw, 520px) !important;
-  aspect-ratio: 1 / 0.72 !important;
-  transform: translateX(-50%) !important;
-  border-radius: 50% !important;
-  background:
-    radial-gradient(
-      ellipse at center,
-      rgba(21, 129, 255, 0.052) 0%,
-      rgba(38, 91, 214, 0.028) 43%,
-      rgba(243, 38, 69, 0.012) 62%,
-      transparent 76%
-    ) !important;
-  filter: blur(8px) !important;
-  opacity: 1 !important;
-}
-
-/* Very faint vignette keeps attention in the center while preserving the
-   generous negative space that makes the page feel expensive. */
+  .clara-community-orb-view::before,
 html body #root .clara-community-root[data-community-view="orb"]
   .clara-community-orb-view::after {
-  content: "" !important;
-  display: block !important;
-  position: absolute !important;
-  inset: 0 !important;
-  z-index: 0 !important;
-  pointer-events: none !important;
-  background:
-    linear-gradient(90deg, rgba(0, 0, 0, 0.14), transparent 15%, transparent 85%, rgba(0, 0, 0, 0.14)),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.05), transparent 18%, transparent 78%, rgba(0, 0, 0, 0.10)) !important;
-}
-
-/* Make the tiny CLARA ORB signature feel deliberate, not decorative. */
-html body #root .clara-community-root[data-community-view="orb"]
-  [data-clara-orb-visual-offset] > div:first-child {
-  position: relative;
-  z-index: 2;
-  text-shadow: 0 1px 12px rgba(22, 139, 255, 0.14);
-}
-
-/* Keep the CTA calm. The orb is the luminous object; copy should stay crisp. */
-html body #root .clara-community-root[data-community-view="orb"]
-  [data-clara-orb-visual-offset] > div:last-child h1 {
-  text-shadow: 0 5px 22px rgba(0, 0, 0, 0.34);
+  content: none !important;
+  display: none !important;
+  background: none !important;
+  background-image: none !important;
+  filter: none !important;
+  opacity: 0 !important;
 }
 
 html body #root .clara-community-root[data-community-view="orb"]
   [data-clara-orb-launcher="true"] {
   -webkit-tap-highlight-color: transparent;
-}
-
-@media (max-width: 420px) {
-  html body #root .clara-community-root[data-community-view="orb"]
-    .clara-community-orb-view::before {
-    top: clamp(105px, 15dvh, 145px) !important;
-    width: 118vw !important;
-  }
 }
