@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import claraOfficialHomeOrb from "@/assets/clara-official-home-orb.webp";
+import claraOrbPageAsset from "../../../real-orb-logo-v1.png";
 import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "@/lib/clara-pause-events";
 
 export function ClaraOrbMark({ className = "", title = "CLARA Orb" }) {
@@ -21,16 +22,12 @@ function MoneyLeftOrbVisual({ launching = false }) {
         launching ? "clara-money-left-orb-launching" : "clara-money-left-orb-idle"
       }`}
     >
-      <span
-        className="relative z-10 h-[82%] w-[82%] rounded-full"
-        style={{
-          backgroundImage: `url(${claraOfficialHomeOrb})`,
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-          backgroundSize: "100% 100%",
-          filter:
-            "drop-shadow(0 0 14px rgba(8,103,255,0.16)) drop-shadow(0 0 16px rgba(243,38,69,0.045))",
-        }}
+      <img
+        src={claraOrbPageAsset}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+        className="h-full w-full select-none object-contain"
       />
     </span>
   );
@@ -104,7 +101,7 @@ export default function ClaraOrbPage() {
   return (
     <main
       ref={pageRef}
-      className="clara-community-orb-view relative flex w-full items-center justify-center overflow-hidden bg-black px-5 text-center text-white"
+      className="clara-community-orb-view relative flex w-full items-center justify-center overflow-hidden bg-[#010217] px-5 text-center text-white"
       style={measuredViewportStyle}
       aria-label="CLARA Orb"
       data-clara-orb-page="true"
@@ -157,11 +154,11 @@ export default function ClaraOrbPage() {
           type="button"
           onClick={openClara}
           disabled={launching}
-          className="group relative mt-1 grid aspect-square shrink-0 place-items-center rounded-full outline-none transition active:scale-[0.99] disabled:cursor-default focus-visible:ring-2 focus-visible:ring-[#ffd84a]/70 focus-visible:ring-offset-4 focus-visible:ring-offset-black"
+          className="group relative mt-1 grid aspect-square shrink-0 place-items-center outline-none transition active:scale-[0.99] disabled:cursor-default focus-visible:ring-2 focus-visible:ring-[#ffd84a]/70 focus-visible:ring-offset-4 focus-visible:ring-offset-[#010217]"
           style={{ width: "min(78vw, 38dvh, 315px)" }}
           aria-label="Tap CLARA to start Ask Before You Spend"
           data-clara-orb-launcher="true"
-          data-clara-orb-visual-source="money-left-current"
+          data-clara-orb-visual-source="real-orb-logo-v1"
         >
           <MoneyLeftOrbVisual launching={launching} />
         </button>
