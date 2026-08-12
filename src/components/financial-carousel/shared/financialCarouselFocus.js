@@ -1,4 +1,14 @@
-export const EXPANDED_TOP_PULL = -22;
+// Expanded finance cards must remain in normal document flow.
+//
+// The old -22px pull tried to preserve more of Money Left on screen by moving
+// every expanded card upward. On short Android viewports that stole the shared
+// TopNav -> first-card breathing room and made Emergency Fund / Budget / Wallet
+// and the other expanded finance cards kiss or leak into the top edge.
+//
+// Keep this at zero: the expanded shell already grows vertically, so Money Left
+// should be pushed downward naturally and remain reachable by scrolling instead
+// of sacrificing the top safe gap.
+export const EXPANDED_TOP_PULL = 0;
 export const FINANCIAL_CAROUSEL_FOCUS_CLASS = "clara-budget-focus-mode";
 
 export const FINANCIAL_CAROUSEL_FOCUS_STYLES = `
