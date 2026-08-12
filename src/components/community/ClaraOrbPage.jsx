@@ -1,22 +1,25 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "@/lib/clara-pause-events";
 
+const CLARA_BLUE_PATH =
+  "M 163.3 72.0 L 158.9 72.2 L 154.5 72.5 L 150.1 72.7 L 145.9 73.1 L 141.7 74.1 L 137.5 75.2 L 133.4 76.5 L 129.2 77.8 L 125.3 79.6 L 121.6 81.5 L 117.7 83.4 L 114.3 85.6 L 110.9 87.5 L 107.5 89.9 L 104.5 92.8 L 101.6 95.4 L 99.2 98.3 L 96.5 101.2 L 94.3 104.3 L 92.0 107.6 L 89.8 110.9 L 87.9 114.1 L 86.0 117.9 L 83.7 121.0 L 82.6 123.9 L 81.2 128.0 L 80.1 132.0 L 79.3 136.2 L 78.8 140.2 L 78.1 143.8 L 78.2 148.1 L 78.2 152.7 L 79.0 156.6 L 79.0 161.0 L 79.5 165.2 L 81.1 169.2 L 82.3 173.4 L 83.1 177.5 L 85.0 180.9 L 86.7 184.6 L 88.7 188.5 L 91.1 191.8 L 92.6 195.8 L 92.3 200.0 L 91.4 204.3 L 90.6 208.6 L 89.6 212.9 L 88.7 217.2 L 87.5 221.4 L 86.8 225.6 L 85.8 229.9 L 89.9 228.5 L 94.0 227.1 L 98.1 225.7 L 102.2 224.3 L 106.4 223.0 L 110.4 221.6 L 114.6 220.6 L 118.1 220.7 L 121.8 222.5 L 125.5 224.7 L 129.4 226.6 L 133.4 228.3 L 137.5 229.7 L 141.6 231.0 L 145.8 232.1 L 149.6 232.8 L 154.0 233.5 L 158.5 233.8 L 163.2 233.8 L 167.8 233.7 L 172.2 233.1 L 176.6 232.3 L 180.9 231.4 L 185.1 230.2 L 189.1 228.7 L 193.1 227.0 L 197.0 225.1 L 200.7 222.7 L 202.7 218.9 L 202.0 214.6 L 199.4 211.0 L 196.5 207.5 L 193.0 204.8 L 188.6 204.8 L 184.6 206.3 L 180.5 207.8 L 176.3 209.0 L 172.0 209.9 L 167.6 210.5 L 163.0 210.7 L 158.3 210.7 L 153.9 210.1 L 149.6 209.1 L 145.4 208.0 L 141.3 206.5 L 137.4 204.8 L 133.6 202.7 L 129.8 200.4 L 126.3 197.7 L 122.8 194.7 L 119.5 191.4 L 116.6 187.9 L 114.1 184.3 L 111.8 180.6 L 109.8 176.7 L 108.0 172.8 L 106.7 168.6 L 105.6 164.4 L 104.8 160.1 L 104.4 156.8 L 104.2 152.9 L 104.4 148.9 L 105.4 144.9 L 106.1 140.5 L 107.3 136.3 L 108.7 132.3 L 110.5 128.3 L 112.6 124.7 L 115.0 121.4 L 117.7 117.8 L 120.1 114.7 L 123.1 112.0 L 126.0 109.5 L 129.2 107.0 L 132.6 104.6 L 136.1 102.6 L 140.0 100.7 L 143.7 98.9 L 147.7 98.0 L 151.8 96.9 L 156.2 96.1 L 160.8 95.9 L 165.4 96.1 L 169.9 96.5 L 174.2 97.3 L 178.4 98.6 L 182.5 99.9 L 186.4 101.7 L 190.2 103.8 L 194.0 106.0 L 197.7 108.4 L 202.1 108.2 L 205.4 105.3 L 208.7 102.0 L 211.4 98.4 L 212.6 94.4 L 210.6 90.9 L 207.8 87.7 L 204.3 85.4 L 200.6 83.0 L 196.8 80.9 L 192.8 79.4 L 188.8 77.7 L 184.8 76.3 L 180.8 75.0 L 176.5 74.1 L 172.0 73.7 L 167.6 72.9 Z";
+
+const CLARA_RED_PATH =
+  "M 223.0 108.6 L 220.5 110.0 L 218.2 112.0 L 216.1 114.2 L 213.8 116.3 L 211.9 118.6 L 211.0 121.3 L 211.6 124.1 L 212.9 126.6 L 214.2 129.1 L 215.3 131.8 L 216.3 134.4 L 217.1 137.2 L 217.9 140.0 L 218.5 142.8 L 219.0 145.6 L 219.4 148.6 L 219.6 151.6 L 219.6 154.6 L 219.4 157.6 L 219.0 160.6 L 218.6 163.5 L 218.0 166.3 L 217.3 169.1 L 216.5 171.8 L 215.6 174.5 L 214.4 177.1 L 213.3 179.7 L 211.9 182.2 L 210.4 184.7 L 208.9 187.1 L 207.1 189.5 L 205.5 191.9 L 204.6 194.6 L 205.1 197.4 L 206.7 199.9 L 208.6 202.1 L 210.4 204.4 L 212.4 206.7 L 214.6 208.5 L 217.5 209.0 L 220.2 208.0 L 222.3 206.0 L 224.2 203.7 L 225.9 201.5 L 227.6 199.2 L 229.3 197.0 L 231.0 195.0 L 231.9 192.3 L 233.2 190.0 L 234.4 187.4 L 235.6 184.8 L 236.5 182.3 L 237.6 179.7 L 238.4 177.0 L 239.3 174.2 L 239.9 171.4 L 240.5 168.6 L 241.0 165.7 L 241.4 162.8 L 241.8 159.9 L 242.0 156.9 L 242.0 153.8 L 242.0 150.7 L 241.8 147.7 L 241.5 144.8 L 241.0 141.9 L 240.7 139.0 L 240.1 136.1 L 239.3 133.4 L 238.6 130.6 L 237.7 127.9 L 236.7 125.2 L 235.6 122.6 L 234.4 120.0 L 233.2 117.5 L 231.7 115.0 L 230.2 112.5 L 228.5 110.2 L 226.0 108.8 Z";
+
 function ClaraOrbVector({ className = "", compact = false }) {
   const rawId = useId();
   const id = rawId.replace(/:/g, "");
   const glassId = `clara-orb-glass-${id}`;
-  const glassAmbientId = `clara-orb-glass-ambient-${id}`;
+  const ambientId = `clara-orb-ambient-${id}`;
   const rimId = `clara-orb-rim-${id}`;
-  const rimGlowId = `clara-orb-rim-glow-${id}`;
   const blueId = `clara-orb-blue-${id}`;
-  const blueHighlightId = `clara-orb-blue-highlight-${id}`;
   const redId = `clara-orb-red-${id}`;
   const goldId = `clara-orb-gold-${id}`;
   const floorId = `clara-orb-floor-${id}`;
-  const centerShadowId = `clara-orb-center-shadow-${id}`;
   const glowId = `clara-orb-glow-${id}`;
   const softGlowId = `clara-orb-soft-glow-${id}`;
-  const tightGlowId = `clara-orb-tight-glow-${id}`;
+  const logoGlowId = `clara-orb-logo-glow-${id}`;
 
   return (
     <svg
@@ -26,95 +29,75 @@ function ClaraOrbVector({ className = "", compact = false }) {
       className={`${className} clara-orb-vector block overflow-visible select-none`}
     >
       <defs>
-        <radialGradient id={glassId} cx="42%" cy="30%" r="76%">
-          <stop offset="0%" stopColor="#132e67" stopOpacity="0.88" />
-          <stop offset="28%" stopColor="#071a40" stopOpacity="0.97" />
-          <stop offset="68%" stopColor="#02071b" />
+        <radialGradient id={glassId} cx="39%" cy="27%" r="78%">
+          <stop offset="0%" stopColor="#173874" stopOpacity="0.78" />
+          <stop offset="30%" stopColor="#081b42" stopOpacity="0.95" />
+          <stop offset="67%" stopColor="#02081c" />
           <stop offset="100%" stopColor="#010217" />
         </radialGradient>
 
-        <radialGradient id={glassAmbientId} cx="44%" cy="34%" r="68%">
-          <stop offset="0%" stopColor="#173d82" stopOpacity="0.24" />
-          <stop offset="48%" stopColor="#07152f" stopOpacity="0.08" />
+        <radialGradient id={ambientId} cx="42%" cy="34%" r="66%">
+          <stop offset="0%" stopColor="#2e69c7" stopOpacity="0.15" />
+          <stop offset="58%" stopColor="#0b1b3a" stopOpacity="0.04" />
           <stop offset="100%" stopColor="#010217" stopOpacity="0" />
         </radialGradient>
 
-        <linearGradient id={rimId} x1="9%" y1="17%" x2="92%" y2="83%">
+        <linearGradient id={rimId} x1="7%" y1="13%" x2="94%" y2="87%">
           <stop offset="0%" stopColor="#8deaff" />
-          <stop offset="15%" stopColor="#28c5ff" />
-          <stop offset="38%" stopColor="#177cff" />
-          <stop offset="58%" stopColor="#4a5bff" />
-          <stop offset="78%" stopColor="#d02dbe" />
-          <stop offset="100%" stopColor="#ff365d" />
+          <stop offset="18%" stopColor="#20bfff" />
+          <stop offset="43%" stopColor="#1475ff" />
+          <stop offset="65%" stopColor="#4c52ff" />
+          <stop offset="82%" stopColor="#d62db5" />
+          <stop offset="100%" stopColor="#ff3358" />
         </linearGradient>
 
-        <linearGradient id={rimGlowId} x1="0%" y1="20%" x2="100%" y2="80%">
-          <stop offset="0%" stopColor="#1ec8ff" />
-          <stop offset="48%" stopColor="#166dff" />
-          <stop offset="75%" stopColor="#8b36ff" />
-          <stop offset="100%" stopColor="#ff2859" />
+        <linearGradient id={blueId} x1="18%" y1="8%" x2="79%" y2="94%">
+          <stop offset="0%" stopColor="#3be4ff" />
+          <stop offset="24%" stopColor="#1fc5ff" />
+          <stop offset="55%" stopColor="#1591ff" />
+          <stop offset="82%" stopColor="#0e5aff" />
+          <stop offset="100%" stopColor="#2544ff" />
         </linearGradient>
 
-        <linearGradient id={blueId} x1="22%" y1="9%" x2="72%" y2="94%">
-          <stop offset="0%" stopColor="#43e7ff" />
-          <stop offset="24%" stopColor="#20c8ff" />
-          <stop offset="53%" stopColor="#1595ff" />
-          <stop offset="80%" stopColor="#1160ff" />
-          <stop offset="100%" stopColor="#2347ff" />
-        </linearGradient>
-
-        <linearGradient id={blueHighlightId} x1="22%" y1="0%" x2="78%" y2="100%">
-          <stop offset="0%" stopColor="#d8fbff" stopOpacity="0.88" />
-          <stop offset="45%" stopColor="#68eaff" stopOpacity="0.34" />
-          <stop offset="100%" stopColor="#2a69ff" stopOpacity="0" />
-        </linearGradient>
-
-        <linearGradient id={redId} x1="28%" y1="3%" x2="75%" y2="97%">
-          <stop offset="0%" stopColor="#ff5a5e" />
-          <stop offset="28%" stopColor="#ff253c" />
-          <stop offset="68%" stopColor="#ff102c" />
-          <stop offset="100%" stopColor="#e90b36" />
+        <linearGradient id={redId} x1="24%" y1="6%" x2="76%" y2="96%">
+          <stop offset="0%" stopColor="#ff5558" />
+          <stop offset="31%" stopColor="#ff2538" />
+          <stop offset="73%" stopColor="#ff102d" />
+          <stop offset="100%" stopColor="#e90c35" />
         </linearGradient>
 
         <linearGradient id={goldId} x1="28%" y1="0%" x2="72%" y2="100%">
-          <stop offset="0%" stopColor="#fff78c" />
-          <stop offset="23%" stopColor="#ffe651" />
-          <stop offset="72%" stopColor="#ffd21f" />
+          <stop offset="0%" stopColor="#fff58a" />
+          <stop offset="26%" stopColor="#ffe548" />
+          <stop offset="76%" stopColor="#ffd01c" />
           <stop offset="100%" stopColor="#ffbd00" />
         </linearGradient>
 
         <linearGradient id={floorId} x1="0%" y1="50%" x2="100%" y2="50%">
           <stop offset="0%" stopColor="#168bff" stopOpacity="0" />
-          <stop offset="20%" stopColor="#168bff" stopOpacity="0.68" />
-          <stop offset="48%" stopColor="#315fff" stopOpacity="0.60" />
-          <stop offset="68%" stopColor="#a13ce8" stopOpacity="0.54" />
-          <stop offset="84%" stopColor="#f32668" stopOpacity="0.50" />
+          <stop offset="24%" stopColor="#168bff" stopOpacity="0.65" />
+          <stop offset="52%" stopColor="#315fff" stopOpacity="0.58" />
+          <stop offset="77%" stopColor="#e52b95" stopOpacity="0.48" />
           <stop offset="100%" stopColor="#f32645" stopOpacity="0" />
         </linearGradient>
 
-        <radialGradient id={centerShadowId} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#000714" stopOpacity="0.96" />
-          <stop offset="58%" stopColor="#010617" stopOpacity="0.72" />
-          <stop offset="100%" stopColor="#02071b" stopOpacity="0" />
-        </radialGradient>
-
-        <filter id={glowId} x="-70%" y="-70%" width="240%" height="240%">
-          <feGaussianBlur stdDeviation="6.2" result="blur" />
+        <filter id={glowId} x="-80%" y="-80%" width="260%" height="260%">
+          <feGaussianBlur stdDeviation="6" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
 
-        <filter id={tightGlowId} x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="3.8" result="blur" />
+        <filter id={logoGlowId} x="-55%" y="-55%" width="210%" height="210%">
+          <feGaussianBlur stdDeviation="3.2" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
 
-        <filter id={softGlowId} x="-85%" y="-85%" width="270%" height="270%">
+        <filter id={softGlowId} x="-90%" y="-90%" width="280%" height="280%">
           <feGaussianBlur stdDeviation="12" />
         </filter>
       </defs>
@@ -123,156 +106,113 @@ function ClaraOrbVector({ className = "", compact = false }) {
         <>
           <ellipse
             cx="160"
-            cy="282"
-            rx="82"
-            ry="9"
+            cy="281"
+            rx="80"
+            ry="8"
             fill={`url(#${floorId})`}
             filter={`url(#${softGlowId})`}
-            opacity="0.62"
+            opacity="0.58"
           />
           <ellipse
             cx="160"
             cy="278.5"
-            rx="58"
-            ry="2.7"
+            rx="56"
+            ry="2.5"
             fill={`url(#${floorId})`}
-            opacity="0.86"
+            opacity="0.76"
           />
         </>
       ) : null}
 
       <circle
         cx="160"
-        cy="152"
-        r="111"
+        cy="153"
+        r="117"
         fill="#0b2a66"
-        opacity="0.28"
+        opacity="0.20"
         filter={`url(#${softGlowId})`}
-      />
-
-      <circle
-        cx="160"
-        cy="152"
-        r="108.5"
-        fill="none"
-        stroke={`url(#${rimGlowId})`}
-        strokeWidth="8"
-        opacity="0.34"
-        filter={`url(#${softGlowId})`}
-      />
-
-      <circle
-        cx="160"
-        cy="152"
-        r="107"
-        fill={`url(#${glassId})`}
-        stroke={`url(#${rimId})`}
-        strokeWidth="3.7"
-      />
-
-      <circle
-        cx="160"
-        cy="152"
-        r="101.8"
-        fill={`url(#${glassAmbientId})`}
-        stroke="#b9edff"
-        strokeOpacity="0.11"
-        strokeWidth="1.1"
-      />
-
-      <path
-        d="M 76 104 C 92 67 126 48 169 45 C 205 43 236 55 254 80"
-        fill="none"
-        stroke="#d9f6ff"
-        strokeOpacity="0.24"
-        strokeWidth="9"
-        strokeLinecap="round"
-        filter={`url(#${tightGlowId})`}
-      />
-
-      <path
-        d="M 83 91 C 111 55 157 45 203 53 C 225 57 242 65 253 79"
-        fill="none"
-        stroke="#ffffff"
-        strokeOpacity="0.34"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-      />
-
-      <path
-        d="M 215.5 91.1 A 83 83 0 1 1 214.4 214.6 L 196.1 193.5 A 55 55 0 1 0 196.8 111.1 Z"
-        fill={`url(#${blueId})`}
-        filter={`url(#${tightGlowId})`}
-      />
-
-      <path
-        d="M 111 199 L 84 236 L 126 219 Z"
-        fill={`url(#${blueId})`}
-        filter={`url(#${tightGlowId})`}
-      />
-
-      <path
-        d="M 105 90 C 132 69 172 65 201 78 C 208 81 214 84 219 89"
-        fill="none"
-        stroke={`url(#${blueHighlightId})`}
-        strokeWidth="5.4"
-        strokeLinecap="round"
-        opacity="0.78"
-      />
-
-      <path
-        d="M 103 204 C 112 212 121 217 131 220"
-        fill="none"
-        stroke="#4f98ff"
-        strokeOpacity="0.24"
-        strokeWidth="2.2"
-        strokeLinecap="round"
       />
 
       <circle
         cx="160"
         cy="153"
-        r="50"
-        fill={`url(#${centerShadowId})`}
-        opacity="0.92"
+        r="113"
+        fill={`url(#${glassId})`}
+        stroke={`url(#${rimId})`}
+        strokeWidth="3.4"
+        filter={`url(#${glowId})`}
+      />
+
+      <circle
+        cx="160"
+        cy="153"
+        r="107"
+        fill={`url(#${ambientId})`}
+        stroke="#d9f6ff"
+        strokeOpacity="0.08"
+        strokeWidth="1"
       />
 
       <path
-        d="M 229.7 114.9 A 79 79 0 0 1 220.5 202.8 L 202.9 188 A 56 56 0 0 0 209.4 125.7 Z"
-        fill={`url(#${redId})`}
-        filter={`url(#${tightGlowId})`}
-      />
-
-      <path
-        d="M 226 119 C 232 134 234 150 232 164"
+        d="M 70 105 C 91 62 128 40 171 40 C 207 40 238 52 258 77"
         fill="none"
-        stroke="#ffb0ad"
-        strokeOpacity="0.30"
-        strokeWidth="3.2"
+        stroke="#e8fbff"
+        strokeOpacity="0.20"
+        strokeWidth="8.5"
+        strokeLinecap="round"
+        filter={`url(#${logoGlowId})`}
+      />
+
+      <path
+        d="M 79 92 C 111 52 157 42 203 51 C 228 56 246 65 258 78"
+        fill="none"
+        stroke="#ffffff"
+        strokeOpacity="0.29"
+        strokeWidth="2.2"
         strokeLinecap="round"
       />
 
+      <path
+        d={CLARA_BLUE_PATH}
+        fill={`url(#${blueId})`}
+        stroke="#78dcff"
+        strokeOpacity="0.16"
+        strokeWidth="1"
+        strokeLinejoin="round"
+        filter={`url(#${logoGlowId})`}
+      />
+
+      <path
+        d={CLARA_RED_PATH}
+        fill={`url(#${redId})`}
+        stroke="#ff9a95"
+        strokeOpacity="0.18"
+        strokeWidth="0.9"
+        strokeLinejoin="round"
+        filter={`url(#${logoGlowId})`}
+      />
+
       <rect
-        x="137"
-        y="121"
-        width="18"
-        height="65"
-        rx="9"
+        x="142.6"
+        y="126.5"
+        width="14.6"
+        height="55.3"
+        rx="7.3"
         fill={`url(#${goldId})`}
         filter={`url(#${glowId})`}
       />
       <rect
-        x="165"
-        y="121"
-        width="18"
-        height="65"
-        rx="9"
+        x="167.3"
+        y="126.5"
+        width="14.6"
+        height="55.3"
+        rx="7.3"
         fill={`url(#${goldId})`}
         filter={`url(#${glowId})`}
       />
 
-      <rect x="140" y="126" width="3.4" height="52" rx="1.7" fill="#fffce0" opacity="0.38" />
-      <rect x="168" y="126" width="3.4" height="52" rx="1.7" fill="#fffce0" opacity="0.38" />
+      <rect x="145.0" y="131.3" width="2.2" height="44" rx="1.1" fill="#fffde6" opacity="0.34" />
+      <rect x="169.7" y="131.3" width="2.2" height="44" rx="1.1" fill="#fffde6" opacity="0.34" />
     </svg>
   );
 }
@@ -447,7 +387,7 @@ export default function ClaraOrbPage() {
           style={{ width: "min(78vw, 38dvh, 315px)" }}
           aria-label="Tap CLARA to start Ask Before You Spend"
           data-clara-orb-launcher="true"
-          data-clara-orb-visual-source="native-vector-v2"
+          data-clara-orb-visual-source="native-vector-traced-official-v3"
         >
           <MoneyLeftOrbVisual launching={launching} />
         </button>
