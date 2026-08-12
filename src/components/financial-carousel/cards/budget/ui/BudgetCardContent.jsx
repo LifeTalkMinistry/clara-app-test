@@ -127,7 +127,7 @@ function buildDriftDetailItems({ outsidePlanItems = [], unplannedItems = [], und
 
 function ExpandButtonRow({ expanded, onToggleDetails }) {
   return (
-    <div className="mt-0.5 shrink-0 border-t border-blue-200/[0.06] pt-3">
+    <div className="shrink-0 border-t border-blue-200/[0.06] pt-3">
       <FinanceCardExpandButton
         detailKey="budgets"
         expanded={expanded}
@@ -337,15 +337,15 @@ export default function BudgetCardContent(props) {
 
   if (!expanded) {
     return (
-      <div className="relative z-10 flex h-full min-h-[286px] flex-col overflow-hidden px-4 pb-4 pt-5">
+      <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
         <div className="pointer-events-none absolute inset-0 opacity-[0.46]">
           <div className="absolute -left-20 top-[-58px] h-40 w-40 rounded-full bg-[#0038A8]/[0.10] blur-3xl" />
           <div className="absolute bottom-[-104px] right-[-82px] h-48 w-48 rounded-full bg-[#CE1126]/[0.08] blur-3xl" />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.024),transparent_30%,rgba(0,56,168,0.10)_100%)]" />
         </div>
 
-        <div className="relative flex min-h-0 flex-1 flex-col gap-4">
-          <div className="flex min-h-0 flex-1 flex-col rounded-[28px] border border-blue-100/[0.05] bg-[#0038A8]/[0.07] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-[2px]">
+        <div className="relative flex min-h-0 flex-col gap-4">
+          <div className="flex min-h-0 flex-col rounded-[28px] border border-blue-100/[0.05] bg-[#0038A8]/[0.07] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-[2px]">
             <BudgetHeader
               badgeLabel={badgeLabel}
               status={status}
