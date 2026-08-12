@@ -17,31 +17,45 @@ const CLARA_ORB_LOGO_SRC = resolveOrbAssetSrc("/images/clara/clara-orb-logo.png"
 
 export function ClaraOrbMark({ className = "", title = "CLARA Orb" }) {
   return (
-    <svg
-      viewBox="0 0 320 320"
-      role="img"
-      aria-label={title}
-      className={className}
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
+    <img
+      src={CLARA_ORB_LOGO_SRC}
+      alt={title}
+      draggable={false}
+      className={`${className} select-none rounded-full object-contain`}
+    />
+  );
+}
+
+function MoneyLeftOrbVisual({ launching = false }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`clara-money-left-orb-scale relative isolate flex h-full w-full items-center justify-center ${
+        launching ? "clara-money-left-orb-launching" : "clara-money-left-orb-idle"
+      }`}
     >
-      <path
-        d="M216 64C193 47 166 38 138 40C80 43 35 91 36 149C37 193 62 231 100 250L84 291L132 267C144 271 156 273 169 272C191 271 212 264 230 251"
-        stroke="#168BFF"
-        strokeWidth="34"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+      <span
+        className="pointer-events-none absolute inset-0 rounded-full opacity-90 blur-[1px]"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(34,211,238,0.28) 0%, rgba(59,130,246,0.22) 34%, rgba(124,58,237,0.30) 58%, rgba(15,23,42,0.00) 76%)",
+          boxShadow:
+            "0 0 18px rgba(34,211,238,0.42), 0 0 34px rgba(124,58,237,0.36)",
+        }}
       />
-      <path
-        d="M240 91C258 111 268 138 268 166C268 196 257 224 237 245"
-        stroke="#F32645"
-        strokeWidth="34"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <rect x="127" y="119" width="23" height="84" rx="11.5" fill="#FFD84A" />
-      <rect x="171" y="119" width="23" height="84" rx="11.5" fill="#FFD84A" />
-    </svg>
+
+      <span className="pointer-events-none absolute inset-[13.15%] rounded-full border border-cyan-100/20 bg-white/[0.055]" />
+
+      <span className="relative z-10 flex h-[57.9%] w-[57.9%] items-center justify-center rounded-full border border-cyan-100/20 bg-white/[0.09] text-white shadow-[0_0_18px_rgba(34,211,238,0.38)]">
+        <img
+          src={CLARA_ORB_LOGO_SRC}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          className="h-full w-full scale-[1.12] select-none rounded-full object-contain drop-shadow-[0_0_14px_rgba(34,211,238,0.42)]"
+        />
+      </span>
+    </span>
   );
 }
 
@@ -83,41 +97,30 @@ export default function ClaraOrbPage() {
           display: none !important;
         }
 
-        @keyframes clara-orb-breathe {
-          0%, 100% { transform: scale(0.985); filter: drop-shadow(0 0 22px rgba(22,139,255,.30)) drop-shadow(0 0 13px rgba(243,38,69,.12)); }
-          50% { transform: scale(1.018); filter: drop-shadow(0 0 38px rgba(22,139,255,.46)) drop-shadow(0 0 22px rgba(255,216,74,.13)) drop-shadow(0 0 20px rgba(243,38,69,.18)); }
+        @keyframes clara-money-left-orb-breathe {
+          0%, 100% { transform: scale(.985); }
+          50% { transform: scale(1.018); }
         }
 
-        @keyframes clara-orb-ring-breathe {
-          0%, 100% { opacity: .18; transform: scale(.94); }
-          50% { opacity: .40; transform: scale(1.035); }
-        }
-
-        @keyframes clara-orb-tap {
+        @keyframes clara-money-left-orb-tap {
           0% { transform: scale(1); }
           45% { transform: scale(.94); }
           100% { transform: scale(1.035); }
         }
 
-        .clara-orb-mark-idle {
-          animation: clara-orb-breathe 4.2s ease-in-out infinite;
+        .clara-money-left-orb-idle {
+          animation: clara-money-left-orb-breathe 4.2s ease-in-out infinite;
           transform-origin: center;
         }
 
-        .clara-orb-mark-launching {
-          animation: clara-orb-tap .52s cubic-bezier(.22,1,.36,1) both;
-          transform-origin: center;
-        }
-
-        .clara-orb-halo {
-          animation: clara-orb-ring-breathe 4.2s ease-in-out infinite;
+        .clara-money-left-orb-launching {
+          animation: clara-money-left-orb-tap .52s cubic-bezier(.22,1,.36,1) both;
           transform-origin: center;
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .clara-orb-mark-idle,
-          .clara-orb-mark-launching,
-          .clara-orb-halo {
+          .clara-money-left-orb-idle,
+          .clara-money-left-orb-launching {
             animation: none !important;
           }
         }
@@ -140,17 +143,12 @@ export default function ClaraOrbPage() {
           type="button"
           onClick={openClara}
           disabled={launching}
-          className="group relative mt-1 grid aspect-square w-[min(86vw,360px)] max-h-[58dvh] place-items-center rounded-full outline-none transition active:scale-[0.985] disabled:cursor-default focus-visible:ring-2 focus-visible:ring-[#ffd84a]/70 focus-visible:ring-offset-4 focus-visible:ring-offset-[#020817]"
+          className="group relative mt-1 grid aspect-square w-[min(80vw,330px)] max-h-[56dvh] place-items-center rounded-full outline-none transition active:scale-[0.985] disabled:cursor-default focus-visible:ring-2 focus-visible:ring-[#ffd84a]/70 focus-visible:ring-offset-4 focus-visible:ring-offset-[#020817]"
           aria-label="Tap CLARA to start Ask Before You Spend"
           data-clara-orb-launcher="true"
+          data-clara-orb-visual-source="money-left"
         >
-          <span className="clara-orb-halo pointer-events-none absolute inset-[7%] rounded-full border border-cyan-100/18 shadow-[0_0_80px_rgba(8,103,255,.20),0_0_120px_rgba(243,38,69,.07)]" />
-          <img
-            src={CLARA_ORB_LOGO_SRC}
-            alt="CLARA Orb"
-            draggable={false}
-            className={`relative z-10 h-[90%] w-[90%] select-none object-contain ${launching ? "clara-orb-mark-launching" : "clara-orb-mark-idle"}`}
-          />
+          <MoneyLeftOrbVisual launching={launching} />
         </button>
 
         <div className="-mt-1 select-none">
