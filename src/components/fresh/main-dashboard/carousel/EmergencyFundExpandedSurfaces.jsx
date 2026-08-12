@@ -98,7 +98,6 @@ export function SetupSummaryBoard({
         </PremiumFinanceIconTile>
         <div className="min-w-0 flex-1 pt-0.5">
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-100/52">Emergency setup</p>
-          <p className="mt-1 text-[15px] font-black leading-tight tracking-[-0.015em] text-white/92">Your saved safety definition</p>
         </div>
         <span className="shrink-0 rounded-full border border-emerald-300/16 bg-emerald-400/[0.08] px-2.5 py-1 text-[10px] font-black text-emerald-100/90">{targetMonths} months</span>
       </div>
