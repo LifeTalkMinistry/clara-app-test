@@ -115,10 +115,10 @@ function createOrbController(launcher) {
       lastGlowPaint = now;
       const wave = (Math.sin((now - glowStartedAt) / 760) + 1) / 2;
 
-      halo.setAttribute("opacity", (0.17 + wave * 0.20).toFixed(3));
+      halo.setAttribute("opacity", (0.28 + wave * 0.38).toFixed(3));
       halo.setAttribute("stroke", rimStroke);
-      halo.setAttribute("stroke-width", (1.4 + wave * 3.4).toFixed(3));
-      halo.setAttribute("stroke-opacity", (0.34 + wave * 0.56).toFixed(3));
+      halo.setAttribute("stroke-width", (2.4 + wave * 6.6).toFixed(3));
+      halo.setAttribute("stroke-opacity", (0.48 + wave * 0.52).toFixed(3));
     } else if (!isIdle) {
       restoreHalo();
       restoreEyes();
