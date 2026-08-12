@@ -1,44 +1,99 @@
+/* Savings Goals mobile geometry — keeps the official CLARA treatment compact and contained. */
 .savings-goals-premium > div > header {
-  min-height: auto;
-  padding-top: 1.15rem;
-  padding-bottom: 1.05rem;
+  min-height: auto !important;
 }
 
-.savings-goals-premium > div > header p {
-  max-width: none;
-  margin-top: 0.45rem;
-  font-size: clamp(0.68rem, 2.9vw, 0.8rem);
-  line-height: 1.4;
-  letter-spacing: -0.015em;
-  white-space: nowrap;
+@media (max-width: 639px) {
+  .savings-goals-premium > div {
+    padding-left: 0.85rem !important;
+    padding-right: 0.85rem !important;
+  }
+
+  .savings-goals-premium > div > header {
+    padding: 0.9rem 0.85rem 0.9rem 0.95rem !important;
+    border-radius: 1.4rem !important;
+  }
+
+  .savings-goals-premium > div > header > div {
+    gap: 0.65rem !important;
+  }
+
+  .savings-goals-premium > div > header h1 {
+    font-size: clamp(1.22rem, 6vw, 1.52rem) !important;
+  }
+
+  .savings-goals-premium > div > header p {
+    max-width: 12.5rem !important;
+    font-size: clamp(0.66rem, 2.8vw, 0.73rem) !important;
+    line-height: 1.32 !important;
+  }
+
+  .savings-goals-premium > div > header button {
+    min-width: 6.35rem !important;
+    height: 2.55rem !important;
+    padding-left: 0.8rem !important;
+    padding-right: 0.8rem !important;
+    font-size: 0.72rem !important;
+  }
+
+  .savings-goals-premium > div > header button svg {
+    width: 0.95rem !important;
+    height: 0.95rem !important;
+    margin-right: 0.3rem !important;
+  }
+
+  .savings-goals-premium > div > div:has(> .theme-soft-card) {
+    min-height: clamp(17rem, 46dvh, 25rem) !important;
+    padding-top: 2.4rem !important;
+  }
+
+  [role="dialog"]:has([data-savings-goal-submit]) {
+    width: calc(100vw - 0.85rem) !important;
+    max-height: min(89dvh, 46rem) !important;
+    border-radius: 1.45rem !important;
+  }
+
+  [role="dialog"]:has([data-savings-goal-submit]) form > div:first-child {
+    padding-top: 0.95rem !important;
+    padding-bottom: 0.95rem !important;
+  }
+
+  [role="dialog"]:has([data-savings-goal-submit]) form > div:nth-child(2) {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  [role="dialog"]:has([data-savings-goal-submit]) form > div:last-child {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
 }
 
-.savings-goals-premium > div > header::before {
-  bottom: -6.4rem;
-  height: 8.4rem;
+@media (max-width: 365px) {
+  .savings-goals-premium > div > header {
+    padding-left: 0.8rem !important;
+    padding-right: 0.7rem !important;
+  }
+
+  .savings-goals-premium > div > header p {
+    max-width: 10.8rem !important;
+    font-size: 0.63rem !important;
+  }
+
+  .savings-goals-premium > div > header button {
+    min-width: 5.9rem !important;
+    padding-left: 0.65rem !important;
+    padding-right: 0.65rem !important;
+  }
 }
 
 @media (min-width: 640px) {
   .savings-goals-premium > div > header {
-    min-height: auto;
-    padding-top: 1.4rem;
-    padding-bottom: 1.35rem;
+    padding: 1.15rem 1.2rem !important;
   }
 
   .savings-goals-premium > div > header p {
-    font-size: 0.9rem;
-  }
-}
-
-@media (max-width: 390px) {
-  .savings-goals-premium > div > header {
-    min-height: auto;
-    padding-top: 1rem;
-    padding-bottom: 0.95rem;
-  }
-
-  .savings-goals-premium > div > header p {
-    margin-top: 0.35rem;
-    font-size: 0.66rem;
+    max-width: none !important;
+    font-size: 0.82rem !important;
   }
 }
