@@ -193,3 +193,58 @@
 .clara-community-root[data-community-view] .clara-community-topnav-tool {
   border-radius: 9999px !important;
 }
+
+/* -------------------------------------------------------------------------- */
+/* UNIVERSAL COMMUNITY TOP-CARD GAP                                           */
+/* -------------------------------------------------------------------------- */
+/*
+ * Daily Money Tip is the spacing reference for the entire shared Community
+ * shell. Every destination now starts its first real content/card at the exact
+ * same adaptive distance below the shared TopNav divider. View-specific pt-4,
+ * pt-5, etc. can no longer make Feed/Circles/Challenges/Messages/Profile feel
+ * higher or lower than Home.
+ */
+.clara-community-root[data-community-view] {
+  --clara-community-top-card-gap: clamp(14px, 2.1dvh, 22px);
+}
+
+.clara-community-root[data-community-view="home"] > .clara-community-home-view {
+  --clara-home-top-space: var(--clara-community-top-card-gap) !important;
+  padding-top: var(--clara-community-top-card-gap) !important;
+  scroll-padding-top: var(--clara-community-top-card-gap) !important;
+}
+
+.clara-community-root[data-community-view="feed"] .clara-community-feed-scroll,
+.clara-community-root[data-community-view="schedule"] > .clara-community-schedule-view,
+.clara-community-root[data-community-view="notifications"] > .clara-community-notifications-view,
+.clara-community-root[data-community-view="circles"] .clara-community-circles-view > div > main,
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view > div > main,
+.clara-community-root[data-community-view="messages"] .clara-community-messages-view > div > main,
+.clara-community-root[data-community-view="profile"] .clara-community-profile-view > div > div.mx-auto {
+  box-sizing: border-box !important;
+  padding-top: var(--clara-community-top-card-gap) !important;
+}
+
+@media (max-width: 430px) {
+  .clara-community-root[data-community-view] {
+    --clara-community-top-card-gap: clamp(10px, 1.5dvh, 14px);
+  }
+}
+
+@media (max-width: 430px) and (max-height: 860px) {
+  .clara-community-root[data-community-view] {
+    --clara-community-top-card-gap: 9px;
+  }
+}
+
+@media (max-height: 740px) {
+  .clara-community-root[data-community-view] {
+    --clara-community-top-card-gap: 8px;
+  }
+}
+
+@media (min-height: 900px) {
+  .clara-community-root[data-community-view] {
+    --clara-community-top-card-gap: 20px;
+  }
+}
