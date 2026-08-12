@@ -111,27 +111,18 @@ export default function ClaraOrbPage() {
           display: none !important;
         }
 
-        .clara-community-root[data-community-view="orb"] {
+        .clara-community-root[data-community-view="orb"],
+        .clara-community-orb-view {
           background: #010217 !important;
         }
 
         .clara-community-orb-view {
           isolation: isolate;
-          background:
-            radial-gradient(circle at 50% 40%, rgba(22, 139, 255, 0.064), transparent 30%),
-            radial-gradient(circle at 63% 43%, rgba(243, 38, 69, 0.038), transparent 25%),
-            linear-gradient(180deg, #010217 0%, #010318 34%, #020619 67%, #020714 100%);
         }
 
         .clara-community-orb-view::before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          z-index: 0;
-          pointer-events: none;
-          background:
-            radial-gradient(ellipse 76% 38% at 50% 49%, rgba(16, 117, 255, 0.028), transparent 74%),
-            linear-gradient(90deg, rgba(0, 0, 0, 0.09), transparent 15%, transparent 85%, rgba(0, 0, 0, 0.09));
+          content: none !important;
+          display: none !important;
         }
 
         .clara-orb-asset-shell {
