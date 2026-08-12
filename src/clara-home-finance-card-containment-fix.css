@@ -1,0 +1,93 @@
+/*
+ * CLARA Home — finance card containment fix.
+ *
+ * The shared Home finance-card skin intentionally restyles the large collapsed
+ * information panels. Budget has an extra decorative layer in its DOM, so the
+ * older structural selector can also catch that decoration and turn it into a
+ * visible rectangular panel. Keep that decoration decorative, then harden the
+ * Budget and Income Hub content boundaries so inner surfaces stay clipped to
+ * their rounded cards on narrow/mobile viewports.
+ */
+
+/* -------------------------------------------------------------------------- */
+/* BUDGET — undo accidental styling of the decorative top-left glow            */
+/* -------------------------------------------------------------------------- */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card="budget"][data-expanded="false"]
+> div > div:first-child > div:first-child {
+  background: rgba(0, 56, 168, 0.10) !important;
+  background-color: rgba(0, 56, 168, 0.10) !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* COLLAPSED PRIMARY PANELS — strict width + rounded containment               */
+/* -------------------------------------------------------------------------- */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card="budget"][data-expanded="false"]
+> div > div:nth-child(2) > div:first-child,
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card="investmentFund"][data-expanded="false"]
+> div > div > div:first-child {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  isolation: isolate;
+}
+
+/* Keep the internal content stacks from growing wider than their card. */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card="budget"][data-expanded="false"]
+> div > div:nth-child(2),
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card="investmentFund"][data-expanded="false"]
+> div > div {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Clip the large value/summary surfaces to the primary card instead of letting
+ * gradients, shadows, or child content paint outside the rounded boundary. */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card="budget"][data-expanded="false"]
+> div > div:nth-child(2) > div:first-child > div:nth-child(2),
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card="investmentFund"][data-expanded="false"]
+> div > div > div:first-child > div:nth-child(2) {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* Income Hub's 3-stat strip is already rounded; explicitly contain its grid so
+ * long source/status values cannot paint through the right edge on small phones. */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card="investmentFund"][data-expanded="false"]
+> div > div > div:first-child > div:nth-child(2) > div:nth-child(3),
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card="investmentFund"][data-expanded="false"]
+> div > div > div:first-child > div:nth-child(2) > div:nth-child(3) > div {
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
