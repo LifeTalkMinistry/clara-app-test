@@ -1,6 +1,20 @@
 import { useEffect, useState } from "react";
 import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "@/lib/clara-pause-events";
 
+const resolveOrbAssetSrc = (assetPath = "") => {
+  const trimmedPath = String(assetPath || "").trim();
+  if (!trimmedPath) return "";
+  if (/^(https?:|data:|blob:)/.test(trimmedPath)) return trimmedPath;
+  if (trimmedPath.startsWith("/")) {
+    const baseUrl = import.meta.env.BASE_URL || "/";
+    const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+    return `${normalizedBaseUrl}${trimmedPath.replace(/^\/+/, "")}`;
+  }
+  return trimmedPath;
+};
+
+const CLARA_ORB_LOGO_SRC = resolveOrbAssetSrc("/images/clara/clara-orb-logo.png");
+
 export function ClaraOrbMark({ className = "", title = "CLARA Orb" }) {
   return (
     <svg
@@ -75,14 +89,14 @@ export default function ClaraOrbPage() {
         }
 
         @keyframes clara-orb-ring-breathe {
-          0%, 100% { opacity: .22; transform: scale(.91); }
-          50% { opacity: .48; transform: scale(1.04); }
+          0%, 100% { opacity: .18; transform: scale(.94); }
+          50% { opacity: .40; transform: scale(1.035); }
         }
 
         @keyframes clara-orb-tap {
           0% { transform: scale(1); }
           45% { transform: scale(.94); }
-          100% { transform: scale(1.04); }
+          100% { transform: scale(1.035); }
         }
 
         .clara-orb-mark-idle {
@@ -117,7 +131,7 @@ export default function ClaraOrbPage() {
       </div>
 
       <div className="relative z-10 mx-auto flex h-full min-h-full w-full max-w-3xl flex-col items-center justify-center px-5 pb-[max(34px,env(safe-area-inset-bottom))] pt-6 text-center text-white">
-        <div className="mb-2 select-none">
+        <div className="mb-1 select-none">
           <p className="text-[10px] font-black uppercase tracking-[0.34em] text-white/42">CLARA ORB</p>
           <div className="mx-auto mt-3 h-px w-24 bg-[linear-gradient(90deg,transparent,#168bff,#ffd84a,#f32645,transparent)] opacity-70" />
         </div>
@@ -126,18 +140,20 @@ export default function ClaraOrbPage() {
           type="button"
           onClick={openClara}
           disabled={launching}
-          className="group relative mt-2 grid aspect-square w-[min(82vw,390px)] max-h-[54dvh] place-items-center rounded-full outline-none transition active:scale-[0.985] disabled:cursor-default focus-visible:ring-2 focus-visible:ring-[#ffd84a]/70 focus-visible:ring-offset-4 focus-visible:ring-offset-[#020817]"
+          className="group relative mt-1 grid aspect-square w-[min(86vw,360px)] max-h-[58dvh] place-items-center rounded-full outline-none transition active:scale-[0.985] disabled:cursor-default focus-visible:ring-2 focus-visible:ring-[#ffd84a]/70 focus-visible:ring-offset-4 focus-visible:ring-offset-[#020817]"
           aria-label="Tap CLARA to start Ask Before You Spend"
           data-clara-orb-launcher="true"
         >
-          <span className="clara-orb-halo pointer-events-none absolute inset-[8%] rounded-full border border-[#168bff]/24 shadow-[0_0_80px_rgba(8,103,255,.22),0_0_120px_rgba(243,38,69,.08)]" />
-          <span className="pointer-events-none absolute inset-[16%] rounded-full bg-[radial-gradient(circle,rgba(8,103,255,.12),rgba(2,8,23,.05)_58%,transparent_72%)] blur-sm" />
-          <ClaraOrbMark
-            className={`relative z-10 h-[82%] w-[82%] ${launching ? "clara-orb-mark-launching" : "clara-orb-mark-idle"}`}
+          <span className="clara-orb-halo pointer-events-none absolute inset-[7%] rounded-full border border-cyan-100/18 shadow-[0_0_80px_rgba(8,103,255,.20),0_0_120px_rgba(243,38,69,.07)]" />
+          <img
+            src={CLARA_ORB_LOGO_SRC}
+            alt="CLARA Orb"
+            draggable={false}
+            className={`relative z-10 h-[90%] w-[90%] select-none object-contain ${launching ? "clara-orb-mark-launching" : "clara-orb-mark-idle"}`}
           />
         </button>
 
-        <div className="-mt-2 select-none">
+        <div className="-mt-1 select-none">
           <h1 className="text-[21px] font-black tracking-[-0.035em] text-white sm:text-[24px]">
             Ask before you spend.
           </h1>
