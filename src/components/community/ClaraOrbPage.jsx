@@ -114,7 +114,7 @@ export default function ClaraOrbPage() {
   return (
     <main
       ref={pageRef}
-      className="clara-community-orb-view relative flex w-full items-center justify-center overflow-hidden bg-[#020817] px-5 text-center text-white"
+      className="clara-community-orb-view relative flex w-full items-center justify-center overflow-hidden bg-black px-5 text-center text-white"
       style={measuredViewportStyle}
       aria-label="CLARA Orb"
       data-clara-orb-page="true"
@@ -153,13 +153,6 @@ export default function ClaraOrbPage() {
         }
       `}</style>
 
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -left-24 top-[8%] h-[46%] w-[72%] rounded-full bg-[#0867ff]/18 blur-[90px]" />
-        <div className="absolute -right-24 top-[16%] h-[42%] w-[58%] rounded-full bg-[#f32645]/12 blur-[100px]" />
-        <div className="absolute left-1/2 top-[45%] h-44 w-44 -translate-x-1/2 rounded-full bg-[#ffd84a]/[0.055] blur-[85px]" />
-        <div className="absolute inset-x-0 bottom-0 h-[45%] bg-[linear-gradient(180deg,rgba(2,8,23,0),rgba(2,6,18,.92))]" />
-      </div>
-
       <div
         className="relative z-10 flex w-full max-w-3xl flex-col items-center justify-center"
         style={{ transform: "translateY(clamp(78px, 11dvh, 112px))" }}
@@ -174,7 +167,7 @@ export default function ClaraOrbPage() {
           type="button"
           onClick={openClara}
           disabled={launching}
-          className="group relative mt-1 grid aspect-square shrink-0 place-items-center rounded-full outline-none transition active:scale-[0.99] disabled:cursor-default focus-visible:ring-2 focus-visible:ring-[#ffd84a]/70 focus-visible:ring-offset-4 focus-visible:ring-offset-[#020817]"
+          className="group relative mt-1 grid aspect-square shrink-0 place-items-center rounded-full outline-none transition active:scale-[0.99] disabled:cursor-default focus-visible:ring-2 focus-visible:ring-[#ffd84a]/70 focus-visible:ring-offset-4 focus-visible:ring-offset-black"
           style={{ width: "min(78vw, 38dvh, 315px)" }}
           aria-label="Tap CLARA to start Ask Before You Spend"
           data-clara-orb-launcher="true"
