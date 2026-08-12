@@ -118,9 +118,9 @@ export default function ClaraOrbPage() {
         .clara-community-orb-view {
           isolation: isolate;
           background:
-            radial-gradient(circle at 50% 41%, rgba(22, 139, 255, 0.075), transparent 28%),
-            radial-gradient(circle at 65% 43%, rgba(243, 38, 69, 0.045), transparent 23%),
-            linear-gradient(180deg, #010217 0%, #02091b 57%, #020714 100%);
+            radial-gradient(circle at 50% 40%, rgba(22, 139, 255, 0.064), transparent 30%),
+            radial-gradient(circle at 63% 43%, rgba(243, 38, 69, 0.038), transparent 25%),
+            linear-gradient(180deg, #010217 0%, #010318 34%, #020619 67%, #020714 100%);
         }
 
         .clara-community-orb-view::before {
@@ -130,39 +130,63 @@ export default function ClaraOrbPage() {
           z-index: 0;
           pointer-events: none;
           background:
-            radial-gradient(ellipse 72% 34% at 50% 54%, rgba(16, 117, 255, 0.035), transparent 72%),
-            linear-gradient(90deg, rgba(0, 0, 0, 0.12), transparent 14%, transparent 86%, rgba(0, 0, 0, 0.12));
+            radial-gradient(ellipse 76% 38% at 50% 49%, rgba(16, 117, 255, 0.028), transparent 74%),
+            linear-gradient(90deg, rgba(0, 0, 0, 0.09), transparent 15%, transparent 85%, rgba(0, 0, 0, 0.09));
         }
 
         .clara-orb-asset-shell {
           border-radius: 999px;
         }
 
+        .clara-orb-asset-shell::after {
+          content: "";
+          position: absolute;
+          z-index: 0;
+          left: 15%;
+          right: 15%;
+          bottom: 5.5%;
+          height: 12%;
+          pointer-events: none;
+          border-radius: 999px;
+          background:
+            radial-gradient(
+              ellipse at center,
+              rgba(18, 122, 255, 0.30) 0%,
+              rgba(58, 76, 224, 0.22) 34%,
+              rgba(214, 39, 126, 0.14) 57%,
+              transparent 78%
+            );
+          filter: blur(11px);
+          opacity: 0.78;
+        }
+
         .clara-orb-page-image {
+          position: relative;
+          z-index: 1;
           display: block;
           -webkit-mask-image: radial-gradient(
-            ellipse 55% 54% at 50% 49%,
+            ellipse 56% 47% at 50% 48%,
             #000 0%,
-            #000 73%,
-            rgba(0, 0, 0, 0.92) 80%,
-            rgba(0, 0, 0, 0.55) 84%,
-            rgba(0, 0, 0, 0.18) 88%,
-            rgba(0, 0, 0, 0.04) 92%,
-            transparent 95%
+            #000 69%,
+            rgba(0, 0, 0, 0.96) 76%,
+            rgba(0, 0, 0, 0.72) 82%,
+            rgba(0, 0, 0, 0.36) 88%,
+            rgba(0, 0, 0, 0.10) 93%,
+            transparent 98%
           );
           mask-image: radial-gradient(
-            ellipse 55% 54% at 50% 49%,
+            ellipse 56% 47% at 50% 48%,
             #000 0%,
-            #000 73%,
-            rgba(0, 0, 0, 0.92) 80%,
-            rgba(0, 0, 0, 0.55) 84%,
-            rgba(0, 0, 0, 0.18) 88%,
-            rgba(0, 0, 0, 0.04) 92%,
-            transparent 95%
+            #000 69%,
+            rgba(0, 0, 0, 0.96) 76%,
+            rgba(0, 0, 0, 0.72) 82%,
+            rgba(0, 0, 0, 0.36) 88%,
+            rgba(0, 0, 0, 0.10) 93%,
+            transparent 98%
           );
           -webkit-mask-repeat: no-repeat;
           mask-repeat: no-repeat;
-          filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.16));
+          filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.14));
         }
 
         @keyframes clara-money-left-orb-breathe {
