@@ -1,0 +1,80 @@
+/*
+ * CLARA Community top-nav utility identity
+ *
+ * The three tools after Profile use the official CLARA triad while preserving
+ * the same dark premium circular surface as the main destinations:
+ * Learning = blue, Coaching = gold, Guide = red.
+ */
+
+.clara-community-root[data-community-view]
+  .clara-community-shell-nav > [data-clara-topnav-tool="learning"] {
+  --clara-tool-accent: #2f80ff;
+  --clara-tool-accent-rgb: 47, 128, 255;
+}
+
+.clara-community-root[data-community-view]
+  .clara-community-shell-nav > [data-clara-topnav-tool="coaching"] {
+  --clara-tool-accent: #ffd84a;
+  --clara-tool-accent-rgb: 255, 216, 74;
+}
+
+.clara-community-root[data-community-view]
+  .clara-community-shell-nav > [data-clara-topnav-tool="guide"] {
+  --clara-tool-accent: #e63b4f;
+  --clara-tool-accent-rgb: 230, 59, 79;
+}
+
+.clara-community-root[data-community-view]
+  .clara-community-shell-nav > .clara-community-topnav-tool {
+  border-color: rgba(var(--clara-tool-accent-rgb), 0.28) !important;
+  background:
+    radial-gradient(circle at 34% 24%, rgba(var(--clara-tool-accent-rgb), 0.11), transparent 56%),
+    rgba(3, 11, 25, 0.58) !important;
+  background-image:
+    radial-gradient(circle at 34% 24%, rgba(var(--clara-tool-accent-rgb), 0.11), transparent 56%) !important;
+  color: rgba(var(--clara-tool-accent-rgb), 0.82) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    inset 0 0 14px rgba(var(--clara-tool-accent-rgb), 0.03),
+    0 7px 18px rgba(0, 0, 0, 0.16) !important;
+}
+
+.clara-community-root[data-community-view]
+  .clara-community-shell-nav > .clara-community-topnav-tool:hover,
+.clara-community-root[data-community-view]
+  .clara-community-shell-nav > .clara-community-topnav-tool:focus-visible {
+  border-color: rgba(var(--clara-tool-accent-rgb), 0.56) !important;
+  background:
+    radial-gradient(circle at 34% 24%, rgba(var(--clara-tool-accent-rgb), 0.20), transparent 58%),
+    rgba(3, 15, 34, 0.76) !important;
+  background-image:
+    radial-gradient(circle at 34% 24%, rgba(var(--clara-tool-accent-rgb), 0.20), transparent 58%) !important;
+  color: var(--clara-tool-accent) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 0 16px rgba(var(--clara-tool-accent-rgb), 0.05),
+    0 0 0 1px rgba(var(--clara-tool-accent-rgb), 0.07),
+    0 0 16px rgba(var(--clara-tool-accent-rgb), 0.14) !important;
+}
+
+.clara-community-root[data-community-view]
+  .clara-community-shell-nav > .clara-community-topnav-tool:active {
+  border-color: rgba(var(--clara-tool-accent-rgb), 0.68) !important;
+  color: var(--clara-tool-accent) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    inset 0 0 18px rgba(var(--clara-tool-accent-rgb), 0.07),
+    0 0 18px rgba(var(--clara-tool-accent-rgb), 0.17) !important;
+}
+
+/* Coaching's existing 30m badge belongs to the same gold identity. */
+.clara-community-root[data-community-view]
+  .clara-community-shell-nav > [data-clara-topnav-tool="coaching"]
+  .clara-community-topnav-30m {
+  border-color: rgba(255, 235, 153, 0.66) !important;
+  background: #ffd84a !important;
+  color: #10244a !important;
+  box-shadow:
+    0 4px 10px rgba(0, 0, 0, 0.22),
+    0 0 9px rgba(255, 216, 74, 0.20) !important;
+}
