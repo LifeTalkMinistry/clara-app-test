@@ -1,20 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useClaraBuyCheckFlowV5 from "./useClaraBuyCheckFlowV5.js";
 import {
-  interpretBuyCheckConfirmation,
   interpretBuyCheckItem,
   normalizeItemSummary,
 } from "./buyCheckReasonInterpreter.js";
-import {
-  analyzeBuyCheckBudgetCoverage,
-  budgetCoverageFromAssessment,
-  parsePrice,
-} from "@/lib/clara-buy-check-budget-intelligence";
 
 const clean = (value = "") => String(value ?? "").replace(/\s+/g, " ").trim();
 const blankItem = () => ({ busy: false, original: "", item: "", sessionId: "", index: -1, source: "" });
-const blankReason = () => ({ busy: false, original: "", summary: "", sessionId: "", index: -1, source: "" });
-const blankConfirmation = () => ({ busy: false, text: "", sessionId: "", index: -1, source: "" });
 
 function replaceOrAppendThinking(list, index, id, text) {
   if (index >= 0 && list.length > index + 1) {
@@ -28,33 +20,17 @@ function replaceOrAppendThinking(list, index, id, text) {
 export default function useClaraBuyCheckReasonSummary({ assistantContext = {} } = {}) {
   const flow = useClaraBuyCheckFlowV5({ assistantContext });
   const [itemState, setItemState] = useState(blankItem);
-  const [reasonState, setReasonState] = useState(blankReason);
-  const [confirmationState, setConfirmationState] = useState(blankConfirmation);
   const sessionRef = useRef("");
-  const previousStepRef = useRef(flow.state?.step || "");
   sessionRef.current = flow.state?.sessionId || "";
 
   useEffect(() => {
     setItemState(blankItem());
-    setReasonState(blankReason());
-    setConfirmationState(blankConfirmation());
-    previousStepRef.current = flow.state?.step || "";
   }, [flow.state?.sessionId]);
-
-  useEffect(() => {
-    const currentStep = flow.state?.step || "";
-    if (currentStep === "item" && previousStepRef.current && previousStepRef.current !== "item") {
-      setItemState(blankItem());
-      setReasonState(blankReason());
-      setConfirmationState(blankConfirmation());
-    }
-    previousStepRef.current = currentStep;
-  }, [flow.state?.step]);
 
   const submitAnswer = useCallback(async (raw = "") => {
     const answer = clean(raw);
     if (!answer) return false;
-    if (itemState.busy || reasonState.busy || confirmationState.busy || flow.state?.busy) return false;
+    if (itemState.busy || flow.state?.busy) return false;
 
     const sessionId = flow.state?.sessionId || "";
     const step = flow.state?.step;
@@ -76,57 +52,8 @@ export default function useClaraBuyCheckReasonSummary({ assistantContext = {} } 
       return true;
     }
 
-    if (step === "price") {
-      const price = parsePrice(answer);
-      if (!price) return flow.submitAnswer(answer);
-
-      const item = clean(flow.state?.item || "this purchase");
-      const assessment = analyzeBuyCheckBudgetCoverage(item, price, assistantContext, "");
-      const coverage = budgetCoverageFromAssessment(assessment);
-      const submitted = await flow.submitAnswer(answer);
-      if (!submitted || !coverage) return submitted;
-
-      setConfirmationState({ busy: true, text: "", sessionId, index, source: "" });
-      const result = await interpretBuyCheckConfirmation({ item, price, reason: "" });
-      if (sessionRef.current !== sessionId) return false;
-
-      setConfirmationState({
-        busy: false,
-        text: result.confirmation,
-        sessionId,
-        index,
-        source: result.source,
-      });
-      return true;
-    }
-
-    if (step === "reason") {
-      setReasonState(blankReason());
-      setConfirmationState(blankConfirmation());
-      return flow.submitAnswer(answer);
-    }
-
-    if (step === "clarification") {
-      setReasonState(blankReason());
-      setConfirmationState(blankConfirmation());
-      return flow.submitAnswer(answer);
-    }
-
     return flow.submitAnswer(answer);
-  }, [
-    assistantContext,
-    confirmationState.busy,
-    flow,
-    itemState.busy,
-    reasonState.busy,
-  ]);
-
-  const editReason = useCallback(() => {
-    if (itemState.busy || reasonState.busy || confirmationState.busy || flow.state?.busy) return false;
-    setReasonState(blankReason());
-    setConfirmationState(blankConfirmation());
-    return flow.editReason?.() ?? false;
-  }, [confirmationState.busy, flow.editReason, flow.state?.busy, itemState.busy, reasonState.busy]);
+  }, [flow, itemState.busy]);
 
   const messages = useMemo(() => {
     let list = [...(flow.messages || [])];
@@ -138,7 +65,7 @@ export default function useClaraBuyCheckReasonSummary({ assistantContext = {} } 
           list,
           itemState.index,
           `item-${itemState.sessionId}`,
-          "Let me identify the exact item you want to buy...",
+          "Let me make sure I understood what you want to buy...",
         );
       } else if (itemState.item && list.length > itemState.index) {
         list = list.map((message, index) => index === itemState.index
@@ -147,62 +74,23 @@ export default function useClaraBuyCheckReasonSummary({ assistantContext = {} } 
       }
     }
 
-    if (reasonState.sessionId === activeSessionId && reasonState.busy) {
-      list = replaceOrAppendThinking(
-        list,
-        reasonState.index,
-        `reason-${reasonState.sessionId}`,
-        "Let me make sure I understood your reason correctly...",
-      );
-    }
-
-    if (confirmationState.sessionId === activeSessionId) {
-      if (confirmationState.busy && !reasonState.busy) {
-        list = replaceOrAppendThinking(
-          list,
-          confirmationState.index,
-          `confirmation-${confirmationState.sessionId}`,
-          "Let me summarize what you’re considering...",
-        );
-      } else if (confirmationState.text && list.length > confirmationState.index + 1) {
-        list = list.map((message, index) => {
-          if (reasonState.original && index === confirmationState.index) {
-            return { ...message, role: "user", text: reasonState.original };
-          }
-          if (index === confirmationState.index + 1) {
-            return { ...message, role: "clara", text: confirmationState.text };
-          }
-          return message;
-        });
-      }
-    }
-
     return list;
-  }, [
-    confirmationState,
-    flow.messages,
-    flow.state?.sessionId,
-    itemState,
-    reasonState,
-  ]);
-
-  const aiBusy = Boolean(itemState.busy || reasonState.busy || confirmationState.busy);
+  }, [flow.messages, flow.state?.sessionId, itemState]);
 
   return {
     ...flow,
     submitAnswer,
-    editReason,
     messages,
     state: {
       ...flow.state,
-      busy: Boolean(flow.state?.busy || aiBusy),
+      busy: Boolean(flow.state?.busy || itemState.busy),
       originalItem: itemState.original || flow.state?.item || "",
       interpretedItem: itemState.item || flow.state?.item || "",
       itemInterpretationSource: itemState.source,
-      originalReason: reasonState.original || flow.state?.reason || "",
-      summarizedReason: reasonState.summary || flow.state?.reason || "",
-      reasonSummarySource: reasonState.source,
-      confirmationSummarySource: confirmationState.source,
+      originalReason: flow.state?.reason || "",
+      summarizedReason: flow.state?.reason || "",
+      reasonSummarySource: "conversation-ai",
+      confirmationSummarySource: "conversation-ai",
     },
   };
 }
