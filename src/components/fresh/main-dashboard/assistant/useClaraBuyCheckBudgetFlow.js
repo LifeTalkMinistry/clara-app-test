@@ -1,3 +1,3 @@
-import useClaraBuyCheckBudgetFlow from "./useClaraBuyCheckBudgetFlowDeterministic.js";
+import useClaraBuyCheckBudgetFlow from "./useClaraBuyCheckExpertFlow.js";
 
 export default useClaraBuyCheckBudgetFlow;
