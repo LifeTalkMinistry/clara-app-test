@@ -50,6 +50,7 @@ const ProgramOnboarding = lazy(() =>
 );
 const PageNotFound = lazy(() => import("./lib/PageNotFound"));
 
+const CLARA_ORB_PATH = "/community?view=orb";
 const CLARA_HOME_PATH = "/community?view=home";
 const LEGACY_DASHBOARD_PATH = "/legacy-dashboard";
 
@@ -70,11 +71,11 @@ function getHomeRedirectPath({
   forceEnroll,
   offlineAccessActive,
 }) {
-  if (offlineAccessActive) return CLARA_HOME_PATH;
+  if (offlineAccessActive) return CLARA_ORB_PATH;
   if (isAdvertiser) return "/advertiser";
   if (flow === "program_onboarding") return "/program-onboarding";
   if (forceEnroll) return "/enroll";
-  return CLARA_HOME_PATH;
+  return CLARA_ORB_PATH;
 }
 
 function GuardedRoute({
@@ -245,7 +246,7 @@ function AppRoutes() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route
           path="/link-local-vault"
-          element={<Navigate to={user ? CLARA_HOME_PATH : "/login"} replace />}
+          element={<Navigate to={user ? CLARA_ORB_PATH : "/login"} replace />}
         />
         <Route path="/app-preview" element={<AppPreview />} />
         <Route
@@ -261,7 +262,7 @@ function AppRoutes() {
                     />
                     <Route
                       path="/onboarding"
-                      element={<Navigate to={CLARA_HOME_PATH} replace />}
+                      element={<Navigate to={CLARA_ORB_PATH} replace />}
                     />
                     <Route
                       path="/program-onboarding"
@@ -269,7 +270,7 @@ function AppRoutes() {
                     />
                     <Route
                       path="/pending"
-                      element={<Navigate to={CLARA_HOME_PATH} replace />}
+                      element={<Navigate to={CLARA_ORB_PATH} replace />}
                     />
                     <Route path="/enroll" element={<Enroll />} />
                     <Route path="/tier-select" element={<TierSelect />} />
@@ -297,11 +298,11 @@ function AppRoutes() {
                     />
                     <Route
                       path="/coaching-mock-preview"
-                      element={<Navigate to={CLARA_HOME_PATH} replace />}
+                      element={<Navigate to={CLARA_ORB_PATH} replace />}
                     />
                     <Route
                       path="/lifeos"
-                      element={<Navigate to={CLARA_HOME_PATH} replace />}
+                      element={<Navigate to={CLARA_ORB_PATH} replace />}
                     />
                     <Route
                       path="/investment-plan"
