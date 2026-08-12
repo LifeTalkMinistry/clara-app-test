@@ -16,43 +16,44 @@
 @keyframes clara-orb-idle-halo-breathe {
   0%,
   100% {
-    opacity: 0.13;
+    opacity: 0.18;
   }
 
   50% {
-    opacity: 0.29;
+    opacity: 0.46;
   }
 }
 
 @keyframes clara-orb-natural-blink {
   0%,
-  61.5%,
-  64%,
-  87.5%,
-  90%,
+  10%,
+  13%,
+  52%,
+  55%,
   100% {
     transform: scaleY(1);
   }
 
-  62.5%,
-  88.5% {
-    transform: scaleY(0.14);
+  11.4%,
+  53.4% {
+    transform: scaleY(0.08);
   }
 }
 
 /*
- * Reuse the Orb's own outer halo circle. The drop shadows are deliberately
- * compact so the glow reads as part of the Orb rather than page background.
+ * Reuse the Orb's own outer halo circle. This selector intentionally matches
+ * the authority of clara-universal-background.css and adds the idle-state
+ * class, so the compact Orb-owned glow wins without reopening page-level bleed.
  */
-.clara-community-root[data-community-view="orb"]
+html body #root .clara-community-root[data-community-view="orb"]
   [data-clara-orb-launcher="true"]
   .clara-money-left-orb-idle
   .clara-orb-vector > circle:nth-of-type(1) {
   filter:
-    drop-shadow(-4px 0 6px rgba(22, 139, 255, 0.48))
-    drop-shadow(4px 0 6px rgba(243, 38, 69, 0.34))
-    drop-shadow(0 0 3px rgba(255, 216, 74, 0.16)) !important;
-  animation: clara-orb-idle-halo-breathe 4.6s ease-in-out infinite;
+    drop-shadow(-5px 0 8px rgba(22, 139, 255, 0.62))
+    drop-shadow(5px 0 8px rgba(243, 38, 69, 0.46))
+    drop-shadow(0 0 5px rgba(255, 216, 74, 0.22)) !important;
+  animation: clara-orb-idle-halo-breathe 3.8s ease-in-out infinite;
   will-change: opacity;
 }
 
@@ -79,12 +80,12 @@
   .clara-orb-vector > rect:nth-of-type(4) {
   transform-box: fill-box;
   transform-origin: center;
-  animation: clara-orb-natural-blink 8.2s linear infinite;
+  animation: clara-orb-natural-blink 7.2s ease-in-out infinite;
   will-change: transform;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .clara-community-root[data-community-view="orb"]
+  html body #root .clara-community-root[data-community-view="orb"]
     [data-clara-orb-launcher="true"]
     .clara-money-left-orb-idle
     .clara-orb-vector > circle:nth-of-type(1),
