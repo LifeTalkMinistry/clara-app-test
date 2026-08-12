@@ -5,7 +5,7 @@ import { playMoneyLeftOrbInteractionSound } from "@/runtime/installMoneyLeftOrbI
 const DOUBLE_TAP_WINDOW = 280;
 const LONG_PRESS_DELAY = 550;
 const GUIDE_LONG_PRESS_DELAY = 520;
-const MOVE_CANCEL_DISTANCE = 12;
+const MOVE_CANCEL_DISTANCE = 22;
 const GUIDE_EXIT_EVENT = "clara:guide-exit";
 const GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
 const GUIDE_TARGET_CHANGE_EVENT = "clara:guide-target-change";
@@ -47,6 +47,19 @@ export default function useMoneyLeftOrbGestures({
   const clearHold = useCallback(() => {
     if (holdTimerRef.current) window.clearTimeout(holdTimerRef.current);
     holdTimerRef.current = null;
+  }, []);
+
+  const releasePointer = useCallback((event) => {
+    const target = event?.currentTarget;
+    const pointerId = event?.pointerId;
+    if (!target?.releasePointerCapture || pointerId === undefined) return;
+    try {
+      if (!target.hasPointerCapture || target.hasPointerCapture(pointerId)) {
+        target.releasePointerCapture(pointerId);
+      }
+    } catch {
+      // The browser may already have released capture after pointercancel.
+    }
   }, []);
 
   const reset = useCallback(() => {
@@ -108,6 +121,8 @@ export default function useMoneyLeftOrbGestures({
   const triggerHold = useCallback(
     (button) => {
       const current = guideStateRef.current;
+      if (!pointerDownRef.current && !keyboardHoldRef.current) return;
+
       pointerRef.current.held = true;
       clearTap();
       lastTapAtRef.current = 0;
@@ -135,6 +150,16 @@ export default function useMoneyLeftOrbGestures({
     (event) => {
       stop(event);
       if (isGuideOrbButtonDisabled) return;
+
+      const button = event.currentTarget;
+      if (button?.setPointerCapture && event.pointerId !== undefined) {
+        try {
+          button.setPointerCapture(event.pointerId);
+        } catch {
+          // Pointer capture is an enhancement; keep the gesture working without it.
+        }
+      }
+
       pointerDownRef.current = true;
       pointerRef.current = {
         startX: Number(event.clientX || 0),
@@ -143,14 +168,13 @@ export default function useMoneyLeftOrbGestures({
         held: false,
       };
       clearHold();
-      if (awaitHold) setIsHolding(true);
-      const button = event.currentTarget;
+      setIsHolding(true);
       holdTimerRef.current = window.setTimeout(
         () => triggerHold(button),
         guideInputPhase ? GUIDE_LONG_PRESS_DELAY : LONG_PRESS_DELAY,
       );
     },
-    [awaitHold, clearHold, guideInputPhase, isGuideOrbButtonDisabled, stop, triggerHold],
+    [clearHold, guideInputPhase, isGuideOrbButtonDisabled, stop, triggerHold],
   );
 
   const onPointerMove = useCallback(
@@ -172,6 +196,7 @@ export default function useMoneyLeftOrbGestures({
   const onPointerUp = useCallback(
     (event) => {
       stop(event);
+      releasePointer(event);
       pointerDownRef.current = false;
       clearHold();
       setIsHolding(false);
@@ -215,6 +240,7 @@ export default function useMoneyLeftOrbGestures({
       onGuideOrbSingleTap,
       openManualExpense,
       openTransactionHub,
+      releasePointer,
       reset,
       stop,
     ],
@@ -223,9 +249,10 @@ export default function useMoneyLeftOrbGestures({
   const cancel = useCallback(
     (event) => {
       stop(event);
+      releasePointer(event);
       reset();
     },
-    [reset, stop],
+    [releasePointer, reset, stop],
   );
 
   const onKeyDown = useCallback(
