@@ -160,7 +160,11 @@ export default function ClaraOrbPage() {
         <div className="absolute inset-x-0 bottom-0 h-[45%] bg-[linear-gradient(180deg,rgba(2,8,23,0),rgba(2,6,18,.92))]" />
       </div>
 
-      <div className="relative z-10 flex w-full max-w-3xl flex-col items-center justify-center">
+      <div
+        className="relative z-10 flex w-full max-w-3xl flex-col items-center justify-center"
+        style={{ transform: "translateY(clamp(44px, 7dvh, 72px))" }}
+        data-clara-orb-visual-offset="down-1"
+      >
         <div className="mb-1 select-none">
           <p className="text-[10px] font-black uppercase tracking-[0.34em] text-white/42">CLARA ORB</p>
           <div className="mx-auto mt-3 h-px w-24 bg-[linear-gradient(90deg,transparent,#168bff,#ffd84a,#f32645,transparent)] opacity-70" />
