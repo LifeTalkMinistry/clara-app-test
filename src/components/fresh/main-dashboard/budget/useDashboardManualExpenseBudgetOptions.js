@@ -3,7 +3,6 @@ import useUserRole from "@/hooks/useUserRole";
 import {
   firstValidNumber,
   getBudgetListTitle,
-  getBudgetNeedType,
   getPHMonthKey,
   getPHMonthRange,
   normalizeLower,
@@ -88,7 +87,9 @@ export default function useDashboardManualExpenseBudgetOptions({ budgets = [] } 
           key: String(keySource),
           id: budget?.id || null,
           title,
-          needType: getBudgetNeedType(budget),
+          // A planned budget item is already an intentional/necessary allocation.
+          // Quick/manual expense logging should never ask the user to classify it again.
+          needType: "need",
           allocated: firstValidNumber(
             budget?.allocated_amount,
             budget?.budget_amount,
@@ -137,7 +138,9 @@ export default function useDashboardManualExpenseBudgetOptions({ budgets = [] } 
       periodEnd: period.end,
       budgetId: header?.id || `budget-${currentMonthKey}`,
       monthKey: currentMonthKey,
-    }).filter((item) => !budgetOriginBillIds.has(String(item.recurring_bill_id || item.recurringBillId)));
+    })
+      .filter((item) => !budgetOriginBillIds.has(String(item.recurring_bill_id || item.recurringBillId)))
+      .map((item) => ({ ...item, needType: "need" }));
 
     return [...recurringOptions, ...existingOptions]
       .sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title));
