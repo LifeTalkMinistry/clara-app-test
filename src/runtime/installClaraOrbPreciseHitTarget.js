@@ -5,12 +5,18 @@
  * glow, and floor reflection retain their established size and position. Only
  * the circular Orb itself should activate Ask Before You Spend, so pointer
  * clicks outside the visible sphere are rejected before React receives them.
+ *
+ * The Orb page also contains an older component-level rule that hides the
+ * Support portal. Keep the shared Support experience available here by
+ * restoring only that portal while the Orb page is active.
  */
 
 const RUNTIME_KEY = "__claraOrbPreciseHitTargetRuntime__";
 const STYLE_ID = "clara-orb-precise-hit-target-style";
 const LAUNCHER_SELECTOR =
   '.clara-community-root[data-community-view="orb"] [data-clara-orb-launcher="true"]';
+const SUPPORT_WORLD_ID = "clara-support-world";
+const SUPPORT_FORCED_ATTRIBUTE = "data-clara-orb-support-visible";
 
 const SVG_SIZE = 320;
 const ORB_CENTER_X = 160;
@@ -46,6 +52,26 @@ function isInsideOrb(event, launcher) {
   return dx * dx + dy * dy <= ORB_HIT_RADIUS * ORB_HIT_RADIUS;
 }
 
+function restoreSupportWorld(world) {
+  if (!world?.hasAttribute(SUPPORT_FORCED_ATTRIBUTE)) return;
+  world.style.removeProperty("display");
+  world.removeAttribute(SUPPORT_FORCED_ATTRIBUTE);
+}
+
+function syncOrbSupportVisibility() {
+  const world = document.getElementById(SUPPORT_WORLD_ID);
+  if (!world) return;
+
+  const orbActive = document.body?.classList.contains("clara-orb-page-active");
+  if (orbActive) {
+    world.style.setProperty("display", "block", "important");
+    world.setAttribute(SUPPORT_FORCED_ATTRIBUTE, "true");
+    return;
+  }
+
+  restoreSupportWorld(world);
+}
+
 function installClaraOrbPreciseHitTarget() {
   if (typeof window === "undefined" || typeof document === "undefined") return;
 
@@ -62,11 +88,22 @@ function installClaraOrbPreciseHitTarget() {
     event.stopImmediatePropagation();
   };
 
+  const observer = new MutationObserver(syncOrbSupportVisibility);
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["class"],
+  });
+
   document.addEventListener("click", handleClick, true);
+  syncOrbSupportVisibility();
 
   window[RUNTIME_KEY] = {
     destroy() {
+      observer.disconnect();
       document.removeEventListener("click", handleClick, true);
+      restoreSupportWorld(document.getElementById(SUPPORT_WORLD_ID));
       window[RUNTIME_KEY] = null;
     },
   };
