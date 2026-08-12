@@ -1,12 +1,45 @@
 /*
- * Quick Actions footer geometry lock.
- * Keeps the primary action visibly detached from the modal border on every viewport.
+ * Quick Actions geometry lock.
+ * Keeps the modal and its primary action inside the viewport on every state.
  */
 
 [role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"] {
   box-sizing: border-box !important;
+  width: min(24rem, calc(100vw - 24px)) !important;
+  max-width: calc(100vw - 24px) !important;
   padding-bottom: 40px !important;
   scroll-padding-bottom: 40px !important;
+  overflow-x: clip !important;
+}
+
+/*
+ * Radix Select triggers contain nowrap text. The long Undocumented prompt used to
+ * contribute an intrinsic width larger than the modal, which made the whole Quick
+ * Actions card appear to stretch past its normal inner edge. Keep every form/select
+ * cell shrinkable and clip the trigger text to its available width instead.
+ */
+[role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"] .space-y-3,
+[role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"] .space-y-3 > div,
+[role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"] [role="combobox"] {
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+[role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"] [role="combobox"] {
+  width: 100% !important;
+  overflow: hidden !important;
+}
+
+[role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"] [role="combobox"] > span {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+[role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"] [role="combobox"] > svg {
+  flex: 0 0 auto !important;
 }
 
 [role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"] > button[class~="bg-emerald-600"] {
@@ -43,6 +76,8 @@
 
 @media (max-width: 390px) {
   [role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"] {
+    width: calc(100vw - 20px) !important;
+    max-width: calc(100vw - 20px) !important;
     padding: 16px 16px 40px !important;
     scroll-padding-bottom: 40px !important;
   }
