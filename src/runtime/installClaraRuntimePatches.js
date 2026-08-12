@@ -148,6 +148,7 @@ import "../community-composer-centering-fix.css";
 import "../community-feed-post-seams.css";
 import "./installClaraOrbIdleLife";
 import "./installClaraOrbGreeting";
+import "./installClaraOrbImmersiveNav";
 // Keep this last in the Community stack so the official CLARA blue/gold/red feed wins the cascade.
 import "../community-official-brand-theme.css";
 
