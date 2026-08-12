@@ -50,6 +50,54 @@
     > div:last-child {
     margin-top: -6px !important;
   }
+
+  /* Income Hub: the middle "Top Source" tile adds noise but no essential
+     collapsed-card information. Keep only Money In + Status, widen those two
+     cells, and let the upper panel size to its real content instead of forcing
+     the old 244px minimum. This creates the same breathing room Budget now has. */
+  .theme-page-shell
+    .clara-finance-slide-shell[data-card-key="investmentFund"][data-expanded="false"]
+    [data-finance-card="investmentFund"][data-expanded="false"]
+    > div.relative.z-10
+    > div.relative.flex
+    > div:first-child {
+    min-height: 0 !important;
+  }
+
+  .theme-page-shell
+    .clara-finance-slide-shell[data-card-key="investmentFund"][data-expanded="false"]
+    [data-finance-card="investmentFund"][data-expanded="false"]
+    > div.relative.z-10
+    > div.relative.flex
+    > div:first-child
+    > div:last-child {
+    margin-top: -6px !important;
+  }
+
+  .theme-page-shell
+    .clara-finance-slide-shell[data-card-key="investmentFund"][data-expanded="false"]
+    [data-finance-card="investmentFund"][data-expanded="false"]
+    > div.relative.z-10
+    > div.relative.flex
+    > div:first-child
+    > div:last-child
+    > div:last-child
+    > div.grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .theme-page-shell
+    .clara-finance-slide-shell[data-card-key="investmentFund"][data-expanded="false"]
+    [data-finance-card="investmentFund"][data-expanded="false"]
+    > div.relative.z-10
+    > div.relative.flex
+    > div:first-child
+    > div:last-child
+    > div:last-child
+    > div.grid
+    > div:nth-child(2) {
+    display: none !important;
+  }
 }
 
 /* Compact-height Android / installed-PWA compatibility.
