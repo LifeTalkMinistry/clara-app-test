@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import useClaraBuyCheckReasonSummary from "./useClaraBuyCheckReasonSummary.js";
+import useClaraBuyCheckFlowV5 from "./useClaraBuyCheckFlowV5.js";
 import useUserRole from "@/hooks/useUserRole";
 import { openCommittedVersionModal } from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
 import {
@@ -18,7 +18,7 @@ function clean(value) {
 }
 
 export default function useClaraBuyCheckFlow({ assistantContext = {} } = {}) {
-  const flow = useClaraBuyCheckReasonSummary({ assistantContext });
+  const flow = useClaraBuyCheckFlowV5({ assistantContext });
   const { hasCommittedAccess } = useUserRole();
   const [dailyLimitBlocked, setDailyLimitBlocked] = useState(false);
   const localUserId = useMemo(
