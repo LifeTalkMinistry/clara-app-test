@@ -18,6 +18,10 @@ function normalizePrice(value) {
   return parsePrice(value || "");
 }
 
+function isStandaloneGreeting(value = "") {
+  return /^(hi|hello|hey|yo|good\s+(morning|afternoon|evening)|kumusta|kamusta)[!.\s]*$/i.test(clean(value));
+}
+
 function sanitizeEvidence(value = {}) {
   const source = value && typeof value === "object" ? value : {};
   const evidence = {};
@@ -128,9 +132,7 @@ Return ONLY valid JSON in this exact shape:
 
 function fallbackTurn(message = "", evidence = {}) {
   const current = sanitizeEvidence(evidence);
-  const text = clean(message);
-  const looksGreeting = /^(hi|hello|hey|yo|good\s+(morning|afternoon|evening)|kumusta|kamusta)[!.\s]*$/i.test(text);
-  if (looksGreeting) {
+  if (isStandaloneGreeting(message)) {
     return {
       action: "chat",
       reply: "Hi. What are you thinking about buying?",
@@ -186,6 +188,8 @@ export async function runClaraBuyCheckExpertTurn({
   assistantContext = {},
 } = {}) {
   const fallback = fallbackTurn(message, evidence);
+  const previousEvidence = sanitizeEvidence(evidence);
+  const greetingOnly = isStandaloneGreeting(message) && !previousEvidence.item && !previousEvidence.price;
 
   try {
     const { json, model } = await requestGeminiJson({
@@ -196,11 +200,26 @@ export async function runClaraBuyCheckExpertTurn({
       label: "CLARA adaptive Buy Check expert",
     });
 
+    const rawReply = clean(json?.reply).slice(0, 520);
+    if (greetingOnly) {
+      const safeGreetingReply = rawReply && !/\b(cost|price|amount|how much)\b/i.test(rawReply)
+        ? rawReply
+        : "Hi. What are you thinking about buying?";
+      return {
+        action: "chat",
+        reply: safeGreetingReply,
+        evidence: previousEvidence,
+        readinessConfidence: 0,
+        source: "ai",
+        model,
+      };
+    }
+
     const action = ACTIONS.has(clean(json?.action).toLowerCase())
       ? clean(json?.action).toLowerCase()
       : fallback.action;
     const mergedEvidence = mergeEvidence(evidence, json?.evidence);
-    const reply = clean(json?.reply).slice(0, 520) || fallback.reply;
+    const reply = rawReply || fallback.reply;
     const confidenceRaw = Number(json?.readinessConfidence);
     const readinessConfidence = Number.isFinite(confidenceRaw)
       ? Math.max(0, Math.min(1, confidenceRaw))
