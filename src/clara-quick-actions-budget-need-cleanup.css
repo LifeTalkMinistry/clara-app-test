@@ -1,0 +1,21 @@
+/*
+ * CLARA Quick Actions — planned expense cleanup
+ *
+ * A selected Budget Item is already a planned allocation, so the user should
+ * not be asked to classify it again as Need / Want / Savings. The finance
+ * option layer normalizes every planned budget item to `need`; this stylesheet
+ * removes only the redundant second column from the Quick Actions expense form.
+ */
+
+[role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"]
+  > div[class~="space-y-3"]
+  > div[class~="grid-cols-2"][class~="gap-2"] {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+[role="dialog"][class~="bg-[#031126]"][class~="max-w-sm"]
+  > div[class~="space-y-3"]
+  > div[class~="grid-cols-2"][class~="gap-2"]
+  > div:last-child {
+  display: none !important;
+}
