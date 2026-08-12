@@ -1,24 +1,11 @@
 import { useEffect, useState } from "react";
+import claraOfficialHomeOrb from "@/assets/clara-official-home-orb.webp";
 import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "@/lib/clara-pause-events";
-
-const resolveOrbAssetSrc = (assetPath = "") => {
-  const trimmedPath = String(assetPath || "").trim();
-  if (!trimmedPath) return "";
-  if (/^(https?:|data:|blob:)/.test(trimmedPath)) return trimmedPath;
-  if (trimmedPath.startsWith("/")) {
-    const baseUrl = import.meta.env.BASE_URL || "/";
-    const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
-    return `${normalizedBaseUrl}${trimmedPath.replace(/^\/+/, "")}`;
-  }
-  return trimmedPath;
-};
-
-const CLARA_ORB_LOGO_SRC = resolveOrbAssetSrc("/images/clara/clara-orb-logo.png");
 
 export function ClaraOrbMark({ className = "", title = "CLARA Orb" }) {
   return (
     <img
-      src={CLARA_ORB_LOGO_SRC}
+      src={claraOfficialHomeOrb}
       alt={title}
       draggable={false}
       className={`${className} select-none rounded-full object-contain`}
@@ -30,7 +17,7 @@ function MoneyLeftOrbVisual({ launching = false }) {
   return (
     <span
       aria-hidden="true"
-      className={`clara-money-left-orb-scale relative isolate flex h-full w-full items-center justify-center ${
+      className={`relative isolate flex h-full w-full items-center justify-center ${
         launching ? "clara-money-left-orb-launching" : "clara-money-left-orb-idle"
       }`}
     >
@@ -38,23 +25,23 @@ function MoneyLeftOrbVisual({ launching = false }) {
         className="pointer-events-none absolute inset-0 rounded-full opacity-90 blur-[1px]"
         style={{
           background:
-            "radial-gradient(circle, rgba(34,211,238,0.28) 0%, rgba(59,130,246,0.22) 34%, rgba(124,58,237,0.30) 58%, rgba(15,23,42,0.00) 76%)",
+            "radial-gradient(circle, rgba(25,181,255,0.23) 0%, rgba(8,103,255,0.18) 38%, rgba(243,38,69,0.08) 56%, rgba(15,23,42,0) 76%)",
           boxShadow:
-            "0 0 18px rgba(34,211,238,0.42), 0 0 34px rgba(124,58,237,0.36)",
+            "0 0 18px rgba(8,103,255,0.30), 0 0 30px rgba(243,38,69,0.08)",
         }}
       />
 
-      <span className="pointer-events-none absolute inset-[13.15%] rounded-full border border-cyan-100/20 bg-white/[0.055]" />
+      <span className="pointer-events-none absolute inset-[13.15%] rounded-full border border-[rgba(77,145,232,0.20)] bg-[rgba(5,18,38,0.68)]" />
 
-      <span className="relative z-10 flex h-[57.9%] w-[57.9%] items-center justify-center rounded-full border border-cyan-100/20 bg-white/[0.09] text-white shadow-[0_0_18px_rgba(34,211,238,0.38)]">
-        <img
-          src={CLARA_ORB_LOGO_SRC}
-          alt=""
-          aria-hidden="true"
-          draggable={false}
-          className="h-full w-full scale-[1.12] select-none rounded-full object-contain drop-shadow-[0_0_14px_rgba(34,211,238,0.42)]"
-        />
-      </span>
+      <span
+        className="relative z-10 h-[57.9%] w-[57.9%] rounded-full border border-[rgba(100,165,247,0.24)] bg-[rgba(4,14,31,0.82)] shadow-[0_0_18px_rgba(8,103,255,0.22),inset_0_1px_0_rgba(255,255,255,0.055)]"
+        style={{
+          backgroundImage: `url(${claraOfficialHomeOrb})`,
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+          backgroundSize: "108% 108%",
+        }}
+      />
     </span>
   );
 }
@@ -146,7 +133,7 @@ export default function ClaraOrbPage() {
           className="group relative mt-1 grid aspect-square w-[min(80vw,330px)] max-h-[56dvh] place-items-center rounded-full outline-none transition active:scale-[0.985] disabled:cursor-default focus-visible:ring-2 focus-visible:ring-[#ffd84a]/70 focus-visible:ring-offset-4 focus-visible:ring-offset-[#020817]"
           aria-label="Tap CLARA to start Ask Before You Spend"
           data-clara-orb-launcher="true"
-          data-clara-orb-visual-source="money-left"
+          data-clara-orb-visual-source="money-left-current"
         >
           <MoneyLeftOrbVisual launching={launching} />
         </button>
