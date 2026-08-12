@@ -195,3 +195,35 @@
   box-sizing: border-box !important;
   overflow: hidden !important;
 }
+
+/* -------------------------------------------------------------------------- */
+/* BUDGET — target the REAL collapsed JSX flex layers                          */
+/* -------------------------------------------------------------------------- */
+/*
+ * The structural overrides above predate the current BudgetCardContent DOM.
+ * The live JSX now contains two explicit `flex-1` layers:
+ *   1) the collapsed content stack
+ *   2) the large bordered summary panel
+ * Emergency Fund does not stretch either layer. Target those exact class
+ * signatures so Budget resolves to the same natural-height geometry.
+ */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card="budget"][data-expanded="false"]
+div[class*="min-h-[286px]"]
+> div[class*="flex-1"][class*="flex-col"][class*="gap-4"] {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card="budget"][data-expanded="false"]
+div[class*="min-h-[286px]"]
+> div[class*="flex-1"][class*="flex-col"][class*="gap-4"]
+> div[class*="flex-1"][class*="rounded-[28px]"] {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
