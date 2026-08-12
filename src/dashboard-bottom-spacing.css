@@ -39,8 +39,8 @@
   }
 
   /* Budget's amount / spent / used / status cluster sits slightly lower than
-     the visual rhythm of the Emergency Fund card. Reduce only the gap below
-     the Budget header so this entire summary block moves upward as one unit. */
+     the visual rhythm of the Emergency Fund card. Pull this complete summary
+     cluster upward while preserving its internal spacing. */
   .theme-page-shell
     .clara-finance-slide-shell[data-card-key="budget"][data-expanded="false"]
     [data-finance-card="budget"][data-expanded="false"]
@@ -48,7 +48,7 @@
     > div.relative.flex
     > div:first-child
     > div:last-child {
-    margin-top: 0 !important;
+    margin-top: -6px !important;
   }
 }
 
@@ -95,16 +95,16 @@
     min-height: 100% !important;
   }
 
-  /* Budget's collapsed content is slightly taller than the Emergency Fund
-     layout on compact Android viewports. Keep the shared card height intact,
-     but visually reserve the same lower breathing room for the CTA. */
+  /* Give Budget's CTA a clearly protected lower edge. This is intentionally
+     a larger step than the previous adjustment so the button no longer looks
+     attached to the outer card on compact Android screens. */
   .theme-page-shell
     .clara-finance-slide-shell[data-card-key="budget"][data-expanded="false"]
     [data-finance-card="budget"][data-expanded="false"]
     > div.relative.z-10
     > div.relative.flex
     > div:last-child {
-    transform: translateY(-28px) !important;
+    transform: translateY(-40px) !important;
   }
 
   .theme-page-shell .clara-dashboard-content {
