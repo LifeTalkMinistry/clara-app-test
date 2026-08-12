@@ -33,7 +33,7 @@ export default function BudgetSummaryStats({
 
   return (
     <>
-      <div className="mb-4">
+      <div className="mb-3">
         <p
           className={`text-[clamp(1.95rem,8vw,2.25rem)] font-black leading-none tracking-[-0.055em] drop-shadow-[0_10px_26px_rgba(0,0,0,0.22)] ${
             hasDeclaredBudget
@@ -44,17 +44,17 @@ export default function BudgetSummaryStats({
           {fmt(remaining)}{hasDeclaredBudget ? " Left" : ""}
         </p>
 
-        <p className="mt-2.5 max-w-[92%] text-[13px] font-semibold leading-snug text-white/72">
+        <p className="mt-2 max-w-[92%] text-[13px] font-semibold leading-snug text-white/72">
           {remainingMessage}
         </p>
       </div>
 
-      <div className="mb-1 overflow-hidden rounded-[24px] border border-cyan-100/[0.10] bg-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.075),0_14px_28px_rgba(0,0,0,0.16),0_0_24px_rgba(103,232,249,0.035)] backdrop-blur-xl">
+      <div className="mb-1 overflow-hidden rounded-[22px] border border-cyan-100/[0.10] bg-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.075),0_14px_28px_rgba(0,0,0,0.16),0_0_24px_rgba(103,232,249,0.035)] backdrop-blur-xl">
         <div className="grid grid-cols-3 divide-x divide-white/[0.07]">
           {summaryTiles.map((tile) => (
             <div
               key={tile.label}
-              className="relative min-w-0 px-2.5 py-3 text-center"
+              className="relative min-w-0 px-2.5 py-2.5 text-center"
             >
               <div className="pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
               <p
