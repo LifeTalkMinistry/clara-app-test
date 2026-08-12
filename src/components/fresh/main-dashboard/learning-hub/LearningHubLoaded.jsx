@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { LoaderCircle, PlayCircle, Sparkles, X } from "lucide-react";
 import useLearningHub from "./logic/useLearningHub";
@@ -48,61 +48,74 @@ function useDedicatedLearningPage() {
   return dedicated;
 }
 
-function FlagshipMasterclassCard() {
+function MasterclassAnnouncement() {
   return (
     <section
-      aria-label="Featured CLARA Masterclass"
-      className="relative mx-auto mt-3 w-[calc(100%-8px)] overflow-hidden rounded-[30px] border border-blue-300/18 bg-[radial-gradient(circle_at_2%_0%,rgba(14,165,233,0.24),transparent_42%),radial-gradient(circle_at_100%_100%,rgba(124,58,237,0.26),transparent_48%),linear-gradient(135deg,rgba(4,28,55,0.99),rgba(8,19,49,0.995)_48%,rgba(31,13,72,0.99))] px-5 py-5 text-white shadow-[0_24px_70px_rgba(0,0,0,0.30),inset_0_1px_0_rgba(255,255,255,0.07)] sm:px-6 sm:py-6"
+      aria-label="CLARA Masterclass announcement"
+      className="relative mx-auto mt-4 w-[calc(100%-8px)] overflow-hidden rounded-[22px] border border-blue-300/14 bg-[radial-gradient(circle_at_0%_0%,rgba(14,165,233,0.14),transparent_42%),radial-gradient(circle_at_100%_100%,rgba(124,58,237,0.14),transparent_46%),rgba(6,18,38,0.88)] px-4 py-3.5 text-white shadow-[0_16px_44px_rgba(0,0,0,0.20),inset_0_1px_0_rgba(255,255,255,0.05)] sm:px-5 sm:py-4"
     >
-      <div className="pointer-events-none absolute -left-16 -top-20 h-44 w-44 rounded-full border border-cyan-200/10 bg-cyan-300/[0.05]" />
-      <div className="pointer-events-none absolute -bottom-20 -right-12 h-48 w-48 rounded-full border border-violet-200/10 bg-violet-400/[0.06]" />
-      <div className="pointer-events-none absolute right-5 top-[74px] h-24 w-20 rotate-6 rounded-[18px] border border-white/10 bg-white/[0.035] shadow-[0_14px_34px_rgba(0,0,0,0.22)]" />
-      <div className="pointer-events-none absolute right-10 top-[92px] h-24 w-20 -rotate-6 rounded-[18px] border border-cyan-100/10 bg-cyan-100/[0.035]" />
+      <div className="pointer-events-none absolute -right-9 -top-11 h-24 w-24 rounded-full border border-violet-200/10 bg-violet-400/[0.05]" />
 
-      <div className="relative z-10 flex items-start justify-between gap-3">
-        <span className="inline-flex min-h-7 items-center rounded-full border border-yellow-200/18 bg-yellow-300/[0.08] px-3 text-[9px] font-black uppercase tracking-[0.20em] text-yellow-200/90">
-          CLARA MASTERCLASS
+      <div className="relative z-10 flex items-start gap-3">
+        <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-cyan-100/14 bg-cyan-100/[0.07] text-cyan-50/82">
+          <PlayCircle className="h-4 w-4" />
         </span>
-        <span className="inline-flex min-h-8 shrink-0 items-center rounded-full border border-white/14 bg-black/20 px-3 text-[14px] font-black tracking-[-0.02em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-          ₱99
-        </span>
-      </div>
 
-      <div className="relative z-10 mt-5 max-w-[76%] sm:max-w-[70%]">
-        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/58">
-          Flagship financial class
-        </p>
-        <h2 className="mt-2 text-[23px] font-black leading-[1.03] tracking-[-0.045em] text-white sm:text-[28px]">
-          Why Your Money Keeps Disappearing After Payday
-        </h2>
-        <p className="mt-3 max-w-[31ch] text-[12px] font-semibold leading-5 text-blue-100/62 sm:text-[13px]">
-          A Practical Budgeting Masterclass for Filipino Earners.
-        </p>
-      </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[9px] font-black uppercase tracking-[0.18em] text-yellow-200/82">
+              CLARA MASTERCLASS
+            </span>
+            <span className="rounded-full border border-white/12 bg-white/[0.055] px-2 py-0.5 text-[9px] font-black text-white/72">
+              ₱99
+            </span>
+            <span className="rounded-full border border-cyan-100/12 bg-cyan-100/[0.055] px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.12em] text-cyan-50/64">
+              Coming soon
+            </span>
+          </div>
 
-      <div className="relative z-10 mt-5 flex flex-wrap items-center gap-2">
-        <span className="inline-flex min-h-7 items-center rounded-full border border-cyan-100/12 bg-cyan-100/[0.055] px-3 text-[9px] font-extrabold text-cyan-50/70">
-          Budgeting
-        </span>
-        <span className="inline-flex min-h-7 items-center rounded-full border border-blue-100/12 bg-blue-100/[0.055] px-3 text-[9px] font-extrabold text-blue-50/70">
-          Money System
-        </span>
-        <span className="inline-flex min-h-7 items-center rounded-full border border-violet-100/12 bg-violet-100/[0.055] px-3 text-[9px] font-extrabold text-violet-50/70">
-          Accountability
-        </span>
-      </div>
-
-      <div className="relative z-10 mt-5 flex items-center justify-between border-t border-white/[0.08] pt-4">
-        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-white/52">
-          <PlayCircle className="h-4 w-4 text-cyan-100/72" />
-          Deep structured learning
+          <p className="mt-1.5 text-[13px] font-black leading-snug tracking-[-0.02em] text-white/92">
+            Why Your Money Keeps Disappearing After Payday
+          </p>
+          <p className="mt-1 max-w-[42ch] text-[10.5px] font-semibold leading-[1.45] text-blue-100/56">
+            Our first deep-dive class will explain the payday cycle, budgeting system, and accountability behind better money control.
+          </p>
         </div>
-        <span className="rounded-full border border-cyan-100/16 bg-cyan-100/[0.08] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.14em] text-cyan-50/78">
-          Coming Soon
-        </span>
       </div>
     </section>
   );
+}
+
+function buildDedicatedCarouselItems(items) {
+  if (!Array.isArray(items)) return items;
+
+  const featuredMasterclass = items.find((item) => item?.id === "video");
+  const moneyFoundations = items.find((item) => item?.id === "money-foundations");
+  const remainingItems = items.filter(
+    (item) => item?.id !== "video" && item?.id !== "money-foundations",
+  );
+
+  const masterclassItem = featuredMasterclass
+    ? {
+        ...featuredMasterclass,
+        status: "available",
+        constructionLabel: "",
+        featured: true,
+        masterclassPreviewOnly: true,
+        badge: "CLARA MASTERCLASS",
+        coverLabel: "FLAGSHIP CLASS",
+        contentTypeLabel: "₱99 Masterclass",
+        title: "Why Your Money Keeps Disappearing After Payday",
+        subtitle: "A Practical Budgeting Masterclass for Filipino Earners.",
+        description:
+          "Understand why money disappears after payday, how budgeting actually works, and how accountability turns knowledge into a repeatable money system.",
+        ctaLabel: "Preview masterclass",
+        progressText: "₱99",
+        progressLabel: "₱99",
+      }
+    : null;
+
+  return [moneyFoundations, masterclassItem, ...remainingItems].filter(Boolean);
 }
 
 function preloadMaterialExperience(item) {
@@ -174,8 +187,20 @@ export default function LearningHubLoaded({
   } = useLearningHub();
   const hasCommittedAccess = useCommittedFeatureAccess();
   const dedicatedLearningPage = useDedicatedLearningPage();
+  const displayedCarouselItems = useMemo(
+    () =>
+      dedicatedLearningPage && !activeCategory
+        ? buildDedicatedCarouselItems(carouselItems)
+        : carouselItems,
+    [activeCategory, carouselItems, dedicatedLearningPage],
+  );
 
   const handleOpenItem = (item) => {
+    if (item?.masterclassPreviewOnly) {
+      openMaterial(item);
+      return;
+    }
+
     if (!hasCommittedAccess) {
       openCommittedVersionModal();
       return;
@@ -199,7 +224,7 @@ export default function LearningHubLoaded({
     <>
       <LearningHubCollapseProvider onCollapse={onCollapse}>
         <LearningHubCarousel
-          items={carouselItems}
+          items={displayedCarouselItems}
           activeCategory={activeCategory}
           activeCategoryLabel={activeCategoryMeta?.title || ""}
           hasCommittedAccess={hasCommittedAccess}
@@ -211,7 +236,7 @@ export default function LearningHubLoaded({
         />
       </LearningHubCollapseProvider>
 
-      {dedicatedLearningPage && !activeCategory ? <FlagshipMasterclassCard /> : null}
+      {dedicatedLearningPage && !activeCategory ? <MasterclassAnnouncement /> : null}
 
       {hasCommittedAccess && isOpen && selectedMaterial ? (
         <Suspense fallback={<LearningExperienceOpeningFallback label="Opening book" />}>
@@ -258,7 +283,10 @@ export default function LearningHubLoaded({
       ) : null}
 
       <LearningComingSoonModal
-        isOpen={hasCommittedAccess && isLauncherOpen}
+        isOpen={
+          isLauncherOpen &&
+          (hasCommittedAccess || Boolean(launcherMaterial?.masterclassPreviewOnly))
+        }
         material={launcherMaterial}
         onClose={closeLauncher}
       />
@@ -270,14 +298,16 @@ function LearningComingSoonModal({ isOpen, material, onClose }) {
   if (!isOpen || !material || typeof document === "undefined") return null;
 
   const isVideo = material.type === "video";
-  const materialTypeLabel = {
-    category: "Learning Category",
-    video: "Video Material",
-    practice: "Practice Tool",
-    game: "Money Game",
-    challenge: "Challenge",
-    book: "Book Material",
-  }[material.type] || "Learning Material";
+  const materialTypeLabel = material.masterclassPreviewOnly
+    ? "CLARA Masterclass"
+    : {
+        category: "Learning Category",
+        video: "Video Material",
+        practice: "Practice Tool",
+        game: "Money Game",
+        challenge: "Challenge",
+        book: "Book Material",
+      }[material.type] || "Learning Material";
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex min-h-[100dvh] items-end justify-center bg-black/70 px-3 pb-3 pt-8 text-white backdrop-blur-md sm:items-center sm:p-6">
@@ -297,7 +327,11 @@ function LearningComingSoonModal({ isOpen, material, onClose }) {
         </button>
 
         <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-100/14 bg-white/[0.075] text-cyan-50/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.09)]">
-          {isVideo ? <PlayCircle className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}
+          {material.masterclassPreviewOnly || isVideo ? (
+            <PlayCircle className="h-5 w-5" />
+          ) : (
+            <Sparkles className="h-5 w-5" />
+          )}
         </span>
 
         <p className="mt-4 text-[10px] font-black uppercase tracking-[0.20em] text-cyan-100/54">
@@ -312,7 +346,9 @@ function LearningComingSoonModal({ isOpen, material, onClose }) {
 
         <div className="mt-5 rounded-[22px] border border-white/10 bg-black/18 p-4">
           <p className="text-[13px] leading-relaxed text-white/66">
-            This CLARA material is being prepared. It already has a place in the Learning Hub.
+            {material.masterclassPreviewOnly
+              ? "This ₱99 CLARA Masterclass is being prepared as a deeper, structured learning experience. It will live here in the Learning Hub when ready."
+              : "This CLARA material is being prepared. It already has a place in the Learning Hub."}
           </p>
         </div>
 
