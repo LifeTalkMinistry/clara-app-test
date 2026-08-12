@@ -44,6 +44,16 @@ const WEAK_REASON_PATTERNS = [
   /^trip$/i,
   /^just a gift$/i,
   /^gift$/i,
+  /^replacement$/i,
+  /^replace$/i,
+  /^work$/i,
+  /^work need$/i,
+  /^school$/i,
+  /^health$/i,
+  /^hobby$/i,
+  /^daily use$/i,
+  /^planned$/i,
+  /^need$/i,
   /^para sa akin$/i,
   /^gusto ko$/i,
   /^wala$/i,
@@ -53,6 +63,8 @@ const WEAK_REASON_PATTERNS = [
 const WEAK_CONTEXT_PATTERN = /\b(reward|rewarding|rewarded|treat|treating|trip|stress|sad|bored|boredom|tempted|craving|deserve|deserved|feel|feeling|emotion|impulse)\b/i;
 const GIFT_PATTERN = /\b(gift|regalo|present)\b/i;
 const GIFT_CONTEXT_PATTERN = /\b(mom|mother|mama|nanay|dad|father|papa|tatay|parent|parents|wife|husband|partner|child|kid|son|daughter|brother|sister|friend|birthday|anniversary|christmas|graduation|wedding|occasion)\b/i;
+const REPLACEMENT_PATTERN = /\b(replacement|replace|replacing)\b/i;
+const DAMAGE_CONTEXT_PATTERN = /\b(damaged|broken|worn|worn out|old|torn|unusable|doesn'?t fit|no longer fits|unsafe)\b/i;
 
 function meaningfulWords(value = "") {
   return clean(value)
@@ -73,13 +85,21 @@ function isVagueGiftReason(value = "") {
   return !GIFT_CONTEXT_PATTERN.test(text) || meaningfulWords(text).length < 3;
 }
 
+function isBareReplacementReason(value = "") {
+  const text = clean(value);
+  if (!REPLACEMENT_PATTERN.test(text)) return false;
+  if (DAMAGE_CONTEXT_PATTERN.test(text)) return false;
+  return meaningfulWords(text).length < 4;
+}
+
 function needsPurchaseClarification(reason = "", item = "") {
   const text = clean(reason);
   if (!text) return true;
   if (WEAK_REASON_PATTERNS.some((pattern) => pattern.test(text))) return true;
   if (isVagueGiftReason(text)) return true;
+  if (isBareReplacementReason(text)) return true;
   if (WEAK_CONTEXT_PATTERN.test(text) && !includesStrongPurpose(text)) return true;
-  if (includesStrongPurpose(`${reason} ${item}`)) return false;
+  if (includesStrongPurpose(`${reason} ${item}`) && meaningfulWords(text).length >= 3) return false;
   if (meaningfulWords(text).length < 3) return true;
   return false;
 }
@@ -90,11 +110,14 @@ function clarificationQuestion(item = "", reason = "") {
   if (GIFT_PATTERN.test(trimmedReason) && !GIFT_CONTEXT_PATTERN.test(trimmedReason)) {
     return "Got it. Who is the gift for, and is there a specific occasion?";
   }
-  return `Got it. Before I decide, help me understand one thing: what problem does ${purchase} solve right now?`;
+  if (REPLACEMENT_PATTERN.test(trimmedReason)) {
+    return `Got it — what are you replacing about your current ${purchase}, and why does it need replacing now?`;
+  }
+  return `Got it. What makes ${purchase} important enough to buy right now?`;
 }
 
 function priceStepMessage() {
-  return "Why do you want to buy it? You can say replacement, work need, reward, health, hobby, or simply that you want it.";
+  return "What makes this purchase worth considering right now?";
 }
 
 function confirmationText(flow = {}) {
@@ -104,14 +127,14 @@ function confirmationText(flow = {}) {
   const clarification = clean(flow.clarification || flow.followUpAnswer || flow.purchaseContext);
 
   if (reason && clarification) {
-    return `Got it. So you’re looking to buy ${item} for ${price} because ${reason}, and you added that ${clarification}. Is that right?`;
+    return `That helps. You’re considering ${item} for ${price}, and the reason is clearer now: ${clarification}. Ready for me to run the full Buy Check?`;
   }
 
   if (reason) {
-    return `You’re considering ${item} for ${price} because ${reason}. Did I get that right before I run the full Buy Check?`;
+    return `That makes sense. You’re considering ${item} for ${price} because ${reason}. Ready for me to run the full Buy Check?`;
   }
 
-  return `You’re considering ${item} for ${price}. Did I get that right before I run the full Buy Check?`;
+  return `You’re considering ${item} for ${price}. Ready for me to run the full Buy Check?`;
 }
 
 export { clarificationQuestion, confirmationText, needsPurchaseClarification, priceStepMessage };
