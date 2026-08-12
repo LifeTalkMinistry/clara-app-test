@@ -55,3 +55,101 @@ body.clara-ai-environment-active [data-clara-pause-overlay="true"] [data-clara-p
     0 28px 84px rgba(0, 0, 0, 0.54),
     inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
 }
+
+/* -------------------------------------------------------------------------- */
+/* ASK BEFORE YOU SPEND — CLEAN TOP EDGE                                      */
+/* -------------------------------------------------------------------------- */
+/*
+ * The branded header duplicated information already established by the Buy
+ * Check surface. Remove that whole header shell and keep only one premium exit
+ * control. The close button remains attached to the same React onClose handler;
+ * this is purely presentation, so the Buy Check flow and state are untouched.
+ */
+body.clara-ai-environment-active
+  [data-clara-pause-overlay="true"]
+  [data-clara-buy-check-header="true"] {
+  position: relative !important;
+  z-index: 40 !important;
+  width: 100% !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+body.clara-ai-environment-active
+  [data-clara-pause-overlay="true"]
+  [data-clara-buy-check-header="true"] > :not(button) {
+  display: none !important;
+}
+
+/* Premium standalone exit button. */
+body.clara-ai-environment-active
+  [data-clara-pause-overlay="true"]
+  [data-clara-buy-check-header="true"] > button[aria-label="Close CLARA Ask Before You Spend"] {
+  position: absolute !important;
+  top: 10px !important;
+  right: 12px !important;
+  z-index: 80 !important;
+  display: grid !important;
+  width: 42px !important;
+  min-width: 42px !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  place-items: center !important;
+  transform: none !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(151, 196, 255, 0.34) !important;
+  border-radius: 9999px !important;
+  background:
+    radial-gradient(circle at 28% 20%, rgba(23, 105, 255, 0.24), transparent 46%),
+    radial-gradient(circle at 86% 82%, rgba(229, 57, 69, 0.10), transparent 44%),
+    linear-gradient(145deg, rgba(7, 24, 52, 0.98), rgba(4, 12, 30, 0.98)) !important;
+  color: rgba(255, 255, 255, 0.94) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 0 0 1px rgba(255, 216, 74, 0.05),
+    0 10px 28px rgba(0, 0, 0, 0.34),
+    0 0 18px rgba(23, 105, 255, 0.12) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body.clara-ai-environment-active
+  [data-clara-pause-overlay="true"]
+  [data-clara-buy-check-header="true"] > button[aria-label="Close CLARA Ask Before You Spend"]:hover,
+body.clara-ai-environment-active
+  [data-clara-pause-overlay="true"]
+  [data-clara-buy-check-header="true"] > button[aria-label="Close CLARA Ask Before You Spend"]:focus-visible {
+  border-color: rgba(255, 216, 74, 0.52) !important;
+  color: #ffffff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 1px rgba(23, 105, 255, 0.10),
+    0 10px 28px rgba(0, 0, 0, 0.34),
+    0 0 20px rgba(255, 216, 74, 0.12) !important;
+}
+
+body.clara-ai-environment-active
+  [data-clara-pause-overlay="true"]
+  [data-clara-buy-check-header="true"] > button[aria-label="Close CLARA Ask Before You Spend"]:active {
+  transform: scale(0.94) !important;
+}
+
+/* Reserve only the small footprint needed by the floating exit control so the
+   first conversation bubble can never sit beneath it. This replaces the much
+   larger branded header footprint. */
+body.clara-ai-environment-active
+  [data-clara-pause-overlay="true"]
+  > main[data-clara-ai-message-viewport="true"] {
+  padding-top: 54px !important;
+}
