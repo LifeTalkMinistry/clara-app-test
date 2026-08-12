@@ -23,7 +23,7 @@ function ensureStyles() {
   style.id = STYLE_ID;
   style.textContent = `
     .clara-community-root[data-community-view="orb"]
-      > .clara-community-shell-header[data-clara-orb-immersive-nav="true"] {
+      > .clara-community-shell-header {
       position: fixed !important;
       top: 0 !important;
       right: 0 !important;
@@ -41,7 +41,7 @@ function ensureStyles() {
     }
 
     .clara-community-root[data-community-view="orb"][data-clara-orb-nav-visible="true"]
-      > .clara-community-shell-header[data-clara-orb-immersive-nav="true"] {
+      > .clara-community-shell-header {
       transform: translate3d(0, 0, 0) !important;
       opacity: 1 !important;
       pointer-events: auto !important;
@@ -49,7 +49,7 @@ function ensureStyles() {
 
     @media (prefers-reduced-motion: reduce) {
       .clara-community-root[data-community-view="orb"]
-        > .clara-community-shell-header[data-clara-orb-immersive-nav="true"] {
+        > .clara-community-shell-header {
         transition: none !important;
       }
     }
@@ -191,7 +191,6 @@ function installClaraOrbImmersiveNav() {
     const absX = Math.abs(dx);
     const absY = Math.abs(dy);
 
-    // An upward swipe dismisses the overlay immediately.
     if (navVisible && dy <= -SWIPE_THRESHOLD_PX && absY > absX) {
       setVisible(false);
       return;
@@ -199,13 +198,11 @@ function installClaraOrbImmersiveNav() {
 
     if (start.interactive || isInteractiveTarget(event.target)) return;
 
-    // A downward swipe on the empty Orb canvas reveals navigation from above.
     if (!navVisible && dy >= SWIPE_THRESHOLD_PX && absY > absX) {
       setVisible(true);
       return;
     }
 
-    // A simple tap on empty canvas is the easiest reveal gesture.
     if (Math.hypot(dx, dy) <= TAP_SLOP_PX) {
       setVisible(true);
     }
