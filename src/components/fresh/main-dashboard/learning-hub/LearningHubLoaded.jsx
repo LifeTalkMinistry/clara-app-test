@@ -48,44 +48,6 @@ function useDedicatedLearningPage() {
   return dedicated;
 }
 
-function MasterclassAnnouncement() {
-  return (
-    <section
-      aria-label="CLARA Masterclass announcement"
-      className="relative mx-auto mt-4 w-[calc(100%-8px)] overflow-hidden rounded-[22px] border border-blue-300/14 bg-[radial-gradient(circle_at_0%_0%,rgba(14,165,233,0.14),transparent_42%),radial-gradient(circle_at_100%_100%,rgba(124,58,237,0.14),transparent_46%),rgba(6,18,38,0.88)] px-4 py-3.5 text-white shadow-[0_16px_44px_rgba(0,0,0,0.20),inset_0_1px_0_rgba(255,255,255,0.05)] sm:px-5 sm:py-4"
-    >
-      <div className="pointer-events-none absolute -right-9 -top-11 h-24 w-24 rounded-full border border-violet-200/10 bg-violet-400/[0.05]" />
-
-      <div className="relative z-10 flex items-start gap-3">
-        <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-cyan-100/14 bg-cyan-100/[0.07] text-cyan-50/82">
-          <PlayCircle className="h-4 w-4" />
-        </span>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[9px] font-black uppercase tracking-[0.18em] text-yellow-200/82">
-              CLARA MASTERCLASS
-            </span>
-            <span className="rounded-full border border-white/12 bg-white/[0.055] px-2 py-0.5 text-[9px] font-black text-white/72">
-              ₱99
-            </span>
-            <span className="rounded-full border border-cyan-100/12 bg-cyan-100/[0.055] px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.12em] text-cyan-50/64">
-              Coming soon
-            </span>
-          </div>
-
-          <p className="mt-1.5 text-[13px] font-black leading-snug tracking-[-0.02em] text-white/92">
-            Why Your Money Keeps Disappearing After Payday
-          </p>
-          <p className="mt-1 max-w-[42ch] text-[10.5px] font-semibold leading-[1.45] text-blue-100/56">
-            Our first deep-dive class will explain the payday cycle, budgeting system, and accountability behind better money control.
-          </p>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function buildDedicatedCarouselItems(items) {
   if (!Array.isArray(items)) return items;
 
@@ -116,6 +78,223 @@ function buildDedicatedCarouselItems(items) {
     : null;
 
   return [moneyFoundations, masterclassItem, ...remainingItems].filter(Boolean);
+}
+
+function resolveBoardMeta(item) {
+  if (!item) {
+    return {
+      eyebrow: "LEARNING HUB",
+      features: [],
+      latestUpdate: "Choose a learning path to see what it offers.",
+    };
+  }
+
+  if (item.id === "money-foundations") {
+    return {
+      eyebrow: "WATCH FIRST · FOUNDATION PATH",
+      features: ["10 curated lessons", "Money basics", "Learn at your pace"],
+      latestUpdate: "10 Money Foundations lessons are available now.",
+    };
+  }
+
+  if (item.masterclassPreviewOnly) {
+    return {
+      eyebrow: "CLARA MASTERCLASS · ₱99",
+      features: ["Payday cycle", "Budget system", "Accountability"],
+      latestUpdate: "Flagship masterclass announced · currently in production.",
+    };
+  }
+
+  if (item.id === "game") {
+    return {
+      eyebrow: "MONEY GAMES",
+      features: ["Interactive practice", "Fast feedback", "Decision training"],
+      latestUpdate:
+        "4 Icons 1 Money Word, Money Rush, and Money Pulse are available to play.",
+    };
+  }
+
+  if (item.id === "book") {
+    return {
+      eyebrow: "BOOKS & GUIDES",
+      features: ["Read deeper", "Structured guides", "Self-paced"],
+      latestUpdate: "Books & Guides is being prepared for a future Learning Hub update.",
+    };
+  }
+
+  if (item.id === "practice") {
+    return {
+      eyebrow: "PRACTICE TOOLS",
+      features: ["Guided exercises", "Apply lessons", "Hands-on practice"],
+      latestUpdate: "Practice Tools is currently under construction.",
+    };
+  }
+
+  if (item.id === "challenge") {
+    return {
+      eyebrow: "CLARA CHALLENGES",
+      features: ["Small actions", "Build discipline", "Repeatable habits"],
+      latestUpdate: "Learning challenges are being prepared for a future release.",
+    };
+  }
+
+  const features = Array.isArray(item.tags)
+    ? item.tags.slice(0, 3).map((tag) => String(tag))
+    : [];
+
+  return {
+    eyebrow: item.contentTypeLabel || item.coverLabel || "LEARNING MATERIAL",
+    features,
+    latestUpdate:
+      item.status === "available"
+        ? "This learning material is available now."
+        : "This learning material is being prepared.",
+  };
+}
+
+function extractActiveCarouselTitle(card) {
+  if (!(card instanceof HTMLElement)) return "";
+
+  const heading = card.querySelector("h3")?.textContent?.trim();
+  if (heading) return heading;
+
+  const imageAlt = card.querySelector("img[alt$=' cover']")?.getAttribute("alt") || "";
+  return imageAlt.replace(/\s+cover$/i, "").trim();
+}
+
+function useActiveLearningBoardItem({ enabled, items }) {
+  const [activeItemId, setActiveItemId] = useState(() => items?.[0]?.id || "");
+
+  useEffect(() => {
+    if (!Array.isArray(items) || items.length === 0) {
+      setActiveItemId("");
+      return;
+    }
+
+    if (!items.some((item) => item?.id === activeItemId)) {
+      setActiveItemId(items[0]?.id || "");
+    }
+  }, [activeItemId, items]);
+
+  useEffect(() => {
+    if (!enabled || typeof document === "undefined" || !Array.isArray(items) || !items.length) {
+      return undefined;
+    }
+
+    let frameId = null;
+
+    const syncFromCarousel = () => {
+      frameId = null;
+      const hub = document.querySelector(".clara-community-home-learning-hub");
+      if (!(hub instanceof HTMLElement)) return;
+
+      const cards = Array.from(hub.querySelectorAll(".clara-learning-hub-card"));
+      if (!cards.length) return;
+
+      const activeCard = cards.reduce((best, card) => {
+        const cardZ = Number.parseFloat(card.style.zIndex || "0") || 0;
+        const bestZ = Number.parseFloat(best?.style?.zIndex || "-1") || -1;
+        return cardZ > bestZ ? card : best;
+      }, null);
+
+      const title = extractActiveCarouselTitle(activeCard);
+      if (!title) return;
+
+      const match = items.find((item) => item?.title === title);
+      if (match?.id) {
+        setActiveItemId((current) => (current === match.id ? current : match.id));
+      }
+    };
+
+    const queueSync = () => {
+      if (frameId !== null || typeof window === "undefined") return;
+      frameId = window.requestAnimationFrame(syncFromCarousel);
+    };
+
+    queueSync();
+
+    const observer = new MutationObserver(queueSync);
+    const hub = document.querySelector(".clara-community-home-learning-hub");
+    observer.observe(hub || document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["style"],
+    });
+
+    window.addEventListener("resize", queueSync);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", queueSync);
+      if (frameId !== null) window.cancelAnimationFrame(frameId);
+    };
+  }, [enabled, items]);
+
+  return items.find((item) => item?.id === activeItemId) || items?.[0] || null;
+}
+
+function LearningHubInfoBoard({ item }) {
+  const meta = resolveBoardMeta(item);
+
+  if (!item) return null;
+
+  return (
+    <section
+      aria-live="polite"
+      aria-label={`${item.title} details`}
+      className="relative mx-auto mt-4 w-[calc(100%-8px)] overflow-hidden rounded-[24px] border border-blue-300/14 bg-[radial-gradient(circle_at_0%_0%,rgba(14,165,233,0.13),transparent_42%),radial-gradient(circle_at_100%_100%,rgba(124,58,237,0.12),transparent_46%),rgba(5,17,36,0.91)] px-4 py-4 text-white shadow-[0_16px_44px_rgba(0,0,0,0.20),inset_0_1px_0_rgba(255,255,255,0.05)] sm:px-5"
+    >
+      <div className="pointer-events-none absolute -right-10 -top-12 h-28 w-28 rounded-full border border-violet-200/10 bg-violet-400/[0.045]" />
+      <div className="pointer-events-none absolute -bottom-14 -left-10 h-24 w-24 rounded-full border border-cyan-200/10 bg-cyan-300/[0.035]" />
+
+      <div className="relative z-10">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-cyan-100/14 bg-cyan-100/[0.07] text-cyan-50/80">
+            {item.masterclassPreviewOnly || item.type === "video" ? (
+              <PlayCircle className="h-4 w-4" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+          </span>
+          <div className="min-w-0">
+            <p className="text-[8.5px] font-black uppercase tracking-[0.18em] text-yellow-200/78">
+              {meta.eyebrow}
+            </p>
+            <p className="mt-0.5 text-[15px] font-black leading-tight tracking-[-0.025em] text-white/94">
+              {item.title}
+            </p>
+          </div>
+        </div>
+
+        <p className="mt-3 text-[11px] font-semibold leading-[1.55] text-blue-100/58">
+          {item.description || item.subtitle || "Explore this CLARA learning path."}
+        </p>
+
+        {meta.features.length ? (
+          <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Main features">
+            {meta.features.map((feature) => (
+              <span
+                key={feature}
+                className="rounded-full border border-cyan-100/12 bg-cyan-100/[0.055] px-2.5 py-1 text-[8.5px] font-extrabold text-cyan-50/70"
+              >
+                {feature}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="mt-3 border-t border-white/[0.07] pt-3">
+          <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/38">
+            Latest update
+          </p>
+          <p className="mt-1 text-[10.5px] font-bold leading-[1.45] text-white/68">
+            {meta.latestUpdate}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function preloadMaterialExperience(item) {
@@ -194,6 +373,10 @@ export default function LearningHubLoaded({
         : carouselItems,
     [activeCategory, carouselItems, dedicatedLearningPage],
   );
+  const boardItem = useActiveLearningBoardItem({
+    enabled: dedicatedLearningPage && !activeCategory,
+    items: displayedCarouselItems,
+  });
 
   const handleOpenItem = (item) => {
     if (item?.masterclassPreviewOnly) {
@@ -236,7 +419,9 @@ export default function LearningHubLoaded({
         />
       </LearningHubCollapseProvider>
 
-      {dedicatedLearningPage && !activeCategory ? <MasterclassAnnouncement /> : null}
+      {dedicatedLearningPage && !activeCategory ? (
+        <LearningHubInfoBoard item={boardItem} />
+      ) : null}
 
       {hasCommittedAccess && isOpen && selectedMaterial ? (
         <Suspense fallback={<LearningExperienceOpeningFallback label="Opening book" />}>
