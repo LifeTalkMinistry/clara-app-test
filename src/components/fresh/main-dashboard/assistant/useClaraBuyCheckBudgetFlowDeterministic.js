@@ -13,6 +13,7 @@ import {
 import {
   confirmBuyCheckConversation,
   evaluateBuyCheckConversation,
+  generateBuyCheckCoachReply,
 } from "@/lib/clara-buy-check-conversation-ai";
 
 function recoveryState(current, userMessage, error) {
@@ -151,32 +152,103 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
       return true;
     }
 
-    setState((current) => {
-      if (current.busy || current.done || current.step === "confirm" || current.step === "diagnosis") return current;
+    if (state.step === "item" && !state.busy && !state.done) {
+      const snapshot = state;
       const userMessage = createMessage("user", answer);
-      try {
-        if (current.step === "item") {
+
+      setState((current) => {
+        if (current.sessionId !== snapshot.sessionId || current.step !== "item" || current.busy || current.done) return current;
+        return {
+          ...current,
+          item: answer,
+          busy: true,
+          messages: [...current.messages, userMessage],
+        };
+      });
+
+      const fallback = `How much does ${answer} cost? Type the amount only. Example: ₱3,500`;
+      const reply = await generateBuyCheckCoachReply({
+        stage: "ask_price",
+        item: answer,
+        assistantContext,
+        fallback,
+      });
+
+      setState((current) => {
+        if (current.sessionId !== snapshot.sessionId || current.step !== "item") return current;
+        return {
+          ...current,
+          item: answer,
+          step: "price",
+          busy: false,
+          messages: [...current.messages, createMessage("clara", reply.text || fallback)],
+        };
+      });
+      return true;
+    }
+
+    if (state.step === "price" && !state.busy && !state.done) {
+      const snapshot = state;
+      const userMessage = createMessage("user", answer);
+      const price = parsePrice(answer);
+
+      setState((current) => {
+        if (current.sessionId !== snapshot.sessionId || current.step !== "price" || current.busy || current.done) return current;
+        return {
+          ...current,
+          busy: true,
+          messages: [...current.messages, userMessage],
+        };
+      });
+
+      if (!price) {
+        const fallback = "Please type the price clearly. Example: ₱3,500";
+        const reply = await generateBuyCheckCoachReply({
+          stage: "invalid_price",
+          item: snapshot.item,
+          assistantContext,
+          fallback,
+        });
+
+        setState((current) => {
+          if (current.sessionId !== snapshot.sessionId || current.step !== "price") return current;
           return {
             ...current,
-            item: answer,
-            step: "price",
-            messages: [...current.messages, userMessage, createMessage("clara", `How much does ${answer} cost? Type the amount only. Example: ₱3,500`)],
+            busy: false,
+            messages: [...current.messages, createMessage("clara", reply.text || fallback)],
           };
-        }
+        });
+        return true;
+      }
 
-        if (current.step === "price") {
-          const price = parsePrice(answer);
-          if (!price) {
-            return {
-              ...current,
-              messages: [...current.messages, userMessage, createMessage("clara", "Please type the price clearly. Example: ₱3,500")],
-            };
-          }
+      try {
+        const assessment = analyzeBuyCheckBudgetCoverage(snapshot.item, price, assistantContext, snapshot.reason);
+        const coverage = budgetCoverageFromAssessment(assessment);
 
-          const assessment = analyzeBuyCheckBudgetCoverage(current.item, price, assistantContext, current.reason);
-          const coverage = budgetCoverageFromAssessment(assessment);
+        if (coverage) {
+          const nextForFallback = {
+            ...snapshot,
+            price,
+            reason: "",
+            clarification: "",
+            followUpAnswer: "",
+            purchaseContext: "",
+            askedClarification: false,
+            planningStatus: "planned",
+            budgetCoverage: coverage,
+            budgetAssessment: assessment,
+          };
+          const fallback = confirmationText(nextForFallback);
+          const reply = await generateBuyCheckCoachReply({
+            stage: "confirm_planned",
+            item: snapshot.item,
+            price,
+            assistantContext,
+            fallback,
+          });
 
-          if (coverage) {
+          setState((current) => {
+            if (current.sessionId !== snapshot.sessionId || current.step !== "price") return current;
             const next = {
               ...current,
               price,
@@ -189,6 +261,7 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
               budgetCoverage: coverage,
               budgetAssessment: assessment,
               step: "confirm",
+              busy: false,
             };
             next.confirmation = {
               item: next.item,
@@ -199,14 +272,23 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
               purchaseContext: "",
               planningStatus: next.planningStatus,
             };
-            next.messages = [
-              ...current.messages,
-              userMessage,
-              createMessage("clara", confirmationText(next)),
-            ];
+            next.messages = [...current.messages, createMessage("clara", reply.text || fallback)];
             return next;
-          }
+          });
+          return true;
+        }
 
+        const fallback = priceStepMessage();
+        const reply = await generateBuyCheckCoachReply({
+          stage: "ask_reason",
+          item: snapshot.item,
+          price,
+          assistantContext,
+          fallback,
+        });
+
+        setState((current) => {
+          if (current.sessionId !== snapshot.sessionId || current.step !== "price") return current;
           return {
             ...current,
             price,
@@ -218,16 +300,20 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
             budgetCoverage: null,
             budgetAssessment: assessment,
             step: "reason",
-            messages: [...current.messages, userMessage, createMessage("clara", priceStepMessage())],
+            busy: false,
+            messages: [...current.messages, createMessage("clara", reply.text || fallback)],
           };
-        }
-
-        return current;
+        });
+        return true;
       } catch (error) {
-        return recoveryState(current, userMessage, error);
+        setState((current) => current.sessionId !== snapshot.sessionId
+          ? current
+          : recoveryState({ ...current, messages: current.messages.slice(0, -1) }, userMessage, error));
+        return false;
       }
-    });
-    return true;
+    }
+
+    return false;
   }, [assistantContext, state]);
 
   const editReason = useCallback(() => {
@@ -302,7 +388,16 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
   const confirm = useCallback(async () => {
     if (state.step !== "confirm" || state.busy || !state.confirmation) return;
     const snapshot = state;
-    const checking = createMessage("clara", "Got it. I’m checking your income runway, wallets, budgets, obligations, goals, emergency fund, schedule, Me profile, and memory now.");
+    const checkingFallback = "Got it. I’m checking your live money context now.";
+    const checkingReply = await generateBuyCheckCoachReply({
+      stage: "checking",
+      item: snapshot.item,
+      price: snapshot.price,
+      reason: snapshot.reason,
+      assistantContext,
+      fallback: checkingFallback,
+    });
+    const checking = createMessage("clara", checkingReply.text || checkingFallback);
     setState({ ...snapshot, step: "diagnosis", busy: true, messages: [...snapshot.messages, createMessage("user", "Yes"), checking] });
 
     try {
