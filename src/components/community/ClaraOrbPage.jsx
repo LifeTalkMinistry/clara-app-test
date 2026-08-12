@@ -141,23 +141,27 @@ export default function ClaraOrbPage() {
         .clara-orb-page-image {
           display: block;
           -webkit-mask-image: radial-gradient(
-            ellipse 67% 67% at 50% 48%,
+            ellipse 55% 54% at 50% 49%,
             #000 0%,
-            #000 64%,
-            rgba(0, 0, 0, 0.99) 72%,
-            rgba(0, 0, 0, 0.88) 80%,
-            rgba(0, 0, 0, 0.42) 91%,
-            transparent 100%
+            #000 73%,
+            rgba(0, 0, 0, 0.92) 80%,
+            rgba(0, 0, 0, 0.55) 84%,
+            rgba(0, 0, 0, 0.18) 88%,
+            rgba(0, 0, 0, 0.04) 92%,
+            transparent 95%
           );
           mask-image: radial-gradient(
-            ellipse 67% 67% at 50% 48%,
+            ellipse 55% 54% at 50% 49%,
             #000 0%,
-            #000 64%,
-            rgba(0, 0, 0, 0.99) 72%,
-            rgba(0, 0, 0, 0.88) 80%,
-            rgba(0, 0, 0, 0.42) 91%,
-            transparent 100%
+            #000 73%,
+            rgba(0, 0, 0, 0.92) 80%,
+            rgba(0, 0, 0, 0.55) 84%,
+            rgba(0, 0, 0, 0.18) 88%,
+            rgba(0, 0, 0, 0.04) 92%,
+            transparent 95%
           );
+          -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
           filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.16));
         }
 
