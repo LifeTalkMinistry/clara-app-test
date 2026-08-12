@@ -66,7 +66,7 @@ export default function useClaraBuyCheckReasonSummary({ assistantContext = {} } 
       if (sessionRef.current !== sessionId) return false;
 
       const item = normalizeItemSummary(result.item, answer);
-      const submitted = flow.submitAnswer(item);
+      const submitted = await flow.submitAnswer(item);
       if (!submitted) {
         setItemState(blankItem());
         return false;
@@ -83,7 +83,7 @@ export default function useClaraBuyCheckReasonSummary({ assistantContext = {} } 
       const item = clean(flow.state?.item || "this purchase");
       const assessment = analyzeBuyCheckBudgetCoverage(item, price, assistantContext, "");
       const coverage = budgetCoverageFromAssessment(assessment);
-      const submitted = flow.submitAnswer(answer);
+      const submitted = await flow.submitAnswer(answer);
       if (!submitted || !coverage) return submitted;
 
       setConfirmationState({ busy: true, text: "", sessionId, index, source: "" });
