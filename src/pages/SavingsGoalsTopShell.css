@@ -5,12 +5,19 @@ body:has(.savings-goals-premium),
 .theme-page-shell:has(.savings-goals-premium) > div,
 .theme-page-shell:has(.savings-goals-premium) main,
 main:has(.savings-goals-premium) {
-  background: #061426 !important;
+  background:
+    radial-gradient(circle at -10% 12%, rgba(25, 140, 255, 0.18), transparent 28rem),
+    radial-gradient(circle at 108% 18%, rgba(255, 49, 74, 0.10), transparent 26rem),
+    linear-gradient(180deg, #051126 0%, #030817 58%, #050714 100%) !important;
 }
 
 body:has(.savings-goals-premium)::before,
 body:has(.savings-goals-premium)::after {
   display: none !important;
+}
+
+#root:has(.savings-goals-premium) {
+  background-image: none !important;
 }
 
 main:has(.savings-goals-premium) {
