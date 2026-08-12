@@ -43,7 +43,7 @@ function ClaraOrbVector({ className = "", compact = false }) {
         </radialGradient>
 
         <linearGradient id={rimId} x1="7%" y1="13%" x2="94%" y2="87%">
-          <stop offset="0%" stopColor="#8deaff" />
+          <stop offset="0%" stopColor="#58c9ff" />
           <stop offset="18%" stopColor="#20bfff" />
           <stop offset="43%" stopColor="#1475ff" />
           <stop offset="65%" stopColor="#4c52ff" />
@@ -148,28 +148,9 @@ function ClaraOrbVector({ className = "", compact = false }) {
         cy="153"
         r="107"
         fill={`url(#${ambientId})`}
-        stroke="#d9f6ff"
-        strokeOpacity="0.08"
+        stroke="#8bcfff"
+        strokeOpacity="0.06"
         strokeWidth="1"
-      />
-
-      <path
-        d="M 70 105 C 91 62 128 40 171 40 C 207 40 238 52 258 77"
-        fill="none"
-        stroke="#e8fbff"
-        strokeOpacity="0.20"
-        strokeWidth="8.5"
-        strokeLinecap="round"
-        filter={`url(#${logoGlowId})`}
-      />
-
-      <path
-        d="M 79 92 C 111 52 157 42 203 51 C 228 56 246 65 258 78"
-        fill="none"
-        stroke="#ffffff"
-        strokeOpacity="0.29"
-        strokeWidth="2.2"
-        strokeLinecap="round"
       />
 
       <path
@@ -387,7 +368,7 @@ export default function ClaraOrbPage() {
           style={{ width: "min(78vw, 38dvh, 315px)" }}
           aria-label="Tap CLARA to start Ask Before You Spend"
           data-clara-orb-launcher="true"
-          data-clara-orb-visual-source="native-vector-traced-official-v3"
+          data-clara-orb-visual-source="native-vector-v3"
         >
           <MoneyLeftOrbVisual launching={launching} />
         </button>
