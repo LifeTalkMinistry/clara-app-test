@@ -162,8 +162,8 @@ export default function ClaraOrbPage() {
 
       <div
         className="relative z-10 flex w-full max-w-3xl flex-col items-center justify-center"
-        style={{ transform: "translateY(clamp(44px, 7dvh, 72px))" }}
-        data-clara-orb-visual-offset="down-1"
+        style={{ transform: "translateY(clamp(78px, 11dvh, 112px))" }}
+        data-clara-orb-visual-offset="down-2"
       >
         <div className="mb-1 select-none">
           <p className="text-[10px] font-black uppercase tracking-[0.34em] text-white/42">CLARA ORB</p>
