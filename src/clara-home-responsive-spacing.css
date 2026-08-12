@@ -12,22 +12,31 @@
   --clara-home-bottom-space: clamp(10px, 1.7dvh, 16px);
 
   box-sizing: border-box !important;
+  min-width: 0 !important;
+  overflow-x: hidden !important;
   padding-top: var(--clara-home-top-space) !important;
   padding-bottom: var(--clara-home-bottom-space) !important;
   scroll-padding-top: var(--clara-home-top-space);
-  scroll-padding-bottom: max(env(safe-area-inset-bottom, 0px), 56px);
+  scroll-padding-bottom: max(env(safe-area-inset-bottom, 0px), 64px);
   overscroll-behavior-y: contain;
+}
+
+.clara-community-root[data-community-view="home"]
+  .clara-community-home-view
+  > div:first-child {
+  box-sizing: border-box !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
 }
 
 /*
  * IMPORTANT: Android navigation protection belongs at the END of the scroll
- * content, not in the card geometry and not as a large permanent Home padding.
+ * content, not inside the finance-card geometry.
  *
- * Some Android WebViews report env(safe-area-inset-bottom) as 0 even while the
- * three-button navigation rail overlays the bottom of the WebView. A terminal
- * scroll guard gives the final Money Left card enough travel to clear that
- * overlay while preserving the exact Daily Tip / finance / Money Left sizes.
- * The guard itself naturally sits behind the system navigation rail at rest.
+ * Some Android WebViews report env(safe-area-inset-bottom) as 0 while the
+ * three-button navigation rail still overlays the WebView. Keep a terminal
+ * scroll runway so Money Left can always clear that rail without stretching or
+ * shrinking the Income/Budget/Wallet carousel cards.
  */
 @media (max-width: 768px) {
   .clara-community-root[data-community-view="home"]
@@ -36,7 +45,7 @@
     content: "";
     display: block;
     width: 100%;
-    height: max(env(safe-area-inset-bottom, 0px), 56px);
+    height: max(env(safe-area-inset-bottom, 0px), 64px);
     pointer-events: none;
   }
 }
@@ -61,15 +70,23 @@
 
 /* Daily Tip -> finance uses the same adaptive rhythm on every device. */
 .clara-community-root[data-community-view="home"] .clara-community-home-financial-carousel {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
   margin-top: var(--clara-home-section-gap) !important;
   padding-bottom: 0 !important;
 }
 
 /* Finance card -> Money Left uses exactly the same rhythm. */
 .clara-community-root[data-community-view="home"] .clara-community-home-money-left {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
   margin-top: var(--clara-home-section-gap) !important;
   margin-bottom: 0 !important;
-  scroll-margin-bottom: max(env(safe-area-inset-bottom, 0px), 56px);
+  scroll-margin-bottom: max(env(safe-area-inset-bottom, 0px), 64px);
 }
 
 /* Keep the Money Left surface fluid on narrow devices instead of allowing any
@@ -95,14 +112,60 @@
   padding: 0 !important;
 }
 
-/* Short phones keep the ORIGINAL finance-card geometry. Only the vertical
-   spaces around sections become slightly tighter; card internals are never
-   compressed, so Income/Budget/Wallet layouts cannot overlap or distort. */
+/* Mobile Home should fit the summary naturally instead of forcing the final
+   card beneath Android navigation. Only Home spacing + Money Left adapt here;
+   finance carousel card geometry remains untouched. */
+@media (max-width: 430px) {
+  .clara-community-root[data-community-view="home"] .clara-community-home-view {
+    --clara-home-top-space: clamp(10px, 1.5dvh, 14px);
+    --clara-home-section-gap: clamp(11px, 1.65dvh, 15px);
+    --clara-home-bottom-space: 8px;
+  }
+
+  .clara-community-root[data-community-view="home"]
+    .clara-community-home-money-left
+    > section[data-clara-dashboard-section="money-summary"],
+  .clara-community-root[data-community-view="home"]
+    .clara-community-home-money-left
+    [data-clara-summary-card="money-left"] {
+    height: auto !important;
+    min-height: clamp(104px, 13.5dvh, 118px) !important;
+  }
+
+  .clara-community-root[data-community-view="home"]
+    .clara-community-home-money-left
+    [data-clara-summary-card="money-left"] {
+    padding-top: clamp(11px, 1.7dvh, 14px) !important;
+    padding-bottom: clamp(11px, 1.7dvh, 14px) !important;
+  }
+}
+
+/* Short Android/PWA viewports are the failure case from the real device.
+   Reclaim only external Home rhythm plus a few Money Left pixels. Do not scale
+   or compress Income/Budget/Wallet card internals. */
+@media (max-width: 430px) and (max-height: 860px) {
+  .clara-community-root[data-community-view="home"] .clara-community-home-view {
+    --clara-home-top-space: 9px;
+    --clara-home-section-gap: 10px;
+    --clara-home-bottom-space: 6px;
+  }
+
+  .clara-community-root[data-community-view="home"]
+    .clara-community-home-money-left
+    > section[data-clara-dashboard-section="money-summary"],
+  .clara-community-root[data-community-view="home"]
+    .clara-community-home-money-left
+    [data-clara-summary-card="money-left"] {
+    min-height: 104px !important;
+  }
+}
+
+/* Very short phones tighten only the gaps around sections. */
 @media (max-height: 740px) {
   .clara-community-root[data-community-view="home"] .clara-community-home-view {
-    --clara-home-top-space: 12px;
-    --clara-home-section-gap: 14px;
-    --clara-home-bottom-space: 8px;
+    --clara-home-top-space: 8px;
+    --clara-home-section-gap: 9px;
+    --clara-home-bottom-space: 6px;
   }
 }
 
