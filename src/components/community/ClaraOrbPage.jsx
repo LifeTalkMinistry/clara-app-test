@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import claraOfficialHomeOrb from "@/assets/clara-official-home-orb.webp";
 import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "@/lib/clara-pause-events";
 
@@ -48,11 +48,40 @@ function MoneyLeftOrbVisual({ launching = false }) {
 
 export default function ClaraOrbPage() {
   const [launching, setLaunching] = useState(false);
+  const [viewportTop, setViewportTop] = useState(null);
+  const pageRef = useRef(null);
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
     document.body.classList.add("clara-orb-page-active");
     return () => document.body.classList.remove("clara-orb-page-active");
+  }, []);
+
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const measure = () => {
+      const node = pageRef.current;
+      if (!node) return;
+      const top = Math.max(0, Math.round(node.getBoundingClientRect().top));
+      setViewportTop((current) => (current === top ? current : top));
+    };
+
+    measure();
+    const frame = window.requestAnimationFrame(measure);
+    window.addEventListener("resize", measure);
+    window.visualViewport?.addEventListener("resize", measure);
+
+    const observer =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    if (pageRef.current?.parentElement) observer?.observe(pageRef.current.parentElement);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", measure);
+      window.visualViewport?.removeEventListener("resize", measure);
+      observer?.disconnect();
+    };
   }, []);
 
   const openClara = () => {
@@ -73,9 +102,20 @@ export default function ClaraOrbPage() {
     window.setTimeout(() => setLaunching(false), 700);
   };
 
+  const measuredViewportStyle =
+    viewportTop === null
+      ? undefined
+      : {
+          height: `calc(100dvh - ${viewportTop}px)`,
+          minHeight: `calc(100dvh - ${viewportTop}px)`,
+          flex: "0 0 auto",
+        };
+
   return (
     <main
-      className="clara-community-orb-view relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-[#020817] px-5 text-center text-white"
+      ref={pageRef}
+      className="clara-community-orb-view relative flex w-full items-center justify-center overflow-hidden bg-[#020817] px-5 text-center text-white"
+      style={measuredViewportStyle}
       aria-label="CLARA Orb"
       data-clara-orb-page="true"
     >
