@@ -31,15 +31,15 @@ function MoneyLeftOrbVisual({ launching = false }) {
         }}
       />
 
-      <span className="pointer-events-none absolute inset-[14%] rounded-full border border-[rgba(77,145,232,0.12)] bg-[rgba(5,18,38,0.30)]" />
+      <span className="pointer-events-none absolute inset-[10%] rounded-full border border-[rgba(77,145,232,0.12)] bg-[rgba(5,18,38,0.30)]" />
 
       <span
-        className="relative z-10 h-[70%] w-[70%] rounded-full border border-[rgba(100,165,247,0.20)] bg-[rgba(4,14,31,0.74)] shadow-[0_0_14px_rgba(8,103,255,0.18),inset_0_1px_0_rgba(255,255,255,0.045)]"
+        className="relative z-10 h-[78%] w-[78%] rounded-full border border-[rgba(100,165,247,0.20)] bg-[rgba(4,14,31,0.74)] shadow-[0_0_14px_rgba(8,103,255,0.18),inset_0_1px_0_rgba(255,255,255,0.045)]"
         style={{
           backgroundImage: `url(${claraOfficialHomeOrb})`,
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
-          backgroundSize: "106% 106%",
+          backgroundSize: "96% 96%",
         }}
       />
     </span>
