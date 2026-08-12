@@ -54,7 +54,7 @@
   /* Income Hub: the middle "Top Source" tile adds noise but no essential
      collapsed-card information. Keep only Money In + Status, widen those two
      cells, and let the upper panel size to its real content instead of forcing
-     the old 244px minimum. This creates the same breathing room Budget now has. */
+     the old 244px minimum. */
   .theme-page-shell
     .clara-finance-slide-shell[data-card-key="investmentFund"][data-expanded="false"]
     [data-finance-card="investmentFund"][data-expanded="false"]
@@ -74,28 +74,20 @@
     margin-top: -6px !important;
   }
 
+  /* Deliberately broad inside the collapsed Income Hub so Tailwind wrapper
+     changes cannot leave the old Top Source cell visible. */
   .theme-page-shell
     .clara-finance-slide-shell[data-card-key="investmentFund"][data-expanded="false"]
-    [data-finance-card="investmentFund"][data-expanded="false"]
-    > div.relative.z-10
-    > div.relative.flex
-    > div:first-child
-    > div:last-child
-    > div:last-child
-    > div.grid {
+    [data-finance-card="investmentFund"]
+    .grid.grid-cols-3 {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
   .theme-page-shell
     .clara-finance-slide-shell[data-card-key="investmentFund"][data-expanded="false"]
-    [data-finance-card="investmentFund"][data-expanded="false"]
-    > div.relative.z-10
-    > div.relative.flex
-    > div:first-child
-    > div:last-child
-    > div:last-child
-    > div.grid
-    > div:nth-child(2) {
+    [data-finance-card="investmentFund"]
+    .grid.grid-cols-3
+    > :nth-child(2) {
     display: none !important;
   }
 }
@@ -143,9 +135,7 @@
     min-height: 100% !important;
   }
 
-  /* Give Budget's CTA a clearly protected lower edge. This is intentionally
-     a larger step than the previous adjustment so the button no longer looks
-     attached to the outer card on compact Android screens. */
+  /* Give Budget's CTA a clearly protected lower edge. */
   .theme-page-shell
     .clara-finance-slide-shell[data-card-key="budget"][data-expanded="false"]
     [data-finance-card="budget"][data-expanded="false"]
