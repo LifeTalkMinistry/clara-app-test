@@ -28,15 +28,24 @@ export default function ClaraAiEnvironmentOverlay(props) {
         if (question) {
           const title = question.querySelector("strong");
           const details = question.querySelectorAll("span");
-          if (title && title.textContent !== "Tell me what you’re thinking about.") {
-            title.textContent = "Tell me what you’re thinking about.";
+
+          if (title && title.textContent !== "Ask before you spend.") {
+            title.textContent = "Ask before you spend.";
           }
-          if (details?.[0] && details[0].textContent !== "Talk naturally — CLARA will ask only what matters.") {
-            details[0].textContent = "Talk naturally — CLARA will ask only what matters.";
+
+          if (title) {
+            title.style.fontSize = "21px";
+            title.style.lineHeight = "1.2";
+            title.style.fontWeight = "900";
+            title.style.letterSpacing = "-0.035em";
+            title.style.color = "rgba(255, 255, 255, 0.98)";
           }
-          if (details?.[1] && details[1].textContent !== "You can even start with “Hi.”") {
-            details[1].textContent = "You can even start with “Hi.”";
-          }
+
+          details.forEach((detail) => {
+            detail.style.display = "none";
+          });
+
+          question.style.marginTop = "22px";
         }
       } finally {
         applying = false;
