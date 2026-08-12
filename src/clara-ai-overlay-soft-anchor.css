@@ -9,3 +9,49 @@ body.clara-ai-environment-active div[class*="z-[250]"][class*="max-w-[430px]"] >
   min-height: 0;
   flex: 1 1 0%;
 }
+
+/*
+ * Ask Before You Spend owns the foreground while it is open.
+ *
+ * The Community/Home card stack has several deliberate z-index layers for the
+ * sticky navigation, finance carousel, Money Left controls, and floating tools.
+ * A normal z-[250] overlay can therefore look visually buried on some Android
+ * WebViews even though the Buy Check input itself is still interactive.
+ *
+ * Keep the Buy Check as a true viewport layer, above every dashboard surface,
+ * and make its veil opaque enough that the finance cards never visually punch
+ * through the conversation. This does not move or resize the underlying cards.
+ */
+body.clara-ai-environment-active [data-clara-pause-overlay="true"] {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483000 !important;
+  isolation: isolate !important;
+  pointer-events: auto !important;
+  background:
+    radial-gradient(circle at 18% 8%, rgba(20, 184, 166, 0.18), transparent 34%),
+    radial-gradient(circle at 88% 10%, rgba(99, 102, 241, 0.20), transparent 38%),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.965), rgba(2, 6, 23, 0.992)) !important;
+  backdrop-filter: blur(14px) saturate(0.88) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(0.88) !important;
+}
+
+/* Keep the actual Buy Check content above its decorative veil and above any
+   inherited/legacy stacking contexts inside the overlay. */
+body.clara-ai-environment-active [data-clara-pause-overlay="true"] > main,
+body.clara-ai-environment-active [data-clara-pause-overlay="true"] > form,
+body.clara-ai-environment-active [data-clara-pause-overlay="true"] [data-clara-pause-entry-board="true"],
+body.clara-ai-environment-active [data-clara-pause-overlay="true"] [data-clara-buy-check-board="true"] {
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+body.clara-ai-environment-active [data-clara-pause-overlay="true"] [data-clara-pause-entry-board="true"] {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(45, 212, 191, 0.15), transparent 36%),
+    radial-gradient(circle at 88% 16%, rgba(124, 58, 237, 0.18), transparent 40%),
+    linear-gradient(145deg, rgba(8, 24, 45, 0.985), rgba(13, 17, 48, 0.99)) !important;
+  box-shadow:
+    0 28px 84px rgba(0, 0, 0, 0.54),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
