@@ -260,10 +260,13 @@ const BuyCheckComposer = memo(function BuyCheckComposer({
     setDraft("");
   };
 
+  const composerLocked = inputLocked || busy;
+
   return (
     <form
       onSubmit={submitDraft}
       data-clara-buy-check-react-form="true"
+      data-clara-buy-check-composer-locked={composerLocked ? "true" : "false"}
       className="relative z-10 shrink-0 overflow-hidden rounded-[28px] border border-blue-200/16 bg-[#040b1a]/96 p-2.5 shadow-[0_-18px_52px_rgba(0,0,0,0.48),inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-2xl"
     >
       <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-[linear-gradient(90deg,#1769ff_0%,#1769ff_42%,#ffd84a_42%,#ffd84a_56%,#e53945_56%,#e53945_100%)] opacity-80" />
@@ -272,15 +275,16 @@ const BuyCheckComposer = memo(function BuyCheckComposer({
           ref={inputRef}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          disabled={inputLocked || busy}
-          className="min-w-0 flex-1 bg-transparent py-2 text-[14px] font-medium text-white outline-none placeholder:text-slate-400/72 disabled:opacity-55"
+          readOnly={composerLocked}
+          aria-disabled={composerLocked ? "true" : undefined}
+          className={`min-w-0 flex-1 bg-transparent py-2 text-[14px] font-medium text-white outline-none placeholder:text-slate-400/72 ${composerLocked ? "opacity-55" : ""}`}
           placeholder={placeholderFor(step)}
           inputMode={step === "price" ? "decimal" : "text"}
           aria-label={placeholderFor(step)}
         />
         <button
           type="submit"
-          disabled={!draft.trim() || inputLocked || busy}
+          disabled={!draft.trim() || composerLocked}
           className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-blue-300/24 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] text-white shadow-[0_10px_28px_rgba(23,105,255,0.28)] transition hover:brightness-110 disabled:opacity-40"
           aria-label="Send Ask Before You Spend answer"
         >
