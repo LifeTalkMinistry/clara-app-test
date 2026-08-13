@@ -18,19 +18,26 @@ function detectTimezone() {
 }
 
 export const DEFAULT_NOTIFICATION_PREFERENCES = Object.freeze({
-  moneyAlerts: true,
+  // Official CLARA notification families.
   dailyCheckIn: true,
+  expenseLogging: true,
+  weeklyMoneyReview: true,
+  moneyAlerts: true,
   goalsAndReviews: true,
+  billsAndObligations: true,
+  streaksAndChallenge: true,
   tasksAndCoaching: true,
   scheduleAndCalendar: true,
+  communityAndAccountability: false,
   productUpdates: false,
+
+  // Delivery and family-specific scheduling.
   deliveryMode: "in_app",
   preferredTime: "09:00",
   expenseLogFrequency: 2,
   expenseLogTimes: EXPENSE_LOG_DEFAULT_TIMES_BY_FREQUENCY[2],
   expenseLogStopAfterLogged: true,
   expenseLogSnoozeMinutes: 30,
-  weeklyMoneyReview: true,
   weeklyMoneyReviewDay: 0,
   weeklyMoneyReviewTime: "20:00",
   quietHoursEnabled: true,
@@ -41,14 +48,18 @@ export const DEFAULT_NOTIFICATION_PREFERENCES = Object.freeze({
 });
 
 const BOOLEAN_KEYS = [
-  "moneyAlerts",
   "dailyCheckIn",
+  "expenseLogging",
+  "weeklyMoneyReview",
+  "moneyAlerts",
   "goalsAndReviews",
+  "billsAndObligations",
+  "streaksAndChallenge",
   "tasksAndCoaching",
   "scheduleAndCalendar",
+  "communityAndAccountability",
   "productUpdates",
   "expenseLogStopAfterLogged",
-  "weeklyMoneyReview",
   "quietHoursEnabled",
 ];
 
@@ -150,19 +161,50 @@ function migrateLegacyShape(value = {}) {
     ? value.notifications
     : value || {};
 
+  // `dailyCheckIn` historically powered expense logging too. During migration,
+  // carry that choice into both new families so existing users keep their
+  // current behavior until they explicitly change either setting.
+  const legacyDailyPreference = firstBoolean(source.dailyCheckIn, source.dailyReminders);
+
   return {
+    dailyCheckIn: firstBoolean(
+      source.dailyCheckIn,
+      source.dailyCheckInReminder,
+      source.dailyReminders
+    ),
+    expenseLogging: firstBoolean(
+      source.expenseLogging,
+      source.expenseLogReminders,
+      legacyDailyPreference
+    ),
+    weeklyMoneyReview: firstBoolean(source.weeklyMoneyReview),
     moneyAlerts: firstBoolean(
       source.moneyAlerts,
       source.budgetAlerts,
       source.decisionNudges
     ),
-    dailyCheckIn: firstBoolean(source.dailyCheckIn, source.dailyReminders),
     goalsAndReviews: firstBoolean(source.goalsAndReviews, source.goalProgressAlerts),
+    billsAndObligations: firstBoolean(
+      source.billsAndObligations,
+      source.billReminders,
+      source.obligationReminders
+    ),
+    streaksAndChallenge: firstBoolean(
+      source.streaksAndChallenge,
+      source.streakAlerts,
+      source.challengeAlerts,
+      legacyDailyPreference
+    ),
     tasksAndCoaching: firstBoolean(source.tasksAndCoaching, source.coachingAlerts),
     scheduleAndCalendar: firstBoolean(
       source.scheduleAndCalendar,
       source.calendarReminders,
       source.scheduleReminders
+    ),
+    communityAndAccountability: firstBoolean(
+      source.communityAndAccountability,
+      source.communityAlerts,
+      source.circleAlerts
     ),
     productUpdates: firstBoolean(source.productUpdates),
     deliveryMode: source.deliveryMode,
@@ -171,7 +213,6 @@ function migrateLegacyShape(value = {}) {
     expenseLogTimes: source.expenseLogTimes,
     expenseLogStopAfterLogged: firstBoolean(source.expenseLogStopAfterLogged),
     expenseLogSnoozeMinutes: source.expenseLogSnoozeMinutes,
-    weeklyMoneyReview: firstBoolean(source.weeklyMoneyReview),
     weeklyMoneyReviewDay: source.weeklyMoneyReviewDay,
     weeklyMoneyReviewTime: source.weeklyMoneyReviewTime,
     quietHoursEnabled: firstBoolean(source.quietHoursEnabled),
@@ -316,12 +357,18 @@ export function notificationPreferencesToLegacySettings(preferences = {}) {
   return {
     ...normalized,
     dailyReminders: normalized.dailyCheckIn,
+    expenseLogReminders: normalized.expenseLogging,
     budgetAlerts: normalized.moneyAlerts,
     coachingAlerts: normalized.tasksAndCoaching,
     calendarReminders: normalized.scheduleAndCalendar,
     scheduleReminders: normalized.scheduleAndCalendar,
     decisionNudges: normalized.moneyAlerts,
     goalProgressAlerts: normalized.goalsAndReviews,
+    billReminders: normalized.billsAndObligations,
+    streakAlerts: normalized.streaksAndChallenge,
+    challengeAlerts: normalized.streaksAndChallenge,
+    communityAlerts: normalized.communityAndAccountability,
+    circleAlerts: normalized.communityAndAccountability,
   };
 }
 
