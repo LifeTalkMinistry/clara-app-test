@@ -1,0 +1,62 @@
+/* Weekly Challenge detail cleanup. */
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section > div:first-child {
+  position: relative;
+  justify-content: center !important;
+  text-align: center;
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section > div:first-child > div > p:nth-child(2) {
+  display: none !important;
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section > div:first-child > svg {
+  position: absolute;
+  right: 0;
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section > div:last-child:not([class*="rounded-[16px]"]) {
+  display: none !important;
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section > div:first-child {
+  justify-content: center !important;
+  text-align: center;
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section > div:first-child p:first-child,
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section > div:first-child > svg {
+  display: none !important;
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section > div:first-child h3 {
+  margin-top: 0 !important;
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section + section > div:first-child {
+  position: relative;
+  justify-content: center !important;
+  text-align: center;
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section + section > div:first-child h3 {
+  display: none !important;
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section + section > div:first-child > svg {
+  position: absolute;
+  right: 0;
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section + section > div:nth-child(2) > div > div.min-w-0 > p:last-child {
+  display: none !important;
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section + section > div:nth-child(2) > div {
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section + section + section {
+  display: none !important;
+}
