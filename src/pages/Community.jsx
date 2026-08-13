@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Bell,
   CalendarDays,
   House,
   MessageCircle,
   Newspaper,
+  Settings,
   ShieldCheck,
   Trophy,
   UsersRound,
@@ -22,9 +23,13 @@ import ClaraOrbPage, { ClaraOrbMark } from "@/components/community/ClaraOrbPage"
 import FreeDailyTipCard from "@/components/fresh/main-dashboard/daily-tip";
 import LearningHub from "@/components/fresh/main-dashboard/learning-hub/LearningHub";
 import DashboardSchedulePanel from "@/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardSchedulePanel";
+import DashboardSettingsPanel from "@/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel";
+import useUserRole from "@/hooks/useUserRole";
+import { useTheme } from "@/theme/ThemeProvider";
 import {
   backendRequest,
   getStoredBackendToken,
+  getStoredBackendUser,
 } from "@/lib/clara-backend-client";
 
 const COMMUNITY_GUIDE_LAUNCHER_SELECTOR = '[aria-label="Open CLARA Guide Mode"]';
@@ -169,6 +174,18 @@ function CommunityShellHeader({ activeView, unreadCount }) {
           ME
           <ActiveMarker active={activeView === "profile"} />
         </Link>
+
+        <Link
+          to="/community?view=settings"
+          className={itemClass(activeView === "settings")}
+          style={{ order: 1 }}
+          aria-label="Open Settings"
+          title="Settings"
+          aria-current={activeView === "settings" ? "page" : undefined}
+        >
+          <Settings className="h-[18px] w-[18px] max-[420px]:h-[17px] max-[420px]:w-[17px] sm:h-[19px] sm:w-[19px]" />
+          <ActiveMarker active={activeView === "settings"} />
+        </Link>
       </div>
     </header>
   );
@@ -253,13 +270,18 @@ function CommunityGuideIntroModal({ onStart, onClose }) {
 }
 
 export default function Community() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user: appUser, isAdmin = false } = useUserRole();
+  const { openThemePicker, setTheme } = useTheme();
   const [notifications, setNotifications] = useState([]);
   const [communityGuideIntroOpen, setCommunityGuideIntroOpen] = useState(false);
   const [communityGuideOpen, setCommunityGuideOpen] = useState(false);
   const token = getStoredBackendToken();
+  const backendUser = getStoredBackendUser();
+  const settingsUser = appUser || backendUser;
   const requestedView = searchParams.get("view") || "feed";
-  const activeView = ["orb", "home", "feed", "schedule", "circles", "challenges", "messages", "notifications", "profile"].includes(requestedView)
+  const activeView = ["orb", "home", "feed", "schedule", "circles", "challenges", "messages", "notifications", "profile", "settings"].includes(requestedView)
     ? requestedView
     : "feed";
 
@@ -497,6 +519,19 @@ export default function Community() {
         <div className="clara-community-messages-view min-h-0 flex-1 overflow-hidden">
           <MessagesBackend />
         </div>
+      ) : activeView === "settings" ? (
+        <main className="clara-community-settings-view relative z-[1] min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(circle_at_88%_8%,rgba(79,70,229,0.10),transparent_30%),radial-gradient(circle_at_12%_22%,rgba(20,184,166,0.06),transparent_30%),#06111f] px-4 pb-[calc(env(safe-area-inset-bottom)+30px)] pt-5 sm:px-6">
+          <div className="mx-auto w-full max-w-md">
+            <DashboardSettingsPanel
+              onBack={() => navigate("/community?view=profile")}
+              user={settingsUser}
+              isAdmin={isAdmin}
+              openThemePicker={openThemePicker}
+              resetThemeToDefault={() => setTheme("clara-hero-red-blue")}
+              onOpenMessages={() => navigate("/community?view=messages")}
+            />
+          </div>
+        </main>
       ) : activeView === "profile" ? (
         <div className="clara-community-profile-view min-h-0 flex-1 overflow-y-auto">
           <CommunityProfile />
