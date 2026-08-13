@@ -213,3 +213,31 @@ body.clara-ai-environment-active
   z-index: 80 !important;
   transform: translateZ(0) !important;
 }
+
+/* -------------------------------------------------------------------------- */
+/* MOBILE PAINT BUDGET                                                        */
+/* -------------------------------------------------------------------------- */
+/*
+ * The Buy Check surfaces are already 88–99% opaque and carry their own
+ * gradients. On Android, backdrop-filter still asks the GPU to continuously
+ * sample and blur the hidden page behind every bubble, composer and full-screen
+ * overlay while the keyboard/scroll position changes. Removing only that hidden
+ * sampling work keeps the rendered colors, borders, shadows, geometry and
+ * animation choreography intact while dramatically reducing repaint pressure.
+ */
+@media (max-width: 768px) {
+  body.clara-ai-environment-active [data-clara-pause-overlay="true"],
+  body.clara-ai-environment-active [data-clara-pause-overlay="true"] [class*="backdrop-blur"],
+  body.clara-ai-environment-active
+    [data-clara-pause-overlay="true"]
+    [data-clara-buy-check-header="true"] > button[aria-label="Close CLARA Ask Before You Spend"] {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  body.clara-ai-environment-active
+    [data-clara-pause-overlay="true"]
+    > main[data-clara-ai-message-viewport="true"] {
+    scroll-behavior: auto !important;
+  }
+}
