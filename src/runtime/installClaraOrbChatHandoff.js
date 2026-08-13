@@ -3,6 +3,8 @@ import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "@/lib/clara-pause-events";
 const RUNTIME_KEY = "__claraOrbChatHandoffRuntime__";
 const READY_FLAG = "claraOrbTransitionReady";
 const MAX_HANDOFF_AGE_MS = 2200;
+const OVERLAY_SELECTOR =
+  '[data-clara-pause-overlay="true"][data-clara-buy-check-react-owner="true"]';
 
 function safeAnimate(element, keyframes, options) {
   if (!element || typeof element.animate !== "function") return null;
@@ -74,9 +76,16 @@ function animateOrbToChat(overlay, origin) {
     if (animation) animations.push(animation);
   };
 
-  touched.forEach((element) => {
-    element.style.willChange = "transform, opacity, filter, clip-path";
-  });
+  // Keep the same choreography, but only pre-promote properties the compositor
+  // can handle cheaply on Android. Full-screen filter animation was causing the
+  // WebView to repaint almost the entire screen on every frame.
+  overlay.style.willChange = "clip-path, opacity";
+  if (board) board.style.willChange = "transform, opacity, border-radius";
+  [form, closeButton, buyCheckLabel, acknowledgmentPanel, acknowledgmentCopy, activeQuestion]
+    .filter(Boolean)
+    .forEach((element) => {
+      element.style.willChange = "transform, opacity";
+    });
 
   const centerX = clamp(origin.centerX, 0, window.innerWidth || origin.centerX);
   const centerY = clamp(origin.centerY, 0, window.innerHeight || origin.centerY);
@@ -84,8 +93,8 @@ function animateOrbToChat(overlay, origin) {
   const endRadius = maximumRevealRadius(centerX, centerY);
 
   // Continue the Orb's expanding glow into the actual full-screen CLARA surface.
-  // The overlay is clipped around the exact Orb center first, so there is no
-  // separate full-screen panel pop between the two states.
+  // The geometry and timing are unchanged; brightness/saturation animation is
+  // intentionally omitted because it forces expensive full-screen repaints.
   remember(
     safeAnimate(
       overlay,
@@ -93,19 +102,16 @@ function animateOrbToChat(overlay, origin) {
         {
           clipPath: `circle(${startRadius}px at ${centerX}px ${centerY}px)`,
           opacity: 0.76,
-          filter: "brightness(1.22) saturate(1.14)",
           offset: 0,
         },
         {
           clipPath: `circle(${Math.max(startRadius * 1.72, 132)}px at ${centerX}px ${centerY}px)`,
           opacity: 0.94,
-          filter: "brightness(1.13) saturate(1.08)",
           offset: 0.25,
         },
         {
           clipPath: `circle(${endRadius}px at ${centerX}px ${centerY}px)`,
           opacity: 1,
-          filter: "brightness(1) saturate(1)",
           offset: 1,
         },
       ],
@@ -134,8 +140,6 @@ function animateOrbToChat(overlay, origin) {
 
     board.style.transformOrigin = "center center";
 
-    // This is the important shared-object handoff: the first Buy Check card
-    // begins where the Orb ended, then settles into its real layout position.
     remember(
       safeAnimate(
         board,
@@ -144,21 +148,18 @@ function animateOrbToChat(overlay, origin) {
             transform: `translate(${translateX}px, ${translateY}px) scale(${uniformScale})`,
             borderRadius: "999px",
             opacity: 0.08,
-            filter: "brightness(1.65) saturate(1.28) blur(0.7px)",
             offset: 0,
           },
           {
             transform: `translate(${translateX * 0.34}px, ${translateY * 0.34}px) scale(0.985)`,
             borderRadius: "52px",
             opacity: 0.88,
-            filter: "brightness(1.18) saturate(1.08) blur(0px)",
             offset: 0.58,
           },
           {
             transform: "translate(0px, 0px) scale(1)",
             borderRadius: "30px",
             opacity: 1,
-            filter: "brightness(1) saturate(1) blur(0px)",
             offset: 1,
           },
         ],
@@ -171,8 +172,6 @@ function animateOrbToChat(overlay, origin) {
     );
   }
 
-  // Keep the board itself as the transforming object, then reveal its contents
-  // in order. This prevents the fully populated card from appearing all at once.
   remember(
     safeAnimate(
       buyCheckLabel,
@@ -209,8 +208,8 @@ function animateOrbToChat(overlay, origin) {
     safeAnimate(
       acknowledgmentCopy,
       [
-        { transform: "translateY(4px)", opacity: 0, filter: "blur(2px)" },
-        { transform: "translateY(0px)", opacity: 1, filter: "blur(0px)" },
+        { transform: "translateY(4px)", opacity: 0 },
+        { transform: "translateY(0px)", opacity: 1 },
       ],
       {
         duration: 300,
@@ -225,8 +224,8 @@ function animateOrbToChat(overlay, origin) {
     safeAnimate(
       activeQuestion,
       [
-        { transform: "translateY(11px)", opacity: 0, filter: "blur(1.6px)" },
-        { transform: "translateY(0px)", opacity: 1, filter: "blur(0px)" },
+        { transform: "translateY(11px)", opacity: 0 },
+        { transform: "translateY(0px)", opacity: 1 },
       ],
       {
         duration: 350,
@@ -237,8 +236,6 @@ function animateOrbToChat(overlay, origin) {
     )
   );
 
-  // The composer is the final piece to arrive, making the transition read as
-  // "CLARA became the conversation" rather than "a modal appeared".
   remember(
     safeAnimate(
       form,
@@ -313,16 +310,23 @@ function installClaraOrbChatHandoff() {
   let cleanupAnimation = null;
   let clearPendingTimer = 0;
   let queued = false;
+  let pendingObserver = null;
 
   const clearAnimation = () => {
     cleanupAnimation?.();
     cleanupAnimation = null;
   };
 
+  const stopPendingObserver = () => {
+    pendingObserver?.disconnect();
+    pendingObserver = null;
+  };
+
   const clearPending = () => {
     pending = null;
     window.clearTimeout(clearPendingTimer);
     clearPendingTimer = 0;
+    stopPendingObserver();
   };
 
   const tryHandoff = () => {
@@ -334,9 +338,7 @@ function installClaraOrbChatHandoff() {
       return;
     }
 
-    const overlay = document.querySelector(
-      '[data-clara-pause-overlay="true"][data-clara-buy-check-react-owner="true"]'
-    );
+    const overlay = document.querySelector(OVERLAY_SELECTOR);
     if (!overlay) return;
 
     const reducedMotion =
@@ -352,9 +354,19 @@ function installClaraOrbChatHandoff() {
   };
 
   const queueHandoff = () => {
-    if (queued) return;
+    if (queued || !pending) return;
     queued = true;
     window.requestAnimationFrame(tryHandoff);
+  };
+
+  const startPendingObserver = () => {
+    stopPendingObserver();
+    pendingObserver = new MutationObserver(queueHandoff);
+    const root = document.getElementById("root") || document.body;
+    pendingObserver.observe(root, {
+      childList: true,
+      subtree: true,
+    });
   };
 
   const handlePauseOpenRequest = (event) => {
@@ -373,20 +385,19 @@ function installClaraOrbChatHandoff() {
 
     window.clearTimeout(clearPendingTimer);
     clearPendingTimer = window.setTimeout(clearPending, MAX_HANDOFF_AGE_MS + 120);
+
+    // Observe React only during the brief handoff window. The previous permanent
+    // whole-document observer woke up on every chat render even long after the
+    // opening transition had finished.
+    startPendingObserver();
     queueHandoff();
   };
-
-  const observer = new MutationObserver(queueHandoff);
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-  });
 
   window.addEventListener(CLARA_PAUSE_OPEN_REQUEST_EVENT, handlePauseOpenRequest, true);
 
   window[RUNTIME_KEY] = {
     destroy() {
-      observer.disconnect();
+      stopPendingObserver();
       window.removeEventListener(CLARA_PAUSE_OPEN_REQUEST_EVENT, handlePauseOpenRequest, true);
       window.clearTimeout(clearPendingTimer);
       clearAnimation();
