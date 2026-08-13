@@ -59,8 +59,14 @@ span[class*="border-[#22c7b8]/16"][class*="bg-[#22c7b8]/8"] svg {
   fill: #f7d455;
 }
 
-/* Community identity treatment: the supporter status is a tiny CLARA medallion,
-   not a second name or a generic heart / gem / crown icon. */
+.clara-support-badge__asset {
+  display: block;
+  object-fit: contain;
+  object-position: center;
+}
+
+/* Community identity treatment: supporter status is a compact status mark,
+   not a second name. */
 .clara-community-post-card [data-clara-support-tier] {
   width: 20px;
   min-width: 20px;
@@ -113,13 +119,36 @@ span[class*="border-[#22c7b8]/16"][class*="bg-[#22c7b8]/8"] svg {
   filter: drop-shadow(0 1px 1px rgba(0,0,0,0.38));
 }
 
-/* Supporter: calm blue authority with a restrained gold edge. */
+/* Tier 1 uses Max's uploaded premium CLARA Supporter artwork directly.
+   No extra CSS bezel is added because the PNG already contains the finished medallion. */
 .clara-community-post-card [data-clara-support-tier="supporter"] {
-  border-color: rgba(61,126,255,0.84) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.11),
-    0 0 0 1px rgba(247,212,85,0.08),
-    0 3px 9px rgba(0,0,0,0.27) !important;
+  width: 24px;
+  min-width: 24px;
+  height: 24px !important;
+  min-height: 24px;
+  margin-left: -4px;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.clara-community-post-card [data-clara-support-tier="supporter"]::after,
+.clara-community-post-card [data-clara-support-tier="supporter"] .clara-support-badge__shine {
+  display: none !important;
+}
+
+.clara-community-post-card [data-clara-support-tier="supporter"] .clara-support-badge__mark {
+  width: 24px !important;
+  min-width: 24px;
+  height: 24px !important;
+}
+
+.clara-community-post-card [data-clara-support-tier="supporter"] .clara-support-badge__asset {
+  width: 24px !important;
+  height: 24px !important;
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.34));
 }
 
 /* Builder: same CLARA insignia, upgraded with a warmer metallic rim. */
@@ -172,5 +201,19 @@ span[class*="border-[#22c7b8]/16"][class*="bg-[#22c7b8]/8"] svg {
   .clara-community-post-card [data-clara-support-tier] .clara-support-mark {
     width: 12.5px !important;
     height: 12.5px !important;
+  }
+
+  .clara-community-post-card [data-clara-support-tier="supporter"] {
+    width: 23px;
+    min-width: 23px;
+    height: 23px !important;
+    min-height: 23px;
+  }
+
+  .clara-community-post-card [data-clara-support-tier="supporter"] .clara-support-badge__mark,
+  .clara-community-post-card [data-clara-support-tier="supporter"] .clara-support-badge__asset {
+    width: 23px !important;
+    min-width: 23px;
+    height: 23px !important;
   }
 }
