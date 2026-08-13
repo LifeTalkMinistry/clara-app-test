@@ -6,7 +6,8 @@ import MonthlyMissionBoard, {
 
 const CHALLENGE_PROGRESS_KEY = "clara-challenge-progress-v1";
 const MONTHLY_HOST_ID = "clara-monthly-mission-runtime-host";
-const MONTHLY_HIDDEN_ATTR = "data-clara-monthly-legacy-hidden";
+const MONTHLY_CARD_HIDDEN_ATTR = "data-clara-monthly-card-hidden";
+const MONTHLY_SUPPORT_HIDDEN_ATTR = "data-clara-monthly-support-hidden";
 const MONTHLY_PROGRESS_EVENT = "clara:monthly-mission-progress-updated";
 const MONTHLY_ACTIVITY_EVENT = "clara:monthly-mission-activity";
 const EXPENSE_UPDATED_EVENT = "clara-expenses-updated";
@@ -133,12 +134,41 @@ function findLegacyMonthlySection() {
   );
 }
 
-function restoreLegacyMonthlySections() {
-  document.querySelectorAll(`[${MONTHLY_HIDDEN_ATTR}="true"]`).forEach((section) => {
-    section.style.display = section.dataset.claraMonthlyPreviousDisplay || "";
-    delete section.dataset.claraMonthlyPreviousDisplay;
-    section.removeAttribute(MONTHLY_HIDDEN_ATTR);
+function hideNode(node, attribute, datasetKey) {
+  if (!node || node.getAttribute(attribute) === "true") return;
+  node.dataset[datasetKey] = node.style.display || "";
+  node.style.display = "none";
+  node.setAttribute(attribute, "true");
+}
+
+function restoreNodes(attribute, datasetKey) {
+  document.querySelectorAll(`[${attribute}="true"]`).forEach((node) => {
+    node.style.display = node.dataset[datasetKey] || "";
+    delete node.dataset[datasetKey];
+    node.removeAttribute(attribute);
   });
+}
+
+function hideLegacyMonthlySupport(monthlySection) {
+  const challengeView = document.querySelector(".clara-community-challenges-view");
+  if (!challengeView) return;
+
+  Array.from(challengeView.querySelectorAll("section")).forEach((section) => {
+    if (section === monthlySection || section.closest(`#${MONTHLY_HOST_ID}`)) return;
+    const text = String(section.textContent || "");
+    const shouldHide =
+      (text.includes("Your momentum") && text.includes("Challenge record")) ||
+      (text.includes("Badges") && text.includes("Earned through consistency")) ||
+      text.includes("CLARA challenge rule");
+    if (shouldHide) {
+      hideNode(section, MONTHLY_SUPPORT_HIDDEN_ATTR, "claraMonthlySupportPreviousDisplay");
+    }
+  });
+}
+
+function restoreMonthlyPresentation() {
+  restoreNodes(MONTHLY_CARD_HIDDEN_ATTR, "claraMonthlyCardPreviousDisplay");
+  restoreNodes(MONTHLY_SUPPORT_HIDDEN_ATTR, "claraMonthlySupportPreviousDisplay");
 }
 
 function removeMonthlyHost() {
@@ -152,7 +182,7 @@ function removeMonthlyHost() {
     host.remove();
   }
   monthlyRoot = null;
-  restoreLegacyMonthlySections();
+  restoreMonthlyPresentation();
 }
 
 function syncMonthlyMount() {
@@ -164,27 +194,23 @@ function syncMonthlyMount() {
     return;
   }
 
-  document.querySelectorAll(`[${MONTHLY_HIDDEN_ATTR}="true"]`).forEach((section) => {
+  document.querySelectorAll(`[${MONTHLY_CARD_HIDDEN_ATTR}="true"]`).forEach((section) => {
     if (section !== monthlySection) {
-      section.style.display = section.dataset.claraMonthlyPreviousDisplay || "";
-      delete section.dataset.claraMonthlyPreviousDisplay;
-      section.removeAttribute(MONTHLY_HIDDEN_ATTR);
+      section.style.display = section.dataset.claraMonthlyCardPreviousDisplay || "";
+      delete section.dataset.claraMonthlyCardPreviousDisplay;
+      section.removeAttribute(MONTHLY_CARD_HIDDEN_ATTR);
     }
   });
 
-  if (monthlySection.getAttribute(MONTHLY_HIDDEN_ATTR) !== "true") {
-    monthlySection.dataset.claraMonthlyPreviousDisplay = monthlySection.style.display || "";
-    monthlySection.style.display = "none";
-    monthlySection.setAttribute(MONTHLY_HIDDEN_ATTR, "true");
-  }
+  hideNode(monthlySection, MONTHLY_CARD_HIDDEN_ATTR, "claraMonthlyCardPreviousDisplay");
+  hideLegacyMonthlySupport(monthlySection);
 
   let host = document.getElementById(MONTHLY_HOST_ID);
   if (host && host.previousElementSibling !== monthlySection) {
     removeMonthlyHost();
     host = null;
-    monthlySection.dataset.claraMonthlyPreviousDisplay = monthlySection.style.display || "";
-    monthlySection.style.display = "none";
-    monthlySection.setAttribute(MONTHLY_HIDDEN_ATTR, "true");
+    hideNode(monthlySection, MONTHLY_CARD_HIDDEN_ATTR, "claraMonthlyCardPreviousDisplay");
+    hideLegacyMonthlySupport(monthlySection);
   }
 
   if (!host) {
