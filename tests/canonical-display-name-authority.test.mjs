@@ -1,0 +1,13 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+const readSource = (relativePath) => readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
+const settings = readSource("src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx");
+const orbGreeting = readSource("src/runtime/installClaraOrbGreeting.js");
+const canonicalClient = readSource("src/lib/canonical-clara-profile.js");
+const compatibilityClient = readSource("src/lib/profile-backend-client.js");
+const communityProfile = readSource("src/pages/CommunityProfile.jsx");
+test("Community Profile remains the display-name writer", () => { assert.match(communityProfile, /\/api\/community\/profile\/me/); assert.match(communityProfile, /display_name: form\.display_name/); });
+test("Settings has no independent display-name editor or stale detail route", () => { assert.match(settings, /fetchCanonicalClaraProfile/); assert.match(settings, /resolveCanonicalDisplayName\(canonicalProfile\)/); assert.doesNotMatch(settings, /title: "Profile information"|handleSaveProfile|profileName|activeSetting === "profile"/); });
+test("Orb greeting reads the canonical CLARA profile", () => { assert.match(orbGreeting, /fetchCanonicalClaraProfile/); assert.match(orbGreeting, /resolveCanonicalFirstName/); assert.doesNotMatch(orbGreeting, /clara_backend_user_v1|BACKEND_USER_KEY|user_metadata/); });
+test("compatibility name writes target the canonical Community Profile field", () => { assert.match(canonicalClient, /backendRequest\("\/api\/community\/profile\/me"/); assert.match(canonicalClient, /body: \{ display_name: cleanName \}/); assert.match(compatibilityClient, /updateCanonicalClaraDisplayName/); assert.doesNotMatch(compatibilityClient, /\/api\/users\/me/); });

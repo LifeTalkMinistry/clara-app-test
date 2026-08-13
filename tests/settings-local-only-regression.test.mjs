@@ -68,18 +68,13 @@ test("Settings directly owns detail history, logout, and Memory", () => {
   assert.doesNotMatch(activeSettingsSource, /MutationObserver/);
 });
 
-test("Settings keeps the signed-in account identity and Profile entry visible", () => {
-  assert.match(activeSettingsSource, /title: "Profile information"/);
-  assert.match(activeSettingsSource, /description: "Name, email, and your ME life & money profile"/);
+test("Settings presents canonical account identity without owning a second profile editor", () => {
+  assert.match(activeSettingsSource, /fetchCanonicalClaraProfile/);
+  assert.match(activeSettingsSource, /resolveCanonicalDisplayName\(canonicalProfile\)/);
   assert.match(activeSettingsSource, /user\?\.email \|\| "CLARA user"/);
-  assert.match(activeSettingsSource, /activeSetting === "profile"/);
-  assert.match(
-    settingsCleanupSource,
-    /Keep the account identity card and Profile information row visible/
-  );
-  assert.doesNotMatch(settingsCleanupSource, /remove large profile hero card/);
-  assert.doesNotMatch(settingsCleanupSource, /remove redundant profile information row/);
-  assert.doesNotMatch(settingsCleanupSource, /section:first-of-type/);
+  assert.doesNotMatch(activeSettingsSource, /title: "Profile information"/);
+  assert.doesNotMatch(activeSettingsSource, /activeSetting === "profile"/);
+  assert.doesNotMatch(activeSettingsSource, /handleSaveProfile|profileName|placeholder="Enter your name"/);
 });
 
 test("retired Settings DOM injectors are removed from production", () => {

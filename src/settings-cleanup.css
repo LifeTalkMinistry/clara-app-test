@@ -53,16 +53,6 @@ body.clara-settings-active #root .theme-page-shell > div.relative.shrink-0 [clas
     0 14px 38px rgba(0, 0, 0, 0.18) !important;
 }
 
-/*
- * Keep the account identity card and Profile information row visible.
- * They show which email is signed in and provide the explicit account/profile entry.
- */
-
-/* remove unnecessary subtitle on the Profile information detail page */
-#root .space-y-4:has(input[placeholder="Enter your name"]) > .mb-4.space-y-4 > div.rounded-\[28px\] > p.mt-2 {
-  display: none !important;
-}
-
 /* hide social/community section when user enters detail setting pages */
 #root .space-y-4 .settings-social-community-shortcuts {
   display: none !important;

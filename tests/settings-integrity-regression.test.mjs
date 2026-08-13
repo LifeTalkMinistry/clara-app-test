@@ -213,11 +213,11 @@ test("Settings Admin Panel route opens a real backend-backed admin surface", () 
   assert.match(adminClientSource, /\/support\/messages/);
 });
 
-test("profile Settings writes the display name through the CLARA backend account", () => {
+test("legacy profile compatibility writes through the canonical CLARA Profile", () => {
   assert.match(localFacadeSource, /async updateUser\(\{ data \} = \{\}\)/);
   assert.match(localFacadeSource, /updateCurrentBackendProfile/);
-  assert.match(profileClientSource, /backendRequest\("\/api\/users\/me"/);
-  assert.match(profileClientSource, /method: "PATCH"/);
+  assert.match(profileClientSource, /updateCanonicalClaraDisplayName/);
+  assert.doesNotMatch(profileClientSource, /\/api\/users\/me/);
 });
 
 test("legacy Settings support UI delivers into the real CLARA backend support inbox", () => {
