@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, Flame, Medal, ShieldAlert, Trophy, Users } from "lucide-react";
-import { backendRequest, getStoredBackendToken } from "@/lib/clara-backend-client";
+import { backendRequest, getStoredBackendToken, getStoredBackendUser } from "@/lib/clara-backend-client";
 
 const FILTERS = [
   { key: "still_in", label: "Still In" },
   { key: "finished", label: "Finished" },
   { key: "out", label: "Out" },
 ];
+const TEST_HIDDEN_ATTR = "data-clara-test-race-hidden";
 
 function initials(name = "") {
   const parts = String(name || "CLARA Member").trim().split(/\s+/).filter(Boolean);
@@ -20,6 +21,45 @@ function monthLabel(value) {
   return new Intl.DateTimeFormat("en-PH", { month: "long", year: "numeric" }).format(
     new Date(year, month - 1, 1)
   );
+}
+
+function prettyDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
+  if (!match) return "";
+  return new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric", year: "numeric" }).format(
+    new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+  );
+}
+
+function restoreTestHiddenCards() {
+  document.querySelectorAll(`[${TEST_HIDDEN_ATTR}="true"]`).forEach((node) => {
+    node.style.display = node.dataset.claraTestRacePreviousDisplay || "";
+    delete node.dataset.claraTestRacePreviousDisplay;
+    node.removeAttribute(TEST_HIDDEN_ATTR);
+  });
+}
+
+function setTestRacePresentation(enabled) {
+  if (!enabled) {
+    restoreTestHiddenCards();
+    return;
+  }
+
+  const challengeView = document.querySelector(".clara-community-challenges-view");
+  if (!challengeView) return;
+
+  Array.from(challengeView.querySelectorAll("section")).forEach((section) => {
+    const text = String(section.textContent || "");
+    const shouldHide =
+      text.includes("Next 30-Day Race") ||
+      text.includes("Race in progress") ||
+      text.includes("Race day") ||
+      text.includes("30-Day CLARA Streak");
+    if (!shouldHide || section.getAttribute(TEST_HIDDEN_ATTR) === "true") return;
+    section.dataset.claraTestRacePreviousDisplay = section.style.display || "";
+    section.style.display = "none";
+    section.setAttribute(TEST_HIDDEN_ATTR, "true");
+  });
 }
 
 function statusMeta(participant) {
@@ -99,8 +139,21 @@ export default function ChallengeRaceBoard() {
     };
   }, []);
 
+  const control = state.data?.control || null;
+  const isTestRace = control?.mode === "test" && control?.isRunning;
+  const isLiveRace = control?.mode === "live" && control?.isRunning;
+
+  useEffect(() => {
+    setTestRacePresentation(Boolean(isTestRace));
+    return () => {
+      if (isTestRace) restoreTestHiddenCards();
+    };
+  }, [isTestRace]);
+
   const participants = Array.isArray(state.data?.participants) ? state.data.participants : [];
   const summary = state.data?.summary || { started: 0, stillIn: 0, finished: 0, out: 0 };
+  const currentUser = getStoredBackendUser();
+  const me = participants.find((item) => String(item.userId) === String(currentUser?.id));
 
   const filtered = useMemo(() => {
     if (activeFilter === "finished") return participants.filter((item) => item.status === "finished");
@@ -108,23 +161,63 @@ export default function ChallengeRaceBoard() {
     return participants.filter((item) => item.status === "checked_in" || item.status === "needs_check_in");
   }, [activeFilter, participants]);
 
+  if (!state.loading && !state.error && !control?.isRunning) return null;
+
+  const personalMessage = !me
+    ? Number(control?.raceDay || 1) <= 1
+      ? "Complete today's Daily Money Tip check-in to appear on the starting line."
+      : "You are not currently active in this race."
+    : me.status === "checked_in"
+      ? `You're still in. Day ${me.day} is secured.`
+      : me.status === "needs_check_in"
+        ? "You're still in, but today's Daily Money Tip check-in is still needed."
+        : me.status === "finished"
+          ? "You finished the 30-day race."
+          : `Your run ended on Day ${me.day || 0}.`;
+
+  const heading = isTestRace
+    ? `TEST Race · Day ${Number(control?.raceDay || 1)} of 30`
+    : isLiveRace
+      ? `${monthLabel(state.data?.raceMonth)} · Day ${Number(control?.raceDay || 1)} of 30`
+      : monthLabel(state.data?.raceMonth);
+
   return (
-    <section className="relative overflow-hidden rounded-[26px] border border-[#22c7b8]/18 bg-[#091727] p-4 sm:p-5">
-      <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-[#22c7b8]/[0.08] blur-3xl" />
+    <section className={`relative overflow-hidden rounded-[26px] border bg-[#091727] p-4 sm:p-5 ${isTestRace ? "border-[#facc15]/24" : "border-[#22c7b8]/18"}`}>
+      <div className={`pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full blur-3xl ${isTestRace ? "bg-[#facc15]/[0.07]" : "bg-[#22c7b8]/[0.08]"}`} />
       <div className="relative">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[17px] border border-[#22c7b8]/20 bg-[#22c7b8]/10 text-[#99f6e4]">
+            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[17px] border ${isTestRace ? "border-[#facc15]/20 bg-[#facc15]/10 text-[#fde68a]" : "border-[#22c7b8]/20 bg-[#22c7b8]/10 text-[#99f6e4]"}`}>
               <Users className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-[9px] font-black uppercase tracking-[0.17em] text-[#5eead4]/60">CLARA Race Board</p>
-              <h3 className="mt-1 text-lg font-black tracking-[-0.03em] text-white">{monthLabel(state.data?.raceMonth)}</h3>
-              <p className="mt-1 text-[10px] font-semibold leading-4 text-white/40">See who is still standing with you. This is a finish-together race, not a leaderboard.</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className={`text-[9px] font-black uppercase tracking-[0.17em] ${isTestRace ? "text-[#facc15]/70" : "text-[#5eead4]/60"}`}>
+                  CLARA Race Board
+                </p>
+                {isTestRace ? (
+                  <span className="rounded-full border border-[#facc15]/20 bg-[#facc15]/[0.06] px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.12em] text-[#fde68a]">Pre-launch test</span>
+                ) : null}
+              </div>
+              <h3 className="mt-1 text-lg font-black tracking-[-0.03em] text-white">{heading}</h3>
+              {control?.raceStartDay ? (
+                <p className="mt-0.5 text-[9px] font-bold text-white/30">Starting line · {prettyDate(control.raceStartDay)}</p>
+              ) : null}
+              <p className="mt-1 text-[10px] font-semibold leading-4 text-white/40">
+                {isTestRace
+                  ? "Real Daily Money Tip check-ins decide who stays in. This test does not issue official tickets, prizes, or permanent race rewards."
+                  : "See who is still standing with you. This is a finish-together race, not a leaderboard."}
+              </p>
             </div>
           </div>
           <Trophy className="mt-1 h-5 w-5 shrink-0 text-[#facc15]/65" />
         </div>
+
+        {control?.isRunning ? (
+          <div className={`mt-3 rounded-[16px] border px-3 py-2.5 text-[10px] font-bold leading-4 ${isTestRace ? "border-[#facc15]/12 bg-[#facc15]/[0.035] text-[#fde68a]/70" : "border-[#22c7b8]/12 bg-[#22c7b8]/[0.035] text-[#99f6e4]/70"}`}>
+            {personalMessage}
+          </div>
+        ) : null}
 
         <div className="mt-4 grid grid-cols-4 gap-2">
           <div className="rounded-[15px] border border-white/[0.07] bg-white/[0.025] px-2 py-2.5 text-center">
@@ -176,6 +269,12 @@ export default function ChallengeRaceBoard() {
             </div>
           )}
         </div>
+
+        {isTestRace ? (
+          <p className="mt-3 text-[8px] font-semibold leading-4 text-white/25">
+            Ending or resetting this TEST race removes only the temporary competition starting line. It does not erase anyone's normal Daily Money Tip streak history.
+          </p>
+        ) : null}
       </div>
     </section>
   );
