@@ -1,41 +1,17 @@
-import { requestClaraGeminiProxyJson, getClaraProxyModel } from "@/lib/clara-gemini-proxy-client";
-import { AI_INTENTS, normalizeGeminiCommand } from "@/lib/ai-command/command-parser";
-import { compactFinanceSnapshot } from "@/lib/ai-command/finance-context";
+import {
+  AI_INTENTS,
+  normalizeGeminiCommand,
+  parseCommand,
+} from "@/lib/ai-command/command-parser";
 
-const DEFAULT_MODEL = "gemini-2.0-flash";
-const DEFAULT_TIMEOUT_MS = 18000;
 const USER_CONTEXT_STORY_KEY = "CLARA_USER_CONTEXT_STORY_V1";
 
-function getGeminiConfig() {
-  return {
-    apiKey: 'server-proxy',
-    model: getClaraProxyModel(DEFAULT_MODEL),
-  };
+function cleanText(value) {
+  return String(value || "").trim();
 }
 
-function safeJsonParse(value) {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
-
-function extractJson(text) {
-  const raw = String(text || "").trim();
-  if (!raw) throw new Error("Gemini returned an empty response.");
-  const direct = safeJsonParse(raw);
-  if (direct) return direct;
-  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const candidate = String(fenced?.[1] || raw).trim();
-  const fencedParsed = safeJsonParse(candidate);
-  if (fencedParsed) return fencedParsed;
-  const start = candidate.indexOf("{");
-  const end = candidate.lastIndexOf("}");
-  if (start === -1 || end === -1 || end <= start) throw new Error("Gemini did not return valid JSON.");
-  const parsed = safeJsonParse(candidate.slice(start, end + 1));
-  if (!parsed) throw new Error("Gemini returned malformed JSON.");
-  return parsed;
+function compactText(value = "") {
+  return cleanText(value).replace(/\s+/g, " ");
 }
 
 function todayManilaDate() {
@@ -51,14 +27,6 @@ function currentManilaPeriod() {
   return todayManilaDate().slice(0, 7);
 }
 
-function cleanText(value) {
-  return String(value || "").trim();
-}
-
-function compactText(value = "") {
-  return cleanText(value).replace(/\s+/g, " ");
-}
-
 function readUserContextStory() {
   if (typeof window === "undefined") return null;
   try {
@@ -68,23 +36,18 @@ function readUserContextStory() {
   }
 }
 
-function formatUserContextStoryForPrompt() {
+function flattenUserContextStory() {
   const story = readUserContextStory();
   const sections = Array.isArray(story?.sections) ? story.sections : [];
-  const formatted = sections
-    .map((section) => {
-      const title = compactText(section?.title || section?.name || section?.category || "Memory");
-      const bullets = (Array.isArray(section?.bullets) ? section.bullets : section?.items || section?.memories || [])
-        .map(compactText)
-        .filter(Boolean)
-        .slice(0, 8);
-      if (!title || !bullets.length) return "";
-      return `${title}\n${bullets.map((bullet) => `- ${bullet}`).join("\n")}`;
+  return sections
+    .flatMap((section) => {
+      const bullets = Array.isArray(section?.bullets)
+        ? section.bullets
+        : section?.items || section?.memories || [];
+      return bullets.map(compactText).filter(Boolean);
     })
-    .filter(Boolean)
-    .join("\n\n");
-
-  return formatted || "No saved user context story yet.";
+    .join(" ")
+    .toLowerCase();
 }
 
 function isGreeting(text) {
@@ -103,215 +66,79 @@ function isSadMood(text) {
   return /(sad|tired|stress|stressed|overwhelmed|bad day|malungkot|pagod|naiinis|worried|anxious)/i.test(cleanText(text));
 }
 
-function buildSystemPrompt() {
-  return `You are CLARA, a premium voice-first financial and Life OS assistant for Philippine users.
-
-PERSONALITY:
-- You sound human, calm, warm, and practical.
-- You are not robotic, not generic, and not overly formal.
-- You can do light small talk, but you naturally guide the user back to money, spending, wallets, budgets, or planning.
-- You should feel like a supportive financial companion, not a customer support bot.
-- Keep replies short unless the user asks for deep advice.
-
-IMPORTANT BEHAVIOR:
-- The assistantMessage must be freshly written for the user's exact message.
-- Never reuse the same generic response repeatedly.
-- Never say "How can I assist you today?" unless it feels natural.
-- Prefer: "What do you want to check or log today?"
-- Ask only one follow-up question when information is missing.
-- Do not claim that an expense, wallet update, transfer, or budget was saved. The app executor handles actual writes after confirmation.
-
-MEMORY BEHAVIOR:
-- Use the CLARA USER CONTEXT STORY when it is relevant.
-- If the user asks about patterns, why something is improving, temptation, stress spending, routines, or decisions, connect the answer to saved memory.
-- Do not say "you told me" every time. Mention saved context naturally.
-- If saved memory says basketball helps reduce stress or impulse food spending, use that insight when the user asks about better spending, cravings, post-work stress, or healthy routines.
-- Never ignore relevant saved memory.
-
-SMALL TALK RULE:
-- If the user greets you, respond naturally and gently guide toward a finance action.
-- If the user shares a mood, acknowledge it briefly and connect it to a useful next financial step.
-- If the user asks who you are, explain that you are CLARA, their finance and Life OS assistant.
-
-EXAMPLES:
-User: "Why do you think my spending gets better lately?"
-Assistant: "Based on your pattern, basketball after work seems to help you release stress before it turns into impulse food spending. That routine may be giving you a better pause before spending."
-
-User: "I feel tempted to order food tonight again."
-Assistant: "This looks like your after-work risk window. Since basketball has helped you reduce stress spending before, try a quick reset first before opening a delivery app."
-
-User: "hi"
-Assistant: "Hi Max! I’m here with you. Want to log an expense, check your wallet, or plan your spending today?"
-
-User: "I spent 120 on food"
-Assistant: "Got it — ₱120 for food. Which wallet did you use?"
-
-FINANCIAL STYLE:
-- Use Philippine peso amounts.
-- Use Asia/Manila dates.
-- If finance context exists, use it.
-- If finance context is missing, be honest and ask for the missing detail.
-- For decisions, give a clear recommendation and a short reason.
-
-Allowed intents:
-${Object.values(AI_INTENTS).join(", ")}
-
-Write intents:
-LOG_EXPENSE, ADD_MONEY, TRANSFER_MONEY, CREATE_BUDGET, CREATE_SAVINGS_GOAL.
-
-Return ONLY valid JSON. No markdown. No explanations outside JSON.
-
-JSON shape:
-{
-  "intent": "ONE_ALLOWED_INTENT",
-  "confidence": 0.0,
-  "parsedData": {
-    "amount": number,
-    "item": string,
-    "label": string,
-    "category": "food|transport|housing|utilities|entertainment|shopping|health|education|personal|other",
-    "wallet": string,
-    "fromWallet": string,
-    "toWallet": string,
-    "date": "YYYY-MM-DD",
-    "period": "YYYY-MM",
-    "targetAmount": number,
-    "targetDate": "YYYY-MM-DD",
-    "decisionSubject": string,
-    "scope": "today|yesterday|this month|last month",
-    "commands": []
-  },
-  "assistantMessage": "short, human-like, natural response"
-}`;
-}
-
 function createLocalAssistantMessage(text) {
   const input = cleanText(text);
-  const memoryText = formatUserContextStoryForPrompt().toLowerCase();
+  const memoryText = flattenUserContextStory();
 
   if (!input) return "I’m here. Tell me what you want to log, check, or plan with your money.";
   if (asksHowAreYou(input)) return "I’m doing good — ready to help you stay on top of your money. What do you want to check first?";
-  if (isGreeting(input)) return "Hi Max! I’m here with you. Want to log an expense, check your wallet, or plan your spending today?";
+  if (isGreeting(input)) return "Hi! I’m here with you. Want to log an expense, check your wallet, or plan your spending today?";
+
   if (/why.*spending.*better|spending.*better|patterns.*notice|what patterns/i.test(input) && /basketball|sports/.test(memoryText)) {
-    return "Your saved pattern shows basketball after work may be helping you release stress before it turns into impulse food spending. That routine seems to strengthen your pause-before-spending habit.";
+    return "Your saved pattern shows physical activity may be helping you release stress before it turns into impulse spending. That pause can make your money decisions more deliberate.";
   }
+
   if (/tempted|order food|delivery|craving|stress spend/i.test(input) && /basketball|sports/.test(memoryText)) {
-    return "This looks close to your after-work spending risk window. Since basketball has helped you manage stress before, try a quick reset first before opening a food app.";
+    return "This looks close to a spending-trigger window saved in your memory. Try the healthier reset that has worked for you before, then decide after the urge settles.";
   }
-  if (isHappyMood(input)) return "Love that. Since you’re in a good mood, want to quickly check your money left or log anything you spent today?";
+
+  if (isHappyMood(input)) return "Glad to hear that. Want to quickly check your money left or log anything you spent today?";
   if (isSadMood(input)) return "I’m here with you. Want to do a quick money check so things feel a little more organized?";
-  return "I’m having trouble reaching Gemini right now, but I’m still here. Tell me the expense, wallet update, or budget action you want to do.";
+
+  return "I can help with wallets, expenses, budgets, savings, and spending plans using CLARA’s local financial tools. What do you want to check?";
 }
 
-function buildFallbackCommand(text, error) {
+function buildLocalFallbackCommand(text) {
   const cleanedText = cleanText(text);
   return normalizeGeminiCommand({
     intent: AI_INTENTS.GENERAL_GUIDANCE,
-    confidence: 0.25,
-    parsedData: { item: cleanedText, date: todayManilaDate(), period: currentManilaPeriod() },
-    assistantMessage: createLocalAssistantMessage(cleanedText),
-    meta: { source: "local_fallback", errorCode: error?.code || "GEMINI_UNAVAILABLE", errorMessage: error?.message || "Gemini unavailable." },
-  });
-}
-
-function withTimeout(ms = DEFAULT_TIMEOUT_MS) {
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), ms);
-  return { signal: controller.signal, clear: () => window.clearTimeout(timeoutId) };
-}
-
-function sanitizeGeminiResult(parsed) {
-  const normalized = normalizeGeminiCommand(parsed);
-  return normalizeGeminiCommand({
-    ...normalized,
-    confidence: typeof normalized?.confidence === "number" ? Math.max(0, Math.min(1, normalized.confidence)) : 0.65,
-    parsedData: { ...(normalized?.parsedData || {}), date: normalized?.parsedData?.date || todayManilaDate(), period: normalized?.parsedData?.period || currentManilaPeriod() },
-    assistantMessage: cleanText(normalized?.assistantMessage) || "Got it. What would you like to do next with your money?",
-  });
-}
-
-export async function askGeminiForUnderstanding({ text, session, financeSnapshot }) {
-  const { apiKey, model } = getGeminiConfig();
-  const userInput = cleanText(text);
-
-  if (!apiKey) {
-    return buildFallbackCommand(userInput, Object.assign(new Error("Gemini API key is not configured."), { code: "GEMINI_NOT_CONFIGURED" }));
-  }
-  const compact = compactFinanceSnapshot(financeSnapshot);
-  const userContextStory = formatUserContextStoryForPrompt();
-
-  const recentHistory = (session?.history || [])
-    .slice(-8)
-    .filter((message) => message?.content)
-    .map((message) => ({
-      role: message.role === "assistant" || message.role === "model" ? "assistant" : "user",
-      content: cleanText(message.content).slice(0, 1000),
-    }));
-
-  const prompt = `${buildSystemPrompt()}
-
-CURRENT MANILA DATE:
-${todayManilaDate()}
-
-CURRENT MANILA PERIOD:
-${currentManilaPeriod()}
-
-CLARA USER CONTEXT STORY:
-${userContextStory}
-
-CURRENT FINANCE CONTEXT:
-${JSON.stringify(compact || {}, null, 2)}
-
-CURRENT COMMAND IN PROGRESS:
-${JSON.stringify(session?.currentCommand || null, null, 2)}
-
-RECENT CONVERSATION:
-${JSON.stringify(recentHistory, null, 2)}
-
-USER INPUT:
-${userInput}`;
-
-  const body = {
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    generationConfig: {
-      temperature: isGreeting(userInput) || asksHowAreYou(userInput) ? 0.95 : 0.72,
-      topP: 0.9,
-      topK: 40,
-      maxOutputTokens: 900,
-      responseMimeType: "application/json",
+    confidence: 0.45,
+    parsedData: {
+      item: cleanedText,
+      date: todayManilaDate(),
+      period: currentManilaPeriod(),
     },
-  };
+    assistantMessage: createLocalAssistantMessage(cleanedText),
+    meta: {
+      source: "local_rule_engine",
+      provider: "none",
+      billableAi: false,
+    },
+  });
+}
 
-  const timeout = withTimeout();
-  try {
-    console.info("[CLARA Gemini] Request started:", {
-      model,
-      hasInput: Boolean(userInput),
-      hasFinanceSnapshot: Boolean(financeSnapshot),
-      hasUserContextStory: userContextStory !== "No saved user context story yet.",
-      historyCount: recentHistory.length,
+// Compatibility name retained because the existing assistant engine imports it.
+// This function is deliberately local: it never contacts Gemini or any paid AI API.
+export async function askGeminiForUnderstanding({ text, session } = {}) {
+  const userInput = cleanText(text);
+  const parsed = parseCommand(userInput, session?.currentCommand || null);
+
+  if (parsed?.intent && parsed.intent !== AI_INTENTS.UNKNOWN) {
+    return normalizeGeminiCommand({
+      ...parsed,
+      parsedData: {
+        ...(parsed.parsedData || {}),
+        date: parsed?.parsedData?.date || todayManilaDate(),
+        period: parsed?.parsedData?.period || currentManilaPeriod(),
+      },
+      assistantMessage: cleanText(parsed.assistantMessage) || createLocalAssistantMessage(userInput),
+      meta: {
+        ...(parsed.meta || {}),
+        source: "local_rule_engine",
+        provider: "none",
+        billableAi: false,
+      },
     });
-
-    const textPayload = await requestClaraGeminiProxyJson({
-      prompt,
-      model,
-      signal: timeout.signal,
-      generationConfig: body.generationConfig,
-    });
-    const parsed = extractJson(textPayload);
-    const normalized = sanitizeGeminiResult(parsed);
-
-    return { ...normalized, meta: { ...(normalized?.meta || {}), source: "gemini", model } };
-  } catch (error) {
-    const finalError = error?.name === "AbortError" ? Object.assign(new Error("Gemini request timed out."), { code: "GEMINI_TIMEOUT" }) : error;
-    console.warn("[CLARA Gemini] Falling back:", finalError);
-    return buildFallbackCommand(userInput, finalError);
-  } finally {
-    timeout.clear();
   }
+
+  return buildLocalFallbackCommand(userInput);
 }
 
 export function getGeminiStatus() {
-  const { model } = getGeminiConfig();
-  return { configured: true, model };
+  return {
+    configured: false,
+    model: "local-financial-reasoning",
+    provider: "none",
+    billableAi: false,
+  };
 }
