@@ -44,16 +44,14 @@ body.clara-route-soft-settle .theme-page-shell main {
 }
 
 /*
- * Community is a true viewport-owned surface. A fixed child becomes relative
- * to any ancestor that is transformed, filtered, perspective-enabled, or
- * containment-scoped. That can make the Community render only inside the
- * Layout main column and expose the violet app canvas as a large right-side
- * "leak" on phones/PWAs.
+ * Community is a true viewport-owned surface on desktop/browser layouts. A
+ * fixed child becomes relative to any ancestor that is transformed, filtered,
+ * perspective-enabled, or containment-scoped. That can make Community render
+ * only inside the Layout main column and expose the app canvas at an edge.
  *
- * When Community is mounted, neutralize every possible containing-block maker
- * in the Layout chain and make the Community root own the complete visual
- * viewport. This is intentionally route-scoped so finance motion transitions
- * and other screens keep their existing behavior.
+ * Mobile/Capacitor is intentionally different: messages-back-to-community-label.css
+ * delegates vertical touch scrolling to Layout <main>. The mobile rule below
+ * keeps that proven ownership intact instead of leaving both layers locked.
  */
 html:has(.clara-community-root),
 body:has(.clara-community-root),
@@ -99,14 +97,28 @@ body:has(.clara-community-root),
 }
 
 /*
+ * Android / phone Community uses Layout <main> as the one vertical scroll
+ * owner. The later Community mobile stylesheet makes the Community root and
+ * its direct page content overflow-visible; therefore Layout must remain
+ * scrollable here. The previous unconditional overflow:hidden created a dead
+ * chain where neither Settings nor Layout could consume a vertical drag.
+ */
+@media (max-width: 767px) {
+  .theme-page-shell main:has(.clara-community-root) {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain !important;
+    touch-action: pan-y !important;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/*
  * Settings is much taller than the viewport now that it owns the complete
- * notification catalog. Do not rely on flex auto-sizing here: the fixed
- * Community shell can otherwise let the Settings child grow to its content
- * height, leaving overflow-y with no bounded scrollport on some WebViews.
- *
- * For Settings only, make the shell two explicit rows: shared top nav, then a
- * minmax(0, 1fr) content row. That guarantees the detail view has a definite
- * remaining viewport height and therefore a real vertical scroll surface.
+ * notification catalog. On desktop/browser layouts the fixed Community shell
+ * remains the scroll context, so Settings gets an explicit bounded content row.
+ * The Android mobile stylesheet deliberately overrides this grid and lets the
+ * Layout scroller own the full Settings document instead.
  */
 .clara-community-root[data-community-view="settings"] {
   display: grid !important;
