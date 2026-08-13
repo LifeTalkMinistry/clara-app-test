@@ -3,6 +3,7 @@ import "@/community-badge-premium.css";
 
 const BADGES = Object.freeze({
   supporter: {
+    assetSrc: "/support-badges/supporter-tier-1.png",
     shellClass:
       "border-blue-400/35 bg-gradient-to-r from-blue-500/[0.15] via-sky-400/[0.08] to-blue-700/[0.12] text-blue-50 shadow-[0_0_18px_rgba(37,99,235,0.12)]",
     iconClass:
@@ -79,7 +80,16 @@ export default function SupportTierBadge({ tier, compact = false, className = ""
     >
       <span aria-hidden="true" className={`clara-support-badge__shine pointer-events-none absolute inset-x-1 top-0 h-px bg-gradient-to-r ${visual.shineClass}`} />
       <span className={`clara-support-badge__mark relative z-[1] inline-flex shrink-0 items-center justify-center rounded-full border ${visual.iconClass} ${compact ? "h-4 w-4" : "h-[18px] w-[18px]"}`}>
-        <ClaraStatusMark compact={compact} />
+        {badge.assetSrc ? (
+          <img
+            src={badge.assetSrc}
+            alt=""
+            aria-hidden="true"
+            className="clara-support-badge__asset block h-full w-full object-contain"
+          />
+        ) : (
+          <ClaraStatusMark compact={compact} />
+        )}
       </span>
       <span className="clara-support-badge__label relative z-[1] whitespace-nowrap tracking-[0.02em]">{label}</span>
     </span>
