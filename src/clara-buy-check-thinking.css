@@ -1,68 +1,66 @@
 /* CLARA Buy Check thinking bubble
-   Empty CLARA message rows are deliberate transient placeholders. Keeping the
-   placeholder as a real message row preserves the transcript geometry while a
-   response is being prepared, so the final reply replaces it without a jump. */
+   The thinking indicator is rendered as explicit DOM instead of relying on
+   :has()/:empty selectors so it animates consistently inside Android WebView.
+   Only transform + opacity are animated to keep it compositor-friendly. */
 
-[data-clara-ai-message-stack="true"] > div:has(span.whitespace-pre-wrap:empty) > div {
-  width: 68px !important;
-  max-width: 68px !important;
+.clara-buy-check-thinking-bubble {
+  width: 68px;
+  min-width: 68px;
+  height: 42px;
   min-height: 42px;
-  padding: 0 !important;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 22px;
+  border: 1px solid rgba(191, 219, 254, 0.14);
+  border-left: 2px solid rgba(255, 216, 74, 0.45);
+  background: rgba(7, 21, 45, 0.94);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
-[data-clara-ai-message-stack="true"] span.whitespace-pre-wrap:empty {
-  position: relative;
-  display: block;
-  width: 6px;
-  height: 6px;
+.clara-buy-check-thinking-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
   border-radius: 999px;
-  background: rgba(191, 219, 254, 0.92);
-  color: rgba(191, 219, 254, 0.92);
-  animation: clara-buy-check-thinking-dot 1.05s ease-in-out 0.16s infinite;
+  background: rgba(191, 219, 254, 0.96);
+  transform: translate3d(0, 2px, 0) scale(0.78);
+  opacity: 0.36;
+  will-change: transform, opacity;
+  animation: clara-buy-check-thinking-dot 1.05s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
-[data-clara-ai-message-stack="true"] span.whitespace-pre-wrap:empty::before,
-[data-clara-ai-message-stack="true"] span.whitespace-pre-wrap:empty::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: currentColor;
-  animation: clara-buy-check-thinking-dot 1.05s ease-in-out infinite;
-}
-
-[data-clara-ai-message-stack="true"] span.whitespace-pre-wrap:empty::before {
-  left: -13px;
+.clara-buy-check-thinking-dot:nth-child(1) {
   animation-delay: 0s;
 }
 
-[data-clara-ai-message-stack="true"] span.whitespace-pre-wrap:empty::after {
-  left: 13px;
+.clara-buy-check-thinking-dot:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.clara-buy-check-thinking-dot:nth-child(3) {
   animation-delay: 0.32s;
 }
 
 @keyframes clara-buy-check-thinking-dot {
   0%,
-  60%,
+  55%,
   100% {
-    transform: translateY(0) scale(0.82);
-    opacity: 0.42;
+    transform: translate3d(0, 2px, 0) scale(0.78);
+    opacity: 0.36;
   }
-  30% {
-    transform: translateY(-3px) scale(1);
+
+  28% {
+    transform: translate3d(0, -5px, 0) scale(1.08);
     opacity: 1;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-clara-ai-message-stack="true"] span.whitespace-pre-wrap:empty,
-  [data-clara-ai-message-stack="true"] span.whitespace-pre-wrap:empty::before,
-  [data-clara-ai-message-stack="true"] span.whitespace-pre-wrap:empty::after {
-    animation: none !important;
+  .clara-buy-check-thinking-dot {
+    animation-duration: 1.6s;
+    transform: none;
     opacity: 0.72;
   }
 }
