@@ -246,8 +246,12 @@ const BuyCheckComposer = memo(function BuyCheckComposer({
   }, [isActive]);
 
   useEffect(() => {
-    if (!isActive || inputLocked || busy) return undefined;
-    const frame = window.requestAnimationFrame(() => inputRef.current?.focus?.({ preventScroll: true }));
+    if (!isActive || inputLocked) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      if (document.activeElement !== inputRef.current) {
+        inputRef.current?.focus?.({ preventScroll: true });
+      }
+    });
     return () => window.cancelAnimationFrame(frame);
   }, [busy, inputLocked, isActive, step]);
 
@@ -284,6 +288,7 @@ const BuyCheckComposer = memo(function BuyCheckComposer({
         />
         <button
           type="submit"
+          onMouseDown={(event) => event.preventDefault()}
           disabled={!draft.trim() || composerLocked}
           className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-blue-300/24 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] text-white shadow-[0_10px_28px_rgba(23,105,255,0.28)] transition hover:brightness-110 disabled:opacity-40"
           aria-label="Send Ask Before You Spend answer"
