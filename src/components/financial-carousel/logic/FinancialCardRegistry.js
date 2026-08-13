@@ -1,6 +1,3 @@
-import { COMMITTED_PLAN_KEY } from "@/lib/membership";
-import { meetsFinancialPlanRequirement } from "./financialPlanAccess";
-
 export const DEFAULT_FINANCIAL_CARD_KEY = "budget";
 
 export const FINANCIAL_CARD_REGISTRY = [
@@ -46,8 +43,7 @@ export const FINANCIAL_CARD_REGISTRY = [
     order: 3,
     detailKey: "emergency",
     tone: "teal",
-    minimumPlan: COMMITTED_PLAN_KEY,
-    lockedTier: "COMMITTED",
+    minimumPlan: "free",
     featureFlag: "emergencyFund",
   },
   {
@@ -58,8 +54,7 @@ export const FINANCIAL_CARD_REGISTRY = [
     order: 4,
     detailKey: "savings",
     tone: "blue",
-    minimumPlan: COMMITTED_PLAN_KEY,
-    lockedTier: "COMMITTED",
+    minimumPlan: "free",
     featureFlag: "savingsGoals",
   },
   {
@@ -70,38 +65,23 @@ export const FINANCIAL_CARD_REGISTRY = [
     order: 5,
     detailKey: "debtObligations",
     tone: "rose",
-    minimumPlan: COMMITTED_PLAN_KEY,
-    lockedTier: "COMMITTED",
+    minimumPlan: "free",
     featureFlag: "debtObligations",
   },
 ];
 
-export const canUseFinancialCard = (card, options = {}) => {
-  if (!card || card.enabled === false) return false;
-
-  const currentPlan = options.plan || options.profileData?.plan || options.profileData?.subscription_label || "free";
-  const minimumPlan = card.minimumPlan || "free";
-
-  if (!meetsFinancialPlanRequirement(currentPlan, minimumPlan)) {
-    return options.includeLocked === true;
-  }
-
-  const featureFlags = options.featureFlags || options.profileData?.feature_flags || null;
-  if (!featureFlags || !card.featureFlag) return true;
-
-  if (featureFlags[card.featureFlag] === false) {
-    return options.includeLocked === true;
-  }
-
-  return true;
-};
+// P0-F14: these registry entries are CLARA core product cards, not customer
+// entitlements. A card may be removed from the product in code with enabled:
+// false, but no user plan, subscription, beta state, support record, profile
+// feature flag, or admin membership edit may independently lock it.
+export const canUseFinancialCard = (card) => Boolean(card && card.enabled !== false);
 
 export const getRegisteredFinancialCards = (options = {}) =>
   FINANCIAL_CARD_REGISTRY
     .filter((card) => canUseFinancialCard(card, options))
     .map((card) => ({
       ...card,
-      locked: !canUseFinancialCard(card, { ...options, includeLocked: false }),
+      locked: false,
     }))
     .sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
 
