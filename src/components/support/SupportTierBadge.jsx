@@ -3,7 +3,7 @@ import "@/community-badge-premium.css";
 
 const BADGES = Object.freeze({
   supporter: {
-    assetSrc: "/support-badges/supporter-tier-1.png",
+    assetSrc: new URL("support-badges/supporter-tier-1.png", document.baseURI).href,
     shellClass:
       "border-blue-400/35 bg-gradient-to-r from-blue-500/[0.15] via-sky-400/[0.08] to-blue-700/[0.12] text-blue-50 shadow-[0_0_18px_rgba(37,99,235,0.12)]",
     iconClass:
