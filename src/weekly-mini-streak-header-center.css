@@ -1,3 +1,5 @@
+@import "./monthly-mission-card-cleanup.css";
+
 /* Weekly Mini Streak header alignment.
  * Keep the help control pinned to the right while the badge and draw title
  * remain optically centered in the card.
