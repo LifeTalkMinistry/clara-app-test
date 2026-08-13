@@ -10,6 +10,8 @@ const READY_EVENT = "clara:analytics-phase-one-ready";
 const ACTION_SELECTOR = "[data-clara-open-analytics-report='true']";
 const WINDOW_SELECTOR = "[data-clara-analytics-window]";
 const REPORT_TONES = new Set(["neutral", "reality", "hope", "possibility"]);
+const ANALYTICS_PAGE_OLD_TITLE = "Understand your money behavior";
+const ANALYTICS_PAGE_NEW_TITLE = "Analytics";
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -69,6 +71,13 @@ function findAnalyticsReadyBubble() {
     const text = clean(node.textContent);
     return text.includes("Analytic snapshot ready") || text.includes("Analytic snapshot needs more records");
   }) || null;
+}
+
+function ensureAnalyticsPageTitle() {
+  const heading = Array.from(document.querySelectorAll("h1")).find(
+    (node) => clean(node.textContent) === ANALYTICS_PAGE_OLD_TITLE,
+  );
+  if (heading) heading.textContent = ANALYTICS_PAGE_NEW_TITLE;
 }
 
 function buildActionButton() {
@@ -323,10 +332,16 @@ function installOpenListener() {
 
 function installObserver() {
   const observer = new MutationObserver(() => {
+    ensureAnalyticsPageTitle();
     if (findAnalyticsReadyBubble()) ensureInlineAction();
   });
   observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
   window.setTimeout(() => {
+    ensureAnalyticsPageTitle();
+    if (findAnalyticsReadyBubble()) ensureInlineAction();
+  }, 60);
+  window.setTimeout(() => {
+    ensureAnalyticsPageTitle();
     if (findAnalyticsReadyBubble()) ensureInlineAction();
   }, 900);
 }
