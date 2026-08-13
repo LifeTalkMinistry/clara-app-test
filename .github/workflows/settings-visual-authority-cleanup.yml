@@ -20,7 +20,7 @@ jobs:
           fetch-depth: 0
 
       - name: Apply cleanup
-        run: python .github/scripts/settings-visual-authority-cleanup.py
+        run: python .github/scripts/run-settings-visual-authority-cleanup.py
 
       - name: Commit cleanup
         run: |
