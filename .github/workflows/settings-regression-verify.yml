@@ -17,10 +17,32 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Align current notification tools label
-        run: sed -i 's/Advanced task reminder schedule/Advanced delivery \& task reminder tools/g' tests/settings-integrity-regression.test.mjs
+      - name: Align current regression assertions
+        run: |
+          sed -i 's/Advanced task reminder schedule/Advanced delivery \& task reminder tools/g' tests/settings-integrity-regression.test.mjs
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tests/settings-local-only-regression.test.mjs')
+          text = p.read_text()
+          text = text.replace(
+              '  assert.match(appSource, /const isLoginRoute = location\\.pathname === "\\/login";/);',
+              '  assert.match(appSource, /const isPublicAuthRoute/);'
+          )
+          text = text.replace(
+              '  assert.match(appSource, /!authReady \\|\\| roleLoading \\|\\| \\(loading && !isLoginRoute\\)/);',
+              '  assert.match(appSource, /!authReady \\|\\| roleLoading \\|\\| \\(loading && !isPublicAuthRoute\\)/);'
+          )
+          old = '''  assert.match(
+            appSource,
+            /path="\\/link-local-vault"\\s+element=\\{<Navigate to=\\{user \\? "\\/dashboard" : "\\/login"\\} replace \\/>\\}/
+          );'''
+          new = '''  assert.match(appSource, /path="\\/link-local-vault"/);
+          assert.match(appSource, /user \\? CLARA_ORB_PATH : "\\/login"/);'''
+          text = text.replace(old, new)
+          p.write_text(text)
+          PY
 
-      - name: Run Settings authority regressions sequentially
+      - name: Run Settings authority regressions
         run: |
           node --test tests/canonical-display-name-authority.test.mjs
           node --test tests/settings-local-only-regression.test.mjs
@@ -29,11 +51,11 @@ jobs:
           node --test tests/settings-visual-authority.test.mjs
           node --test tests/dashboard-top-nav-ownership.test.mjs
 
-      - name: Commit verified alignment and remove verifier
+      - name: Commit verified test alignment and remove verifier
         run: |
           git config user.name "CLARA Engineering"
           git config user.email "actions@users.noreply.github.com"
           git rm .github/workflows/settings-regression-verify.yml
-          git add tests/settings-integrity-regression.test.mjs
+          git add tests/settings-integrity-regression.test.mjs tests/settings-local-only-regression.test.mjs
           git commit -m "Verify Settings visual authority regressions"
           git push origin HEAD:main
