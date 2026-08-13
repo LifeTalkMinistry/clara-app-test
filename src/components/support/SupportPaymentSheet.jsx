@@ -273,8 +273,8 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
           </div>
 
           {selected.qrCodeDataUrl && (
-            <div className="mt-4 rounded-2xl bg-white p-3">
-              <img src={selected.qrCodeDataUrl} alt={`${selected.label} ₱${tier.price} payment QR code`} className="mx-auto block max-h-[250px] w-auto max-w-full object-contain" />
+            <div className="mt-4 overflow-hidden rounded-2xl bg-white">
+              <img src={selected.qrCodeDataUrl} alt={`${selected.label} ₱${tier.price} payment QR code`} className="block h-auto w-full" />
             </div>
           )}
 
