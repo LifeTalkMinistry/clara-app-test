@@ -159,6 +159,34 @@ test("Community scroll ownership does not depend on :has support in Android WebV
   );
 });
 
+test("phone Community keeps Layout main as the single vertical scroll owner", () => {
+  const mobileCommunityStart = communityScrollCss.indexOf(
+    "* CAPACITOR / ANDROID WEBVIEW SCROLL FIX"
+  );
+  assert.notEqual(mobileCommunityStart, -1);
+
+  const mobileCommunitySection = communityScrollCss.slice(mobileCommunityStart);
+  assert.match(
+    mobileCommunitySection,
+    /@media \(max-width: 767px\)[\s\S]*?div\[class~="z-\[80\]"\]\[class~="h-\[100dvh\]"\][\s\S]*?overflow:\s*visible !important;/
+  );
+  assert.match(
+    mobileCommunitySection,
+    /> main \{[\s\S]*?overflow:\s*visible !important;/
+  );
+
+  const mobileViewportStart = viewportEdgeCss.indexOf("@media (max-width: 767px)");
+  assert.notEqual(mobileViewportStart, -1);
+  const mobileViewportSection = viewportEdgeCss.slice(mobileViewportStart);
+
+  assert.match(
+    mobileViewportSection,
+    /\.theme-page-shell main:has\(\.clara-community-root\) \{[\s\S]*?overflow-y:\s*auto !important;/
+  );
+  assert.match(mobileViewportSection, /touch-action:\s*pan-y !important;/);
+  assert.match(mobileViewportSection, /-webkit-overflow-scrolling:\s*touch;/);
+});
+
 test("route settle cannot create a transformed or filtered Community containing block", () => {
   assert.match(
     viewportEdgeCss,
