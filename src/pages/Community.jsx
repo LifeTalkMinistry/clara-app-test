@@ -373,6 +373,23 @@ export default function Community() {
         .clara-community-challenges-view > div > header {
           display: none !important;
         }
+        .clara-community-challenges-view {
+          overflow-y: auto !important;
+          overflow-x: hidden !important;
+          overscroll-behavior-y: contain;
+          -webkit-overflow-scrolling: touch;
+          touch-action: pan-y;
+        }
+        .clara-community-challenges-view > div {
+          height: auto !important;
+          min-height: 100% !important;
+          overflow: visible !important;
+        }
+        .clara-community-challenges-view > div > main {
+          min-height: auto !important;
+          flex: none !important;
+          overflow: visible !important;
+        }
         .clara-community-circles-view > div > header:has(> div > button:last-child) {
           display: none !important;
         }
@@ -473,7 +490,7 @@ export default function Community() {
           <MyCircle />
         </div>
       ) : activeView === "challenges" ? (
-        <div className="clara-community-challenges-view min-h-0 flex-1 overflow-hidden">
+        <div className="clara-community-challenges-view min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain">
           <Challenges />
         </div>
       ) : activeView === "messages" ? (
