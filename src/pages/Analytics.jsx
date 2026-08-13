@@ -1,1 +1,1 @@
-export { default } from "./ClaraAnalytics";
+export { default } from "./ClaraAnalyticsSimple";
