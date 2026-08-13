@@ -98,16 +98,49 @@ body:has(.clara-community-root),
   overscroll-behavior-x: none !important;
 }
 
-/* Settings is a long-form child of the fixed Community shell. The shell keeps
-   viewport ownership, while this view must own the vertical gesture/scroll
-   surface so notification families below the fold remain reachable. */
-.clara-community-root > .clara-community-settings-view {
+/*
+ * Settings is much taller than the viewport now that it owns the complete
+ * notification catalog. Do not rely on flex auto-sizing here: the fixed
+ * Community shell can otherwise let the Settings child grow to its content
+ * height, leaving overflow-y with no bounded scrollport on some WebViews.
+ *
+ * For Settings only, make the shell two explicit rows: shared top nav, then a
+ * minmax(0, 1fr) content row. That guarantees the detail view has a definite
+ * remaining viewport height and therefore a real vertical scroll surface.
+ */
+.clara-community-root[data-community-view="settings"] {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+}
+
+.clara-community-root[data-community-view="settings"] > .clara-community-shell-header {
+  grid-column: 1 !important;
+  grid-row: 1 !important;
   min-height: 0 !important;
+}
+
+.clara-community-root[data-community-view="settings"] > .clara-community-settings-view {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  align-self: stretch !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  flex: none !important;
   overflow-x: hidden !important;
   overflow-y: auto !important;
   overscroll-behavior-y: contain !important;
   touch-action: pan-y !important;
   -webkit-overflow-scrolling: touch;
+}
+
+.clara-community-root[data-community-view="settings"] > .clara-community-settings-view > div {
+  min-height: 0 !important;
+  height: auto !important;
+  overflow: visible !important;
 }
 
 @supports (overflow: clip) {
