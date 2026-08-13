@@ -112,3 +112,35 @@ test("paid and special services remain outside the free-core route policy", asyn
   assert.doesNotMatch(source, /"\/admin"\s*:/);
   assert.match(source, /coaching: "teaser"/);
 });
+
+test("Challenge Hub hero and Information dialog stay React-owned", async () => {
+  const [challenges, runtimeLoader, challengeTheme] = await Promise.all([
+    read("../src/pages/Challenges.jsx"),
+    read("../src/runtime/installChallengeStreakTracking.js"),
+    read("../src/challenges-official-brand-theme.css"),
+  ]);
+
+  assert.match(challenges, /data-challenge-hub-hero/);
+  assert.match(challenges, /Consistency builds financial strength\./);
+  assert.match(challenges, /isChallengeHubInfoOpen/);
+  assert.match(challenges, /challenge-hub-info-trigger/);
+  assert.match(challenges, /role="dialog"/);
+  assert.match(challenges, /aria-modal="true"/);
+  assert.match(challenges, /Consistency is the advantage\./);
+  assert.match(challenges, /Small actions, repeated well, become financial strength\./);
+  assert.match(challenges, /event\.key !== "Escape"/);
+  assert.match(challenges, /event\.target === event\.currentTarget/);
+  assert.doesNotMatch(challenges, /document\.createElement/);
+  assert.doesNotMatch(challenges, /MutationObserver/);
+  assert.doesNotMatch(challenges, /Consistency wins here\./);
+
+  assert.doesNotMatch(runtimeLoader, /installChallengeHeroRefinement/);
+  await assert.rejects(read("../src/runtime/installChallengeHeroRefinement.js"), /ENOENT/);
+
+  assert.match(challengeTheme, /\[data-challenge-hub-hero\] \.challenge-hub-info-trigger/);
+  assert.match(challengeTheme, /\.challenge-hub-info-backdrop/);
+  assert.match(challengeTheme, /\.challenge-hub-info-dialog/);
+  assert.match(challengeTheme, /env\(safe-area-inset-top\)/);
+  assert.match(challengeTheme, /env\(safe-area-inset-bottom\)/);
+  assert.doesNotMatch(challengeTheme, /section:first-child > div\.relative > div:first-child/);
+});
