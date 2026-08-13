@@ -1,1 +1,91 @@
-/* Monthly Mission visual cleanup. */
+/* Monthly Mission visual cleanup.
+ * Match the Weekly Mini Streak hierarchy: keep the primary identity and title
+ * centered, move detailed guidance behind the info control, and remove inline
+ * microcopy that competes with the progress/action UI.
+ */
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+main
+section:has(> div:first-child > div:first-child > div.min-w-0 + button .lucide-info)
+> div:first-child
+> div:first-child {
+  position: relative;
+  justify-content: center !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+main
+section:has(> div:first-child > div:first-child > div.min-w-0 + button .lucide-info)
+> div:first-child
+> div:first-child
+> div.min-w-0 {
+  width: 100%;
+  padding-inline: 44px;
+  text-align: center;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+main
+section:has(> div:first-child > div:first-child > div.min-w-0 + button .lucide-info)
+> div:first-child
+> div:first-child
+> div.min-w-0
+> div:first-child {
+  justify-content: center;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+main
+section:has(> div:first-child > div:first-child > div.min-w-0 + button .lucide-info)
+> div:first-child
+> div:first-child
+> div.min-w-0
+> div:first-child
+> span:nth-child(2),
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+main
+section:has(> div:first-child > div:first-child > div.min-w-0 + button .lucide-info)
+> div:first-child
+> div:first-child
+> div.min-w-0
+> h3
++ p {
+  display: none !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+main
+section:has(> div:first-child > div:first-child > div.min-w-0 + button .lucide-info)
+> div:first-child
+> div:first-child
+> div.min-w-0
+> h3 {
+  text-align: center;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+main
+section:has(> div:first-child > div:first-child > div.min-w-0 + button .lucide-info)
+> div:first-child
+> div:first-child
+> button {
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+main
+section:has(> div:first-child > div:first-child > div.min-w-0 + button .lucide-info)
+> div.p-4
+> p:last-child {
+  display: none !important;
+}
