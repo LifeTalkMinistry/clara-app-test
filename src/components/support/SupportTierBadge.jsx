@@ -29,30 +29,32 @@ const BADGES = Object.freeze({
   },
 });
 
-export default function SupportTierBadge({ tier, compact = false, className = "" }) {
+const SETTINGS_TONE = {
+  shellClass: "border-[#9a8130]/45 bg-[#ffd84a]/8 text-[#ffe477] shadow-none",
+  iconClass: "border-[#a98c32]/45 bg-[#ffd84a]/10 text-[#ffe477] shadow-none",
+  shineClass: "from-[#ffd84a]/0 via-[#ffd84a]/12 to-[#ffd84a]/0",
+};
+
+export default function SupportTierBadge({ tier, compact = false, className = "", tone = "default" }) {
   const normalized = normalizeSupportTier(tier);
   const badge = normalized ? BADGES[normalized] : null;
   const canonicalTier = normalized ? getSupportTier(normalized) : null;
   if (!badge || !canonicalTier) return null;
 
   const { Icon } = badge;
+  const visual = tone === "settings" ? SETTINGS_TONE : badge;
   const label = canonicalTier.name;
   const description = `${label} — helping keep CLARA free for everyone.`;
 
   return (
     <span
-      className={`relative inline-flex shrink-0 items-center overflow-hidden rounded-full border font-black leading-none backdrop-blur-md ${badge.shellClass} ${compact ? "h-6 gap-1.5 px-2 pr-2.5 text-[9px]" : "h-7 gap-1.5 px-2.5 pr-3 text-[10px]"} ${className}`}
+      className={`relative inline-flex shrink-0 items-center overflow-hidden rounded-full border font-black leading-none ${tone === "settings" ? "" : "backdrop-blur-md"} ${visual.shellClass} ${compact ? "h-6 gap-1.5 px-2 pr-2.5 text-[9px]" : "h-7 gap-1.5 px-2.5 pr-3 text-[10px]"} ${className}`}
       title={description}
       aria-label={description}
       data-clara-support-tier={normalized}
     >
-      <span
-        aria-hidden="true"
-        className={`pointer-events-none absolute inset-x-1 top-0 h-px bg-gradient-to-r ${badge.shineClass}`}
-      />
-      <span
-        className={`relative z-[1] inline-flex shrink-0 items-center justify-center rounded-full border ${badge.iconClass} ${compact ? "h-4 w-4" : "h-[18px] w-[18px]"}`}
-      >
+      <span aria-hidden="true" className={`pointer-events-none absolute inset-x-1 top-0 h-px bg-gradient-to-r ${visual.shineClass}`} />
+      <span className={`relative z-[1] inline-flex shrink-0 items-center justify-center rounded-full border ${visual.iconClass} ${compact ? "h-4 w-4" : "h-[18px] w-[18px]"}`}>
         <Icon className={compact ? "h-2.5 w-2.5" : "h-3 w-3"} strokeWidth={2.25} />
       </span>
       <span className="relative z-[1] whitespace-nowrap tracking-[0.02em]">{label}</span>
