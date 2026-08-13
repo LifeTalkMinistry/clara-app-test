@@ -59,6 +59,15 @@ function findFirstConversationRow(stack) {
   return null;
 }
 
+function findLastConversationRow(stack) {
+  if (!stack) return null;
+  const rows = Array.from(stack.children);
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    if (isConversationRow(rows[index])) return rows[index];
+  }
+  return null;
+}
+
 function migrateLegacyHiddenHistory(overlay) {
   if (!overlay || migratedOverlays.has(overlay)) return;
   migratedOverlays.add(overlay);
@@ -66,9 +75,6 @@ function migrateLegacyHiddenHistory(overlay) {
   const stack = overlay.querySelector(STACK_SELECTOR);
   if (!stack) return;
 
-  // One-time cleanup for users upgrading from the former current-turn-only
-  // implementation. Do not rescan the entire transcript on every keyboard or
-  // message event; long histories must stay cheap to scroll and type in.
   Array.from(stack.children).forEach((row) => {
     if (!(row instanceof HTMLElement)) return;
     if (
@@ -133,9 +139,6 @@ function scrollLatestIntoPlace(overlay) {
   const messageViewport = overlay.querySelector(VIEWPORT_SELECTOR);
   if (!messageViewport) return;
 
-  // Streaming replies can mutate text many times per second. Coalesce all of
-  // those requests into one two-frame bottom alignment instead of creating a
-  // new pair of requestAnimationFrame callbacks for every text chunk.
   if (pendingScrollFrames.has(messageViewport)) return;
 
   const scrollToLatest = () => {
@@ -154,6 +157,34 @@ function scrollLatestIntoPlace(overlay) {
   });
 
   pendingScrollFrames.set(messageViewport, firstFrame);
+}
+
+function revealLatestWithoutReanchoring(overlay) {
+  if (!overlay) return;
+  const messageViewport = overlay.querySelector(VIEWPORT_SELECTOR);
+  const stack = overlay.querySelector(STACK_SELECTOR);
+  const latestRow = findLastConversationRow(stack);
+  if (!messageViewport || !latestRow) return;
+
+  if (pendingScrollFrames.has(messageViewport)) return;
+
+  const frame = window.requestAnimationFrame(() => {
+    const viewportRect = messageViewport.getBoundingClientRect();
+    const latestRect = latestRow.getBoundingClientRect();
+    const safeBottom = viewportRect.bottom - 10;
+
+    // Only move upward by the exact amount needed to reveal the new row. Never
+    // decrease scrollTop here: decreasing it is what made the previous last
+    // message visibly fall downward before snapping back into place.
+    if (latestRect.bottom > safeBottom) {
+      const delta = Math.ceil(latestRect.bottom - safeBottom);
+      messageViewport.scrollTop += delta;
+    }
+
+    pendingScrollFrames.delete(messageViewport);
+  });
+
+  pendingScrollFrames.set(messageViewport, frame);
 }
 
 function cancelPendingScroll(viewport) {
@@ -188,6 +219,7 @@ function syncBuyCheckToVisibleViewport({
   settle = false,
   forceLatest = false,
   shouldFollowLatest = true,
+  transcriptUpdate = false,
 } = {}) {
   const overlay = document.querySelector(OVERLAY_SELECTOR);
   if (!overlay) return;
@@ -228,8 +260,10 @@ function syncBuyCheckToVisibleViewport({
 
   arrangeConversationForKeyboard(overlay, keyboardActive);
 
-  if (keyboardActive && (forceLatest || shouldFollowLatest)) {
+  if (keyboardActive && forceLatest) {
     scrollLatestIntoPlace(overlay);
+  } else if (keyboardActive && transcriptUpdate && shouldFollowLatest) {
+    revealLatestWithoutReanchoring(overlay);
   }
 
   if (keyboardActive && settle) {
@@ -244,7 +278,11 @@ function syncBuyCheckToVisibleViewport({
       setImportantStyle(currentOverlay, "max-height", `${currentVisible.height}px`);
 
       arrangeConversationForKeyboard(currentOverlay, true);
-      if (forceLatest || shouldFollowLatest) scrollLatestIntoPlace(currentOverlay);
+      if (forceLatest) {
+        scrollLatestIntoPlace(currentOverlay);
+      } else if (transcriptUpdate && shouldFollowLatest) {
+        revealLatestWithoutReanchoring(currentOverlay);
+      }
     });
   }
 }
@@ -277,6 +315,27 @@ function installClaraBuyCheckKeyboardGuard() {
     formResizeObserver = null;
   };
 
+  const queueSync = (
+    settle = false,
+    forceLatest = false,
+    transcriptUpdate = false
+  ) => {
+    window.cancelAnimationFrame(frame);
+    frame = window.requestAnimationFrame(() => {
+      const overlay = document.querySelector(OVERLAY_SELECTOR);
+      if (overlay !== lastOverlay) {
+        if (lastOverlay) clearOverlayViewportLock(lastOverlay);
+        bindOverlay(overlay);
+      }
+      syncBuyCheckToVisibleViewport({
+        settle,
+        forceLatest,
+        shouldFollowLatest: followLatest,
+        transcriptUpdate,
+      });
+    });
+  };
+
   const bindOverlay = (overlay) => {
     const nextViewport = overlay?.querySelector(VIEWPORT_SELECTOR) || null;
     if (overlay === lastOverlay && nextViewport === activeMessageViewport) return;
@@ -301,13 +360,17 @@ function installClaraBuyCheckKeyboardGuard() {
 
     migrateLegacyHiddenHistory(overlay);
 
-    // Watch only the conversation itself. The old whole-document observer woke
-    // up for unrelated React work throughout the app and contributed to typing
-    // lag on Android. Character data is still observed here so streamed CLARA
-    // replies continue to follow the bottom when the user wants that behavior.
     const transcriptRoot = activeMessageViewport || overlay.querySelector(STACK_SELECTOR);
     if (transcriptRoot) {
-      transcriptObserver = new MutationObserver(() => queueSync(false, false));
+      transcriptObserver = new MutationObserver((mutations) => {
+        const transcriptChanged = mutations.some(
+          (mutation) =>
+            mutation.type === "characterData" ||
+            (mutation.type === "childList" &&
+              (mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0))
+        );
+        queueSync(false, false, transcriptChanged);
+      });
       transcriptObserver.observe(transcriptRoot, {
         childList: true,
         characterData: true,
@@ -317,25 +380,9 @@ function installClaraBuyCheckKeyboardGuard() {
 
     const form = overlay.querySelector(FORM_SELECTOR);
     if (form && typeof ResizeObserver !== "undefined") {
-      formResizeObserver = new ResizeObserver(() => queueSync(false, false));
+      formResizeObserver = new ResizeObserver(() => queueSync(false, false, false));
       formResizeObserver.observe(form);
     }
-  };
-
-  const queueSync = (settle = false, forceLatest = false) => {
-    window.cancelAnimationFrame(frame);
-    frame = window.requestAnimationFrame(() => {
-      const overlay = document.querySelector(OVERLAY_SELECTOR);
-      if (overlay !== lastOverlay) {
-        if (lastOverlay) clearOverlayViewportLock(lastOverlay);
-        bindOverlay(overlay);
-      }
-      syncBuyCheckToVisibleViewport({
-        settle,
-        forceLatest,
-        shouldFollowLatest: followLatest,
-      });
-    });
   };
 
   const handleFocusIn = (event) => {
@@ -344,27 +391,23 @@ function installClaraBuyCheckKeyboardGuard() {
     if (!target.closest?.(OVERLAY_SELECTOR)) return;
 
     followLatest = true;
-    queueSync(true, true);
+    queueSync(true, true, false);
     window.clearTimeout(focusTimerA);
     window.clearTimeout(focusTimerB);
     window.clearTimeout(focusTimerC);
 
-    focusTimerA = window.setTimeout(() => queueSync(true, true), 90);
-    focusTimerB = window.setTimeout(() => queueSync(true, true), 220);
-    focusTimerC = window.setTimeout(() => queueSync(true, true), 420);
+    focusTimerA = window.setTimeout(() => queueSync(true, true, false), 90);
+    focusTimerB = window.setTimeout(() => queueSync(true, true, false), 220);
+    focusTimerC = window.setTimeout(() => queueSync(true, true, false), 420);
   };
 
   const handleFocusOut = (event) => {
     if (!event.target?.closest?.(OVERLAY_SELECTOR)) return;
-    window.setTimeout(() => queueSync(true, false), 120);
+    window.setTimeout(() => queueSync(true, false, false), 120);
   };
 
-  const handleViewportChange = () => queueSync(false, false);
+  const handleViewportChange = () => queueSync(false, false, false);
 
-  // This observer is now structural only. Once a Buy Check overlay is mounted,
-  // mutations inside that overlay are ignored because its scoped transcript
-  // observer owns them. This keeps normal typing and streaming off the global
-  // document mutation path.
   const rootObserver = new MutationObserver((mutations) => {
     if (
       lastOverlay &&
@@ -375,7 +418,7 @@ function installClaraBuyCheckKeyboardGuard() {
     ) {
       return;
     }
-    queueSync(false, false);
+    queueSync(false, false, false);
   });
   const root = document.getElementById("root") || document.body;
   rootObserver.observe(root, {
@@ -389,7 +432,7 @@ function installClaraBuyCheckKeyboardGuard() {
   window.visualViewport?.addEventListener("resize", handleViewportChange);
   window.visualViewport?.addEventListener("scroll", handleViewportChange);
 
-  queueSync(false, false);
+  queueSync(false, false, false);
 
   window[RUNTIME_KEY] = {
     destroy() {
