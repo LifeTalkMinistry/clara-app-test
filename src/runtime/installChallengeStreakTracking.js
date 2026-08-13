@@ -1,3 +1,5 @@
+import React from "react";
+import { createRoot } from "react-dom/client";
 import {
   backendRequest,
   getStoredBackendToken,
@@ -8,6 +10,7 @@ import {
 import { addLocalDays, getEligibleDayKey } from "@/lib/challenge-schedule.js";
 import { createDailyCheckInEvent } from "@/components/fresh/main-dashboard/daily-tip/logic/dailyCheckInEngine.js";
 import { loadState, writeState } from "@/components/fresh/main-dashboard/daily-tip/logic/dailyCheckInPersistence.js";
+import ChallengeRaceBoard from "@/components/challenges/ChallengeRaceBoard.jsx";
 
 const DAILY_CHECK_IN_STORAGE_PREFIX = "clara_daily_check_in_v3:";
 const DAILY_CHECK_IN_UPDATE_EVENT = "clara:daily-check-in-updated";
@@ -15,8 +18,11 @@ const LAST_SENT_PREFIX = "clara:challenge-streak:last-sent:v1:";
 const ADMIN_RESTORE_APPLIED_PREFIX = "clara:challenge-streak:admin-restore-applied:v1:";
 const ADMIN_RESTORE_SOURCE = "admin_streak_recovery";
 const RETRY_INTERVAL_MS = 5 * 60 * 1000;
+const RACE_BOARD_HOST_ID = "clara-live-race-board-host";
 let syncPromise = null;
 let queuedSync = false;
+let raceBoardRoot = null;
+let raceBoardMountQueued = false;
 
 function safeStorage() {
   try {
@@ -246,6 +252,62 @@ function handleDailyCheckInUpdated(event) {
   void syncChallengeStreak({ force: true });
 }
 
+function findThirtyDayRaceSection() {
+  const challengeView = document.querySelector(".clara-community-challenges-view");
+  if (!challengeView) return null;
+
+  return Array.from(challengeView.querySelectorAll("section")).find((section) => {
+    const text = String(section.textContent || "");
+    return (
+      text.includes("Next 30-Day Race") ||
+      text.includes("Race in progress") ||
+      text.includes("Race day")
+    );
+  }) || null;
+}
+
+function removeRaceBoardHost() {
+  const host = document.getElementById(RACE_BOARD_HOST_ID);
+  if (!host) return;
+  try {
+    raceBoardRoot?.unmount();
+  } catch {
+    // The host may already have been removed by a React route transition.
+  }
+  raceBoardRoot = null;
+  host.remove();
+}
+
+function syncRaceBoardMount() {
+  raceBoardMountQueued = false;
+  const raceSection = findThirtyDayRaceSection();
+  if (!raceSection) {
+    removeRaceBoardHost();
+    return;
+  }
+
+  let host = document.getElementById(RACE_BOARD_HOST_ID);
+  if (host && host.previousElementSibling !== raceSection) {
+    removeRaceBoardHost();
+    host = null;
+  }
+
+  if (!host) {
+    host = document.createElement("div");
+    host.id = RACE_BOARD_HOST_ID;
+    host.className = "clara-live-race-board-runtime-host";
+    raceSection.insertAdjacentElement("afterend", host);
+    raceBoardRoot = createRoot(host);
+    raceBoardRoot.render(React.createElement(ChallengeRaceBoard));
+  }
+}
+
+function queueRaceBoardMount() {
+  if (raceBoardMountQueued) return;
+  raceBoardMountQueued = true;
+  window.requestAnimationFrame(syncRaceBoardMount);
+}
+
 if (typeof window !== "undefined" && typeof document !== "undefined") {
   window.addEventListener(DAILY_CHECK_IN_UPDATE_EVENT, handleDailyCheckInUpdated);
   window.addEventListener("online", () => void syncChallengeStreak({ force: true }));
@@ -256,4 +318,10 @@ if (typeof window !== "undefined" && typeof document !== "undefined") {
   });
 
   window.setInterval(() => void syncChallengeStreak(), RETRY_INTERVAL_MS);
+
+  const raceBoardObserver = new MutationObserver(queueRaceBoardMount);
+  raceBoardObserver.observe(document.documentElement, { childList: true, subtree: true });
+  document.addEventListener("click", queueRaceBoardMount, true);
+  window.addEventListener("hashchange", queueRaceBoardMount);
+  window.setTimeout(queueRaceBoardMount, 0);
 }
