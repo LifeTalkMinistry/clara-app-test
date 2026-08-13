@@ -73,7 +73,7 @@ function buildDedicatedCarouselItems(items) {
         title: "Why Your Money Keeps Disappearing After Payday",
         subtitle: "A Practical Budgeting Masterclass for Filipino Earners.",
         description:
-          "Understand why money disappears after payday, how budgeting actually works, and how accountability turns knowledge into a repeatable money system.",
+          "Your money can disappear after payday before you fully understand where it went. This MasterClass helps you build a practical budgeting system that gives your money direction before you spend it.",
         ctaLabel: "Preview masterclass",
         progressText: "₱99",
         progressLabel: "₱99",
@@ -104,7 +104,7 @@ function resolveBoardMeta(item) {
     return {
       eyebrow: "CLARA MASTERCLASS · ₱99",
       features: ["Payday cycle", "Budget system", "Accountability"],
-      latestUpdate: "Flagship masterclass announced · currently in production.",
+      latestUpdate: "",
     };
   }
 
@@ -287,14 +287,16 @@ function LearningHubInfoBoard({ item }) {
           </div>
         ) : null}
 
-        <div className="mt-3 border-t border-white/[0.07] pt-3">
-          <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/38">
-            Latest update
-          </p>
-          <p className="mt-1 text-[10.5px] font-bold leading-[1.45] text-white/68">
-            {meta.latestUpdate}
-          </p>
-        </div>
+        {meta.latestUpdate ? (
+          <div className="mt-3 border-t border-white/[0.07] pt-3">
+            <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/38">
+              Latest update
+            </p>
+            <p className="mt-1 text-[10.5px] font-bold leading-[1.45] text-white/68">
+              {meta.latestUpdate}
+            </p>
+          </div>
+        ) : null}
       </div>
     </section>
   );
