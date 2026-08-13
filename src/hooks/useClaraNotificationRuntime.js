@@ -166,7 +166,7 @@ function expenseLogReminderSlots(preferences) {
 function buildExpenseLogLocalSyncSignature(userId, preferences = {}) {
   return JSON.stringify({
     userId,
-    dailyCheckIn: Boolean(preferences.dailyCheckIn),
+    expenseLogging: Boolean(preferences.expenseLogging),
     deliveryMode: preferences.deliveryMode || "in_app",
     expenseLogFrequency: Number(preferences.expenseLogFrequency || 1),
     expenseLogTimes: Array.isArray(preferences.expenseLogTimes) ? preferences.expenseLogTimes : [],
@@ -245,7 +245,16 @@ export default function useClaraNotificationRuntime({
 
       expenseLogLocalSyncSignatureRef.current = signature;
       try {
-        await syncExpenseLogLocalNotifications({ userId, preferences });
+        // deviceNotifications still accepts the historic `dailyCheckIn` field.
+        // Keep that bridge local to the adapter while the canonical preference
+        // is now `expenseLogging` everywhere else.
+        await syncExpenseLogLocalNotifications({
+          userId,
+          preferences: {
+            ...preferences,
+            dailyCheckIn: preferences.expenseLogging,
+          },
+        });
       } catch (error) {
         expenseLogLocalSyncSignatureRef.current = "";
         console.warn("CLARA expense log Android local notification sync failed:", error);
@@ -326,8 +335,8 @@ export default function useClaraNotificationRuntime({
       await markNotificationDelivered(userId, notification.id);
     };
 
-    const evaluateDailyCheckIn = async (preferences) => {
-      if (!preferences.dailyCheckIn) return;
+    const evaluateExpenseLogReminder = async (preferences) => {
+      if (!preferences.expenseLogging) return;
       const zoned = getZonedDateParts(preferences.timezone);
       if (isDailyCheckInCompleted(userId, zoned.dateKey)) return;
       if (
@@ -565,7 +574,7 @@ export default function useClaraNotificationRuntime({
         });
 
         if (!isRuntimeActive()) return;
-        await evaluateDailyCheckIn(preferences);
+        await evaluateExpenseLogReminder(preferences);
 
         if (!isRuntimeActive()) return;
         await evaluateTaskReminder(preferences);
