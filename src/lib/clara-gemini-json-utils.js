@@ -82,6 +82,15 @@ function withTimeout(ms = 14000) {
   };
 }
 
+function shouldStopModelFallback(error) {
+  const status = Number(error?.status || 0);
+  if ([401, 403, 413, 429].includes(status)) return true;
+
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("not configured on the server") ||
+    message.includes("not configured correctly on the server");
+}
+
 export function hasGeminiJsonConfig() {
   return true;
 }
@@ -129,6 +138,8 @@ export async function requestGeminiJson({
             model,
           })
         : error;
+
+      if (shouldStopModelFallback(lastError)) break;
     } finally {
       timeout.clear();
     }
