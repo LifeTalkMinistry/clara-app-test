@@ -1,7 +1,7 @@
 import { backendRequest, getStoredBackendToken } from "@/lib/clara-backend-client";
 
 export function resolveCanonicalDisplayName(profile) {
-  return String(profile?.display_name || profile?.full_name || "").trim();
+  return String(profile?.display_name || "").trim();
 }
 
 export function resolveCanonicalFirstName(profile) {
