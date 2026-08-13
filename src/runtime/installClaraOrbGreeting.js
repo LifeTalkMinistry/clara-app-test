@@ -1,57 +1,36 @@
 import "./installClaraOrbChatHandoff";
 import "./installClaraBuyCheckKeyboardGuard";
 import "./installClaraOrbViewportOwnershipGuard";
-
-/*
- * Personalized greeting for the dedicated CLARA Orb page.
- *
- * Keep this intentionally narrow: it only replaces the small "CLARA ORB"
- * eyebrow above the main launcher. The Orb, its animation, CTA, navigation,
- * background, and geometry remain owned by their existing components.
- */
+import { fetchCanonicalClaraProfile, resolveCanonicalFirstName } from "@/lib/canonical-clara-profile";
 
 const RUNTIME_KEY = "__claraOrbGreetingRuntime__";
-const BACKEND_USER_KEY = "clara_backend_user_v1";
-const GREETING_SELECTOR =
-  '.clara-community-root[data-community-view="orb"] [data-clara-orb-visual-offset] > div:first-child > p';
-
-function readStoredBackendUser() {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage?.getItem(BACKEND_USER_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function resolveFirstName() {
-  const user = readStoredBackendUser();
-  const displayName = String(
-    user?.name || user?.full_name || user?.display_name || ""
-  ).trim();
-
-  if (!displayName || displayName.toLowerCase() === "clara user") return "";
-  return displayName.split(/\s+/)[0] || "";
-}
+const GREETING_SELECTOR = '.clara-community-root[data-community-view="orb"] [data-clara-orb-visual-offset] > div:first-child > p';
 
 function installClaraOrbGreeting() {
   if (typeof window === "undefined" || typeof document === "undefined") return;
-
   window[RUNTIME_KEY]?.destroy?.();
-
   let queued = false;
+  let activeLabel = null;
+  let firstName = "";
+  let loaded = false;
+  let request = null;
+  let destroyed = false;
 
-  const sync = () => {
-    queued = false;
+  const render = () => {
     const label = document.querySelector(GREETING_SELECTOR);
-    if (!label) return;
-
-    const firstName = resolveFirstName();
+    if (!label) {
+      activeLabel = null;
+      firstName = "";
+      loaded = false;
+      return null;
+    }
+    if (label !== activeLabel) {
+      activeLabel = label;
+      firstName = "";
+      loaded = false;
+    }
     const nextText = firstName ? `Hi ${firstName}!` : "Hi!";
-
     if (label.textContent !== nextText) label.textContent = nextText;
-
     label.dataset.claraOrbUserGreeting = "true";
     label.style.fontSize = "18px";
     label.style.fontWeight = "900";
@@ -59,33 +38,48 @@ function installClaraOrbGreeting() {
     label.style.letterSpacing = "-0.02em";
     label.style.textTransform = "none";
     label.style.color = "rgba(255, 255, 255, 0.96)";
+    return label;
   };
 
+  const load = () => {
+    if (!activeLabel || loaded || request) return;
+    const requestedLabel = activeLabel;
+    request = fetchCanonicalClaraProfile()
+      .then((profile) => {
+        if (destroyed || activeLabel !== requestedLabel) return;
+        firstName = resolveCanonicalFirstName(profile);
+        loaded = true;
+        render();
+      })
+      .catch((error) => {
+        if (destroyed || activeLabel !== requestedLabel) return;
+        console.warn("CLARA Orb canonical profile greeting unavailable:", error);
+        loaded = true;
+        render();
+      })
+      .finally(() => { request = null; });
+  };
+
+  const sync = () => {
+    queued = false;
+    if (render()) load();
+  };
   const queueSync = () => {
-    if (queued) return;
+    if (queued || destroyed) return;
     queued = true;
     window.requestAnimationFrame(sync);
   };
 
   const observer = new MutationObserver(queueSync);
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-  });
-
-  const refreshEvents = [
-    "storage",
-    "clara-local-profile-updated",
-    "clara-local-setup-profile-updated",
-  ];
-  refreshEvents.forEach((eventName) => window.addEventListener(eventName, queueSync));
-
+  observer.observe(document.documentElement, { childList: true, subtree: true });
   queueSync();
 
   window[RUNTIME_KEY] = {
     destroy() {
+      destroyed = true;
       observer.disconnect();
-      refreshEvents.forEach((eventName) => window.removeEventListener(eventName, queueSync));
+      activeLabel = null;
+      request = null;
       window[RUNTIME_KEY] = null;
     },
   };
