@@ -45,9 +45,9 @@ const WEEKLY_REVIEW_DAY_OPTIONS = [
 const EXPENSE_LOG_TIME_FALLBACKS = ["12:30", "21:00", "09:00"];
 
 const PRIORITY_STYLES = Object.freeze({
-  Critical: "border-rose-300/20 bg-rose-300/10 text-rose-100",
-  Important: "border-amber-300/20 bg-amber-300/10 text-amber-100",
-  Passive: "border-cyan-300/15 bg-cyan-300/[0.08] text-cyan-100/80",
+  Critical: "border-[#a4384b]/45 bg-[#f32645]/8 text-[#ffc0cb]",
+  Important: "border-[#9c8330]/45 bg-[#ffd84a]/8 text-[#ffe681]",
+  Passive: "border-[#2f73bb]/45 bg-[#0867ff]/8 text-[#b8d8ff]/80",
 });
 
 function FieldLabel({ title, description }) {
@@ -88,9 +88,9 @@ function NotificationFamilyCard({
   const hasDetails = Boolean(children);
 
   return (
-    <div className="overflow-hidden rounded-[22px] border border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.055),rgba(255,255,255,0.025))] shadow-[0_14px_34px_rgba(0,0,0,0.12)]">
+    <div className="overflow-hidden rounded-[22px] border border-[#1d4b7b]/45 bg-[#06142a] shadow-[0_14px_34px_rgba(0,0,0,0.16)]">
       <div className="flex items-start gap-3 px-4 py-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.08] text-cyan-100">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#2f73bb]/45 bg-[#0867ff]/9 text-[#b8d8ff]">
           <Icon className="h-4 w-4" />
         </div>
 
@@ -107,7 +107,7 @@ function NotificationFamilyCard({
 
         <div className="flex shrink-0 items-center gap-2 pt-1">
           {locked ? (
-            <span className="rounded-full border border-emerald-300/15 bg-emerald-300/[0.08] px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-emerald-100/75">
+            <span className="rounded-full border border-[#9c8330]/40 bg-[#ffd84a]/7 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#ffe681]">
               Always on
             </span>
           ) : (
@@ -115,7 +115,7 @@ function NotificationFamilyCard({
               checked={enabled}
               onCheckedChange={onToggle}
               aria-label={`${title} notifications`}
-              className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-white/15"
+              className="data-[state=checked]:bg-[#0867ff] data-[state=unchecked]:bg-white/15"
             />
           )}
 
@@ -125,7 +125,7 @@ function NotificationFamilyCard({
               onClick={() => setExpanded((current) => !current)}
               aria-label={`${expanded ? "Collapse" : "Expand"} ${title}`}
               aria-expanded={expanded}
-              className="flex h-8 w-8 items-center justify-center rounded-xl text-white/45 transition hover:bg-white/[0.06] hover:text-white/80"
+              className="flex h-8 w-8 items-center justify-center rounded-xl text-white/45 transition hover:bg-[#0a203a] hover:text-white/80"
             >
               <ChevronDown
                 className={`h-4 w-4 transition ${expanded ? "rotate-180" : ""}`}
@@ -136,7 +136,7 @@ function NotificationFamilyCard({
       </div>
 
       {hasDetails && expanded ? (
-        <div className="border-t border-white/10 px-4 pb-4 pt-3">{children}</div>
+        <div className="border-t border-[#1d4b7b]/45 px-4 pb-4 pt-3">{children}</div>
       ) : null}
     </div>
   );
@@ -206,8 +206,8 @@ function ExpenseLoggingDetails({ preferences, onChange }) {
                 onClick={() => onChange("expenseLogFrequency", option.value)}
                 className={`rounded-2xl border px-3 py-2.5 text-xs font-black transition ${
                   selected
-                    ? "border-emerald-300/35 bg-emerald-300/15 text-emerald-50"
-                    : "border-white/10 bg-white/[0.035] text-white/55 hover:bg-white/[0.06]"
+                    ? "border-[#4f96ff]/60 bg-[#0867ff]/14 text-[#d7eaff]"
+                    : "border-[#1d4b7b]/45 bg-[#07162b] text-white/55 hover:bg-[#0a203a]"
                 }`}
               >
                 {option.label}
@@ -226,7 +226,7 @@ function ExpenseLoggingDetails({ preferences, onChange }) {
           {reminderTimes.map((time, index) => (
             <label
               key={`${frequency}-${index}`}
-              className="block rounded-2xl border border-white/10 bg-black/15 p-3"
+              className="block rounded-2xl border border-[#1d4b7b]/45 bg-[#040d1c] p-3"
             >
               <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/35">
                 Reminder {index + 1}
@@ -235,14 +235,14 @@ function ExpenseLoggingDetails({ preferences, onChange }) {
                 type="time"
                 value={time}
                 onChange={(event) => updateReminderTime(index, event.target.value)}
-                className="mt-1.5 h-10 w-full rounded-xl border border-white/10 bg-[#07131f] px-3 text-xs font-semibold text-white outline-none"
+                className="mt-1.5 h-10 w-full rounded-xl border border-[#1d4b7b]/45 bg-[#040d1c] px-3 text-xs font-semibold text-white outline-none"
               />
             </label>
           ))}
         </div>
       </div>
 
-      <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-black/15 p-3.5">
+      <div className="flex items-start justify-between gap-4 rounded-2xl border border-[#1d4b7b]/45 bg-[#040d1c] p-3.5">
         <FieldLabel
           title="Stop after I log today"
           description="Once an expense is logged, CLARA stops expense reminders for that day."
@@ -250,7 +250,7 @@ function ExpenseLoggingDetails({ preferences, onChange }) {
         <Switch
           checked={preferences.expenseLogStopAfterLogged}
           onCheckedChange={(checked) => onChange("expenseLogStopAfterLogged", checked)}
-          className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-white/15"
+          className="data-[state=checked]:bg-[#0867ff] data-[state=unchecked]:bg-white/15"
         />
       </div>
 
@@ -264,7 +264,7 @@ function ExpenseLoggingDetails({ preferences, onChange }) {
           onChange={(event) =>
             onChange("expenseLogSnoozeMinutes", Number(event.target.value))
           }
-          className="mt-2 h-11 w-full rounded-2xl border border-white/10 bg-[#07131f] px-3 text-sm font-semibold text-white outline-none"
+          className="mt-2 h-11 w-full rounded-2xl border border-[#1d4b7b]/45 bg-[#040d1c] px-3 text-sm font-semibold text-white outline-none"
         >
           {EXPENSE_LOG_SNOOZE_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
@@ -290,7 +290,7 @@ function WeeklyReviewDetails({ preferences, onChange }) {
           onChange={(event) =>
             onChange("weeklyMoneyReviewDay", Number(event.target.value))
           }
-          className="mt-2 h-11 w-full rounded-2xl border border-white/10 bg-[#07131f] px-3 text-sm font-semibold text-white outline-none"
+          className="mt-2 h-11 w-full rounded-2xl border border-[#1d4b7b]/45 bg-[#040d1c] px-3 text-sm font-semibold text-white outline-none"
         >
           {WEEKLY_REVIEW_DAY_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
@@ -300,7 +300,7 @@ function WeeklyReviewDetails({ preferences, onChange }) {
         </select>
       </label>
 
-      <label className="block rounded-2xl border border-white/10 bg-black/15 p-3">
+      <label className="block rounded-2xl border border-[#1d4b7b]/45 bg-[#040d1c] p-3">
         <FieldLabel
           title="Review time"
           description="Set when CLARA should remind you to review your week."
@@ -309,7 +309,7 @@ function WeeklyReviewDetails({ preferences, onChange }) {
           type="time"
           value={preferences.weeklyMoneyReviewTime || "20:00"}
           onChange={(event) => onChange("weeklyMoneyReviewTime", event.target.value)}
-          className="mt-2 h-10 w-full rounded-xl border border-white/10 bg-[#07131f] px-3 text-xs font-semibold text-white outline-none"
+          className="mt-2 h-10 w-full rounded-xl border border-[#1d4b7b]/45 bg-[#040d1c] px-3 text-xs font-semibold text-white outline-none"
         />
       </label>
     </div>
@@ -319,17 +319,17 @@ function WeeklyReviewDetails({ preferences, onChange }) {
 function AccountUpdatesDetails({ preferences, onChange }) {
   return (
     <div className="space-y-3">
-      <div className="flex items-start justify-between gap-4 rounded-2xl border border-emerald-300/10 bg-emerald-300/[0.05] p-3.5">
+      <div className="flex items-start justify-between gap-4 rounded-2xl border border-[#2f73bb]/35 bg-[#0867ff]/7 p-3.5">
         <FieldLabel
           title="Security & account alerts"
           description="New-device login, password, payment, account-action, and required privacy notices."
         />
-        <span className="rounded-full border border-emerald-300/15 bg-emerald-300/[0.08] px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-emerald-100/75">
+        <span className="rounded-full border border-[#9c8330]/40 bg-[#ffd84a]/7 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#ffe681]">
           Always on
         </span>
       </div>
 
-      <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-black/15 p-3.5">
+      <div className="flex items-start justify-between gap-4 rounded-2xl border border-[#1d4b7b]/45 bg-[#040d1c] p-3.5">
         <FieldLabel
           title="CLARA product updates"
           description="Major feature releases, maintenance notices, and important CLARA announcements."
@@ -337,7 +337,7 @@ function AccountUpdatesDetails({ preferences, onChange }) {
         <Switch
           checked={preferences.productUpdates}
           onCheckedChange={(checked) => onChange("productUpdates", checked)}
-          className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-white/15"
+          className="data-[state=checked]:bg-[#0867ff] data-[state=unchecked]:bg-white/15"
         />
       </div>
     </div>
@@ -347,7 +347,7 @@ function AccountUpdatesDetails({ preferences, onChange }) {
 function QuietHoursDetails({ preferences, onChange }) {
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-black/15 p-3.5">
+      <div className="flex items-start justify-between gap-4 rounded-2xl border border-[#1d4b7b]/45 bg-[#040d1c] p-3.5">
         <FieldLabel
           title="Quiet hours"
           description="Pause normal reminders during your sleeping or focus hours. Critical alerts may still appear."
@@ -355,13 +355,13 @@ function QuietHoursDetails({ preferences, onChange }) {
         <Switch
           checked={preferences.quietHoursEnabled}
           onCheckedChange={(checked) => onChange("quietHoursEnabled", checked, { syncTask: true })}
-          className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-white/15"
+          className="data-[state=checked]:bg-[#0867ff] data-[state=unchecked]:bg-white/15"
         />
       </div>
 
       {preferences.quietHoursEnabled ? (
         <div className="grid grid-cols-2 gap-2">
-          <label className="rounded-2xl border border-white/10 bg-black/15 p-3">
+          <label className="rounded-2xl border border-[#1d4b7b]/45 bg-[#040d1c] p-3">
             <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/35">Start</span>
             <input
               type="time"
@@ -369,10 +369,10 @@ function QuietHoursDetails({ preferences, onChange }) {
               onChange={(event) =>
                 onChange("quietHoursStart", event.target.value, { syncTask: true })
               }
-              className="mt-1.5 h-10 w-full rounded-xl border border-white/10 bg-[#07131f] px-3 text-xs font-semibold text-white outline-none"
+              className="mt-1.5 h-10 w-full rounded-xl border border-[#1d4b7b]/45 bg-[#040d1c] px-3 text-xs font-semibold text-white outline-none"
             />
           </label>
-          <label className="rounded-2xl border border-white/10 bg-black/15 p-3">
+          <label className="rounded-2xl border border-[#1d4b7b]/45 bg-[#040d1c] p-3">
             <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/35">End</span>
             <input
               type="time"
@@ -380,7 +380,7 @@ function QuietHoursDetails({ preferences, onChange }) {
               onChange={(event) =>
                 onChange("quietHoursEnd", event.target.value, { syncTask: true })
               }
-              className="mt-1.5 h-10 w-full rounded-xl border border-white/10 bg-[#07131f] px-3 text-xs font-semibold text-white outline-none"
+              className="mt-1.5 h-10 w-full rounded-xl border border-[#1d4b7b]/45 bg-[#040d1c] px-3 text-xs font-semibold text-white outline-none"
             />
           </label>
         </div>
@@ -588,20 +588,20 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
   return (
     <div className="space-y-5">
       {notice ? (
-        <div className="rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 py-3 text-xs font-semibold text-emerald-100">
+        <div className="rounded-2xl border border-[#2d6dae]/45 bg-[#0867ff]/8 px-4 py-3 text-xs font-semibold text-[#c5e0ff]">
           {notice}
         </div>
       ) : null}
       {error ? (
-        <div className="rounded-2xl border border-rose-300/20 bg-rose-400/10 px-4 py-3 text-xs font-semibold text-rose-100">
+        <div className="rounded-2xl border border-[#a4384b]/45 bg-[#f32645]/8 px-4 py-3 text-xs font-semibold text-[#ffc0cb]">
           {error}
         </div>
       ) : null}
 
-      <section className="rounded-[24px] border border-cyan-300/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_45%),rgba(255,255,255,0.03)] p-4">
+      <section className="rounded-[24px] border border-[#22588f]/45 bg-[linear-gradient(145deg,#071a35_0%,#06142a_72%,#061225_100%)] p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/50">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#82bfff]/70">
               Notification delivery
             </p>
             <p className="mt-1 text-sm font-black text-white">
@@ -611,7 +611,7 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
               Enable phone notifications if you want CLARA reminders to appear outside the app when supported.
             </p>
           </div>
-          <Bell className="mt-1 h-5 w-5 shrink-0 text-cyan-100/70" />
+          <Bell className="mt-1 h-5 w-5 shrink-0 text-[#8ed0ff]" />
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -619,7 +619,7 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
             type="button"
             onClick={enableDeviceNotifications}
             disabled={taskReminderSettings.pushEnabling}
-            className="rounded-2xl bg-emerald-400 px-4 py-3 text-xs font-black text-slate-950 transition disabled:opacity-45"
+            className="rounded-2xl border border-[#4f96ff]/35 bg-[#0867ff] px-4 py-3 text-xs font-black text-white transition hover:bg-[#1473ff] disabled:opacity-45"
           >
             {taskReminderSettings.pushEnabling
               ? "Enabling..."
@@ -631,7 +631,7 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
             type="button"
             onClick={useInAppOnly}
             disabled={!deliveryIsDevice}
-            className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs font-black text-white/70 transition disabled:opacity-35"
+            className="rounded-2xl border border-[#1d4b7b]/45 bg-[#07162b] px-4 py-3 text-xs font-black text-white/70 transition disabled:opacity-35"
           >
             Use in-app only
           </button>
@@ -793,7 +793,7 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
       </section>
 
       {notificationOwnerId ? (
-        <details className="group rounded-[26px] border border-white/10 bg-white/[0.025] p-3">
+        <details className="group rounded-[26px] border border-[#1d4b7b]/45 bg-[#061225] p-3">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-2 py-2 text-sm font-bold text-white/75">
             Advanced delivery & task reminder tools
             <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
@@ -820,7 +820,7 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
               type="button"
               disabled={!taskReminderSettings.dirty || taskReminderSettings.saving}
               onClick={saveTaskReminderSchedule}
-              className="mt-3 w-full rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-45"
+              className="mt-3 w-full rounded-2xl border border-[#4f96ff]/35 bg-[#0867ff] px-4 py-3 text-sm font-black text-white disabled:opacity-45"
             >
               {taskReminderSettings.saving
                 ? "Saving..."

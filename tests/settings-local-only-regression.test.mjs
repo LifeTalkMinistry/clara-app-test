@@ -23,7 +23,6 @@ const dashboardPanelRendererSource = readSource(
 const localVaultIdentityStartup = readSource("src/lib/start-local-vault-identity.js");
 const assistantMemorySource = readSource("src/clara-assistant-memory-tab.js");
 const runtimeRegistrySource = readSource("src/runtime/installClaraRuntimePatches.js");
-const settingsCleanupSource = readSource("src/settings-cleanup.css");
 
 const retiredThemePatchUrl = new URL(
   "../src/settings-hide-theme-appearance.js",
@@ -95,11 +94,11 @@ test("dashboard renderer does not append a second logout control", () => {
   );
 });
 
-test("Settings permanently hides theme customization through one scoped CSS owner", () => {
+test("Settings owns appearance directly and exposes no theme customization row", () => {
   assert.equal(existsSync(retiredThemePatchUrl), false);
-  assert.match(
-    settingsCleanupSource,
-    /button\.group:has\(svg\.lucide-palette\)[\s\S]*display:\s*none\s*!important/
+  assert.doesNotMatch(
+    activeSettingsSource,
+    /openThemePicker|lucide-palette|title: "Appearance"|title: "Theme"/
   );
 });
 

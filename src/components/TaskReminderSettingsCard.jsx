@@ -23,7 +23,7 @@ function FieldLabel({ icon: Icon, title, description }) {
   return (
     <div>
       <div className="flex items-center gap-2">
-        <Icon className="h-4 w-4 text-emerald-300/85" />
+        <Icon className="h-4 w-4 text-[#8ed0ff]" />
         <p className="text-sm font-semibold text-white">{title}</p>
       </div>
       <p className="mt-1 text-xs leading-6 text-white/52">{description}</p>
@@ -140,11 +140,11 @@ export default function TaskReminderSettingsCard({
   const realBusy = realTestBusy || realPushTestSending;
 
   return (
-    <div className="rounded-[28px] border border-emerald-400/10 bg-[linear-gradient(180deg,rgba(5,17,31,1)_0%,rgba(6,18,29,0.94)_100%)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
-      <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
+    <div className="rounded-[28px] border border-[#1d4b7b]/45 bg-[#06142a] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
+      <div className="rounded-[24px] border border-[#1d4b7b]/45 bg-[#07162b] p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-emerald-300/72">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-[#82bfff]/75">
               Task Reminders
             </p>
             <h3 className="mt-2 text-lg font-semibold text-white">
@@ -156,7 +156,7 @@ export default function TaskReminderSettingsCard({
             </p>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-right">
+          <div className="rounded-2xl border border-[#1d4b7b]/45 bg-[#07162b] px-3 py-2 text-right">
             <p className="text-[10px] uppercase tracking-[0.16em] text-white/45">Status</p>
             <p className="mt-1 text-sm font-semibold text-white">
               {settings.reminders_enabled ? "Active" : "Paused"}
@@ -166,7 +166,7 @@ export default function TaskReminderSettingsCard({
       </div>
 
       <div className="mt-4 space-y-3">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+        <div className="rounded-2xl border border-[#1d4b7b]/45 bg-[#07162b] p-4">
           <div className="flex items-start justify-between gap-4">
             <FieldLabel
               icon={BellRing}
@@ -179,13 +179,13 @@ export default function TaskReminderSettingsCard({
               onCheckedChange={(checked) =>
                 onChange({ ...settings, reminders_enabled: checked })
               }
-              className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-white/15"
+              className="data-[state=checked]:bg-[#0867ff] data-[state=unchecked]:bg-white/15"
             />
           </div>
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+          <div className="rounded-2xl border border-[#1d4b7b]/45 bg-[#07162b] p-4">
             <FieldLabel
               icon={Zap}
               title="Reminder mode"
@@ -196,10 +196,10 @@ export default function TaskReminderSettingsCard({
               onValueChange={(value) => onChange({ ...settings, reminder_mode: value })}
               disabled={loading}
             >
-              <SelectTrigger className="mt-3 h-11 rounded-2xl border-white/10 bg-black/20 text-white">
+              <SelectTrigger className="mt-3 h-11 rounded-2xl border-[#1d4b7b]/45 bg-[#040d1c] text-white">
                 <SelectValue placeholder="Select mode" />
               </SelectTrigger>
-              <SelectContent className="border-white/10 bg-[#07131f] text-white">
+              <SelectContent className="border-[#1d4b7b]/45 bg-[#040d1c] text-white">
                 {REMINDER_MODE_OPTIONS.map((option) => (
                   <SelectItem
                     key={option.value}
@@ -213,7 +213,7 @@ export default function TaskReminderSettingsCard({
             </Select>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+          <div className="rounded-2xl border border-[#1d4b7b]/45 bg-[#07162b] p-4">
             <FieldLabel
               icon={Clock3}
               title="Reminder cadence"
@@ -230,10 +230,10 @@ export default function TaskReminderSettingsCard({
               }
               disabled={loading}
             >
-              <SelectTrigger className="mt-3 h-11 rounded-2xl border-white/10 bg-black/20 text-white">
+              <SelectTrigger className="mt-3 h-11 rounded-2xl border-[#1d4b7b]/45 bg-[#040d1c] text-white">
                 <SelectValue placeholder="Select cadence" />
               </SelectTrigger>
-              <SelectContent className="border-white/10 bg-[#07131f] text-white">
+              <SelectContent className="border-[#1d4b7b]/45 bg-[#040d1c] text-white">
                 {REMINDER_FREQUENCY_OPTIONS.map((option) => (
                   <SelectItem
                     key={option.value}
@@ -248,7 +248,7 @@ export default function TaskReminderSettingsCard({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+        <div className="rounded-2xl border border-[#1d4b7b]/45 bg-[#07162b] p-4">
           <FieldLabel
             icon={Clock3}
             title="Preferred reminder time"
@@ -262,14 +262,14 @@ export default function TaskReminderSettingsCard({
                 value={timeValue}
                 disabled={loading}
                 onChange={(event) => updateTimes(event.target.value, index)}
-                className="h-11 rounded-2xl border-white/10 bg-black/20 text-white"
+                className="h-11 rounded-2xl border-[#1d4b7b]/45 bg-[#040d1c] text-white"
               />
             ))}
           </div>
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+          <div className="rounded-2xl border border-[#1d4b7b]/45 bg-[#07162b] p-4">
             <FieldLabel
               icon={Clock3}
               title="Default snooze"
@@ -282,10 +282,10 @@ export default function TaskReminderSettingsCard({
               }
               disabled={loading}
             >
-              <SelectTrigger className="mt-3 h-11 rounded-2xl border-white/10 bg-black/20 text-white">
+              <SelectTrigger className="mt-3 h-11 rounded-2xl border-[#1d4b7b]/45 bg-[#040d1c] text-white">
                 <SelectValue placeholder="Select snooze time" />
               </SelectTrigger>
-              <SelectContent className="border-white/10 bg-[#07131f] text-white">
+              <SelectContent className="border-[#1d4b7b]/45 bg-[#040d1c] text-white">
                 {SNOOZE_OPTIONS.map((option) => (
                   <SelectItem
                     key={option.value}
@@ -299,7 +299,7 @@ export default function TaskReminderSettingsCard({
             </Select>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+          <div className="rounded-2xl border border-[#1d4b7b]/45 bg-[#07162b] p-4">
             <div className="flex items-start justify-between gap-4">
               <FieldLabel
                 icon={BellRing}
@@ -312,13 +312,13 @@ export default function TaskReminderSettingsCard({
                 onCheckedChange={(checked) =>
                   onChange({ ...settings, only_notify_if_incomplete: checked })
                 }
-                className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-white/15"
+                className="data-[state=checked]:bg-[#0867ff] data-[state=unchecked]:bg-white/15"
               />
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+        <div className="rounded-2xl border border-[#1d4b7b]/45 bg-[#07162b] p-4">
           <div className="flex items-start justify-between gap-4">
             <FieldLabel
               icon={Smartphone}
@@ -335,15 +335,15 @@ export default function TaskReminderSettingsCard({
               disabled={!pushSupported || pushEnabling}
               className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${
                 !pushSupported || pushEnabling
-                  ? "cursor-not-allowed border border-white/10 bg-white/5 text-white/35"
-                  : "border border-emerald-400/20 bg-emerald-400/10 text-emerald-200 hover:bg-emerald-400/15"
+                  ? "cursor-not-allowed border border-[#1d4b7b]/45 bg-white/5 text-white/35"
+                  : "border border-[#4f96ff]/45 bg-[#0867ff]/10 text-[#b9d9ff] hover:bg-[#0867ff]/16"
               }`}
             >
               {pushEnabling ? "Connecting..." : pushConfigured ? "Refresh Push" : "Enable phone notifications"}
             </button>
           </div>
 
-          <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 p-3">
+          <div className="mt-3 rounded-2xl border border-[#1d4b7b]/45 bg-[#040d1c] p-3">
             <p className="text-xs font-semibold text-white">
               {pushConfigured ? "Push ready on this device" : permissionLabel}
             </p>
@@ -357,7 +357,7 @@ export default function TaskReminderSettingsCard({
               type="button"
               onClick={runLocalTest}
               disabled={localBusy}
-              className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-xs font-black text-white/70 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45"
+              className="rounded-2xl border border-[#1d4b7b]/45 bg-[#07162b] px-4 py-3 text-xs font-black text-white/70 transition hover:bg-[#0a203a] disabled:cursor-not-allowed disabled:opacity-45"
             >
               {localBusy ? "Sending local test..." : "Send local device test"}
             </button>
@@ -365,29 +365,29 @@ export default function TaskReminderSettingsCard({
               type="button"
               onClick={runRealPushTest}
               disabled={realBusy}
-              className="rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-3 text-xs font-black text-cyan-50 transition hover:bg-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-45"
+              className="rounded-2xl border border-[#3d85c6]/45 bg-[#19b5ff]/9 px-4 py-3 text-xs font-black text-[#c9ebff] transition hover:bg-[#19b5ff]/14 disabled:cursor-not-allowed disabled:opacity-45"
             >
               {realBusy ? "Sending real push..." : "Send real push test"}
             </button>
           </div>
 
           {deviceTestNotice ? (
-            <div className="mt-3 rounded-2xl border border-emerald-300/20 bg-emerald-400/10 p-3 text-xs font-semibold leading-5 text-emerald-100">
+            <div className="mt-3 rounded-2xl border border-[#2d6dae]/45 bg-[#0867ff]/8 p-3 text-xs font-semibold leading-5 text-[#c5e0ff]">
               {deviceTestNotice}
             </div>
           ) : null}
 
           {deviceTestError ? (
-            <div className="mt-3 rounded-2xl border border-rose-300/20 bg-rose-400/10 p-3 text-xs font-semibold leading-5 text-rose-100">
+            <div className="mt-3 rounded-2xl border border-[#a4384b]/45 bg-[#f32645]/8 p-3 text-xs font-semibold leading-5 text-[#ffc0cb]">
               {deviceTestError}
             </div>
           ) : null}
 
           <div className="mt-3 grid gap-2 text-[11px] leading-5 text-white/45">
-            <p className="rounded-2xl border border-white/10 bg-black/20 p-3">
+            <p className="rounded-2xl border border-[#1d4b7b]/45 bg-[#040d1c] p-3">
               Local test = generated by this phone. It now asks for notification permission automatically when needed.
             </p>
-            <p className="rounded-2xl border border-cyan-300/10 bg-cyan-300/[0.06] p-3 text-cyan-50/60">
+            <p className="rounded-2xl border border-[#2f73bb]/35 bg-[#0867ff]/6 p-3 text-[#b8d8ff]/65">
               Real push test = sent from CLARA’s server-side Web Push channel. The result or exact error now appears directly here instead of at the top of the Notifications page.
             </p>
           </div>

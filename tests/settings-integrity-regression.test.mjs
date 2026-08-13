@@ -33,7 +33,6 @@ const dashboardPanelNavigationSource = readSource(
 const activeSettingsSource = readSource(
   "src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx"
 );
-const settingsCleanupSource = readSource("src/settings-cleanup.css");
 const themeProviderSource = readSource("src/theme/ThemeProvider.jsx");
 const userRoleSource = readSource("src/hooks/useUserRole.js");
 const appSource = readSource("src/App.jsx");
@@ -144,11 +143,10 @@ test("Weekly Money Review visible setting is the authoritative runtime gate", ()
   );
 });
 
-test("the Settings overview no longer claims all notifications are On or Off from one reminder flag", () => {
-  assert.match(
-    settingsCleanupSource,
-    /button\.group:has\(svg\.lucide-bell\) > span[\s\S]*display: none !important/
-  );
+test("the Settings overview leaves notification state to the Notifications detail surface", () => {
+  const row = activeSettingsSource.match(/key: "notifications"[\s\S]{0,320}?action:/)?.[0] || "";
+  assert.match(row, /title: "Notifications"/);
+  assert.doesNotMatch(row, /badge:/);
 });
 
 test("dashboard panels and Settings detail pages participate in browser Back history", () => {

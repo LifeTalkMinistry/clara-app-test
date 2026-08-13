@@ -25,7 +25,6 @@ import LearningHub from "@/components/fresh/main-dashboard/learning-hub/Learning
 import DashboardSchedulePanel from "@/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardSchedulePanel";
 import DashboardSettingsPanel from "@/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel";
 import useUserRole from "@/hooks/useUserRole";
-import { useTheme } from "@/theme/ThemeProvider";
 import {
   backendRequest,
   getStoredBackendToken,
@@ -273,7 +272,6 @@ export default function Community() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user: appUser, isAdmin = false } = useUserRole();
-  const { openThemePicker, setTheme } = useTheme();
   const [notifications, setNotifications] = useState([]);
   const [communityGuideIntroOpen, setCommunityGuideIntroOpen] = useState(false);
   const [communityGuideOpen, setCommunityGuideOpen] = useState(false);
@@ -520,14 +518,11 @@ export default function Community() {
           <MessagesBackend />
         </div>
       ) : activeView === "settings" ? (
-        <main className="clara-community-settings-view relative z-[1] min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(circle_at_88%_8%,rgba(79,70,229,0.10),transparent_30%),radial-gradient(circle_at_12%_22%,rgba(20,184,166,0.06),transparent_30%),#06111f] px-4 pb-[calc(env(safe-area-inset-bottom)+30px)] pt-5 sm:px-6">
+        <main className="clara-community-settings-view relative z-[1] min-h-0 flex-1 overflow-y-auto bg-[#040b18] px-4 pb-[calc(env(safe-area-inset-bottom)+30px)] pt-5 sm:px-6">
           <div className="mx-auto w-full max-w-md">
             <DashboardSettingsPanel
-              onBack={() => navigate("/community?view=profile")}
               user={settingsUser}
               isAdmin={isAdmin}
-              openThemePicker={openThemePicker}
-              resetThemeToDefault={() => setTheme("clara-hero-red-blue")}
               onOpenMessages={() => navigate("/community?view=messages")}
             />
           </div>
