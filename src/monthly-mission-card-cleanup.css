@@ -1,0 +1,60 @@
+/* Monthly Mission main-card cleanup.
+ * Mirror the Weekly Mini Streak hierarchy: one centered mission badge,
+ * one centered title, the information control pinned right, and no repeated
+ * instructional microcopy in the primary card.
+ */
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(> div:first-child button.h-10.w-10) > div:first-child > div:first-child {
+  position: relative;
+  display: block !important;
+  padding-inline: 44px;
+  text-align: center;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(> div:first-child button.h-10.w-10) > div:first-child > div:first-child > .min-w-0 {
+  width: 100%;
+  min-width: 0;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(> div:first-child button.h-10.w-10) > div:first-child > div:first-child > .min-w-0 > div:first-child {
+  justify-content: center;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(> div:first-child button.h-10.w-10) > div:first-child > div:first-child > .min-w-0 > div:first-child > span:nth-child(n+2) {
+  display: none !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(> div:first-child button.h-10.w-10) > div:first-child > div:first-child h3 {
+  width: 100%;
+  text-align: center;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(> div:first-child button.h-10.w-10) > div:first-child > div:first-child h3 + p {
+  display: none !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(> div:first-child button.h-10.w-10) > div:first-child > div:first-child > button.h-10.w-10 {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(> div:first-child button.h-10.w-10) > div:last-child > p {
+  display: none !important;
+}
