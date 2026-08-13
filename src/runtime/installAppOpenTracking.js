@@ -14,8 +14,6 @@ const QUEUE_KEY = "clara:app-open-queue:v1";
 const LIFECYCLE_KEY = "clara:app-lifecycle:v1";
 const INSTALLATION_KEY = "clara:competition-install-id:v1";
 const DAILY_CHECK_IN_STORAGE_PREFIX = "clara_daily_check_in_v3:";
-const CHALLENGE_PROGRESS_STORAGE_KEY = "clara-challenge-progress-v1";
-const THIRTY_DAY_CHALLENGE_ID = "thirty-day-discipline";
 const DAILY_CHECK_IN_UPDATE_EVENT = "clara:daily-check-in-updated";
 const MAX_QUEUED_EVENTS = 20;
 const MAX_COMPETITION_CHECK_INS = 45;
@@ -132,7 +130,7 @@ function stateKey(userId) {
   return `${STATE_KEY_PREFIX}${userId}`;
 }
 
-function readDailyMoneyTipCheckIns(userId) {
+function readCompetitionCheckInEvents(userId) {
   const state = readJson(
     safeStorage(),
     `${DAILY_CHECK_IN_STORAGE_PREFIX}${userId}`,
@@ -155,40 +153,6 @@ function readDailyMoneyTipCheckIns(userId) {
             : null,
     }))
     .filter((event) => event.eventId && /^\d{4}-\d{2}-\d{2}$/.test(event.eligibleDay));
-}
-
-function readChallengeHubCheckIns(userId) {
-  const progress = readJson(safeStorage(), CHALLENGE_PROGRESS_STORAGE_KEY, null);
-  const entry = progress?.[THIRTY_DAY_CHALLENGE_ID];
-  const checkIns = Array.isArray(entry?.checkIns) ? entry.checkIns : [];
-
-  return [...new Set(checkIns)]
-    .filter((eligibleDay) => /^\d{4}-\d{2}-\d{2}$/.test(String(eligibleDay || "")))
-    .sort()
-    .slice(-MAX_COMPETITION_CHECK_INS)
-    .map((eligibleDay) => ({
-      eventId: `challenge_hub:${userId}:${eligibleDay}`,
-      eligibleDay,
-      source: "challenge_hub_check_in",
-      clientOccurredAt: null,
-    }));
-}
-
-function readCompetitionCheckInEvents(userId) {
-  const byDay = new Map();
-
-  readChallengeHubCheckIns(userId).forEach((event) => {
-    byDay.set(event.eligibleDay, event);
-  });
-  readDailyMoneyTipCheckIns(userId).forEach((event) => {
-    // Prefer the canonical Daily Money Tip event when both systems report the
-    // same eligible day; the Challenge Hub remains a valid fallback receipt.
-    byDay.set(event.eligibleDay, event);
-  });
-
-  return [...byDay.values()]
-    .sort((left, right) => left.eligibleDay.localeCompare(right.eligibleDay))
-    .slice(-MAX_COMPETITION_CHECK_INS);
 }
 
 function integrityPayload(identity, platform) {
