@@ -1,10 +1,9 @@
 /*
- * CLARA Challenge Hub — official brand COLOR PASS ONLY.
+ * CLARA Challenge Hub — official presentation authority.
  *
- * The existing Challenge Hub keeps ownership of geometry, spacing, widths,
- * heights, radii, typography sizing, responsive behavior and challenge logic.
- * This layer changes only visual branding: deep navy surfaces, CLARA blue,
- * warm gold, restrained red, borders, text treatment and controlled glow.
+ * React owns Challenge Hub structure, copy, state, accessibility and interaction.
+ * This stylesheet owns visual presentation only: deep navy surfaces, CLARA blue,
+ * warm gold, restrained red, borders, spacing treatment and controlled glow.
  */
 
 .clara-community-root[data-community-view="challenges"] {
@@ -66,13 +65,25 @@
 }
 
 .clara-community-root[data-community-view="challenges"]
-.clara-community-challenges-view main > div > section:first-child > div.relative > div:first-child {
-  border-color: rgba(82,153,255,.34) !important;
-  background: linear-gradient(145deg,rgba(8,103,255,.16),rgba(5,22,49,.88)) !important;
-  color: var(--ch-gold) !important;
+.clara-community-challenges-view .clara-challenge-hub-hero__info {
+  border-color: rgba(111,166,235,.24);
+  background: linear-gradient(145deg,rgba(8,103,255,.11),rgba(255,255,255,.035));
+  color: rgba(220,233,250,.68);
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.07),
-    0 0 26px rgba(8,103,255,.10) !important;
+    inset 0 1px 0 rgba(255,255,255,.055),
+    0 8px 22px rgba(0,0,0,.13);
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view .clara-challenge-hub-hero__info:hover {
+  border-color: rgba(255,216,74,.34);
+  color: rgba(255,231,143,.92);
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view .clara-challenge-hub-hero__info:focus-visible {
+  outline: 2px solid rgba(25,181,255,.72);
+  outline-offset: 3px;
 }
 
 .clara-community-root[data-community-view="challenges"]
@@ -307,4 +318,119 @@
   background: rgba(8,103,255,.10) !important;
   color: rgba(255,216,74,.84) !important;
   box-shadow: inset 0 0 16px rgba(8,103,255,.04) !important;
+}
+
+/* React-owned Challenge Hub information dialog */
+.clara-community-root[data-community-view="challenges"]
+.clara-challenge-hub-info-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+  padding:
+    max(18px, env(safe-area-inset-top))
+    max(18px, env(safe-area-inset-right))
+    max(18px, env(safe-area-inset-bottom))
+    max(18px, env(safe-area-inset-left));
+  background: rgba(1,2,23,.78);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-challenge-hub-info-dialog {
+  position: relative;
+  box-sizing: border-box;
+  width: min(100%,430px);
+  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid rgba(76,139,218,.28);
+  border-radius: 26px;
+  padding: 22px 20px 20px;
+  color: #f8fbff;
+  background:
+    radial-gradient(circle at 0% 0%,rgba(25,181,255,.11),transparent 36%),
+    radial-gradient(circle at 100% 100%,rgba(243,38,69,.05),transparent 38%),
+    linear-gradient(155deg,rgba(7,27,45,.995),rgba(7,15,35,.998));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.05),
+    0 24px 80px rgba(0,0,0,.48),
+    0 0 34px rgba(8,103,255,.055);
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-challenge-hub-info-dialog__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 13px;
+  background: rgba(255,255,255,.045);
+  color: rgba(230,239,251,.66);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-challenge-hub-info-dialog__close:hover {
+  border-color: rgba(255,216,74,.28);
+  color: rgba(255,236,173,.94);
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-challenge-hub-info-dialog__close:focus-visible {
+  outline: 2px solid rgba(25,181,255,.72);
+  outline-offset: 3px;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-challenge-hub-info-dialog__eyebrow {
+  margin: 0 48px 0 0;
+  color: rgba(255,216,74,.84);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .18em;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-challenge-hub-info-dialog__title {
+  margin: 8px 48px 0 0;
+  color: #f8fbff;
+  font-size: 21px;
+  font-weight: 900;
+  line-height: 1.2;
+  letter-spacing: -.025em;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-challenge-hub-info-dialog__description {
+  margin: 14px 0 0;
+  color: rgba(208,225,247,.62);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.75;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-challenge-hub-info-dialog__principle {
+  margin-top: 16px;
+  border: 1px solid rgba(255,216,74,.16);
+  border-radius: 18px;
+  padding: 12px 13px;
+  color: rgba(255,232,148,.86);
+  background: rgba(255,216,74,.05);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.55;
 }
