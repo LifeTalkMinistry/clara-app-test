@@ -5,6 +5,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.WindowManager;
 import com.getcapacitor.BridgeActivity;
 import com.clara.lifeos.app.ClaraBillingPlugin;
 
@@ -16,6 +17,12 @@ public class MainActivity extends BridgeActivity {
         createClaraReminderChannel();
         registerPlugin(ClaraBillingPlugin.class);
         super.onCreate(savedInstanceState);
+
+        // Keep conversational composers visible when Android's IME opens.
+        // This mirrors ChatGPT-style behavior: the WebView is resized to the
+        // remaining visible area instead of the keyboard panning/covering the
+        // bottom input bar.
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
     }
 
     private void createClaraReminderChannel() {
