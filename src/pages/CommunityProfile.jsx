@@ -39,7 +39,7 @@ const FINANCE_SECTIONS = [
     F("financial_freedom_age", "Target age for financial freedom", "e.g. 45", true), F("emergency_fund_target", "Emergency fund target", "e.g. ₱100,000", true),
     F("savings_goal", "Savings goal", "e.g. ₱250,000", true), F("debt_free_target", "Debt-free target", "e.g. December 2027"), F("house_fund", "House fund target", "Optional", true),
     F("car_fund", "Car fund target", "Optional", true), F("business_capital", "Business capital target", "Optional", true), F("education_fund", "Education fund", "Optional", true),
-    F("wedding_fund", "Wedding fund target", "Optional", true), F("travel_fund", "Travel fund target", "Optional", true), F("retirement_goal", "Retirement goal", "Optional", true),
+    F("wedding_fund", "Wedding fund", "Optional", true), F("travel_fund", "Travel fund", "Optional", true), F("retirement_goal", "Retirement goal", "Optional", true),
     F("investment_target", "Investment target", "Optional", true), F("monthly_savings_target", "Monthly savings target", "e.g. ₱5,000/month", true),
   ]},
   { key: "journey", title: "My Money Journey", short: "Journey", subtitle: "The mission, struggles, lessons, and reasons behind the numbers.", icon: Route, fields: [
