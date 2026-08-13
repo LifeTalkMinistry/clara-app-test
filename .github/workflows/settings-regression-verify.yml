@@ -20,15 +20,14 @@ jobs:
       - name: Align current notification tools label
         run: sed -i 's/Advanced task reminder schedule/Advanced delivery \& task reminder tools/g' tests/settings-integrity-regression.test.mjs
 
-      - name: Run Settings authority regression suite
+      - name: Run Settings authority regressions sequentially
         run: |
-          node --test \
-            tests/canonical-display-name-authority.test.mjs \
-            tests/settings-local-only-regression.test.mjs \
-            tests/settings-integrity-regression.test.mjs \
-            tests/settings-top-spacing.test.mjs \
-            tests/settings-visual-authority.test.mjs \
-            tests/dashboard-top-nav-ownership.test.mjs
+          node --test tests/canonical-display-name-authority.test.mjs
+          node --test tests/settings-local-only-regression.test.mjs
+          node --test tests/settings-integrity-regression.test.mjs
+          node --test tests/settings-top-spacing.test.mjs
+          node --test tests/settings-visual-authority.test.mjs
+          node --test tests/dashboard-top-nav-ownership.test.mjs
 
       - name: Commit verified alignment and remove verifier
         run: |
