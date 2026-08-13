@@ -25,14 +25,20 @@ function navigateToAnalytics(event) {
   event?.stopPropagation?.();
 
   if (typeof window === 'undefined') return;
-  if (window.location.pathname === '/analytics') return;
+
+  // CLARA is mounted under React Router's HashRouter. Changing pathname here
+  // creates a real /analytics request on GitHub Pages while leaving the old
+  // #/community route active. Route only through the hash so the SPA stays on
+  // its deployed base path and React Router receives the navigation.
+  const targetHash = '#/analytics';
+  if (window.location.hash === targetHash) return;
 
   try {
-    window.history.pushState({}, '', '/analytics');
-    window.dispatchEvent(new PopStateEvent('popstate'));
+    window.location.hash = targetHash;
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   } catch {
-    window.location.assign('/analytics');
+    const base = `${window.location.pathname}${window.location.search}`;
+    window.location.assign(`${base}${targetHash}`);
   }
 }
 
@@ -147,7 +153,7 @@ export function installMoneyLeftAnalyticsShortcut() {
     subtree: true,
   });
 
-  window.addEventListener('popstate', scheduleApply);
+  window.addEventListener('hashchange', scheduleApply);
   window.addEventListener('clara-finance-updated', scheduleApply);
 }
 
