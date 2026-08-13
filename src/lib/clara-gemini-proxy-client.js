@@ -1,6 +1,15 @@
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_PROXY_ENDPOINT = "/api/clara-gemini";
 const CLARA_GEMINI_PROXY_PRODUCTION_URL = "https://clara-app-test.vercel.app/api/clara-gemini";
+const ASK_BEFORE_YOU_SPEND_FEATURE = "ask-before-you-spend";
+
+const BUY_CHECK_PROMPT_PREFIXES = [
+  "You are CLARA explaining a deterministic Buy Check result.",
+  "You are CLARA extracting the exact item a user wants to buy before a Buy Check.",
+  "You are CLARA interpreting one user's reason before a Buy Check confirmation.",
+  "You are CLARA naturally confirming the user's answers before running a Buy Check.",
+  "You are CLARA preparing an editable expense note after a user chooses Will buy.",
+];
 
 function cleanText(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -8,6 +17,29 @@ function cleanText(value = "") {
 
 function normalizeModelName(model = "") {
   return cleanText(model).replace(/^models\//, "");
+}
+
+function normalizeFeature(value = "") {
+  return cleanText(value).toLowerCase();
+}
+
+function isDedicatedBuyCheckPrompt(prompt = "") {
+  const source = String(prompt || "").trim();
+  return BUY_CHECK_PROMPT_PREFIXES.some((prefix) => source.startsWith(prefix));
+}
+
+function resolveAllowedFeature({ feature = "", prompt = "" } = {}) {
+  const requested = normalizeFeature(feature);
+  if (requested === ASK_BEFORE_YOU_SPEND_FEATURE) return ASK_BEFORE_YOU_SPEND_FEATURE;
+  if (isDedicatedBuyCheckPrompt(prompt)) return ASK_BEFORE_YOU_SPEND_FEATURE;
+  return "";
+}
+
+function featureDisabledError() {
+  const error = new Error("CLARA AI is intentionally disabled outside Ask Before You Spend.");
+  error.code = "CLARA_AI_FEATURE_DISABLED";
+  error.status = 403;
+  return error;
 }
 
 function getClaraGeminiProxyEndpoint() {
@@ -41,8 +73,8 @@ export function getClaraProxyModel(fallback = DEFAULT_GEMINI_MODEL) {
   );
 }
 
-export function hasClaraGeminiProxyConfig() {
-  return true;
+export function hasClaraGeminiProxyConfig(feature = "") {
+  return normalizeFeature(feature) === ASK_BEFORE_YOU_SPEND_FEATURE;
 }
 
 export function getClaraGeminiProxyModelCandidates(fallbacks = []) {
@@ -66,6 +98,7 @@ export async function requestClaraGeminiProxyText({
   model = getClaraProxyModel(),
   generationConfig = {},
   signal,
+  feature = "",
 } = {}) {
   const cleanPrompt = String(prompt || "").trim();
 
@@ -75,11 +108,15 @@ export async function requestClaraGeminiProxyText({
     throw error;
   }
 
+  const allowedFeature = resolveAllowedFeature({ feature, prompt: cleanPrompt });
+  if (!allowedFeature) throw featureDisabledError();
+
   const response = await fetch(getClaraGeminiProxyEndpoint(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     signal,
     body: JSON.stringify({
+      feature: allowedFeature,
       prompt: cleanPrompt,
       model: normalizeModelName(model),
       generationConfig,
@@ -90,7 +127,7 @@ export async function requestClaraGeminiProxyText({
 
   if (!response.ok || payload?.ok === false) {
     const error = new Error(payload?.error || "CLARA Gemini proxy request failed.");
-    error.code = "CLARA_PROXY_FAILED";
+    error.code = payload?.code || "CLARA_PROXY_FAILED";
     error.status = response.status;
     error.model = payload?.model || normalizeModelName(model);
     throw error;
