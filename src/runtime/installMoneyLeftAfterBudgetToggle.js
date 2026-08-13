@@ -92,11 +92,11 @@ function installStyles() {
       position: absolute !important;
       z-index: 58 !important;
       top: clamp(12px, 3.4vw, 16px) !important;
-      left: calc(clamp(112px, 33vw, 132px) + 40px) !important;
-      width: 32px !important;
-      min-width: 32px !important;
-      height: 32px !important;
-      min-height: 32px !important;
+      left: calc(var(--clara-money-tool-start, clamp(112px, 33vw, 132px)) + var(--clara-money-tool-step, 40px)) !important;
+      width: var(--clara-money-tool-size, 32px) !important;
+      min-width: var(--clara-money-tool-size, 32px) !important;
+      height: var(--clara-money-tool-size, 32px) !important;
+      min-height: var(--clara-money-tool-size, 32px) !important;
       padding: 0 !important;
       display: flex !important;
       align-items: center !important;
@@ -104,25 +104,26 @@ function installStyles() {
       overflow: visible !important;
       pointer-events: auto !important;
       cursor: pointer !important;
-      border: 1px solid rgba(126, 181, 255, 0.26) !important;
+      border: 1px solid rgba(255,216,74,0.42) !important;
       border-radius: 999px !important;
-      background: rgba(3, 18, 43, 0.68) !important;
-      color: #b9d9ff !important;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08) !important;
+      background: linear-gradient(145deg, rgba(78,61,18,0.72), rgba(4,21,49,0.96)) !important;
+      color: #ffd84a !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 0 14px rgba(255,216,74,0.10) !important;
       line-height: 1 !important;
       transform: translateX(-50%) !important;
-      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, color 140ms ease, box-shadow 140ms ease !important;
+      transition: transform 150ms ease, border-color 150ms ease, background 150ms ease, color 150ms ease, box-shadow 150ms ease !important;
       -webkit-tap-highlight-color: transparent;
     }
 
     ${HOME_MONEY_LEFT_SELECTOR} ${PROJECTION_SELECTOR}:hover {
-      border-color: rgba(255,216,74,0.46) !important;
-      background: rgba(7,31,71,0.92) !important;
+      border-color: rgba(255,255,255,0.52) !important;
+      background: linear-gradient(145deg, rgba(105,82,22,0.82), rgba(6,28,63,0.98)) !important;
       color: #ffffff !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 0 18px rgba(255,216,74,0.15) !important;
     }
 
     ${HOME_MONEY_LEFT_SELECTOR} ${PROJECTION_SELECTOR}:active {
-      transform: translateX(-50%) scale(0.95) !important;
+      transform: translateX(-50%) scale(0.94) !important;
     }
 
     ${HOME_MONEY_LEFT_SELECTOR} ${PROJECTION_SELECTOR}:focus-visible {
@@ -131,16 +132,16 @@ function installStyles() {
     }
 
     ${HOME_MONEY_LEFT_SELECTOR} ${PROJECTION_SELECTOR}[data-clara-after-budget-active="true"] {
-      border-color: rgba(255,216,74,0.58) !important;
-      background: linear-gradient(145deg, rgba(23,105,224,0.28), rgba(7,31,71,0.96)) !important;
-      color: #ffd84a !important;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 0 18px rgba(255,216,74,0.12) !important;
+      border-color: rgba(255,226,106,0.78) !important;
+      background: linear-gradient(145deg, rgba(126,93,16,0.88), rgba(8,37,81,0.98)) !important;
+      color: #fff2a8 !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 0 20px rgba(255,216,74,0.20) !important;
     }
 
     ${HOME_MONEY_LEFT_SELECTOR} ${PROJECTION_SELECTOR} > span[data-clara-after-budget-icon="true"] {
       display: flex !important;
-      width: 14px !important;
-      height: 14px !important;
+      width: var(--clara-money-tool-icon, 14px) !important;
+      height: var(--clara-money-tool-icon, 14px) !important;
       align-items: center !important;
       justify-content: center !important;
       color: currentColor !important;
@@ -148,8 +149,8 @@ function installStyles() {
 
     ${HOME_MONEY_LEFT_SELECTOR} ${PROJECTION_SELECTOR} > span[data-clara-after-budget-icon="true"] svg {
       display: block !important;
-      width: 14px !important;
-      height: 14px !important;
+      width: var(--clara-money-tool-icon, 14px) !important;
+      height: var(--clara-money-tool-icon, 14px) !important;
     }
   `;
   document.head.appendChild(style);
@@ -169,10 +170,6 @@ export function applyAfterBudgetToggle() {
     const projectedAmount = captureProjectedAmount(toggle);
     const currentAmount = normalize(amountNode.textContent);
 
-    // Only learn a new base value when the DOM is genuinely showing the
-    // current Money Left. Immediately after turning the projection off the
-    // DOM still contains lastProjectedText; treating that as the new base
-    // makes the toggle appear clickable but prevents the amount restoring.
     if (
       !afterBudgetActive &&
       currentAmount &&
