@@ -22,6 +22,9 @@ test("CLARA support tiers are voluntary recognition tiers, not feature plans", (
   assert.equal(SUPPORT_TIERS.supporter.price, 99);
   assert.equal(SUPPORT_TIERS.builder.price, 249);
   assert.equal(SUPPORT_TIERS.champion.price, 499);
+  assert.equal(SUPPORT_TIERS.supporter.name, "CLARA Supporter");
+  assert.equal(SUPPORT_TIERS.builder.name, "CLARA Builder");
+  assert.equal(SUPPORT_TIERS.champion.name, "CLARA Champion");
   assert.equal(SUPPORT_TIERS.builder.recommended, true);
   assert.equal("popular" in SUPPORT_TIERS.builder, false);
   assert.match(SUPPORT_TIERS.champion.positioning, /personally work with Max/i);
@@ -38,11 +41,19 @@ test("support gratitude state lasts only through the active support cycle", () =
     ...active,
     support_expires_at: "2026-08-08T00:00:00+08:00",
   };
+  const inactive = {
+    ...active,
+    status: "inactive",
+  };
 
   assert.equal(isSupportRecordActive(active, now), true);
   assert.equal(getSupportDisplayState(active, now).label, "Thank you");
+  assert.equal(getSupportDisplayState(active, now).tier, "builder");
   assert.equal(isSupportRecordActive(expired, now), false);
   assert.equal(getSupportDisplayState(expired, now).label, "Support");
+  assert.equal(getSupportDisplayState(expired, now).tier, null);
+  assert.equal(isSupportRecordActive(inactive, now), false);
+  assert.equal(getSupportDisplayState(inactive, now).tier, null);
 });
 
 test("Champion availability is displayed only when a real cap is configured", () => {
@@ -76,6 +87,20 @@ test("free plan source of truth gives full normal app access and keeps coaching 
   }
   assert.match(planConfig, /coaching: "teaser"/);
   assert.match(planConfig, /complete CLARA financial accountability app is free for everyone/i);
+});
+
+test("Settings identity surfaces resolve only from active supporter status", () => {
+  const settings = read("src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx");
+  const badge = read("src/components/support/SupportTierBadge.jsx");
+
+  assert.match(settings, /useClaraSupport\(user\)/);
+  assert.match(settings, /activeSupporterTier = supporterStatus\?\.active \? supporterStatus\.tier : null/);
+  assert.match(settings, /badgeNode: activeSupporterTier \?/);
+  assert.match(settings, /<SupportTierBadge tier=\{activeSupporterTier\} compact \/>/);
+  assert.doesNotMatch(settings, /badge: currentPlan/);
+  assert.doesNotMatch(settings, /\{currentPlan\}/);
+  assert.match(badge, /getSupportTier/);
+  assert.match(badge, /const label = canonicalTier\.name/);
 });
 
 test("legacy enrollment can no longer force or sell a core feature unlock", () => {
