@@ -168,6 +168,8 @@ import "./installSettingsLogoutRow";
 import "../settings-cleanup.css";
 import "../settings-priority.css";
 import "../settings-support-compose.css";
+// Keep this last in the Settings stack so the official CLARA blue/gold/red system wins the cascade.
+import "../settings-official-brand-theme.css";
 
 // Life Stage visual patches
 import "../life-stage-collision.css";
