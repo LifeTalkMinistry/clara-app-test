@@ -168,10 +168,6 @@ export default function WeeklyMiniStreakCard({ progress, setProgress }) {
   const alreadyCheckedIn = authority === "server"
     ? Boolean(serverState?.checkedInToday)
     : checked.has(windowState.todayKey);
-  const missedPastDay = joined && windowState.days.slice(0, windowState.dayIndex).some((day) => !checked.has(day.key));
-  const canStillFinish = authority === "server"
-    ? Boolean(serverState?.canStillFinish)
-    : joined && !missedPastDay;
   const progressPercent = Math.round((progressCount / 7) * 100);
 
   const mirrorServerState = (nextState) => {
@@ -331,7 +327,6 @@ export default function WeeklyMiniStreakCard({ progress, setProgress }) {
               </button>
             </div>
             <h3 className="mt-4 text-[22px] font-black tracking-[-0.035em] text-white">₱100 Load Weekly Draw</h3>
-            <p className="mt-1.5 text-[11px] font-semibold leading-5 text-white/45">Join intentionally, then check in here every day from Monday through Sunday.</p>
             <div className="mt-4 grid grid-cols-3 gap-2">
               <div className="rounded-[17px] border border-white/[0.08] bg-white/[0.025] px-3 py-3">
                 <p className="text-[8px] font-black uppercase tracking-[0.12em] text-white/28">This week</p>
@@ -364,9 +359,6 @@ export default function WeeklyMiniStreakCard({ progress, setProgress }) {
             <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
               <div className="h-full rounded-full bg-[#facc15] transition-[width] duration-500" style={{ width: `${progressPercent}%` }} />
             </div>
-            {joined && !completed && !canStillFinish ? (
-              <p className="mt-3 rounded-[15px] border border-[#fb7185]/12 bg-[#fb7185]/[0.035] px-3 py-2.5 text-[9px] font-bold leading-4 text-[#fecdd3]/60">7/7 is no longer possible this week, but you can keep checking in for the habit. A fresh prize run opens Monday.</p>
-            ) : null}
           </div>
         </div>
         <div className="p-4">
@@ -375,9 +367,7 @@ export default function WeeklyMiniStreakCard({ progress, setProgress }) {
           </button>
           {actionError ? (
             <p className="mt-2.5 text-center text-[9px] font-semibold text-[#fecdd3]/65">{actionError}</p>
-          ) : (
-            <p className="mt-2.5 text-center text-[9px] font-semibold text-white/28">Weekly check-ins count only from this button. Daily Money Tip stays separate.</p>
-          )}
+          ) : null}
         </div>
       </section>
 
