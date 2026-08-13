@@ -48,6 +48,29 @@ function ensureStyles() {
       pointer-events: auto !important;
     }
 
+    /*
+     * The Orb launcher keeps a square canvas because the native SVG includes
+     * its floor reflection and established visual spacing. That square must not
+     * become a square touch target. Let its non-interactive canvas pass pointer
+     * input through to the Orb-page root, then re-enable pointer input only on
+     * the actual painted sphere circles. Events from those circles still bubble
+     * through the existing launcher button, preserving its React onClick and
+     * keyboard behavior without coordinate hit testing.
+     */
+    .clara-community-root[data-community-view="orb"]
+      [data-clara-orb-launcher="true"],
+    .clara-community-root[data-community-view="orb"]
+      [data-clara-orb-launcher="true"] * {
+      pointer-events: none !important;
+    }
+
+    .clara-community-root[data-community-view="orb"]
+      [data-clara-orb-launcher="true"] .clara-orb-vector > circle {
+      pointer-events: all !important;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
     @media (prefers-reduced-motion: reduce) {
       .clara-community-root[data-community-view="orb"]
         > .clara-community-shell-header {
