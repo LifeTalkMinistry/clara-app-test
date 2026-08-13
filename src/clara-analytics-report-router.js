@@ -12,6 +12,7 @@ const WINDOW_SELECTOR = "[data-clara-analytics-window]";
 const REPORT_TONES = new Set(["neutral", "reality", "hope", "possibility"]);
 const ANALYTICS_PAGE_OLD_TITLE = "Understand your money behavior";
 const ANALYTICS_PAGE_NEW_TITLE = "Analytics";
+const ANALYTICS_PAGE_EYEBROW = "CLARA MONEY ANALYTICS";
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -73,11 +74,24 @@ function findAnalyticsReadyBubble() {
   }) || null;
 }
 
-function ensureAnalyticsPageTitle() {
-  const heading = Array.from(document.querySelectorAll("h1")).find(
-    (node) => clean(node.textContent) === ANALYTICS_PAGE_OLD_TITLE,
-  );
-  if (heading) heading.textContent = ANALYTICS_PAGE_NEW_TITLE;
+function ensureAnalyticsPageHeader() {
+  const heading = Array.from(document.querySelectorAll("h1")).find((node) => {
+    const text = clean(node.textContent);
+    return text === ANALYTICS_PAGE_OLD_TITLE || text === ANALYTICS_PAGE_NEW_TITLE;
+  });
+  if (!heading) return;
+
+  if (clean(heading.textContent) === ANALYTICS_PAGE_OLD_TITLE) {
+    heading.textContent = ANALYTICS_PAGE_NEW_TITLE;
+  }
+
+  const header = heading.closest("header");
+  const eyebrow = header
+    ? Array.from(header.querySelectorAll("p")).find(
+        (node) => clean(node.textContent) === ANALYTICS_PAGE_EYEBROW,
+      )
+    : null;
+  eyebrow?.remove();
 }
 
 function buildActionButton() {
@@ -332,16 +346,16 @@ function installOpenListener() {
 
 function installObserver() {
   const observer = new MutationObserver(() => {
-    ensureAnalyticsPageTitle();
+    ensureAnalyticsPageHeader();
     if (findAnalyticsReadyBubble()) ensureInlineAction();
   });
   observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
   window.setTimeout(() => {
-    ensureAnalyticsPageTitle();
+    ensureAnalyticsPageHeader();
     if (findAnalyticsReadyBubble()) ensureInlineAction();
   }, 60);
   window.setTimeout(() => {
-    ensureAnalyticsPageTitle();
+    ensureAnalyticsPageHeader();
     if (findAnalyticsReadyBubble()) ensureInlineAction();
   }, 900);
 }
