@@ -1,5 +1,6 @@
 import "./installClaraOrbChatHandoff";
 import "./installClaraBuyCheckKeyboardGuard";
+import "./installClaraOrbViewportOwnershipGuard";
 
 /*
  * Personalized greeting for the dedicated CLARA Orb page.
