@@ -1,0 +1,98 @@
+name: Settings visual authority cleanup
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/settings-visual-authority-cleanup.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Consolidate Settings ownership
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          community = Path('src/pages/Community.jsx')
+          text = community.read_text()
+          text = text.replace('import { useTheme } from "@/theme/ThemeProvider";\n', '')
+          text = text.replace('  const { openThemePicker, setTheme } = useTheme();\n', '')
+          old = 'className="clara-community-settings-view relative z-[1] min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(circle_at_88%_8%,rgba(79,70,229,0.10),transparent_30%),radial-gradient(circle_at_12%_22%,rgba(20,184,166,0.06),transparent_30%),#06111f] px-4 pb-[calc(env(safe-area-inset-bottom)+30px)] pt-5 sm:px-6"'
+          new = 'className="clara-community-settings-view relative z-[1] min-h-0 flex-1 overflow-y-auto bg-[#040b18] px-4 pb-[calc(env(safe-area-inset-bottom)+30px)] pt-5 sm:px-6"'
+          if old not in text:
+              raise SystemExit('Settings shell class changed; refusing unsafe replacement')
+          text = text.replace(old, new)
+          text = text.replace('              onBack={() => navigate("/community?view=profile")}\n', '')
+          text = text.replace('              openThemePicker={openThemePicker}\n', '')
+          text = text.replace('              resetThemeToDefault={() => setTheme("clara-hero-red-blue")}\n', '')
+          community.write_text(text)
+
+          canonical = Path('tests/canonical-display-name-authority.test.mjs')
+          text = canonical.read_text().replace('DashboardSettingsPanelOfficial.jsx', 'DashboardSettingsPanel.jsx')
+          canonical.write_text(text)
+
+          local_test = Path('tests/settings-local-only-regression.test.mjs')
+          text = local_test.read_text()
+          text = text.replace('const settingsCleanupSource = readSource("src/settings-cleanup.css");\n', '')
+          old_test = '''test("Settings permanently hides theme customization through one scoped CSS owner", () => {\n  assert.equal(existsSync(retiredThemePatchUrl), false);\n  assert.match(\n    settingsCleanupSource,\n    /button\\.group:has\\(svg\\.lucide-palette\\)[\\s\\S]*display:\\s*none\\s*!important/\n  );\n});'''
+          new_test = '''test("Settings owns appearance directly and exposes no theme customization row", () => {\n  assert.equal(existsSync(retiredThemePatchUrl), false);\n  assert.doesNotMatch(\n    activeSettingsSource,\n    /openThemePicker|lucide-palette|title: "Appearance"|title: "Theme"/\n  );\n});'''
+          if old_test not in text:
+              raise SystemExit('settings-local-only theme test changed; refusing unsafe replacement')
+          local_test.write_text(text.replace(old_test, new_test))
+
+          integrity = Path('tests/settings-integrity-regression.test.mjs')
+          text = integrity.read_text()
+          text = text.replace('import { readFileSync } from "node:fs";', 'import { existsSync, readFileSync } from "node:fs";')
+          text = text.replace('const settingsCleanupSource = readSource("src/settings-cleanup.css");\n', '')
+          old_test = '''test("the Settings overview no longer claims all notifications are On or Off from one reminder flag", () => {\n  assert.match(\n    settingsCleanupSource,\n    /button\\.group:has\\(svg\\.lucide-bell\\) > span[\\s\\S]*display: none !important/\n  );\n});'''
+          new_test = '''test("the Settings overview leaves notification state to the Notifications detail surface", () => {\n  const row = activeSettingsSource.match(/key: "notifications"[\\s\\S]{0,280}?action:/)?.[0] || "";\n  assert.match(row, /title: "Notifications"/);\n  assert.doesNotMatch(row, /badge:/);\n});'''
+          if old_test not in text:
+              raise SystemExit('settings-integrity notification test changed; refusing unsafe replacement')
+          text = text.replace(old_test, new_test)
+          integrity.write_text(text)
+
+          spacing = Path('tests/settings-top-spacing.test.mjs')
+          spacing.write_text('''import test from "node:test";\nimport assert from "node:assert/strict";\nimport { readFile } from "node:fs/promises";\n\nconst communitySource = await readFile(\n  new URL("../src/pages/Community.jsx", import.meta.url),\n  "utf8"\n);\n\ntest("Community shell owns Settings scrolling and outer spacing only", () => {\n  const settingsBranch = communitySource.match(\n    /activeView === "settings"[\\s\\S]{0,1000}?<DashboardSettingsPanel/\n  )?.[0] || "";\n  assert.match(settingsBranch, /clara-community-settings-view/);\n  assert.match(settingsBranch, /overflow-y-auto/);\n  assert.match(settingsBranch, /px-4/);\n  assert.match(settingsBranch, /bg-\\[#040b18\\]/);\n  assert.doesNotMatch(settingsBranch, /rgba\\(79,70,229|rgba\\(20,184,166/);\n});\n''')
+
+          authority = Path('tests/settings-visual-authority.test.mjs')
+          authority.write_text('''import test from "node:test";\nimport assert from "node:assert/strict";\nimport { existsSync, readFileSync } from "node:fs";\n\nconst readSource = (relativePath) =>\n  readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");\n\nconst settings = readSource(\n  "src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx"\n);\nconst runtime = readSource("src/runtime/installClaraRuntimePatches.js");\n\nconst retiredVisualFiles = [\n  "src/settings-cleanup.css",\n  "src/settings-priority.css",\n  "src/settings-support-compose.css",\n  "src/settings-official-brand-theme.css",\n  "src/settings-community-brand-fix.css",\n];\n\ntest("Settings visual authority is React-owned and legacy theme layers are retired", () => {\n  retiredVisualFiles.forEach((file) => {\n    assert.equal(existsSync(new URL(`../${file}`, import.meta.url)), false);\n    assert.doesNotMatch(runtime, new RegExp(file.split("/").at(-1).replaceAll(".", "\\\\.")));\n  });\n  assert.match(settings, /#0867ff/);\n  assert.match(settings, /#19b5ff/);\n  assert.match(settings, /#ffd84a/);\n  assert.match(settings, /#f32645/);\n  assert.doesNotMatch(settings, /emerald-|violet-|teal-/);\n});\n''')
+
+          for filename in [
+              'src/settings-cleanup.css',
+              'src/settings-priority.css',
+              'src/settings-support-compose.css',
+              'src/settings-official-brand-theme.css',
+              'src/settings-community-brand-fix.css',
+          ]:
+              path = Path(filename)
+              if path.exists():
+                  path.unlink()
+          PY
+
+      - name: Run Settings regression suite
+        run: |
+          node --test \
+            tests/canonical-display-name-authority.test.mjs \
+            tests/settings-local-only-regression.test.mjs \
+            tests/settings-integrity-regression.test.mjs \
+            tests/settings-top-spacing.test.mjs \
+            tests/settings-visual-authority.test.mjs \
+            tests/dashboard-top-nav-ownership.test.mjs
+
+      - name: Commit surgical cleanup
+        run: |
+          git config user.name "CLARA Engineering"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/settings-visual-authority-cleanup.yml
+          git add -A
+          git commit -m "Complete Settings visual authority cleanup"
+          git push origin HEAD:main
