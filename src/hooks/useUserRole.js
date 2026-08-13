@@ -2,32 +2,14 @@ import { useCallback, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import usePlanAccess from "@/hooks/usePlanAccess";
 import {
-  FEATURE_DEFINITIONS,
-  getFeatureMode,
+  getFreeCoreFeatureModes,
   getPlanDefaults,
 } from "@/lib/plan-config";
 import {
-  COMMITTED_PLAN_KEY,
   FREE_PLAN_KEY,
   resolveMembership,
 } from "@/lib/membership";
 import { deriveEffectiveEntitlements } from "@/lib/clara-entitlements";
-
-const buildModes = (planConfig) =>
-  FEATURE_DEFINITIONS.reduce((acc, feature) => {
-    acc[feature.key] = getFeatureMode(planConfig, feature.key);
-    return acc;
-  }, {});
-
-const buildFreeCoreModes = (plansByKey = {}) => {
-  // CLARA's financial/accountability app is free. Reuse the complete legacy
-  // feature map for compatibility, then keep personal coaching independent.
-  const modes = buildModes(
-    plansByKey?.[COMMITTED_PLAN_KEY] || getPlanDefaults(COMMITTED_PLAN_KEY)
-  );
-  modes.coaching = "teaser";
-  return modes;
-};
 
 export default function useUserRole() {
   const {
@@ -60,10 +42,11 @@ export default function useUserRole() {
   const effectiveProfile = profile || {};
   const plan = membership.planKey;
   const planConfig = plansByKey?.[plan] || getPlanDefaults(plan);
-  const featureModes = useMemo(
-    () => buildFreeCoreModes(plansByKey),
-    [plansByKey]
-  );
+
+  // P0-F14: normal product access comes only from the immutable CLARA Free
+  // policy. Billing, support, beta, and future paid-service state can still be
+  // displayed on the account, but they cannot add or remove free-core access.
+  const featureModes = useMemo(() => getFreeCoreFeatureModes(), []);
 
   const isFeatureAvailable = useCallback(
     (featureKey) => featureModes[featureKey] !== "off",

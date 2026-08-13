@@ -1,19 +1,19 @@
 import useUserRole from "@/hooks/useUserRole";
+import { isFreeCoreRoute } from "@/lib/plan-config";
 import { COMMITTED_PLAN_KEY, resolveMembership } from "@/lib/membership";
 import { COMMITTED_MONTHLY_PURCHASE_INTENT } from "@/lib/clara-commitment-framework";
 
 export const CLARA_COMMITTED_PLAN_KEY = COMMITTED_PLAN_KEY;
 export const OPEN_COMMITMENT_BOOKLET_EVENT = "clara:open-commitment-booklet";
 
-function isDedicatedLearningHubRoute() {
-  if (typeof window === "undefined") return false;
+function getCurrentAppPath() {
+  if (typeof window === "undefined") return "";
 
   const rawHash = String(window.location.hash || "").replace(/^#/, "");
-  const [pathname, query = ""] = rawHash.split("?");
-  if (pathname !== "/community") return false;
+  const [hashPath = ""] = rawHash.split("?");
+  if (hashPath.startsWith("/")) return hashPath;
 
-  const params = new URLSearchParams(query);
-  return params.get("view") === "home" && params.get("learning") === "hub";
+  return String(window.location.pathname || "");
 }
 
 export function resolveCommittedMembershipState(options = {}) {
@@ -44,6 +44,9 @@ export function resolveCommittedMembershipState(options = {}) {
   };
 }
 
+// Special-service compatibility only. This function continues to answer the
+// historical Committed membership question for coaching/legacy surfaces. It is
+// not the authority for CLARA's ordinary free core.
 export function canAccessCommittedFeatures(options = {}) {
   return resolveCommittedMembershipState(options).hasCommittedAccess;
 }
@@ -74,11 +77,11 @@ export function useCommittedMembershipState({ billingRecord = null } = {}) {
 export function useCommittedFeatureAccess() {
   const hasCommittedAccess = useCommittedMembershipState().hasCommittedAccess;
 
-  // The dedicated Learning Hub is a free education destination. Keep the old
-  // committed-membership gate for other legacy surfaces, but never let it hide
-  // the Learning Hub shell or its existing free lessons. Paid masterclasses can
-  // use their own per-purchase entitlement when they are added.
-  if (isDedicatedLearningHubRoute()) return true;
+  // P0-F14 compatibility boundary: old component-level Committed guards are
+  // never allowed to deny a route whose product feature is defined as free
+  // core. Paid coaching, masterclasses, organization programs, and future
+  // special services must authorize themselves outside those core routes.
+  if (isFreeCoreRoute(getCurrentAppPath())) return true;
 
   return hasCommittedAccess;
 }

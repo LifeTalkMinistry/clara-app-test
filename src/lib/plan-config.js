@@ -89,10 +89,10 @@ export const FEATURE_MODE_LABELS = {
   teaser: "Teaser",
 };
 
-// Core CLARA is free. Personal coaching is intentionally kept separate from
-// normal app access and can evolve as a supporter benefit without creating a
-// software paywall.
-const FREE_ACCESS_CONFIG = {
+// P0-F14 authority: this immutable product policy, not a user's plan,
+// subscription, support history, beta state, or admin-editable plan row,
+// determines entitlement to CLARA's ordinary free core.
+export const FREE_ACCESS_CONFIG = Object.freeze({
   dashboard: "full",
   feed: "full",
   expenses: "full",
@@ -109,7 +109,15 @@ const FREE_ACCESS_CONFIG = {
   coaching: "teaser",
   news: "full",
   referrals: "full",
-};
+});
+
+export const FREE_CORE_FEATURE_KEYS = Object.freeze(
+  Object.entries(FREE_ACCESS_CONFIG)
+    .filter(([, mode]) => mode === "full")
+    .map(([featureKey]) => featureKey)
+);
+
+const FREE_CORE_FEATURE_KEY_SET = new Set(FREE_CORE_FEATURE_KEYS);
 
 // Historical Committed accounts keep their billing identity for compatibility,
 // but they do not receive additional core app functionality.
@@ -263,6 +271,23 @@ export function hasFeatureMode(planLike, featureKey, allowedModes = ["full"]) {
 }
 export function isFeatureEnabled(planLike, featureKey) {
   return getFeatureMode(planLike, featureKey) !== "off";
+}
+export function getFreeCoreFeatureModes() {
+  return FEATURE_DEFINITIONS.reduce((acc, feature) => {
+    acc[feature.key] = normalizeFeatureMode(
+      feature.key,
+      FREE_ACCESS_CONFIG[feature.key]
+    );
+    return acc;
+  }, {});
+}
+export function isFreeCoreFeature(featureKey) {
+  return FREE_CORE_FEATURE_KEY_SET.has(String(featureKey || "").trim());
+}
+export function isFreeCoreRoute(pathname) {
+  const normalizedPath = String(pathname || "").split("?")[0].replace(/\/+$/, "") || "/";
+  const featureKey = FEATURE_ROUTE_MAP[normalizedPath];
+  return Boolean(featureKey && isFreeCoreFeature(featureKey));
 }
 export function getFeatureSummary(planLike) {
   const plan = sanitizePlanRow(planLike);
