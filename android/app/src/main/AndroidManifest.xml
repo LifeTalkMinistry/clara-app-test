@@ -21,6 +21,7 @@
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
             android:exported="true"
+            android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|keyboardHidden|keyboard|screenLayout|screenSize|smallestScreenSize|uiMode|locale|layoutDirection|fontScale|density">
 
             <intent-filter>
