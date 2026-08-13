@@ -11,6 +11,24 @@ import {
   mergeEvidence,
   runClaraBuyCheckExpertTurn,
 } from "@/lib/clara-buy-check-expert-ai";
+import "@/clara-buy-check-thinking.css";
+
+const MIN_THINKING_MS = 650;
+
+function wait(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function holdThinkingUntil(startedAt) {
+  const remaining = MIN_THINKING_MS - (Date.now() - startedAt);
+  if (remaining > 0) await wait(remaining);
+}
+
+function replaceThinkingMessage(messages = [], thinkingId = "", text = "") {
+  return messages.map((entry) =>
+    entry.id === thinkingId ? { ...entry, text: clean(text) } : entry,
+  );
+}
 
 function createExpertInitialState(sessionId = "") {
   return {
@@ -105,12 +123,15 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
     if (snapshot.busy || snapshot.done || ["diagnosis", "complete", "confirm"].includes(snapshot.step)) return false;
 
     const userMessage = createMessage("user", answer);
+    const thinkingMessage = createMessage("clara", "");
+    const thinkingStartedAt = Date.now();
+
     setState((current) => {
       if (current.sessionId !== snapshot.sessionId || current.busy || current.done) return current;
       return {
         ...current,
         busy: true,
-        messages: [...current.messages, userMessage],
+        messages: [...current.messages, userMessage, thinkingMessage],
       };
     });
 
@@ -121,6 +142,8 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
         evidence: snapshot.evidence,
         assistantContext,
       });
+
+      await holdThinkingUntil(thinkingStartedAt);
 
       setState((current) => {
         if (current.sessionId !== snapshot.sessionId) return current;
@@ -159,22 +182,24 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
           confirmation: isReady ? confirmationFromEvidence(evidence) : null,
           step: isReady ? "confirm" : "conversation",
           busy: false,
-          messages: [...current.messages, createMessage("clara", turn.reply)],
+          messages: replaceThinkingMessage(current.messages, thinkingMessage.id, turn.reply),
         };
       });
       return true;
     } catch (error) {
       console.warn("[CLARA Buy Check] Expert conversation turn failed safely.", error);
+      await holdThinkingUntil(thinkingStartedAt);
       setState((current) => current.sessionId !== snapshot.sessionId
         ? current
         : {
             ...current,
             busy: false,
             step: "conversation",
-            messages: [
-              ...current.messages,
-              createMessage("clara", "I missed that. Tell me a little more about what you’re considering, and I’ll keep working through it with you."),
-            ],
+            messages: replaceThinkingMessage(
+              current.messages,
+              thinkingMessage.id,
+              "I missed that. Tell me a little more about what you’re considering, and I’ll keep working through it with you.",
+            ),
           });
       return false;
     }
@@ -184,20 +209,19 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
     if (state.step !== "confirm" || state.busy || !state.confirmation) return false;
 
     const snapshot = state;
-    const checking = createMessage(
-      "clara",
-      "That gives me enough context. I’m checking the actual money side now — your spendable cash, budgets, obligations, safety buffers, and the rest of your saved financial context.",
-    );
+    const thinkingMessage = createMessage("clara", "");
+    const thinkingStartedAt = Date.now();
 
     setState({
       ...snapshot,
       step: "diagnosis",
       busy: true,
-      messages: [...snapshot.messages, createMessage("user", "Yes"), checking],
+      messages: [...snapshot.messages, createMessage("user", "Yes"), thinkingMessage],
     });
 
     try {
       const result = await diagnoseBuyCheck(snapshot, assistantContext);
+      await holdThinkingUntil(thinkingStartedAt);
       setState((current) => current.sessionId !== snapshot.sessionId
         ? current
         : {
@@ -207,78 +231,130 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
             done: true,
             diagnosis: result,
             budgetAssessment: result.contextPackage?.finance?.budgetAssessment || current.budgetAssessment,
-            messages: current.messages.map((entry) => entry.id === checking.id
-              ? { ...entry, text: "I’ve finished the money check. Here’s what the numbers say." }
-              : entry),
+            messages: replaceThinkingMessage(
+              current.messages,
+              thinkingMessage.id,
+              "I’ve finished the money check. Here’s what the numbers say.",
+            ),
           });
       return true;
     } catch (error) {
       console.warn("[CLARA Buy Check] Diagnosis failed safely.", error);
+      await holdThinkingUntil(thinkingStartedAt);
       setState((current) => current.sessionId !== snapshot.sessionId
         ? current
-        : diagnosisFailureState(current, checking.id));
+        : diagnosisFailureState(current, thinkingMessage.id));
       return false;
     }
   }, [assistantContext, state]);
 
   const editReason = useCallback(() => {
-    let changed = false;
-    setState((current) => {
-      if (current.step !== "confirm" || current.busy) return current;
-      changed = true;
-      return {
-        ...current,
-        step: "conversation",
-        confirmation: null,
-        busy: false,
-        done: false,
-        messages: [
-          ...current.messages,
-          createMessage("user", "No"),
-          createMessage("clara", "Got it — I don’t have it quite right yet. What should I correct or understand better?"),
-        ],
-      };
+    if (state.step !== "confirm" || state.busy) return false;
+
+    const sessionId = state.sessionId;
+    const thinkingMessage = createMessage("clara", "");
+    setState({
+      ...state,
+      step: "conversation",
+      confirmation: null,
+      busy: true,
+      done: false,
+      messages: [
+        ...state.messages,
+        createMessage("user", "No"),
+        thinkingMessage,
+      ],
     });
-    return changed;
-  }, []);
+
+    window.setTimeout(() => {
+      setState((current) => current.sessionId !== sessionId
+        ? current
+        : {
+            ...current,
+            busy: false,
+            messages: replaceThinkingMessage(
+              current.messages,
+              thinkingMessage.id,
+              "Got it — I don’t have it quite right yet. What should I correct or understand better?",
+            ),
+          });
+    }, MIN_THINKING_MS);
+
+    return true;
+  }, [state]);
 
   const editAmount = useCallback(() => {
-    let changed = false;
-    setState((current) => {
-      if (!["confirm", "complete"].includes(current.step) || current.busy) return current;
-      changed = true;
-      const evidence = { ...(current.evidence || {}) };
-      delete evidence.price;
-      return {
-        ...current,
-        evidence,
-        price: 0,
-        confirmation: null,
-        diagnosis: null,
-        done: false,
-        busy: false,
-        step: "conversation",
-        messages: [
-          ...current.messages,
-          createMessage("user", "Adjust amount"),
-          createMessage("clara", "Sure. What price are you actually expecting to pay?"),
-        ],
-      };
+    if (!["confirm", "complete"].includes(state.step) || state.busy) return false;
+
+    const sessionId = state.sessionId;
+    const evidence = { ...(state.evidence || {}) };
+    delete evidence.price;
+    const thinkingMessage = createMessage("clara", "");
+
+    setState({
+      ...state,
+      evidence,
+      price: 0,
+      confirmation: null,
+      diagnosis: null,
+      done: false,
+      busy: true,
+      step: "conversation",
+      messages: [
+        ...state.messages,
+        createMessage("user", "Adjust amount"),
+        thinkingMessage,
+      ],
     });
-    return changed;
-  }, []);
+
+    window.setTimeout(() => {
+      setState((current) => current.sessionId !== sessionId
+        ? current
+        : {
+            ...current,
+            busy: false,
+            messages: replaceThinkingMessage(
+              current.messages,
+              thinkingMessage.id,
+              "Sure. What price are you actually expecting to pay?",
+            ),
+          });
+    }, MIN_THINKING_MS);
+
+    return true;
+  }, [state]);
 
   const editAnswers = useCallback(() => {
-    setState((current) => ({
-      ...createExpertInitialState(current.sessionId),
+    const sessionId = state.sessionId;
+    const thinkingMessage = createMessage("clara", "");
+    const userLabel = state.step === "complete" ? "Start over" : "Edit answers";
+
+    setState({
+      ...createExpertInitialState(sessionId),
+      busy: true,
       messages: [
-        ...current.messages,
-        createMessage("user", current.step === "complete" ? "Start over" : "Edit answers"),
-        createMessage("clara", "Okay. Tell me what changed, and I’ll reassess the purchase from there."),
+        ...state.messages,
+        createMessage("user", userLabel),
+        thinkingMessage,
       ],
-    }));
+    });
+
+    window.setTimeout(() => {
+      setState((current) => current.sessionId !== sessionId
+        ? current
+        : {
+            ...current,
+            busy: false,
+            messages: replaceThinkingMessage(
+              current.messages,
+              thinkingMessage.id,
+              "Okay. Tell me what changed, and I’ll reassess the purchase from there.",
+            ),
+          });
+    }, MIN_THINKING_MS);
+
     return true;
-  }, []);
+  }, [state]);
 
   const checkAnother = useCallback(() => {
     setState(createExpertInitialState(`buy-check-${Date.now()}-${Math.random().toString(36).slice(2)}`));
