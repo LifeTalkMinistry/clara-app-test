@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import WeeklyMiniStreakCard from "@/components/challenges/WeeklyMiniStreakCard";
 import {
   ArrowLeft,
   Award,
@@ -27,16 +28,16 @@ const TABS = [
 const CHALLENGES = {
   weekly: {
     id: "weekly-discipline-7",
-    eyebrow: "Weekly challenge",
-    title: "7-Day Money Discipline",
+    eyebrow: "Weekly Mini Streak",
+    title: "₱100 Load Weekly Draw",
     description:
-      "Check in once a day after following your spending plan. Small disciplined days build the habit.",
+      "Join intentionally, then check in here every day from Monday through Sunday.",
     goal: 7,
     unit: "days",
     cadence: "daily",
     pointsPerCheckIn: 20,
     completionBonus: 60,
-    accent: "Daily check-in",
+    accent: "Monday–Sunday",
   },
   monthly: {
     id: "monthly-save-4",
@@ -522,6 +523,7 @@ export default function Challenges() {
   const challenge = CHALLENGES[activeTab];
   const entry = progress[challenge.id] || null;
   const checkIns = safeCheckIns(entry);
+  const isWeekly = activeTab === "weekly";
   const isThirtyDay = activeTab === "thirty";
   const race = useMemo(() => monthlyRaceWindow(), []);
 
@@ -732,113 +734,117 @@ export default function Challenges() {
             <RaceBoard race={race} raceActive={hasCurrentOfficialRace} />
           ) : null}
 
-          <section className="overflow-hidden rounded-[26px] border border-white/10 bg-[#0a1a29]">
-            <div className="border-b border-white/[0.07] p-5">
-              <div className="flex items-center justify-between gap-3">
-                <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[9px] font-black uppercase tracking-[0.12em] ${
-                  isThirtyDay
-                    ? "border-[#facc15]/25 bg-[#facc15]/[0.065] text-[#fde68a]"
-                    : "border-[#22c7b8]/20 bg-[#22c7b8]/[0.07] text-[#99f6e4]"
-                }`}>
-                  <Target className="h-3 w-3" /> {challenge.eyebrow}
-                </span>
-                <span className="text-[9px] font-black uppercase tracking-[0.1em] text-white/30">{challenge.accent}</span>
-              </div>
-
-              <h3 className="mt-4 text-[22px] font-black tracking-[-0.035em] text-white">{challenge.title}</h3>
-              <p className="mt-2 text-sm font-semibold leading-6 text-white/47">{challenge.description}</p>
-
-              {isThirtyDay && hasCurrentOfficialRace && currentThirtyStreak.days >= THIRTY_DAY_BLOCK ? (
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[#facc15]/18 bg-[#facc15]/[0.055] px-2.5 py-1 text-[9px] font-black text-[#fde68a]/80">
-                    <Medal className="h-3 w-3" /> 30-Day Finisher · Active
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.025] px-2.5 py-1 text-[9px] font-black text-white/45">
-                    <Ticket className="h-3 w-3" /> {currentThirtyReward.activeEntries} active {currentThirtyReward.activeEntries === 1 ? "entry" : "entries"}
-                  </span>
-                </div>
-              ) : null}
-
-              <div className="mt-5">
-                <div className="flex items-end justify-between gap-3">
-                  <div>
-                    <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/32">{progressLabel}</p>
-                    <p className="mt-1 text-2xl font-black tracking-[-0.04em]">
-                      {progressCount}<span className="text-sm text-white/30">/{challenge.goal} {challenge.unit}</span>
-                    </p>
-                    {isThirtyDay && hasCurrentOfficialRace ? (
-                      <p className="mt-1 text-[10px] font-semibold text-white/34">
-                        Active streak: {currentThirtyStreak.days} days{currentThirtyBest > currentThirtyStreak.days ? ` · Best: ${currentThirtyBest}` : ""}
-                      </p>
-                    ) : null}
-                  </div>
-                  <p className={`text-xs font-black ${isThirtyDay ? "text-[#fde68a]" : "text-[#99f6e4]"}`}>{progressPercent}%</p>
-                </div>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/[0.06]">
-                  <div
-                    className={`h-full rounded-full transition-[width] duration-500 ${isThirtyDay ? "bg-[#facc15]" : "bg-[#22c7b8]"}`}
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4">
-              {isThirtyDay && !hasCurrentOfficialRace && !race.isStartDay ? (
-                <div className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#facc15]/16 bg-[#facc15]/[0.045] px-4 py-3 text-center text-sm font-black text-[#fde68a]">
-                  <CalendarDays className="h-4 w-4 shrink-0" /> Next race starts {race.nextLabel}
-                </div>
-              ) : !joined ? (
-                <button
-                  type="button"
-                  onClick={joinChallenge}
-                  className={`flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black shadow-[0_12px_28px_rgba(34,199,184,.12)] ${
+          {isWeekly ? (
+            <WeeklyMiniStreakCard progress={progress} setProgress={setProgress} />
+          ) : (
+            <section className="overflow-hidden rounded-[26px] border border-white/10 bg-[#0a1a29]">
+              <div className="border-b border-white/[0.07] p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[9px] font-black uppercase tracking-[0.12em] ${
                     isThirtyDay
-                      ? "bg-[#facc15] text-[#2a2104]"
-                      : "bg-[#22c7b8] text-[#042f2e]"
-                  }`}
-                >
-                  <Trophy className="h-4 w-4" /> {isThirtyDay ? `Join ${race.currentLabel} Race` : "Join Challenge"}
-                </button>
-              ) : !challenge.repeatable && completed ? (
-                <div className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#5eead4]/25 bg-[#22c7b8]/10 text-sm font-black text-[#ccfbf1]">
-                  <CheckCircle2 className="h-4 w-4" /> Challenge Completed
+                      ? "border-[#facc15]/25 bg-[#facc15]/[0.065] text-[#fde68a]"
+                      : "border-[#22c7b8]/20 bg-[#22c7b8]/[0.07] text-[#99f6e4]"
+                  }`}>
+                    <Target className="h-3 w-3" /> {challenge.eyebrow}
+                  </span>
+                  <span className="text-[9px] font-black uppercase tracking-[0.1em] text-white/30">{challenge.accent}</span>
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={checkIn}
-                  disabled={alreadyCheckedIn}
-                  className={`flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black transition ${
-                    alreadyCheckedIn
-                      ? "cursor-default border border-white/10 bg-white/[0.035] text-white/42"
-                      : isThirtyDay
-                        ? "bg-[#facc15] text-[#2a2104] shadow-[0_12px_28px_rgba(250,204,21,.10)]"
-                        : "bg-[#22c7b8] text-[#042f2e] shadow-[0_12px_28px_rgba(34,199,184,.12)]"
-                  }`}
-                >
-                  {alreadyCheckedIn ? <Check className="h-4 w-4" /> : <Flame className="h-4 w-4" />}
-                  {alreadyCheckedIn
-                    ? challenge.cadence === "weekly"
-                      ? "Checked in this week"
-                      : "Checked in today"
-                    : actionLabel}
-                </button>
-              )}
-              <p className="mt-3 text-center text-[10px] font-semibold text-white/30">
-                +{challenge.pointsPerCheckIn} points per check-in · +{challenge.completionBonus} first-completion bonus
-              </p>
 
-              {isThirtyDay ? (
-                <div className="mt-3 flex items-start gap-2.5 rounded-[17px] border border-[#facc15]/13 bg-[#facc15]/[0.035] px-3 py-3">
-                  <Ticket className="mt-0.5 h-4 w-4 shrink-0 text-[#facc15]/65" />
-                  <p className="text-[10px] font-semibold leading-4 text-white/42">
-                    The official race always starts on the 1st. Once you are in, every 30 consecutive active days can build another Monthly Draw entry while your streak stays alive.
-                  </p>
+                <h3 className="mt-4 text-[22px] font-black tracking-[-0.035em] text-white">{challenge.title}</h3>
+                <p className="mt-2 text-sm font-semibold leading-6 text-white/47">{challenge.description}</p>
+
+                {isThirtyDay && hasCurrentOfficialRace && currentThirtyStreak.days >= THIRTY_DAY_BLOCK ? (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#facc15]/18 bg-[#facc15]/[0.055] px-2.5 py-1 text-[9px] font-black text-[#fde68a]/80">
+                      <Medal className="h-3 w-3" /> 30-Day Finisher · Active
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.025] px-2.5 py-1 text-[9px] font-black text-white/45">
+                      <Ticket className="h-3 w-3" /> {currentThirtyReward.activeEntries} active {currentThirtyReward.activeEntries === 1 ? "entry" : "entries"}
+                    </span>
+                  </div>
+                ) : null}
+
+                <div className="mt-5">
+                  <div className="flex items-end justify-between gap-3">
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/32">{progressLabel}</p>
+                      <p className="mt-1 text-2xl font-black tracking-[-0.04em]">
+                        {progressCount}<span className="text-sm text-white/30">/{challenge.goal} {challenge.unit}</span>
+                      </p>
+                      {isThirtyDay && hasCurrentOfficialRace ? (
+                        <p className="mt-1 text-[10px] font-semibold text-white/34">
+                          Active streak: {currentThirtyStreak.days} days{currentThirtyBest > currentThirtyStreak.days ? ` · Best: ${currentThirtyBest}` : ""}
+                        </p>
+                      ) : null}
+                    </div>
+                    <p className={`text-xs font-black ${isThirtyDay ? "text-[#fde68a]" : "text-[#99f6e4]"}`}>{progressPercent}%</p>
+                  </div>
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/[0.06]">
+                    <div
+                      className={`h-full rounded-full transition-[width] duration-500 ${isThirtyDay ? "bg-[#facc15]" : "bg-[#22c7b8]"}`}
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
                 </div>
-              ) : null}
-            </div>
-          </section>
+              </div>
+
+              <div className="p-4">
+                {isThirtyDay && !hasCurrentOfficialRace && !race.isStartDay ? (
+                  <div className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#facc15]/16 bg-[#facc15]/[0.045] px-4 py-3 text-center text-sm font-black text-[#fde68a]">
+                    <CalendarDays className="h-4 w-4 shrink-0" /> Next race starts {race.nextLabel}
+                  </div>
+                ) : !joined ? (
+                  <button
+                    type="button"
+                    onClick={joinChallenge}
+                    className={`flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black shadow-[0_12px_28px_rgba(34,199,184,.12)] ${
+                      isThirtyDay
+                        ? "bg-[#facc15] text-[#2a2104]"
+                        : "bg-[#22c7b8] text-[#042f2e]"
+                    }`}
+                  >
+                    <Trophy className="h-4 w-4" /> {isThirtyDay ? `Join ${race.currentLabel} Race` : "Join Challenge"}
+                  </button>
+                ) : !challenge.repeatable && completed ? (
+                  <div className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#5eead4]/25 bg-[#22c7b8]/10 text-sm font-black text-[#ccfbf1]">
+                    <CheckCircle2 className="h-4 w-4" /> Challenge Completed
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={checkIn}
+                    disabled={alreadyCheckedIn}
+                    className={`flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black transition ${
+                      alreadyCheckedIn
+                        ? "cursor-default border border-white/10 bg-white/[0.035] text-white/42"
+                        : isThirtyDay
+                          ? "bg-[#facc15] text-[#2a2104] shadow-[0_12px_28px_rgba(250,204,21,.10)]"
+                          : "bg-[#22c7b8] text-[#042f2e] shadow-[0_12px_28px_rgba(34,199,184,.12)]"
+                    }`}
+                  >
+                    {alreadyCheckedIn ? <Check className="h-4 w-4" /> : <Flame className="h-4 w-4" />}
+                    {alreadyCheckedIn
+                      ? challenge.cadence === "weekly"
+                        ? "Checked in this week"
+                        : "Checked in today"
+                      : actionLabel}
+                  </button>
+                )}
+                <p className="mt-3 text-center text-[10px] font-semibold text-white/30">
+                  +{challenge.pointsPerCheckIn} points per check-in · +{challenge.completionBonus} first-completion bonus
+                </p>
+
+                {isThirtyDay ? (
+                  <div className="mt-3 flex items-start gap-2.5 rounded-[17px] border border-[#facc15]/13 bg-[#facc15]/[0.035] px-3 py-3">
+                    <Ticket className="mt-0.5 h-4 w-4 shrink-0 text-[#facc15]/65" />
+                    <p className="text-[10px] font-semibold leading-4 text-white/42">
+                      The official race always starts on the 1st. Once you are in, every 30 consecutive active days can build another Monthly Draw entry while your streak stays alive.
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            </section>
+          )}
 
           {isThirtyDay && (hasCurrentOfficialRace || currentThirtyReward.activeEntries > 0) ? (
             <MonthlyDrawCard streak={currentThirtyStreak} rewardState={currentThirtyReward} draw={draw} />
