@@ -160,19 +160,10 @@ import "../life-stage-trend-snapshot.css";
 import "../life-stage-trend-snapshot-hide-icon.css";
 import "../life-stage-trend-graph-hide.css";
 
-// Settings behavior and visual polish. Online sync is intentionally NOT injected
-// into the Settings overview. Security & privacy -> Backup & Transfer owns the
-// single user-facing sync control. Device reset remains available here.
+// Settings behavior only. Visual ownership lives in DashboardSettingsPanel and
+// its React-owned primitives. Do not add Settings theme/override styles here.
 import "./installSettingsDeviceReset";
 import "./installSettingsLogoutRow";
-import "../settings-cleanup.css";
-import "../settings-priority.css";
-import "../settings-support-compose.css";
-// Legacy dashboard Settings route brand pass.
-import "../settings-official-brand-theme.css";
-// Actual Community-shell Settings route. This must stay last in the Settings
-// stack because Community.jsx owns the currently rendered Settings screen.
-import "../settings-community-brand-fix.css";
 
 // Life Stage visual patches
 import "../life-stage-collision.css";
