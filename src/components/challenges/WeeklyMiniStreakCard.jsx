@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   Check,
@@ -9,6 +9,7 @@ import {
   Trophy,
   X,
 } from "lucide-react";
+import { backendRequest, getStoredBackendToken } from "@/lib/clara-backend-client";
 
 const WEEKLY_CHALLENGE_ID = "weekly-discipline-7";
 const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
@@ -42,14 +43,8 @@ function weeklyWindow(now = new Date()) {
   const sunday = addDays(monday, 6);
   const days = Array.from({ length: 7 }, (_, index) => {
     const date = addDays(monday, index);
-    return {
-      key: localDateKey(date),
-      date,
-      label: DAY_LABELS[index],
-      index,
-    };
+    return { key: localDateKey(date), date, label: DAY_LABELS[index], index };
   });
-
   return {
     startKey: localDateKey(monday),
     endKey: localDateKey(sunday),
@@ -61,20 +56,39 @@ function weeklyWindow(now = new Date()) {
   };
 }
 
-function weekRangeLabel(window) {
-  const start = window.monday;
-  const end = window.sunday;
+function serverWeeklyWindow(state, fallback) {
+  if (!state?.weekStartDay || !state?.weekEndDay || !state?.eligibleDay) return fallback;
+  const monday = dateFromLocalKey(state.weekStartDay);
+  const sunday = dateFromLocalKey(state.weekEndDay);
+  const today = dateFromLocalKey(state.eligibleDay);
+  if (!monday || !sunday || !today) return fallback;
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(monday, index);
+    return { key: localDateKey(date), date, label: DAY_LABELS[index], index };
+  });
+  return {
+    startKey: state.weekStartDay,
+    endKey: state.weekEndDay,
+    todayKey: state.eligibleDay,
+    dayIndex: Math.max(0, Math.min(6, Number(state.dayIndex) || 0)),
+    monday,
+    sunday,
+    days,
+  };
+}
+
+function weekRangeLabel(windowState) {
+  const start = windowState.monday;
+  const end = windowState.sunday;
   const startMonth = start.toLocaleDateString(undefined, { month: "short" });
   const endMonth = end.toLocaleDateString(undefined, { month: "short" });
-  if (startMonth === endMonth) {
-    return `${startMonth} ${start.getDate()}–${end.getDate()}`;
-  }
+  if (startMonth === endMonth) return `${startMonth} ${start.getDate()}–${end.getDate()}`;
   return `${startMonth} ${start.getDate()}–${endMonth} ${end.getDate()}`;
 }
 
-function validCurrentCheckIns(entry, window) {
-  if (entry?.weekStartKey !== window.startKey) return [];
-  const allowed = new Set(window.days.map((day) => day.key));
+function validCurrentCheckIns(entry, windowState) {
+  if (entry?.weekStartKey !== windowState.startKey) return [];
+  const allowed = new Set(windowState.days.map((day) => day.key));
   return [...new Set((Array.isArray(entry?.checkIns) ? entry.checkIns : []).filter((key) => allowed.has(key)))].sort();
 }
 
@@ -92,28 +106,16 @@ function historySnapshot(entry) {
 function WeeklyRulesSheet({ onClose }) {
   return (
     <div className="fixed inset-0 z-[170] flex items-end justify-center bg-[#020814]/75 px-3 pb-[max(12px,env(safe-area-inset-bottom))] backdrop-blur-sm" role="presentation" onClick={onClose}>
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="weekly-rules-title"
-        className="w-full max-w-xl overflow-hidden rounded-[28px] border border-white/10 bg-[#081827] shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-      >
+      <section role="dialog" aria-modal="true" aria-labelledby="weekly-rules-title" className="w-full max-w-xl overflow-hidden rounded-[28px] border border-white/10 bg-[#081827] shadow-2xl" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-start justify-between gap-3 border-b border-white/[0.07] p-5">
           <div>
             <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#facc15]/65">Weekly Mini Streak</p>
             <h3 id="weekly-rules-title" className="mt-1 text-xl font-black tracking-[-0.035em] text-white">How it works</h3>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/65"
-            aria-label="Close weekly challenge rules"
-          >
+          <button type="button" onClick={onClose} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/65" aria-label="Close weekly challenge rules">
             <X className="h-4 w-4" />
           </button>
         </div>
-
         <div className="space-y-3 p-5">
           {[
             ["Monday → Sunday", "Every Weekly Mini Streak uses one shared CLARA week and resets when the next Monday begins."],
@@ -130,7 +132,6 @@ function WeeklyRulesSheet({ onClose }) {
               </div>
             </div>
           ))}
-
           <div className="rounded-[18px] border border-[#facc15]/16 bg-[#facc15]/[0.045] px-4 py-3 text-[10px] font-bold leading-4 text-[#fde68a]/75">
             Miss a day and 7/7 is no longer possible for that week. A completely fresh Weekly Mini Streak opens the next Monday.
           </div>
@@ -142,32 +143,96 @@ function WeeklyRulesSheet({ onClose }) {
 
 export default function WeeklyMiniStreakCard({ progress, setProgress }) {
   const [rulesOpen, setRulesOpen] = useState(false);
-  const window = useMemo(() => weeklyWindow(), []);
+  const [authority, setAuthority] = useState("loading");
+  const [serverState, setServerState] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const localWindow = useMemo(() => weeklyWindow(), []);
+  const windowState = useMemo(
+    () => (authority === "server" ? serverWeeklyWindow(serverState, localWindow) : localWindow),
+    [authority, serverState, localWindow]
+  );
   const entry = progress?.[WEEKLY_CHALLENGE_ID] || null;
-  const joined = entry?.weekStartKey === window.startKey && Boolean(entry?.joinedAt);
-  const checkIns = validCurrentCheckIns(entry, window);
+  const localCheckIns = validCurrentCheckIns(entry, windowState);
+  const checkIns = authority === "server"
+    ? (Array.isArray(serverState?.checkInDays) ? serverState.checkInDays : [])
+    : localCheckIns;
   const checked = new Set(checkIns);
-  const progressCount = checkIns.length;
-  const completed = progressCount === 7;
-  const alreadyCheckedIn = checked.has(window.todayKey);
-  const missedPastDay = joined && window.days.slice(0, window.dayIndex).some((day) => !checked.has(day.key));
-  const canStillFinish = joined && !missedPastDay;
+  const joined = authority === "server"
+    ? Boolean(serverState?.joined)
+    : entry?.weekStartKey === windowState.startKey && Boolean(entry?.joinedAt);
+  const progressCount = authority === "server"
+    ? Math.max(0, Math.min(7, Number(serverState?.progress) || 0))
+    : checkIns.length;
+  const completed = authority === "server" ? Boolean(serverState?.completed) : progressCount === 7;
+  const alreadyCheckedIn = authority === "server"
+    ? Boolean(serverState?.checkedInToday)
+    : checked.has(windowState.todayKey);
+  const missedPastDay = joined && windowState.days.slice(0, windowState.dayIndex).some((day) => !checked.has(day.key));
+  const canStillFinish = authority === "server"
+    ? Boolean(serverState?.canStillFinish)
+    : joined && !missedPastDay;
   const progressPercent = Math.round((progressCount / 7) * 100);
 
-  const joinThisWeek = () => {
+  const mirrorServerState = (nextState) => {
+    if (!nextState?.joined) return;
     setProgress((current) => {
       const currentEntry = current?.[WEEKLY_CHALLENGE_ID] || {};
-      if (currentEntry.weekStartKey === window.startKey && currentEntry.joinedAt) return current;
-
-      const previous = historySnapshot(currentEntry);
+      const previous = currentEntry.weekStartKey && currentEntry.weekStartKey !== nextState.weekStartDay
+        ? historySnapshot(currentEntry)
+        : null;
       const history = Array.isArray(currentEntry.weekHistory) ? currentEntry.weekHistory : [];
-
       return {
         ...current,
         [WEEKLY_CHALLENGE_ID]: {
           ...currentEntry,
-          weekStartKey: window.startKey,
-          weekEndKey: window.endKey,
+          weekStartKey: nextState.weekStartDay,
+          weekEndKey: nextState.weekEndDay,
+          joinedAt: nextState.joinedAt || currentEntry.joinedAt || new Date().toISOString(),
+          checkIns: Array.isArray(nextState.checkInDays) ? nextState.checkInDays : [],
+          completedAt: nextState.completedAt || null,
+          weekHistory: previous ? [previous, ...history].slice(0, 12) : history,
+        },
+      };
+    });
+  };
+
+  useEffect(() => {
+    const token = getStoredBackendToken();
+    if (!token) {
+      setAuthority("local");
+      return undefined;
+    }
+    let cancelled = false;
+    backendRequest("/api/users/me/weekly-challenge", { token })
+      .then((data) => {
+        if (cancelled) return;
+        setServerState(data || null);
+        setAuthority("server");
+        mirrorServerState(data);
+      })
+      .catch(() => {
+        if (!cancelled) setAuthority("local");
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Initial authority handshake only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const joinLocally = () => {
+    setProgress((current) => {
+      const currentEntry = current?.[WEEKLY_CHALLENGE_ID] || {};
+      if (currentEntry.weekStartKey === windowState.startKey && currentEntry.joinedAt) return current;
+      const previous = historySnapshot(currentEntry);
+      const history = Array.isArray(currentEntry.weekHistory) ? currentEntry.weekHistory : [];
+      return {
+        ...current,
+        [WEEKLY_CHALLENGE_ID]: {
+          ...currentEntry,
+          weekStartKey: windowState.startKey,
+          weekEndKey: windowState.endKey,
           joinedAt: new Date().toISOString(),
           checkIns: [],
           completedAt: null,
@@ -177,17 +242,35 @@ export default function WeeklyMiniStreakCard({ progress, setProgress }) {
     });
   };
 
-  const checkInToday = () => {
-    if (!joined || alreadyCheckedIn || completed) return;
+  const joinThisWeek = async () => {
+    if (busy) return;
+    setActionError("");
+    if (authority !== "server") {
+      joinLocally();
+      return;
+    }
+    const token = getStoredBackendToken();
+    if (!token) return;
+    setBusy(true);
+    try {
+      const data = await backendRequest("/api/users/me/weekly-challenge/join", { method: "POST", token });
+      setServerState(data || null);
+      mirrorServerState(data);
+    } catch (error) {
+      setActionError(error?.message || "CLARA could not join this week's mini streak.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
+  const checkInLocally = () => {
+    if (!joined || alreadyCheckedIn || completed) return;
     setProgress((current) => {
       const currentEntry = current?.[WEEKLY_CHALLENGE_ID] || {};
-      if (currentEntry.weekStartKey !== window.startKey || !currentEntry.joinedAt) return current;
-
-      const currentCheckIns = validCurrentCheckIns(currentEntry, window);
-      if (currentCheckIns.includes(window.todayKey)) return current;
-      const nextCheckIns = [...currentCheckIns, window.todayKey].sort();
-
+      if (currentEntry.weekStartKey !== windowState.startKey || !currentEntry.joinedAt) return current;
+      const currentCheckIns = validCurrentCheckIns(currentEntry, windowState);
+      if (currentCheckIns.includes(windowState.todayKey)) return current;
+      const nextCheckIns = [...currentCheckIns, windowState.todayKey].sort();
       return {
         ...current,
         [WEEKLY_CHALLENGE_ID]: {
@@ -201,13 +284,36 @@ export default function WeeklyMiniStreakCard({ progress, setProgress }) {
     });
   };
 
-  const action = !joined
-    ? { label: "Join This Week", icon: Trophy, disabled: false, onClick: joinThisWeek }
-    : completed
-      ? { label: "Weekly Finisher · You're In", icon: Trophy, disabled: true, onClick: undefined }
-      : alreadyCheckedIn
-        ? { label: `Day ${progressCount} Secured`, icon: Check, disabled: true, onClick: undefined }
-        : { label: "Check In Today", icon: Flame, disabled: false, onClick: checkInToday };
+  const checkInToday = async () => {
+    if (!joined || alreadyCheckedIn || completed || busy) return;
+    setActionError("");
+    if (authority !== "server") {
+      checkInLocally();
+      return;
+    }
+    const token = getStoredBackendToken();
+    if (!token) return;
+    setBusy(true);
+    try {
+      const data = await backendRequest("/api/users/me/weekly-challenge/check-in", { method: "POST", token });
+      setServerState(data || null);
+      mirrorServerState(data);
+    } catch (error) {
+      setActionError(error?.message || "CLARA could not secure today's Weekly check-in.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const action = authority === "loading"
+    ? { label: "Loading This Week…", icon: Flame, disabled: true, onClick: undefined }
+    : !joined
+      ? { label: "Join This Week", icon: Trophy, disabled: busy, onClick: joinThisWeek }
+      : completed
+        ? { label: "Weekly Finisher · You're In", icon: Trophy, disabled: true, onClick: undefined }
+        : alreadyCheckedIn
+          ? { label: `Day ${progressCount} Secured`, icon: Check, disabled: true, onClick: undefined }
+          : { label: busy ? "Securing Check-In…" : "Check In Today", icon: Flame, disabled: busy, onClick: checkInToday };
   const ActionIcon = action.icon;
 
   return (
@@ -220,25 +326,16 @@ export default function WeeklyMiniStreakCard({ progress, setProgress }) {
               <span className="inline-flex items-center gap-1.5 rounded-full border border-[#facc15]/22 bg-[#facc15]/[0.06] px-2.5 py-1.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#fde68a]">
                 <Target className="h-3 w-3" /> Weekly Mini Streak
               </span>
-              <button
-                type="button"
-                onClick={() => setRulesOpen(true)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.035] text-white/50 transition hover:text-white/80"
-                aria-label="View Weekly Mini Streak rules"
-              >
+              <button type="button" onClick={() => setRulesOpen(true)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.035] text-white/50 transition hover:text-white/80" aria-label="View Weekly Mini Streak rules">
                 <CircleHelp className="h-4 w-4" />
               </button>
             </div>
-
             <h3 className="mt-4 text-[22px] font-black tracking-[-0.035em] text-white">₱100 Load Weekly Draw</h3>
-            <p className="mt-1.5 text-[11px] font-semibold leading-5 text-white/45">
-              Join intentionally, then check in here every day from Monday through Sunday.
-            </p>
-
+            <p className="mt-1.5 text-[11px] font-semibold leading-5 text-white/45">Join intentionally, then check in here every day from Monday through Sunday.</p>
             <div className="mt-4 grid grid-cols-3 gap-2">
               <div className="rounded-[17px] border border-white/[0.08] bg-white/[0.025] px-3 py-3">
                 <p className="text-[8px] font-black uppercase tracking-[0.12em] text-white/28">This week</p>
-                <p className="mt-1 text-[11px] font-black text-white">{weekRangeLabel(window)}</p>
+                <p className="mt-1 text-[11px] font-black text-white">{weekRangeLabel(windowState)}</p>
               </div>
               <div className="rounded-[17px] border border-white/[0.08] bg-white/[0.025] px-3 py-3">
                 <p className="text-[8px] font-black uppercase tracking-[0.12em] text-white/28">Your streak</p>
@@ -249,70 +346,38 @@ export default function WeeklyMiniStreakCard({ progress, setProgress }) {
                 <p className="mt-1 text-[11px] font-black text-white">Monday</p>
               </div>
             </div>
-
             <div className="mt-4 grid grid-cols-7 gap-1.5">
-              {window.days.map((day) => {
+              {windowState.days.map((day) => {
                 const isChecked = checked.has(day.key);
-                const isToday = day.key === window.todayKey;
-                const isPastMissed = joined && day.index < window.dayIndex && !isChecked;
+                const isToday = day.key === windowState.todayKey;
+                const isPastMissed = joined && day.index < windowState.dayIndex && !isChecked;
                 return (
-                  <div
-                    key={day.key}
-                    className={`flex min-w-0 flex-col items-center rounded-[13px] border px-1 py-2 ${
-                      isChecked
-                        ? "border-[#22c7b8]/25 bg-[#22c7b8]/10"
-                        : isPastMissed
-                          ? "border-[#fb7185]/14 bg-[#fb7185]/[0.035]"
-                          : isToday
-                            ? "border-[#facc15]/25 bg-[#facc15]/[0.055]"
-                            : "border-white/[0.07] bg-white/[0.018]"
-                    }`}
-                  >
+                  <div key={day.key} className={`flex min-w-0 flex-col items-center rounded-[13px] border px-1 py-2 ${isChecked ? "border-[#22c7b8]/25 bg-[#22c7b8]/10" : isPastMissed ? "border-[#fb7185]/14 bg-[#fb7185]/[0.035]" : isToday ? "border-[#facc15]/25 bg-[#facc15]/[0.055]" : "border-white/[0.07] bg-white/[0.018]"}`}>
                     <span className={`text-[8px] font-black ${isToday ? "text-[#fde68a]" : "text-white/35"}`}>{day.label}</span>
-                    <span className={`mt-1 flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-black ${
-                      isChecked
-                        ? "bg-[#22c7b8]/18 text-[#99f6e4]"
-                        : isPastMissed
-                          ? "text-[#fb7185]/55"
-                          : "text-white/22"
-                    }`}>
+                    <span className={`mt-1 flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-black ${isChecked ? "bg-[#22c7b8]/18 text-[#99f6e4]" : isPastMissed ? "text-[#fb7185]/55" : "text-white/22"}`}>
                       {isChecked ? <Check className="h-3 w-3" /> : day.date.getDate()}
                     </span>
                   </div>
                 );
               })}
             </div>
-
             <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
               <div className="h-full rounded-full bg-[#facc15] transition-[width] duration-500" style={{ width: `${progressPercent}%` }} />
             </div>
-
             {joined && !completed && !canStillFinish ? (
-              <p className="mt-3 rounded-[15px] border border-[#fb7185]/12 bg-[#fb7185]/[0.035] px-3 py-2.5 text-[9px] font-bold leading-4 text-[#fecdd3]/60">
-                7/7 is no longer possible this week, but you can keep checking in for the habit. A fresh prize run opens Monday.
-              </p>
+              <p className="mt-3 rounded-[15px] border border-[#fb7185]/12 bg-[#fb7185]/[0.035] px-3 py-2.5 text-[9px] font-bold leading-4 text-[#fecdd3]/60">7/7 is no longer possible this week, but you can keep checking in for the habit. A fresh prize run opens Monday.</p>
             ) : null}
           </div>
         </div>
-
         <div className="p-4">
-          <button
-            type="button"
-            onClick={action.onClick}
-            disabled={action.disabled}
-            className={`flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black transition ${
-              completed
-                ? "cursor-default border border-[#facc15]/22 bg-[#facc15]/[0.07] text-[#fde68a]"
-                : action.disabled
-                  ? "cursor-default border border-white/10 bg-white/[0.035] text-white/42"
-                  : "bg-[#1677f2] text-white shadow-[0_12px_28px_rgba(22,119,242,.18)] active:scale-[0.99]"
-            }`}
-          >
+          <button type="button" onClick={action.onClick} disabled={action.disabled} className={`flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black transition ${completed ? "cursor-default border border-[#facc15]/22 bg-[#facc15]/[0.07] text-[#fde68a]" : action.disabled ? "cursor-default border border-white/10 bg-white/[0.035] text-white/42" : "bg-[#1677f2] text-white shadow-[0_12px_28px_rgba(22,119,242,.18)] active:scale-[0.99]"}`}>
             <ActionIcon className="h-4 w-4" /> {action.label}
           </button>
-          <p className="mt-2.5 text-center text-[9px] font-semibold text-white/28">
-            Weekly check-ins count only from this button. Daily Money Tip stays separate.
-          </p>
+          {actionError ? (
+            <p className="mt-2.5 text-center text-[9px] font-semibold text-[#fecdd3]/65">{actionError}</p>
+          ) : (
+            <p className="mt-2.5 text-center text-[9px] font-semibold text-white/28">Weekly check-ins count only from this button. Daily Money Tip stays separate.</p>
+          )}
         </div>
       </section>
 
@@ -325,27 +390,14 @@ export default function WeeklyMiniStreakCard({ progress, setProgress }) {
           <Gift className="h-5 w-5 text-[#fde68a]/70" />
         </div>
         <div className="mt-3 grid grid-cols-3 gap-2">
-          <div className="rounded-[15px] border border-white/[0.07] bg-white/[0.02] px-2.5 py-3 text-center">
-            <p className="text-[8px] font-black uppercase tracking-[0.1em] text-white/28">Prize</p>
-            <p className="mt-1 text-[11px] font-black text-[#fde68a]">₱100 Load</p>
-          </div>
-          <div className="rounded-[15px] border border-white/[0.07] bg-white/[0.02] px-2.5 py-3 text-center">
-            <p className="text-[8px] font-black uppercase tracking-[0.1em] text-white/28">Qualify</p>
-            <p className="mt-1 text-[11px] font-black text-white">Finish 7/7</p>
-          </div>
-          <div className="rounded-[15px] border border-white/[0.07] bg-white/[0.02] px-2.5 py-3 text-center">
-            <p className="text-[8px] font-black uppercase tracking-[0.1em] text-white/28">Cycle</p>
-            <p className="mt-1 text-[11px] font-black text-white">Mon–Sun</p>
-          </div>
+          <div className="rounded-[15px] border border-white/[0.07] bg-white/[0.02] px-2.5 py-3 text-center"><p className="text-[8px] font-black uppercase tracking-[0.1em] text-white/28">Prize</p><p className="mt-1 text-[11px] font-black text-[#fde68a]">₱100 Load</p></div>
+          <div className="rounded-[15px] border border-white/[0.07] bg-white/[0.02] px-2.5 py-3 text-center"><p className="text-[8px] font-black uppercase tracking-[0.1em] text-white/28">Qualify</p><p className="mt-1 text-[11px] font-black text-white">Finish 7/7</p></div>
+          <div className="rounded-[15px] border border-white/[0.07] bg-white/[0.02] px-2.5 py-3 text-center"><p className="text-[8px] font-black uppercase tracking-[0.1em] text-white/28">Cycle</p><p className="mt-1 text-[11px] font-black text-white">Mon–Sun</p></div>
         </div>
         {completed ? (
-          <div className="mt-3 flex items-center gap-2 rounded-[16px] border border-[#facc15]/16 bg-[#facc15]/[0.045] px-3 py-2.5 text-[10px] font-black text-[#fde68a]/80">
-            <Trophy className="h-4 w-4 shrink-0" /> You finished 7/7 and qualify for this week's draw.
-          </div>
+          <div className="mt-3 flex items-center gap-2 rounded-[16px] border border-[#facc15]/16 bg-[#facc15]/[0.045] px-3 py-2.5 text-[10px] font-black text-[#fde68a]/80"><Trophy className="h-4 w-4 shrink-0" /> You finished 7/7 and qualify for this week's draw.</div>
         ) : (
-          <div className="mt-3 flex items-center gap-2 px-1 text-[9px] font-semibold text-white/30">
-            <CalendarDays className="h-3.5 w-3.5 shrink-0" /> The board clears for a new competition every Monday.
-          </div>
+          <div className="mt-3 flex items-center gap-2 px-1 text-[9px] font-semibold text-white/30"><CalendarDays className="h-3.5 w-3.5 shrink-0" /> The board clears for a new competition every Monday.</div>
         )}
       </section>
 
