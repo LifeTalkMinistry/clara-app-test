@@ -9,7 +9,9 @@ import {
   ReceiptText,
   ShieldCheck,
   Sparkles,
+  Target,
   Trophy,
+  Users,
   WalletCards,
   X,
 } from "lucide-react";
@@ -177,6 +179,7 @@ export default function MonthlyMissionBoard({ progress, setProgress }) {
   const checkIns =
     joined && Array.isArray(entry?.checkIns) ? entry.checkIns : [];
   const progressCount = Math.min(TARGET_DAYS, checkIns.length);
+  const remainingDays = Math.max(0, TARGET_DAYS - progressCount);
   const percent = Math.min(
     100,
     Math.round((progressCount / TARGET_DAYS) * 100),
@@ -248,7 +251,10 @@ export default function MonthlyMissionBoard({ progress, setProgress }) {
 
   return (
     <>
-      <section className="overflow-hidden rounded-[26px] border border-white/10 bg-[#0a1a29]">
+      <section
+        data-challenge-framework-zone="my-progress"
+        className="overflow-hidden rounded-[26px] border border-white/10 bg-[#0a1a29]"
+      >
         <div className="border-b border-white/[0.07] p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -355,6 +361,80 @@ export default function MonthlyMissionBoard({ progress, setProgress }) {
           <p className="mt-3 text-center text-[10px] font-semibold text-white/30">
             Real CLARA activity moves this mission. No manual Monthly check-in.
           </p>
+        </div>
+      </section>
+
+      <section
+        data-challenge-framework-zone="my-outcome"
+        className="relative overflow-hidden rounded-[24px] border border-[#facc15]/16 bg-[#091727] p-4"
+      >
+        <div className="pointer-events-none absolute -right-14 -top-16 h-36 w-36 rounded-full bg-[#facc15]/[0.07] blur-3xl" />
+        <div className="relative">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#facc15]/16 bg-[#facc15]/[0.07] text-[#fde68a]">
+              <Target className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#facc15]/60">My Outcome</p>
+              <h3 className="mt-1 text-base font-black text-white">
+                {completed ? "Monthly mission secured." : "Complete the 20-day mission."}
+              </h3>
+              <p className="mt-1 text-[10px] font-semibold leading-4 text-white/40">
+                Monthly Missions reward steady action with mission completion. Draw entries only belong to challenges that explicitly offer them.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <div className="rounded-[15px] border border-white/[0.07] bg-white/[0.025] px-2.5 py-3 text-center">
+              <p className="text-[8px] font-black uppercase tracking-[0.1em] text-white/28">Target</p>
+              <p className="mt-1 text-sm font-black text-white">{TARGET_DAYS} days</p>
+            </div>
+            <div className="rounded-[15px] border border-white/[0.07] bg-white/[0.025] px-2.5 py-3 text-center">
+              <p className="text-[8px] font-black uppercase tracking-[0.1em] text-white/28">Remaining</p>
+              <p className="mt-1 text-sm font-black text-white">{remainingDays}</p>
+            </div>
+            <div className="rounded-[15px] border border-[#facc15]/12 bg-[#facc15]/[0.035] px-2.5 py-3 text-center">
+              <p className="text-[8px] font-black uppercase tracking-[0.1em] text-[#fde68a]/45">Outcome</p>
+              <p className="mt-1 text-[10px] font-black text-[#fde68a]">{completed ? "Complete" : "In progress"}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        data-challenge-framework-zone="our-progress"
+        className="relative overflow-hidden rounded-[24px] border border-[#22c7b8]/18 bg-[#091727] p-4"
+      >
+        <div className="pointer-events-none absolute -right-14 -top-16 h-36 w-36 rounded-full bg-[#22c7b8]/[0.07] blur-3xl" />
+        <div className="relative">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#22c7b8]/16 bg-[#22c7b8]/[0.07] text-[#99f6e4]">
+              <Users className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#5eead4]/60">Our Progress</p>
+              <h3 className="mt-1 text-base font-black text-white">Monthly Mission Community</h3>
+              <p className="mt-1 text-[10px] font-semibold leading-4 text-white/40">
+                Everyone receives the same official mission this month. The goal is to finish together, not rank who spends, saves, or logs the most.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <div className="rounded-[15px] border border-white/[0.07] bg-white/[0.025] px-2.5 py-3 text-center">
+              <p className="text-[8px] font-black uppercase tracking-[0.1em] text-white/28">Shared goal</p>
+              <p className="mt-1 text-sm font-black text-white">{TARGET_DAYS} days</p>
+            </div>
+            <div className="rounded-[15px] border border-[#22c7b8]/12 bg-[#22c7b8]/[0.035] px-2.5 py-3 text-center">
+              <p className="text-[8px] font-black uppercase tracking-[0.1em] text-[#99f6e4]/45">You</p>
+              <p className="mt-1 text-sm font-black text-[#99f6e4]">{progressCount}/{TARGET_DAYS}</p>
+            </div>
+            <div className="rounded-[15px] border border-white/[0.07] bg-white/[0.025] px-2.5 py-3 text-center">
+              <p className="text-[8px] font-black uppercase tracking-[0.1em] text-white/28">Community</p>
+              <p className="mt-1 text-[10px] font-black text-white/70">Same mission</p>
+            </div>
+          </div>
         </div>
       </section>
 
