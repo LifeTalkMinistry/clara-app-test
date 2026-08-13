@@ -22,13 +22,17 @@ function createBloomLayer(launcher) {
   bloom.setAttribute("data-clara-orb-bloom-layer", "true");
   bloom.setAttribute("aria-hidden", "true");
 
+  // Allocate the bloom at its final footprint once. The old animation changed
+  // width and height every frame, forcing Android WebView to repeatedly run
+  // layout and repaint the large glow. ScaleX/scaleY reproduce the same visible
+  // geometry while staying on the compositor path.
   Object.assign(bloom.style, {
     position: "absolute",
     left: "50%",
     top: "50%",
-    width: "72%",
-    height: "72%",
-    borderRadius: "999px",
+    width: "164%",
+    height: "232%",
+    borderRadius: "30px",
     border: "2px solid rgba(92, 207, 255, 0.92)",
     background:
       "linear-gradient(115deg, rgba(22,139,255,0.13), rgba(28,73,255,0.05) 46%, rgba(243,38,69,0.11))",
@@ -36,10 +40,10 @@ function createBloomLayer(launcher) {
       "-24px 0 58px rgba(22,139,255,0.46), 24px 0 58px rgba(243,38,69,0.38), 0 0 46px rgba(63,157,255,0.30), inset 10px 0 26px rgba(22,139,255,0.12), inset -10px 0 26px rgba(243,38,69,0.10)",
     opacity: "0",
     pointerEvents: "none",
-    transform: "translate(-50%, -50%) scale(0.82)",
+    transform: "translate(-50%, -50%) scaleX(0.36) scaleY(0.2545)",
     transformOrigin: "center",
     zIndex: "8",
-    willChange: "transform, opacity, width, height, border-radius, box-shadow",
+    willChange: "transform, opacity, border-radius",
   });
 
   launcher.appendChild(bloom);
@@ -67,6 +71,7 @@ function playLaunchAnimation(launcher) {
   if (!shell || !svg) return () => {};
 
   shell.style.overflow = "visible";
+  shell.style.willChange = "transform, opacity";
 
   const circles = [...svg.querySelectorAll(":scope > circle")];
   const paths = [...svg.querySelectorAll(":scope > path")];
@@ -81,17 +86,18 @@ function playLaunchAnimation(launcher) {
   };
 
   copyElements.forEach((element) => {
-    element.style.willChange = "transform, opacity, filter";
+    element.style.willChange = "transform, opacity";
   });
 
-  // The instruction disappears first: the user's tap has already completed it.
+  // Same text choreography, using only transform + opacity. Animating blur and
+  // text-shadow on Android caused a raster repaint on each frame.
   remember(
     safeAnimate(
       ctaHint,
       [
-        { transform: "translateY(0) scale(1)", opacity: 1, filter: "blur(0px)", offset: 0 },
-        { transform: "translateY(2px) scale(0.985)", opacity: 0.72, filter: "blur(0px)", offset: 0.36 },
-        { transform: "translateY(7px) scale(0.96)", opacity: 0, filter: "blur(1.6px)", offset: 1 },
+        { transform: "translateY(0) scale(1)", opacity: 1, offset: 0 },
+        { transform: "translateY(2px) scale(0.985)", opacity: 0.72, offset: 0.36 },
+        { transform: "translateY(7px) scale(0.96)", opacity: 0, offset: 1 },
       ],
       {
         duration: 230,
@@ -101,32 +107,13 @@ function playLaunchAnimation(launcher) {
     )
   );
 
-  // The personalized greeting gets its own soft acknowledgement before clearing upward.
   remember(
     safeAnimate(
       greetingLabel,
       [
-        {
-          transform: "translateY(0) scale(1)",
-          opacity: 1,
-          filter: "blur(0px)",
-          textShadow: "0 0 0 rgba(67, 184, 255, 0)",
-          offset: 0,
-        },
-        {
-          transform: "translateY(-2px) scale(1.025)",
-          opacity: 1,
-          filter: "blur(0px)",
-          textShadow: "0 0 18px rgba(67, 184, 255, 0.42)",
-          offset: 0.34,
-        },
-        {
-          transform: "translateY(-17px) scale(0.985)",
-          opacity: 0,
-          filter: "blur(2.4px)",
-          textShadow: "0 0 24px rgba(67, 184, 255, 0.12)",
-          offset: 1,
-        },
+        { transform: "translateY(0) scale(1)", opacity: 1, offset: 0 },
+        { transform: "translateY(-2px) scale(1.025)", opacity: 1, offset: 0.34 },
+        { transform: "translateY(-17px) scale(0.985)", opacity: 0, offset: 1 },
       ],
       {
         duration: 455,
@@ -137,7 +124,6 @@ function playLaunchAnimation(launcher) {
     )
   );
 
-  // Its small CLARA color rule retracts separately instead of vanishing with the name.
   remember(
     safeAnimate(
       greetingRule,
@@ -155,14 +141,13 @@ function playLaunchAnimation(launcher) {
     )
   );
 
-  // The main promise lingers a fraction longer, then travels toward the Orb as it transforms.
   remember(
     safeAnimate(
       ctaTitle,
       [
-        { transform: "translateY(0) scale(1)", opacity: 1, filter: "blur(0px)", offset: 0 },
-        { transform: "translateY(-2px) scale(1.012)", opacity: 1, filter: "blur(0px)", offset: 0.32 },
-        { transform: "translateY(-15px) scale(0.965)", opacity: 0, filter: "blur(2px)", offset: 1 },
+        { transform: "translateY(0) scale(1)", opacity: 1, offset: 0 },
+        { transform: "translateY(-2px) scale(1.012)", opacity: 1, offset: 0.32 },
+        { transform: "translateY(-15px) scale(0.965)", opacity: 0, offset: 1 },
       ],
       {
         duration: 470,
@@ -177,6 +162,7 @@ function playLaunchAnimation(launcher) {
   rects.forEach((eye, index) => {
     eye.style.transformBox = "fill-box";
     eye.style.transformOrigin = "center";
+    eye.style.willChange = "transform, opacity";
 
     remember(
       safeAnimate(
@@ -200,6 +186,7 @@ function playLaunchAnimation(launcher) {
   paths.forEach((segment, index) => {
     segment.style.transformBox = "view-box";
     segment.style.transformOrigin = "160px 153px";
+    segment.style.willChange = "transform, opacity";
 
     remember(
       safeAnimate(
@@ -223,6 +210,7 @@ function playLaunchAnimation(launcher) {
   circles.forEach((circle, index) => {
     circle.style.transformBox = "view-box";
     circle.style.transformOrigin = "160px 153px";
+    circle.style.willChange = "transform, opacity";
 
     remember(
       safeAnimate(
@@ -248,15 +236,15 @@ function playLaunchAnimation(launcher) {
     );
   });
 
-  // 3) The whole orb releases outward so it feels like it becomes the chat surface.
+  // 3) Same release pulse, without brightness filter repainting the SVG.
   remember(
     safeAnimate(
       shell,
       [
-        { transform: "scale(1)", opacity: 1, filter: "brightness(1)", offset: 0 },
-        { transform: "scale(0.965)", opacity: 1, filter: "brightness(1.12)", offset: 0.18 },
-        { transform: "scale(1.035)", opacity: 1, filter: "brightness(1.25)", offset: 0.48 },
-        { transform: "scale(0.91)", opacity: 0, filter: "brightness(1.35)", offset: 1 },
+        { transform: "scale(1)", opacity: 1, offset: 0 },
+        { transform: "scale(0.965)", opacity: 1, offset: 0.18 },
+        { transform: "scale(1.035)", opacity: 1, offset: 0.48 },
+        { transform: "scale(0.91)", opacity: 0, offset: 1 },
       ],
       {
         duration: 790,
@@ -266,40 +254,33 @@ function playLaunchAnimation(launcher) {
     )
   );
 
-  // 4) Outer CLARA glow stretches from a circle into a rounded chat-box silhouette.
+  // 4) Exact same apparent bloom sizes as before, but expressed entirely as
+  // transforms against one pre-sized layer instead of animating layout geometry.
   remember(
     safeAnimate(
       bloom,
       [
         {
-          width: "72%",
-          height: "72%",
           borderRadius: "999px",
-          transform: "translate(-50%, -50%) scale(0.82)",
+          transform: "translate(-50%, -50%) scaleX(0.36) scaleY(0.2545)",
           opacity: 0,
           offset: 0,
         },
         {
-          width: "84%",
-          height: "84%",
           borderRadius: "999px",
-          transform: "translate(-50%, -50%) scale(1)",
+          transform: "translate(-50%, -50%) scaleX(0.5122) scaleY(0.3621)",
           opacity: 1,
           offset: 0.18,
         },
         {
-          width: "128%",
-          height: "152%",
           borderRadius: "44px",
-          transform: "translate(-50%, -50%) scale(1.02)",
+          transform: "translate(-50%, -50%) scaleX(0.7961) scaleY(0.6683)",
           opacity: 0.92,
           offset: 0.57,
         },
         {
-          width: "164%",
-          height: "232%",
           borderRadius: "30px",
-          transform: "translate(-50%, -50%) scale(1.04)",
+          transform: "translate(-50%, -50%) scaleX(1.04) scaleY(1.04)",
           opacity: 0.18,
           offset: 1,
         },
@@ -324,6 +305,7 @@ function playLaunchAnimation(launcher) {
 
     bloom.remove();
     shell.style.removeProperty("overflow");
+    shell.style.removeProperty("will-change");
 
     copyElements.forEach((element) => {
       element.style.removeProperty("will-change");
@@ -332,6 +314,7 @@ function playLaunchAnimation(launcher) {
     [...circles, ...paths, ...rects].forEach((element) => {
       element.style.removeProperty("transform-box");
       element.style.removeProperty("transform-origin");
+      element.style.removeProperty("will-change");
     });
   };
 }
@@ -371,8 +354,6 @@ export function installClaraOrbLaunchTransition() {
     const launcher = document.querySelector('[data-clara-orb-launcher="true"]');
     if (!launcher) return;
 
-    // The first event is intentionally held for the animation. The re-dispatched
-    // event below is the one the CLARA chat bridge receives.
     event.stopImmediatePropagation();
 
     window.clearTimeout(redispatchTimer);
