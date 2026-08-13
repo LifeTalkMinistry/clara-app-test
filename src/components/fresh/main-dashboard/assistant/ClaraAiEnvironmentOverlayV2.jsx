@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, X } from "lucide-react";
 import useClaraBuyCheckFlow from "@/components/fresh/main-dashboard/assistant/useClaraBuyCheckFlow";
 import BuyCheckDecisionCard from "@/components/fresh/main-dashboard/assistant/buy-check/BuyCheckDecisionCard";
@@ -213,6 +213,84 @@ function placeholderFor(step) {
   return "Type the item you want to buy";
 }
 
+const BuyCheckMessageRow = memo(function BuyCheckMessageRow({ role, text, isGuidePreview }) {
+  const isUser = role === "user";
+  const userBubble = isGuidePreview
+    ? "w-fit max-w-[78%] rounded-[22px] border border-blue-300/22 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] px-4 py-2.5 text-[13px] font-semibold leading-5 text-white shadow-[0_12px_28px_rgba(23,105,255,0.20)]"
+    : "max-w-[86%] rounded-[24px] border border-blue-300/22 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] px-4 py-3 text-[13px] font-semibold leading-5 text-white shadow-[0_12px_28px_rgba(23,105,255,0.20)]";
+  const claraBubble = isGuidePreview
+    ? "w-fit max-w-[86%] rounded-[22px] border border-blue-200/14 border-l-2 border-l-[#ffd84a]/45 bg-[#07152d]/88 px-4 py-3 text-[13.5px] leading-[1.55] text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-xl"
+    : "w-[94%] max-w-[94%] rounded-[26px] border border-blue-200/14 border-l-2 border-l-[#ffd84a]/45 bg-[#07152d]/88 px-4 py-4 text-[13.5px] leading-6 text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-xl";
+
+  return (
+    <div className={`flex min-w-0 w-full ${isUser ? "justify-end" : "justify-start"}`}>
+      <div className={`min-w-0 break-words [overflow-wrap:break-word] ${isUser ? userBubble : claraBubble}`}>
+        <span className="whitespace-pre-wrap">{text}</span>
+      </div>
+    </div>
+  );
+});
+
+const BuyCheckComposer = memo(function BuyCheckComposer({
+  isActive,
+  inputLocked,
+  busy,
+  step,
+  submitAnswer,
+}) {
+  const [draft, setDraft] = useState("");
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (!isActive) setDraft("");
+  }, [isActive]);
+
+  useEffect(() => {
+    if (!isActive || inputLocked || busy) return undefined;
+    const frame = window.requestAnimationFrame(() => inputRef.current?.focus?.({ preventScroll: true }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [busy, inputLocked, isActive, step]);
+
+  const submitDraft = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const answer = draft.trim();
+    if (!answer || inputLocked || busy) return;
+    submitAnswer?.(answer);
+    setDraft("");
+  };
+
+  return (
+    <form
+      onSubmit={submitDraft}
+      data-clara-buy-check-react-form="true"
+      className="relative z-10 shrink-0 overflow-hidden rounded-[28px] border border-blue-200/16 bg-[#040b1a]/96 p-2.5 shadow-[0_-18px_52px_rgba(0,0,0,0.48),inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-2xl"
+    >
+      <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-[linear-gradient(90deg,#1769ff_0%,#1769ff_42%,#ffd84a_42%,#ffd84a_56%,#e53945_56%,#e53945_100%)] opacity-80" />
+      <div className="flex items-center gap-2 rounded-[22px] border border-blue-200/14 bg-[#08142b]/94 px-3 py-2 shadow-inner focus-within:border-blue-300/36">
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          disabled={inputLocked || busy}
+          className="min-w-0 flex-1 bg-transparent py-2 text-[14px] font-medium text-white outline-none placeholder:text-slate-400/72 disabled:opacity-55"
+          placeholder={placeholderFor(step)}
+          inputMode={step === "price" ? "decimal" : "text"}
+          aria-label={placeholderFor(step)}
+        />
+        <button
+          type="submit"
+          disabled={!draft.trim() || inputLocked || busy}
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-blue-300/24 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] text-white shadow-[0_10px_28px_rgba(23,105,255,0.28)] transition hover:brightness-110 disabled:opacity-40"
+          aria-label="Send Ask Before You Spend answer"
+        >
+          <ArrowUp className="h-5 w-5" />
+        </button>
+      </div>
+    </form>
+  );
+});
+
 export default function ClaraAiEnvironmentOverlay({
   isActive = false,
   messages = [],
@@ -225,8 +303,6 @@ export default function ClaraAiEnvironmentOverlay({
   onClose,
   layoutVariant = "default",
 }) {
-  const [draft, setDraft] = useState("");
-  const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const previousAcknowledgmentIndexRef = useRef(-1);
   const acknowledgmentSessionRef = useRef({ active: false, sessionId: "", index: -1, message: "" });
@@ -269,20 +345,6 @@ export default function ClaraAiEnvironmentOverlay({
     () => (Array.isArray(activeMessages) ? activeMessages : []).filter(Boolean),
     [activeMessages],
   );
-  const scrollKey = useMemo(
-    () => visibleMessages.map((message) => `${message.id || "message"}:${String(message.text || message.content || "").length}`).join("|"),
-    [visibleMessages],
-  );
-
-  useEffect(() => {
-    if (!isActive) setDraft("");
-  }, [isActive]);
-
-  useEffect(() => {
-    if (!isActive || inputLocked || busy) return undefined;
-    const frame = window.requestAnimationFrame(() => inputRef.current?.focus?.({ preventScroll: true }));
-    return () => window.cancelAnimationFrame(frame);
-  }, [busy, inputLocked, isActive, step]);
 
   useEffect(() => {
     if (!isActive) return undefined;
@@ -294,29 +356,18 @@ export default function ClaraAiEnvironmentOverlay({
     return () => window.removeEventListener("keydown", handleEscape);
   }, [isActive, onClose]);
 
+  // Align once when a new turn/card is added. Do not start a fresh smooth-scroll
+  // animation for every streamed text chunk; that was fighting the Android
+  // keyboard viewport guard and causing visible chat jank.
   useEffect(() => {
     if (!isActive || !visibleMessages.length) return undefined;
-    const frame = window.requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" }));
+    const frame = window.requestAnimationFrame(() =>
+      messagesEndRef.current?.scrollIntoView?.({ behavior: "auto", block: "end" })
+    );
     return () => window.cancelAnimationFrame(frame);
-  }, [finalDecision?.phase, isActive, scrollKey, step, visibleMessages.length]);
+  }, [finalDecision?.phase, isActive, step, visibleMessages.length]);
 
   if (!isActive) return null;
-
-  const submitDraft = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const answer = draft.trim();
-    if (!answer || inputLocked || busy) return;
-    submitAnswer?.(answer);
-    setDraft("");
-  };
-
-  const userBubble = isGuidePreview
-    ? "w-fit max-w-[78%] rounded-[22px] border border-blue-300/22 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] px-4 py-2.5 text-[13px] font-semibold leading-5 text-white shadow-[0_12px_28px_rgba(23,105,255,0.20)]"
-    : "max-w-[86%] rounded-[24px] border border-blue-300/22 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] px-4 py-3 text-[13px] font-semibold leading-5 text-white shadow-[0_12px_28px_rgba(23,105,255,0.20)]";
-  const claraBubble = isGuidePreview
-    ? "w-fit max-w-[86%] rounded-[22px] border border-blue-200/14 border-l-2 border-l-[#ffd84a]/45 bg-[#07152d]/88 px-4 py-3 text-[13.5px] leading-[1.55] text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-xl"
-    : "w-[94%] max-w-[94%] rounded-[26px] border border-blue-200/14 border-l-2 border-l-[#ffd84a]/45 bg-[#07152d]/88 px-4 py-4 text-[13.5px] leading-6 text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-xl";
 
   const showDecisionCard = step === "complete" && finalDecision?.phase === "choose";
   const showFinalDecisionPanel = Boolean(finalDecision && ["explain", "resolved"].includes(finalDecision.phase));
@@ -350,16 +401,14 @@ export default function ClaraAiEnvironmentOverlay({
       >
         {visibleMessages.length ? (
           <div data-clara-ai-message-stack="true" className="flex min-h-full min-w-0 flex-col justify-start gap-3 px-2 pb-28 pt-1">
-            {visibleMessages.map((message, index) => {
-              const isUser = message.role === "user";
-              return (
-                <div key={message.id || `${message.role || "message"}-${index}`} className={`flex min-w-0 w-full ${isUser ? "justify-end" : "justify-start"}`}>
-                  <div className={`min-w-0 break-words [overflow-wrap:break-word] ${isUser ? userBubble : claraBubble}`}>
-                    <span className="whitespace-pre-wrap">{clean(message.text || message.content || "")}</span>
-                  </div>
-                </div>
-              );
-            })}
+            {visibleMessages.map((message, index) => (
+              <BuyCheckMessageRow
+                key={message.id || `${message.role || "message"}-${index}`}
+                role={message.role}
+                text={clean(message.text || message.content || "")}
+                isGuidePreview={isGuidePreview}
+              />
+            ))}
 
             {showDecisionCard ? <BuyCheckDecisionCard diagnosis={activeState?.diagnosis} onAction={runDecisionAction} /> : null}
 
@@ -396,33 +445,13 @@ export default function ClaraAiEnvironmentOverlay({
         onClose={onClose}
       />
 
-      <form
-        onSubmit={submitDraft}
-        data-clara-buy-check-react-form="true"
-        className="relative z-10 shrink-0 overflow-hidden rounded-[28px] border border-blue-200/16 bg-[#040b1a]/96 p-2.5 shadow-[0_-18px_52px_rgba(0,0,0,0.48),inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-2xl"
-      >
-        <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-[linear-gradient(90deg,#1769ff_0%,#1769ff_42%,#ffd84a_42%,#ffd84a_56%,#e53945_56%,#e53945_100%)] opacity-80" />
-        <div className="flex items-center gap-2 rounded-[22px] border border-blue-200/14 bg-[#08142b]/94 px-3 py-2 shadow-inner focus-within:border-blue-300/36">
-          <input
-            ref={inputRef}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            disabled={inputLocked || busy}
-            className="min-w-0 flex-1 bg-transparent py-2 text-[14px] font-medium text-white outline-none placeholder:text-slate-400/72 disabled:opacity-55"
-            placeholder={placeholderFor(step)}
-            inputMode={step === "price" ? "decimal" : "text"}
-            aria-label={placeholderFor(step)}
-          />
-          <button
-            type="submit"
-            disabled={!draft.trim() || inputLocked || busy}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-blue-300/24 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] text-white shadow-[0_10px_28px_rgba(23,105,255,0.28)] transition hover:brightness-110 disabled:opacity-40"
-            aria-label="Send Ask Before You Spend answer"
-          >
-            <ArrowUp className="h-5 w-5" />
-          </button>
-        </div>
-      </form>
+      <BuyCheckComposer
+        isActive={isActive}
+        inputLocked={inputLocked}
+        busy={busy}
+        step={step}
+        submitAnswer={submitAnswer}
+      />
     </div>
   );
 }
