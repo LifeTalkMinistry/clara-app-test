@@ -58,7 +58,7 @@ const PHASE_ZERO_CATEGORIES = [
       ["P0-F11", "Ask Before You Spend", "in_progress"],
       ["P0-F12", "Analytics", "in_progress"],
       ["P0-F13", "AI Financial Guidance", "in_progress"],
-      ["P0-F14", "One universal free-core access authority", "blocked"],
+      ["P0-F14", "One universal free-core access authority", "ready"],
     ],
   },
   {
