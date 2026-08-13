@@ -4,7 +4,7 @@ import MonthlyMissionBoard, {
   MONTHLY_ENTRY_ID,
 } from "@/components/challenges/MonthlyMissionBoard.jsx";
 
-const CHALLENGE_PROGRESS_KEY = "clara-challenge-progress-v1";
+const MONTHLY_PROGRESS_KEY = "clara-monthly-mission-progress-v1";
 const MONTHLY_HOST_ID = "clara-monthly-mission-runtime-host";
 const MONTHLY_CARD_HIDDEN_ATTR = "data-clara-monthly-card-hidden";
 const MONTHLY_SUPPORT_HIDDEN_ATTR = "data-clara-monthly-support-hidden";
@@ -28,7 +28,7 @@ function safeStorage() {
 
 function readProgress() {
   try {
-    const raw = safeStorage()?.getItem(CHALLENGE_PROGRESS_KEY) || "{}";
+    const raw = safeStorage()?.getItem(MONTHLY_PROGRESS_KEY) || "{}";
     const parsed = JSON.parse(raw);
     return parsed && typeof parsed === "object" ? parsed : {};
   } catch {
@@ -38,7 +38,7 @@ function readProgress() {
 
 function writeProgress(progress) {
   try {
-    safeStorage()?.setItem(CHALLENGE_PROGRESS_KEY, JSON.stringify(progress || {}));
+    safeStorage()?.setItem(MONTHLY_PROGRESS_KEY, JSON.stringify(progress || {}));
   } catch {
     // Monthly Mission tracking must never block the normal CLARA experience.
   }
