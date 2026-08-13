@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CalendarDays, ChevronDown, Clock3 } from "lucide-react";
+import {
+  Bell,
+  CalendarDays,
+  CheckCircle2,
+  ChevronDown,
+  Flag,
+  MessageCircle,
+  ShieldCheck,
+  Target,
+  WalletCards,
+} from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import TaskReminderSettingsCard from "@/components/TaskReminderSettingsCard";
 import useTaskReminderSettings from "@/hooks/useTaskReminderSettings";
@@ -34,12 +44,99 @@ const WEEKLY_REVIEW_DAY_OPTIONS = [
 
 const EXPENSE_LOG_TIME_FALLBACKS = ["12:30", "21:00", "09:00"];
 
+const PRIORITY_STYLES = Object.freeze({
+  Critical: "border-rose-300/20 bg-rose-300/10 text-rose-100",
+  Important: "border-amber-300/20 bg-amber-300/10 text-amber-100",
+  Passive: "border-cyan-300/15 bg-cyan-300/[0.08] text-cyan-100/80",
+});
+
 function FieldLabel({ title, description }) {
   return (
     <div>
       <p className="text-sm font-bold text-white">{title}</p>
       {description ? (
         <p className="mt-1 text-xs leading-5 text-white/45">{description}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function PriorityBadge({ priority }) {
+  return (
+    <span
+      className={`inline-flex shrink-0 rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] ${
+        PRIORITY_STYLES[priority] || PRIORITY_STYLES.Important
+      }`}
+    >
+      {priority}
+    </span>
+  );
+}
+
+function NotificationFamilyCard({
+  icon: Icon,
+  title,
+  description,
+  priority = "Important",
+  enabled = true,
+  onToggle,
+  locked = false,
+  statusText = "",
+  children = null,
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const hasDetails = Boolean(children);
+
+  return (
+    <div className="overflow-hidden rounded-[22px] border border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.055),rgba(255,255,255,0.025))] shadow-[0_14px_34px_rgba(0,0,0,0.12)]">
+      <div className="flex items-start gap-3 px-4 py-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.08] text-cyan-100">
+          <Icon className="h-4 w-4" />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-black text-white">{title}</p>
+            <PriorityBadge priority={priority} />
+          </div>
+          <p className="mt-1 text-xs leading-5 text-white/50">{description}</p>
+          {statusText ? (
+            <p className="mt-1 text-[11px] font-bold text-white/35">{statusText}</p>
+          ) : null}
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2 pt-1">
+          {locked ? (
+            <span className="rounded-full border border-emerald-300/15 bg-emerald-300/[0.08] px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-emerald-100/75">
+              Always on
+            </span>
+          ) : (
+            <Switch
+              checked={enabled}
+              onCheckedChange={onToggle}
+              aria-label={`${title} notifications`}
+              className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-white/15"
+            />
+          )}
+
+          {hasDetails ? (
+            <button
+              type="button"
+              onClick={() => setExpanded((current) => !current)}
+              aria-label={`${expanded ? "Collapse" : "Expand"} ${title}`}
+              aria-expanded={expanded}
+              className="flex h-8 w-8 items-center justify-center rounded-xl text-white/45 transition hover:bg-white/[0.06] hover:text-white/80"
+            >
+              <ChevronDown
+                className={`h-4 w-4 transition ${expanded ? "rotate-180" : ""}`}
+              />
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {hasDetails && expanded ? (
+        <div className="border-t border-white/10 px-4 pb-4 pt-3">{children}</div>
       ) : null}
     </div>
   );
@@ -82,13 +179,9 @@ function formatWeeklyReviewStatus(preferences) {
   )}`;
 }
 
-function ExpenseLogReminderCard({ preferences, onChange }) {
-  const [expanded, setExpanded] = useState(false);
+function ExpenseLoggingDetails({ preferences, onChange }) {
   const frequency = getExpenseLogFrequency(preferences);
   const reminderTimes = getExpenseLogTimes(preferences, frequency);
-  const statusSummary = preferences.dailyCheckIn
-    ? `On • ${frequency} reminder${frequency === 1 ? "" : "s"}/day`
-    : "Off";
 
   const updateReminderTime = (index, value) => {
     const nextTimes = [...reminderTimes];
@@ -97,332 +190,199 @@ function ExpenseLogReminderCard({ preferences, onChange }) {
   };
 
   return (
-    <div className="overflow-hidden rounded-[22px] border border-emerald-300/15 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.11),transparent_40%),rgba(255,255,255,0.035)] shadow-[0_14px_34px_rgba(0,0,0,0.12)]">
-      <button
-        type="button"
-        onClick={() => setExpanded((current) => !current)}
-        aria-expanded={expanded}
-        className="flex w-full items-start justify-between gap-3 px-4 py-4 text-left transition hover:bg-white/[0.035]"
-      >
-        <div className="flex min-w-0 gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-emerald-300/15 bg-emerald-300/10 text-emerald-100">
-            <Clock3 className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-white">Expense log reminder</p>
-            <p className="mt-1 text-xs leading-5 text-white/50">
-              Remind me to record today’s spending
-            </p>
-            <p
-              className={`mt-1 text-[11px] font-black ${
-                preferences.dailyCheckIn
-                  ? "text-emerald-100/70"
-                  : "text-white/35"
-              }`}
-            >
-              {statusSummary}
-            </p>
-          </div>
-        </div>
-        <ChevronDown
-          className={`mt-2 h-4 w-4 shrink-0 text-white/45 transition ${
-            expanded ? "rotate-180" : ""
-          }`}
+    <div className="space-y-4">
+      <div>
+        <FieldLabel
+          title="How many reminders?"
+          description="Choose how often CLARA should remind you to log spending."
         />
-      </button>
-
-      {expanded ? (
-        <div className="space-y-4 border-t border-white/10 px-4 pb-4 pt-3">
-          <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-black/15 p-3.5">
-            <FieldLabel
-              title="Status"
-              description="Turn expense logging reminders on or off."
-            />
-            <Switch
-              checked={preferences.dailyCheckIn}
-              onCheckedChange={(checked) => onChange("dailyCheckIn", checked)}
-              className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-white/15"
-            />
-          </div>
-
-          <div>
-            <FieldLabel
-              title="How many reminders?"
-              description="Choose how often CLARA should remind you in a day."
-            />
-            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
-              {EXPENSE_LOG_FREQUENCY_OPTIONS.map((option) => {
-                const selected = frequency === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => onChange("expenseLogFrequency", option.value)}
-                    className={`rounded-2xl border px-3 py-2.5 text-xs font-black transition ${
-                      selected
-                        ? "border-emerald-300/35 bg-emerald-300/15 text-emerald-50"
-                        : "border-white/10 bg-white/[0.035] text-white/55 hover:bg-white/[0.06]"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
-            <FieldLabel
-              title="Reminder times"
-              description="Set when CLARA should remind you to log spending."
-            />
-            <div className="mt-2 grid grid-cols-1 gap-2">
-              {reminderTimes.map((time, index) => (
-                <label
-                  key={`${frequency}-${index}`}
-                  className="block rounded-2xl border border-white/10 bg-black/15 p-3"
-                >
-                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/35">
-                    Reminder {index + 1}
-                  </span>
-                  <input
-                    type="time"
-                    value={time}
-                    onChange={(event) =>
-                      updateReminderTime(index, event.target.value)
-                    }
-                    className="mt-1.5 h-10 w-full rounded-xl border border-white/10 bg-[#07131f] px-3 text-xs font-semibold text-white outline-none"
-                  />
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-black/15 p-3.5">
-            <FieldLabel
-              title="Stop after I log today"
-              description="Once an expense is logged, CLARA stops reminding for that day."
-            />
-            <Switch
-              checked={preferences.expenseLogStopAfterLogged}
-              onCheckedChange={(checked) =>
-                onChange("expenseLogStopAfterLogged", checked)
-              }
-              className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-white/15"
-            />
-          </div>
-
-          <label className="block">
-            <FieldLabel
-              title="Snooze"
-              description="How long to wait when expense reminders are snoozed."
-            />
-            <select
-              value={String(preferences.expenseLogSnoozeMinutes)}
-              onChange={(event) =>
-                onChange("expenseLogSnoozeMinutes", Number(event.target.value))
-              }
-              className="mt-2 h-11 w-full rounded-2xl border border-white/10 bg-[#07131f] px-3 text-sm font-semibold text-white outline-none"
-            >
-              {EXPENSE_LOG_SNOOZE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {EXPENSE_LOG_FREQUENCY_OPTIONS.map((option) => {
+            const selected = frequency === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => onChange("expenseLogFrequency", option.value)}
+                className={`rounded-2xl border px-3 py-2.5 text-xs font-black transition ${
+                  selected
+                    ? "border-emerald-300/35 bg-emerald-300/15 text-emerald-50"
+                    : "border-white/10 bg-white/[0.035] text-white/55 hover:bg-white/[0.06]"
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
         </div>
-      ) : null}
+      </div>
+
+      <div>
+        <FieldLabel
+          title="Reminder times"
+          description="Set the times when CLARA should ask whether you spent anything."
+        />
+        <div className="mt-2 grid grid-cols-1 gap-2">
+          {reminderTimes.map((time, index) => (
+            <label
+              key={`${frequency}-${index}`}
+              className="block rounded-2xl border border-white/10 bg-black/15 p-3"
+            >
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/35">
+                Reminder {index + 1}
+              </span>
+              <input
+                type="time"
+                value={time}
+                onChange={(event) => updateReminderTime(index, event.target.value)}
+                className="mt-1.5 h-10 w-full rounded-xl border border-white/10 bg-[#07131f] px-3 text-xs font-semibold text-white outline-none"
+              />
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-black/15 p-3.5">
+        <FieldLabel
+          title="Stop after I log today"
+          description="Once an expense is logged, CLARA stops expense reminders for that day."
+        />
+        <Switch
+          checked={preferences.expenseLogStopAfterLogged}
+          onCheckedChange={(checked) => onChange("expenseLogStopAfterLogged", checked)}
+          className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-white/15"
+        />
+      </div>
+
+      <label className="block">
+        <FieldLabel
+          title="Snooze"
+          description="How long CLARA should wait after you snooze an expense reminder."
+        />
+        <select
+          value={String(preferences.expenseLogSnoozeMinutes)}
+          onChange={(event) =>
+            onChange("expenseLogSnoozeMinutes", Number(event.target.value))
+          }
+          className="mt-2 h-11 w-full rounded-2xl border border-white/10 bg-[#07131f] px-3 text-sm font-semibold text-white outline-none"
+        >
+          {EXPENSE_LOG_SNOOZE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   );
 }
 
-function WeeklyMoneyReviewCard({ preferences, onChange }) {
-  const [expanded, setExpanded] = useState(false);
-  const enabled = preferences.weeklyMoneyReview !== false;
-
+function WeeklyReviewDetails({ preferences, onChange }) {
   return (
-    <div className="overflow-hidden rounded-[22px] border border-cyan-300/15 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_42%),rgba(255,255,255,0.035)] shadow-[0_14px_34px_rgba(0,0,0,0.12)]">
-      <button
-        type="button"
-        onClick={() => setExpanded((current) => !current)}
-        aria-expanded={expanded}
-        className="flex w-full items-start justify-between gap-3 px-4 py-4 text-left transition hover:bg-white/[0.035]"
-      >
-        <div className="flex min-w-0 gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/15 bg-cyan-300/10 text-cyan-100">
-            <CalendarDays className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-white">Weekly Money Review</p>
-            <p className="mt-1 text-xs leading-5 text-white/50">
-              Review your spending, leaks, progress, and next move.
-            </p>
-            <p
-              className={`mt-1 text-[11px] font-black ${
-                enabled ? "text-cyan-100/75" : "text-white/35"
-              }`}
-            >
-              {formatWeeklyReviewStatus(preferences)}
-            </p>
-          </div>
-        </div>
-        <ChevronDown
-          className={`mt-2 h-4 w-4 shrink-0 text-white/45 transition ${
-            expanded ? "rotate-180" : ""
-          }`}
+    <div className="space-y-4">
+      <label className="block">
+        <FieldLabel
+          title="Review day"
+          description="Choose when CLARA should prepare your weekly money review."
         />
-      </button>
+        <select
+          value={String(preferences.weeklyMoneyReviewDay ?? 0)}
+          onChange={(event) =>
+            onChange("weeklyMoneyReviewDay", Number(event.target.value))
+          }
+          className="mt-2 h-11 w-full rounded-2xl border border-white/10 bg-[#07131f] px-3 text-sm font-semibold text-white outline-none"
+        >
+          {WEEKLY_REVIEW_DAY_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
 
-      {expanded ? (
-        <div className="space-y-4 border-t border-white/10 px-4 pb-4 pt-3">
-          <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-black/15 p-3.5">
-            <FieldLabel
-              title="Status"
-              description="Turn weekly money review on or off."
-            />
-            <Switch
-              checked={enabled}
-              onCheckedChange={(checked) =>
-                onChange("weeklyMoneyReview", checked)
-              }
-              className="data-[state=checked]:bg-cyan-500 data-[state=unchecked]:bg-white/15"
-            />
-          </div>
+      <label className="block rounded-2xl border border-white/10 bg-black/15 p-3">
+        <FieldLabel
+          title="Review time"
+          description="Set when CLARA should remind you to review your week."
+        />
+        <input
+          type="time"
+          value={preferences.weeklyMoneyReviewTime || "20:00"}
+          onChange={(event) => onChange("weeklyMoneyReviewTime", event.target.value)}
+          className="mt-2 h-10 w-full rounded-xl border border-white/10 bg-[#07131f] px-3 text-xs font-semibold text-white outline-none"
+        />
+      </label>
+    </div>
+  );
+}
 
-          <label className="block">
-            <FieldLabel
-              title="Review day"
-              description="Choose when CLARA should prepare your weekly money review."
-            />
-            <select
-              value={String(preferences.weeklyMoneyReviewDay ?? 0)}
-              onChange={(event) =>
-                onChange("weeklyMoneyReviewDay", Number(event.target.value))
-              }
-              className="mt-2 h-11 w-full rounded-2xl border border-white/10 bg-[#07131f] px-3 text-sm font-semibold text-white outline-none"
-            >
-              {WEEKLY_REVIEW_DAY_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+function AccountUpdatesDetails({ preferences, onChange }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-start justify-between gap-4 rounded-2xl border border-emerald-300/10 bg-emerald-300/[0.05] p-3.5">
+        <FieldLabel
+          title="Security & account alerts"
+          description="New-device login, password, payment, account-action, and required privacy notices."
+        />
+        <span className="rounded-full border border-emerald-300/15 bg-emerald-300/[0.08] px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-emerald-100/75">
+          Always on
+        </span>
+      </div>
 
-          <label className="block rounded-2xl border border-white/10 bg-black/15 p-3">
-            <FieldLabel
-              title="Review time"
-              description="Set when CLARA should remind you to review your week."
-            />
+      <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-black/15 p-3.5">
+        <FieldLabel
+          title="CLARA product updates"
+          description="Major feature releases, maintenance notices, and important CLARA announcements."
+        />
+        <Switch
+          checked={preferences.productUpdates}
+          onCheckedChange={(checked) => onChange("productUpdates", checked)}
+          className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-white/15"
+        />
+      </div>
+    </div>
+  );
+}
+
+function QuietHoursDetails({ preferences, onChange }) {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-black/15 p-3.5">
+        <FieldLabel
+          title="Quiet hours"
+          description="Pause normal reminders during your sleeping or focus hours. Critical alerts may still appear."
+        />
+        <Switch
+          checked={preferences.quietHoursEnabled}
+          onCheckedChange={(checked) => onChange("quietHoursEnabled", checked, { syncTask: true })}
+          className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-white/15"
+        />
+      </div>
+
+      {preferences.quietHoursEnabled ? (
+        <div className="grid grid-cols-2 gap-2">
+          <label className="rounded-2xl border border-white/10 bg-black/15 p-3">
+            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/35">Start</span>
             <input
               type="time"
-              value={preferences.weeklyMoneyReviewTime || "20:00"}
+              value={preferences.quietHoursStart || "22:00"}
               onChange={(event) =>
-                onChange("weeklyMoneyReviewTime", event.target.value)
+                onChange("quietHoursStart", event.target.value, { syncTask: true })
               }
-              className="mt-2 h-10 w-full rounded-xl border border-white/10 bg-[#07131f] px-3 text-xs font-semibold text-white outline-none"
+              className="mt-1.5 h-10 w-full rounded-xl border border-white/10 bg-[#07131f] px-3 text-xs font-semibold text-white outline-none"
             />
           </label>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function ScheduleCalendarReminderCard({ preferences, onChange }) {
-  const [expanded, setExpanded] = useState(false);
-  const enabled = preferences.scheduleAndCalendar !== false;
-  const statusSummary = enabled
-    ? "On • Events, bills, and payday reminders"
-    : "Off";
-
-  return (
-    <div className="overflow-hidden rounded-[22px] border border-cyan-300/15 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_42%),rgba(255,255,255,0.035)] shadow-[0_14px_34px_rgba(0,0,0,0.12)]">
-      <button
-        type="button"
-        onClick={() => setExpanded((current) => !current)}
-        aria-expanded={expanded}
-        className="flex w-full items-start justify-between gap-3 px-4 py-4 text-left transition hover:bg-white/[0.035]"
-      >
-        <div className="flex min-w-0 gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/15 bg-cyan-300/10 text-cyan-100">
-            <CalendarDays className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-white">
-              Schedule & Calendar reminder
-            </p>
-            <p className="mt-1 text-xs leading-5 text-white/50">
-              Remind me about events that can affect my day or money
-            </p>
-            <p
-              className={`mt-1 text-[11px] font-black ${
-                enabled ? "text-cyan-100/75" : "text-white/35"
-              }`}
-            >
-              {statusSummary}
-            </p>
-          </div>
-        </div>
-        <ChevronDown
-          className={`mt-2 h-4 w-4 shrink-0 text-white/45 transition ${
-            expanded ? "rotate-180" : ""
-          }`}
-        />
-      </button>
-
-      {expanded ? (
-        <div className="space-y-4 border-t border-white/10 px-4 pb-4 pt-3">
-          <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-black/15 p-3.5">
-            <FieldLabel
-              title="Status"
-              description="Turn CLARA schedule and calendar reminders on or off."
-            />
-            <Switch
-              checked={enabled}
-              onCheckedChange={(checked) =>
-                onChange("scheduleAndCalendar", checked)
+          <label className="rounded-2xl border border-white/10 bg-black/15 p-3">
+            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/35">End</span>
+            <input
+              type="time"
+              value={preferences.quietHoursEnd || "07:00"}
+              onChange={(event) =>
+                onChange("quietHoursEnd", event.target.value, { syncTask: true })
               }
-              className="data-[state=checked]:bg-cyan-500 data-[state=unchecked]:bg-white/15"
+              className="mt-1.5 h-10 w-full rounded-xl border border-white/10 bg-[#07131f] px-3 text-xs font-semibold text-white outline-none"
             />
-          </div>
-
-          <div>
-            <FieldLabel
-              title="What CLARA reminds you about"
-              description="These reminders are created only from this account's saved Schedule events."
-            />
-            <div className="mt-2 grid grid-cols-1 gap-2">
-              <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
-                <p className="text-xs font-black text-white/80">
-                  Upcoming tomorrow
-                </p>
-                <p className="mt-1 text-[11px] leading-5 text-white/45">
-                  A preparation reminder before a scheduled event happens.
-                </p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
-                <p className="text-xs font-black text-white/80">Schedule today</p>
-                <p className="mt-1 text-[11px] leading-5 text-white/45">
-                  A same-day reminder for events that need your attention.
-                </p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
-                <p className="text-xs font-black text-white/80">
-                  Money-impact schedule
-                </p>
-                <p className="mt-1 text-[11px] leading-5 text-white/45">
-                  Bills, payday, payments, rent, salary, or amount-based events
-                  that can affect your spending.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <p className="rounded-2xl border border-cyan-300/10 bg-cyan-300/[0.06] px-3.5 py-3 text-[11px] font-semibold leading-5 text-cyan-50/60">
-            CLARA avoids duplicate reminders for the same event and date.
-          </p>
+          </label>
         </div>
       ) : null}
     </div>
@@ -476,11 +436,11 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
     [notificationOwnerId, taskReminderSettings]
   );
 
-  const changePreference = useCallback(
-    async (key, value, options = {}) => {
+  const changePreferences = useCallback(
+    async (patch, options = {}) => {
       setNotice("");
       setError("");
-      const next = updatePreference(key, value);
+      const next = setPreferences((current) => ({ ...current, ...patch }));
 
       if (options.syncTask) {
         try {
@@ -488,14 +448,20 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
         } catch (saveError) {
           console.error("Notification task settings sync failed:", saveError);
           setError(
-            "Your app preference was saved, but task reminder delivery could not be updated."
+            "Your notification choice was saved, but task reminder delivery could not be updated."
           );
         }
       }
 
       return next;
     },
-    [syncTaskSettings, updatePreference]
+    [setPreferences, syncTaskSettings]
+  );
+
+  const changePreference = useCallback(
+    (key, value, options = {}) =>
+      changePreferences({ [key]: value }, options),
+    [changePreferences]
   );
 
   const enableDeviceNotifications = useCallback(async () => {
@@ -527,7 +493,7 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
 
       const next = updatePreference("deliveryMode", "device_and_in_app");
       await syncTaskSettings(next, { reminder_mode: "push_and_in_app" });
-      setNotice("Device notifications are enabled on this device.");
+      setNotice("Phone notifications are enabled for this device.");
     } catch (pushError) {
       console.error("Device notification setup failed:", pushError);
       setError(
@@ -536,6 +502,18 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
       );
     }
   }, [syncTaskSettings, taskReminderSettings, updatePreference]);
+
+  const useInAppOnly = useCallback(async () => {
+    const next = updatePreference("deliveryMode", "in_app");
+    try {
+      await syncTaskSettings(next, { reminder_mode: "in_app_only" });
+      setNotice("CLARA will use in-app notifications on this account.");
+      setError("");
+    } catch (saveError) {
+      console.error("In-app delivery update failed:", saveError);
+      setError("Your app preference was saved, but task reminder delivery could not be updated.");
+    }
+  }, [syncTaskSettings, updatePreference]);
 
   const sendLocalDeviceTest = useCallback(async () => {
     setNotice("");
@@ -601,8 +579,14 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
     }
   }, [preferences, taskReminderSettings, updatePreference]);
 
+  const coachingScheduleEnabled =
+    preferences.tasksAndCoaching !== false &&
+    preferences.scheduleAndCalendar !== false;
+
+  const deliveryIsDevice = preferences.deliveryMode === "device_and_in_app";
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {notice ? (
         <div className="rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 py-3 text-xs font-semibold text-emerald-100">
           {notice}
@@ -614,37 +598,208 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
         </div>
       ) : null}
 
+      <section className="rounded-[24px] border border-cyan-300/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_45%),rgba(255,255,255,0.03)] p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/50">
+              Notification delivery
+            </p>
+            <p className="mt-1 text-sm font-black text-white">
+              {deliveryIsDevice ? "Phone + in-app" : "In-app only"}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-white/45">
+              Enable phone notifications if you want CLARA reminders to appear outside the app when supported.
+            </p>
+          </div>
+          <Bell className="mt-1 h-5 w-5 shrink-0 text-cyan-100/70" />
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={enableDeviceNotifications}
+            disabled={taskReminderSettings.pushEnabling}
+            className="rounded-2xl bg-emerald-400 px-4 py-3 text-xs font-black text-slate-950 transition disabled:opacity-45"
+          >
+            {taskReminderSettings.pushEnabling
+              ? "Enabling..."
+              : deliveryIsDevice
+                ? "Refresh phone notifications"
+                : "Enable phone notifications"}
+          </button>
+          <button
+            type="button"
+            onClick={useInAppOnly}
+            disabled={!deliveryIsDevice}
+            className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs font-black text-white/70 transition disabled:opacity-35"
+          >
+            Use in-app only
+          </button>
+        </div>
+      </section>
+
       <section>
         <div className="mb-3 px-1">
           <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/35">
-            Notification categories
+            Notification families
+          </p>
+          <p className="mt-1 text-xs leading-5 text-white/40">
+            CLARA only notifies you about meaningful actions—not simply because you have not opened the app.
           </p>
         </div>
+
         <div className="space-y-3">
-          <ExpenseLogReminderCard
-            preferences={preferences}
-            onChange={changePreference}
+          <NotificationFamilyCard
+            icon={CheckCircle2}
+            title="Daily Check-In"
+            description="Remind me when today’s CLARA check-in is still incomplete."
+            priority="Important"
+            enabled={preferences.dailyCheckIn}
+            onToggle={(checked) => changePreference("dailyCheckIn", checked)}
           />
-          <WeeklyMoneyReviewCard
-            preferences={preferences}
-            onChange={changePreference}
+
+          <NotificationFamilyCard
+            icon={WalletCards}
+            title="Expense Logging"
+            description="Remind me to record today’s spending at the times I choose."
+            priority="Important"
+            enabled={preferences.expenseLogging}
+            onToggle={(checked) => changePreference("expenseLogging", checked)}
+            statusText={
+              preferences.expenseLogging
+                ? `${getExpenseLogFrequency(preferences)} reminder${
+                    getExpenseLogFrequency(preferences) === 1 ? "" : "s"
+                  }/day`
+                : "Off"
+            }
+          >
+            <ExpenseLoggingDetails preferences={preferences} onChange={changePreference} />
+          </NotificationFamilyCard>
+
+          <NotificationFamilyCard
+            icon={CalendarDays}
+            title="Weekly Money Review"
+            description="Review your spending, leaks, progress, and next move once a week."
+            priority="Important"
+            enabled={preferences.weeklyMoneyReview}
+            onToggle={(checked) => changePreference("weeklyMoneyReview", checked)}
+            statusText={formatWeeklyReviewStatus(preferences)}
+          >
+            <WeeklyReviewDetails preferences={preferences} onChange={changePreference} />
+          </NotificationFamilyCard>
+
+          <NotificationFamilyCard
+            icon={Bell}
+            title="Budget & Money Alerts"
+            description="Budget limits, low Money Left, unusual spending, and money-risk warnings."
+            priority="Important"
+            enabled={preferences.moneyAlerts}
+            onToggle={(checked) => changePreference("moneyAlerts", checked)}
           />
-          <ScheduleCalendarReminderCard
-            preferences={preferences}
-            onChange={changePreference}
+
+          <NotificationFamilyCard
+            icon={Target}
+            title="Goals & Financial Progress"
+            description="Savings goals, Emergency Fund milestones, and debt payoff progress."
+            priority="Passive"
+            enabled={preferences.goalsAndReviews}
+            onToggle={(checked) => changePreference("goalsAndReviews", checked)}
           />
+
+          <NotificationFamilyCard
+            icon={WalletCards}
+            title="Bills & Obligations"
+            description="Upcoming bills, debt obligations, scheduled payments, and overdue reminders."
+            priority="Critical"
+            enabled={preferences.billsAndObligations}
+            onToggle={(checked) => changePreference("billsAndObligations", checked)}
+          />
+
+          <NotificationFamilyCard
+            icon={Flag}
+            title="Streaks & 30-Day Challenge"
+            description="Streak-at-risk warnings, Challenge actions, milestones, results, and achievements."
+            priority="Critical"
+            enabled={preferences.streaksAndChallenge}
+            onToggle={(checked) => changePreference("streaksAndChallenge", checked)}
+          />
+
+          <NotificationFamilyCard
+            icon={CalendarDays}
+            title="Coaching & Schedule"
+            description="Coaching sessions, CLARA tasks, saved schedule events, bills, and payday reminders."
+            priority="Important"
+            enabled={coachingScheduleEnabled}
+            onToggle={(checked) =>
+              changePreferences(
+                {
+                  tasksAndCoaching: checked,
+                  scheduleAndCalendar: checked,
+                },
+                { syncTask: true }
+              )
+            }
+          />
+
+          <NotificationFamilyCard
+            icon={MessageCircle}
+            title="Community & Accountability"
+            description="Replies, mentions, Circle activity, and meaningful accountability interactions."
+            priority="Passive"
+            enabled={preferences.communityAndAccountability}
+            onToggle={(checked) =>
+              changePreference("communityAndAccountability", checked)
+            }
+          />
+
+          <NotificationFamilyCard
+            icon={ShieldCheck}
+            title="Account & CLARA Updates"
+            description="Security and account notices stay on; CLARA product communication is optional."
+            priority="Critical"
+            locked
+            statusText={`Security always on • Product updates ${preferences.productUpdates ? "on" : "off"}`}
+          >
+            <AccountUpdatesDetails preferences={preferences} onChange={changePreference} />
+          </NotificationFamilyCard>
         </div>
+      </section>
+
+      <section>
+        <div className="mb-3 px-1">
+          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/35">
+            Notification behavior
+          </p>
+        </div>
+        <NotificationFamilyCard
+          icon={ShieldCheck}
+          title="Quiet Hours"
+          description="Control when normal CLARA reminders should stay quiet."
+          priority="Important"
+          enabled={preferences.quietHoursEnabled}
+          onToggle={(checked) =>
+            changePreference("quietHoursEnabled", checked, { syncTask: true })
+          }
+          statusText={
+            preferences.quietHoursEnabled
+              ? `${formatReviewTimeLabel(preferences.quietHoursStart)} – ${formatReviewTimeLabel(
+                  preferences.quietHoursEnd
+                )}`
+              : "Off"
+          }
+        >
+          <QuietHoursDetails preferences={preferences} onChange={changePreference} />
+        </NotificationFamilyCard>
       </section>
 
       {notificationOwnerId ? (
         <details className="group rounded-[26px] border border-white/10 bg-white/[0.025] p-3">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-2 py-2 text-sm font-bold text-white/75">
-            Advanced task reminder schedule
+            Advanced delivery & task reminder tools
             <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
           </summary>
           <p className="px-2 pb-2 text-[11px] leading-5 text-white/40">
-            These settings are used only when CLARA has an active task that still
-            needs your attention.
+            Diagnostics and custom task-reminder timing live here. These controls do not create a second notification system.
           </p>
           <div className="mt-3">
             <TaskReminderSettingsCard
@@ -669,7 +824,7 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
             >
               {taskReminderSettings.saving
                 ? "Saving..."
-                : "Save task reminder schedule"}
+                : "Save advanced task schedule"}
             </button>
           </div>
         </details>
@@ -677,8 +832,7 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
 
       {!embedded ? (
         <p className="px-1 text-[11px] leading-5 text-white/35">
-          Security, payment, account, and legally required notices stay available
-          independently of these optional categories.
+          Security, payment, account-action, and legally required notices remain available even when optional CLARA updates are off.
         </p>
       ) : null}
     </div>
