@@ -22,12 +22,75 @@ function isStandaloneGreeting(value = "") {
   return /^(hi|hello|hey|yo|good\s+(morning|afternoon|evening)|kumusta|kamusta)[!.\s]*$/i.test(clean(value));
 }
 
+function isGenericPurchaseIntent(value = "") {
+  const text = clean(value)
+    .toLowerCase()
+    .replace(/[.!]+$/g, "")
+    .trim();
+
+  if (!text) return true;
+
+  if (/^(?:something|anything|stuff|things?|item|an?\s+item|purchase|a\s+purchase|whatever|one)$/i.test(text)) {
+    return true;
+  }
+
+  return /^(?:i\s+)?(?:just\s+)?(?:want|wanna|need|plan|planning|hope|trying|thinking|considering|would\s+like)(?:\s+to|\s+about)?\s+(?:buy|purchase|get|buying|purchasing|getting)(?:\s+(?:something|anything|stuff|things?|an?\s+item|a\s+purchase))?$/i.test(text);
+}
+
+function hasPurchaseIntent(value = "") {
+  const text = clean(value);
+  return /\b(?:want|wanna|need|plan|planning|hope|trying|thinking|considering|would\s+like)\b[\s\S]{0,32}\b(?:buy|purchase|get|buying|purchasing|getting)\b/i.test(text);
+}
+
+function stripItemAnswer(value = "") {
+  let item = clean(value);
+  if (!item || isGenericPurchaseIntent(item)) return "";
+
+  item = item
+    .replace(/^(?:h+m+|hmm+|uh+|umm*|erm+|well|actually|probably|maybe)[,.:;\-\s]*/i, "")
+    .replace(/^(?:no[,.:;\-\s]+)?(?:i\s+(?:already\s+)?said|i\s+mean|it(?:'s| is)|just)\s+/i, "")
+    .replace(/^(?:i(?:'m| am)\s+)?(?:thinking|considering|planning)\s+(?:about\s+)?(?:buying|purchasing|getting)\s+/i, "")
+    .replace(/^(?:i\s+)?(?:want|wanna|would\s+like|need|plan|hope|trying)\s+(?:to\s+)?(?:buy|purchase|get)\s+/i, "")
+    .replace(/^(?:i(?:'m| am)\s+)?(?:buying|purchasing|getting)\s+/i, "")
+    .replace(/^(?:i\s+)?(?:want|need)\s+(?:some|a|an)\s+/i, "")
+    .replace(/^(?:some|a|an)\s+/i, "")
+    .trim();
+
+  if (!item || isGenericPurchaseIntent(item)) return "";
+  if (/^(?:idk|i don'?t know|not sure|nothing|no idea|skip|pass|maybe later)$/i.test(item)) return "";
+  if (item.includes("?") || item.length > 120) return "";
+  return item.slice(0, 120);
+}
+
+function looksLikeBareItemAnswer(value = "") {
+  const text = clean(value);
+  const item = stripItemAnswer(text);
+  if (!item || item.length > 60) return false;
+
+  const words = item.split(/\s+/).filter(Boolean);
+  if (!words.length || words.length > 6) return false;
+
+  if (/^(?:because|for|so\s+that|to\s+replace|replacing|replace|my\s+current|the\s+current|mainly|mostly|just\s+because)\b/i.test(text)) {
+    return false;
+  }
+
+  return true;
+}
+
 function sanitizeEvidence(value = {}) {
   const source = value && typeof value === "object" ? value : {};
   const evidence = {};
   EVIDENCE_KEYS.forEach((key) => {
     const text = clean(source[key]);
-    if (text) evidence[key] = text.slice(0, 320);
+    if (!text) return;
+
+    if (key === "item") {
+      const item = stripItemAnswer(text);
+      if (item) evidence.item = item.slice(0, 120);
+      return;
+    }
+
+    evidence[key] = text.slice(0, 320);
   });
   const price = normalizePrice(source.price);
   if (price > 0) evidence.price = price;
@@ -81,21 +144,6 @@ function lastQuestionTopic(history = []) {
   return "";
 }
 
-function stripItemAnswer(value = "") {
-  let item = clean(value);
-  if (!item) return "";
-
-  item = item
-    .replace(/^(?:h+m+|hmm+|uh+|umm*|erm+|well|actually|probably|maybe)[,.:;\-\s]*/i, "")
-    .replace(/^(?:i\s+(?:already\s+)?said|i\s+mean|it(?:'s| is)|just)\s+/i, "")
-    .replace(/^(?:some|a|an)\s+/i, "")
-    .trim();
-
-  if (!item || /^(?:idk|i don'?t know|not sure|nothing|no idea|skip|pass|maybe later)$/i.test(item)) return "";
-  if (item.includes("?") || item.length > 120) return "";
-  return item.slice(0, 120);
-}
-
 function isUsefulReasonAnswer(value = "") {
   const text = clean(value);
   if (!text || text.includes("?") || text.length < 3) return false;
@@ -103,13 +151,21 @@ function isUsefulReasonAnswer(value = "") {
 }
 
 function inferEvidenceFromTurn(message = "", history = [], evidence = {}) {
+  const rawPriorItem = clean(evidence?.item);
+  const priorItemWasGeneric = Boolean(rawPriorItem && !stripItemAnswer(rawPriorItem));
   const inferred = sanitizeEvidence(evidence);
   const answer = clean(message);
   const topic = lastQuestionTopic(history);
+  const explicitItemCorrection = /^(?:no[,.:;\-\s]+)?(?:i\s+(?:already\s+)?said|i\s+mean)\b/i.test(answer);
+  const itemIntent = hasPurchaseIntent(answer);
+  const genericRecoveryItem = priorItemWasGeneric && looksLikeBareItemAnswer(answer);
+  const shouldReadAsItem = topic === "item" || explicitItemCorrection || itemIntent || genericRecoveryItem;
 
-  if (!inferred.item && (topic === "item" || /^(?:i\s+(?:already\s+)?said|i\s+mean)\b/i.test(answer))) {
+  if (shouldReadAsItem) {
     const item = stripItemAnswer(answer);
-    if (item) inferred.item = item;
+    if (item && (!inferred.item || topic === "item" || explicitItemCorrection || genericRecoveryItem)) {
+      inferred.item = item;
+    }
   }
 
   if (!inferred.price && topic === "price") {
@@ -117,7 +173,14 @@ function inferEvidenceFromTurn(message = "", history = [], evidence = {}) {
     if (price > 0) inferred.price = price;
   }
 
-  if (!inferred.purpose && !inferred.currentSituation && topic === "reason" && isUsefulReasonAnswer(answer)) {
+  if (
+    inferred.item &&
+    !inferred.purpose &&
+    !inferred.currentSituation &&
+    topic === "reason" &&
+    !genericRecoveryItem &&
+    isUsefulReasonAnswer(answer)
+  ) {
     inferred.currentSituation = answer.slice(0, 320);
   }
 
@@ -194,6 +257,8 @@ Core behavior:
 - Think like a senior purchase supervisor, not a scripted chatbot. Track what was already answered, interpret short answers in context, and move the conversation forward.
 - FIRST inspect the immediately previous CLARA question and the latest user answer together. A direct answer to your previous question is authoritative evidence even when it is short, casual, typo-filled, or prefaced with filler.
 - Example: if you asked what they are buying and the user says "Hmmm shoes", understand item = "shoes". If they say "I said shoes", treat that as a correction/confirmation that the item is shoes. NEVER ask what they are buying again.
+- Generic intent is NOT an item. Statements such as "I want to buy something", "I wanna buy something", "I need to buy something", "something", or "an item" only mean the user wants to make a purchase. Ask for the actual item instead of saving those words as item evidence.
+- If weak/generic item evidence somehow exists and the user then gives a concrete item such as "shoes", replace the weak evidence with the concrete item and continue. Never preserve a generic placeholder over a specific correction.
 - Before asking any question, verify that its answer is not already present in the transcript, latest message, or evidence. Never ask the same information twice.
 - Be conversational first. Greetings, thanks, filler, corrections, jokes, and side comments are NOT purchase data unless context clearly makes them purchase data.
 - Example: if the user says "Hi" at the start, greet them naturally and ask what they are considering buying. NEVER treat "Hi" as an item.
@@ -300,7 +365,7 @@ export async function runClaraBuyCheckExpertTurn({
   assistantContext = {},
 } = {}) {
   const previousEvidence = sanitizeEvidence(evidence);
-  const seededEvidence = inferEvidenceFromTurn(message, history, previousEvidence);
+  const seededEvidence = inferEvidenceFromTurn(message, history, evidence);
   const fallback = fallbackTurn(message, seededEvidence);
   const greetingOnly = isStandaloneGreeting(message) && !previousEvidence.item && !previousEvidence.price;
 
