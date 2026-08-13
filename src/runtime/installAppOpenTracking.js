@@ -11,8 +11,10 @@ const SESSION_WINDOW_MS = 30 * 60 * 1000;
 const STATE_KEY_PREFIX = "clara:app-open-state:v1:";
 const QUEUE_KEY = "clara:app-open-queue:v1";
 const LIFECYCLE_KEY = "clara:app-lifecycle:v1";
+const INSTALLATION_KEY = "clara:competition-install-id:v1";
 const MAX_QUEUED_EVENTS = 20;
 let flushPromise = null;
+let memoryInstallationId = "";
 
 function safeStorage(kind = "localStorage") {
   try {
@@ -45,6 +47,28 @@ function makeId() {
   return `clara_${Date.now().toString(36)}_${random}_${random}`.slice(0, 80);
 }
 
+function getInstallationId() {
+  const storage = safeStorage();
+  let installationId = "";
+  try {
+    installationId = storage?.getItem(INSTALLATION_KEY) || "";
+  } catch {
+    installationId = "";
+  }
+
+  if (!/^[A-Za-z0-9._:-]{16,128}$/.test(installationId)) {
+    installationId = memoryInstallationId || makeId();
+    memoryInstallationId = installationId;
+    try {
+      storage?.setItem(INSTALLATION_KEY, installationId);
+    } catch {
+      // In-memory fallback is enough for the current app lifecycle.
+    }
+  }
+
+  return installationId;
+}
+
 function getLifecycleId() {
   const storage = safeStorage("sessionStorage");
   let lifecycleId = storage?.getItem(LIFECYCLE_KEY) || "";
@@ -74,6 +98,17 @@ function getAuthenticatedIdentity() {
 }
 
 function detectPlatform() {
+  try {
+    const capacitor = globalThis.Capacitor || window?.Capacitor;
+    if (capacitor?.isNativePlatform?.()) {
+      const nativePlatform = String(capacitor?.getPlatform?.() || "").toLowerCase();
+      if (nativePlatform === "android") return "android_native";
+      if (nativePlatform === "ios") return "ios_native";
+    }
+  } catch {
+    // Fall through to browser/PWA detection.
+  }
+
   const userAgent = String(navigator?.userAgent || "").toLowerCase();
   const standalone = Boolean(
     window.matchMedia?.("(display-mode: standalone)")?.matches ||
@@ -137,6 +172,9 @@ async function flushQueuedOpens() {
           body: {
             sessionId: item.sessionId,
             platform: item.platform,
+            installationId: getInstallationId(),
+            clientTime: new Date().toISOString(),
+            timezoneOffsetMinutes: new Date().getTimezoneOffset(),
           },
         });
       } catch (error) {
@@ -191,6 +229,8 @@ function registerVisibleOpen() {
     !previous?.sessionId || newLifecycle || staleSession || longBackground;
   const sessionId = shouldStartSession ? makeId() : previous.sessionId;
   const platform = detectPlatform();
+
+  getInstallationId();
 
   writeJson(storage, key, {
     sessionId,
