@@ -1,3 +1,5 @@
+import "./installMoneyLeftAnalyticsShortcut";
+
 const HOME_MONEY_LEFT_SELECTOR =
   '.clara-community-root[data-community-view="home"] .clara-community-home-money-left';
 const PROJECTION_SELECTOR = '[data-clara-after-budget-total="true"]';
