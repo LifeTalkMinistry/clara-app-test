@@ -13,6 +13,8 @@ const QUEUE_KEY = "clara:app-open-queue:v1";
 const LIFECYCLE_KEY = "clara:app-lifecycle:v1";
 const INSTALLATION_KEY = "clara:competition-install-id:v1";
 const DAILY_CHECK_IN_STORAGE_PREFIX = "clara_daily_check_in_v3:";
+const CHALLENGE_PROGRESS_STORAGE_KEY = "clara-challenge-progress-v1";
+const THIRTY_DAY_CHALLENGE_ID = "thirty-day-discipline";
 const DAILY_CHECK_IN_UPDATE_EVENT = "clara:daily-check-in-updated";
 const MAX_QUEUED_EVENTS = 20;
 const MAX_COMPETITION_CHECK_INS = 45;
@@ -129,7 +131,7 @@ function stateKey(userId) {
   return `${STATE_KEY_PREFIX}${userId}`;
 }
 
-function readCompetitionCheckInEvents(userId) {
+function readDailyMoneyTipCheckIns(userId) {
   const state = readJson(
     safeStorage(),
     `${DAILY_CHECK_IN_STORAGE_PREFIX}${userId}`,
@@ -143,7 +145,7 @@ function readCompetitionCheckInEvents(userId) {
     .map((event) => ({
       eventId: typeof event?.eventId === "string" ? event.eventId : "",
       eligibleDay: typeof event?.eligibleDay === "string" ? event.eligibleDay : "",
-      source: typeof event?.source === "string" ? event.source : "unknown",
+      source: typeof event?.source === "string" ? event.source : "daily_money_tip",
       clientOccurredAt:
         typeof event?.clientOccurredAt === "string"
           ? event.clientOccurredAt
@@ -152,6 +154,40 @@ function readCompetitionCheckInEvents(userId) {
             : null,
     }))
     .filter((event) => event.eventId && /^\d{4}-\d{2}-\d{2}$/.test(event.eligibleDay));
+}
+
+function readChallengeHubCheckIns(userId) {
+  const progress = readJson(safeStorage(), CHALLENGE_PROGRESS_STORAGE_KEY, null);
+  const entry = progress?.[THIRTY_DAY_CHALLENGE_ID];
+  const checkIns = Array.isArray(entry?.checkIns) ? entry.checkIns : [];
+
+  return [...new Set(checkIns)]
+    .filter((eligibleDay) => /^\d{4}-\d{2}-\d{2}$/.test(String(eligibleDay || "")))
+    .sort()
+    .slice(-MAX_COMPETITION_CHECK_INS)
+    .map((eligibleDay) => ({
+      eventId: `challenge_hub:${userId}:${eligibleDay}`,
+      eligibleDay,
+      source: "challenge_hub_check_in",
+      clientOccurredAt: null,
+    }));
+}
+
+function readCompetitionCheckInEvents(userId) {
+  const byDay = new Map();
+
+  readChallengeHubCheckIns(userId).forEach((event) => {
+    byDay.set(event.eligibleDay, event);
+  });
+  readDailyMoneyTipCheckIns(userId).forEach((event) => {
+    // Prefer the canonical Daily Money Tip event when both systems report the
+    // same eligible day; the Challenge Hub remains a valid fallback receipt.
+    byDay.set(event.eligibleDay, event);
+  });
+
+  return [...byDay.values()]
+    .sort((left, right) => left.eligibleDay.localeCompare(right.eligibleDay))
+    .slice(-MAX_COMPETITION_CHECK_INS);
 }
 
 function integrityPayload(identity, platform) {
@@ -255,8 +291,8 @@ async function syncCompetitionIntegrity() {
     });
   })()
     .catch(() => {
-      // Competition integrity is best-effort while offline. The next app open
-      // or visibility change will retry the server receipt without interrupting CLARA.
+      // Competition integrity is best-effort while offline. The next heartbeat
+      // retries the receipt without interrupting the normal CLARA experience.
     })
     .finally(() => {
       integrityHeartbeatPromise = null;
@@ -341,10 +377,15 @@ function handleDailyCheckInUpdated(event) {
   void syncCompetitionIntegrity();
 }
 
+function runHeartbeat() {
+  registerVisibleOpen();
+  void syncCompetitionIntegrity();
+}
+
 if (typeof window !== "undefined" && typeof document !== "undefined") {
   document.addEventListener("visibilitychange", handleVisibilityChange);
-  window.addEventListener("pageshow", registerVisibleOpen);
-  window.addEventListener("focus", registerVisibleOpen);
+  window.addEventListener("pageshow", runHeartbeat);
+  window.addEventListener("focus", runHeartbeat);
   window.addEventListener("online", () => {
     void flushQueuedOpens();
     void syncCompetitionIntegrity();
@@ -352,16 +393,13 @@ if (typeof window !== "undefined" && typeof document !== "undefined") {
   window.addEventListener(DAILY_CHECK_IN_UPDATE_EVENT, handleDailyCheckInUpdated);
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", registerVisibleOpen, { once: true });
+    document.addEventListener("DOMContentLoaded", runHeartbeat, { once: true });
   } else {
-    registerVisibleOpen();
+    runHeartbeat();
   }
 
   [1000, 5000, 15000].forEach((delay) => {
-    window.setTimeout(() => {
-      registerVisibleOpen();
-      void syncCompetitionIntegrity();
-    }, delay);
+    window.setTimeout(runHeartbeat, delay);
   });
-  window.setInterval(registerVisibleOpen, 60 * 1000);
+  window.setInterval(runHeartbeat, 60 * 1000);
 }
