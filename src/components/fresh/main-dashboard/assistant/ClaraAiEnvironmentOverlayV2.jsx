@@ -320,7 +320,6 @@ export default function ClaraAiEnvironmentOverlay({
   onClose,
   layoutVariant = "default",
 }) {
-  const messagesEndRef = useRef(null);
   const previousAcknowledgmentIndexRef = useRef(-1);
   const acknowledgmentSessionRef = useRef({ active: false, sessionId: "", index: -1, message: "" });
   const previousActiveRef = useRef(false);
@@ -372,17 +371,6 @@ export default function ClaraAiEnvironmentOverlay({
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
   }, [isActive, onClose]);
-
-  // Align once when a new turn/card is added. Do not start a fresh smooth-scroll
-  // animation for every streamed text chunk; that was fighting the Android
-  // keyboard viewport guard and causing visible chat jank.
-  useEffect(() => {
-    if (!isActive || !visibleMessages.length) return undefined;
-    const frame = window.requestAnimationFrame(() =>
-      messagesEndRef.current?.scrollIntoView?.({ behavior: "auto", block: "end" })
-    );
-    return () => window.cancelAnimationFrame(frame);
-  }, [finalDecision?.phase, isActive, step, visibleMessages.length]);
 
   if (!isActive) return null;
 
@@ -442,8 +430,6 @@ export default function ClaraAiEnvironmentOverlay({
                 />
               </div>
             ) : null}
-
-            <div ref={messagesEndRef} className="h-1 shrink-0" />
           </div>
         ) : (
           <div className="flex min-h-full flex-col justify-center px-1 pb-24 pt-3">
