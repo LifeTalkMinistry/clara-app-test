@@ -54,7 +54,7 @@ test("legacy Committed guards cannot deny a canonical free-core route", async ()
   assert.match(source, /return hasCommittedAccess/);
 });
 
-test("Ask Before You Spend has no paid, subscription, beta, or daily-quota entitlement gate", async () => {
+test("Ask Before You Spend has no paid or daily-quota entitlement code", async () => {
   const source = await read(
     "../src/components/fresh/main-dashboard/assistant/useClaraBuyCheckFlow.js",
   );
@@ -62,7 +62,7 @@ test("Ask Before You Spend has no paid, subscription, beta, or daily-quota entit
   assert.match(source, /return useClaraBuyCheckFlowV5\(\{ assistantContext \}\)/);
   assert.doesNotMatch(
     source,
-    /hasCommittedAccess|openCommittedVersionModal|canUseFreeBuyCheckToday|recordFreeBuyCheckCompletion|subscription|beta|paid plan|Committed access code/,
+    /useUserRole|hasCommittedAccess|openCommittedVersionModal|canUseFreeBuyCheckToday|recordFreeBuyCheckCompletion|FREE_LIMIT_MESSAGE|dailyLimitBlocked/,
   );
 });
 
