@@ -147,6 +147,70 @@ div.z-\[90\] > header:has(button[aria-label="Back to Community"]) + main section
 }
 
 /*
+ * SETTINGS MOBILE SCROLL OWNERSHIP
+ *
+ * Settings is a deliberate exception to the generic phone Community strategy.
+ * Its content is substantially taller than one viewport, and the Settings
+ * detail shell already has a stable direct child that can own scrolling.
+ *
+ * Keep the Community root fixed as a simple two-part flex column: shared nav,
+ * then the Settings view. Only .clara-community-settings-view is allowed to
+ * scroll. This removes the previous cascade where the root was changed to
+ * natural height while the Settings child still inherited a percentage-height
+ * internal scroll rule, leaving no element with a dependable scrollport.
+ */
+@media (max-width: 767px) {
+  .clara-community-root[data-community-view="settings"] {
+    position: fixed !important;
+    inset: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    max-height: 100vh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+    overscroll-behavior: none !important;
+    touch-action: auto !important;
+  }
+
+  .clara-community-root[data-community-view="settings"] > .clara-community-shell-header {
+    position: relative !important;
+    top: auto !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    z-index: 90 !important;
+  }
+
+  .clara-community-root[data-community-view="settings"] > .clara-community-settings-view {
+    position: relative !important;
+    display: block !important;
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain !important;
+    touch-action: pan-y !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .clara-community-root[data-community-view="settings"] > .clara-community-settings-view > div {
+    min-height: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+}
+
+/*
  * ACTIVE PRIVATE MESSAGE THREAD
  *
  * Community.jsx intentionally flattens embedded feature roots so inboxes can
