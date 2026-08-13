@@ -18,6 +18,7 @@ import { installCommunityProfileEditShortcut } from "./runtime/installCommunityP
 import { installCommunityNotificationRuntime } from "./runtime/installCommunityNotificationRuntime";
 import { installClaraBackgroundRuntimeGuard } from "./runtime/installClaraBackgroundRuntimeGuard";
 import { installClaraHomeBrandCompletion } from "./runtime/installClaraHomeBrandCompletion";
+import { installClaraOrbLaunchTransition } from "./runtime/installClaraOrbLaunchTransition";
 import { installBudgetSetupCopyCleanup } from "./runtime/installBudgetSetupCopyCleanup";
 import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
 import {
@@ -133,6 +134,12 @@ try {
   installClaraHomeBrandCompletion();
 } catch (error) {
   console.warn("CLARA Home brand completion failed to init:", error);
+}
+
+try {
+  installClaraOrbLaunchTransition();
+} catch (error) {
+  console.warn("CLARA Orb launch transition failed to init:", error);
 }
 
 try {
