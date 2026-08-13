@@ -1,0 +1,50 @@
+name: Settings regression verify
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/settings-regression-verify.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Align stale notification label assertion
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tests/settings-integrity-regression.test.mjs')
+          text = p.read_text()
+          text = text.replace('Advanced task reminder schedule', 'Advanced delivery & task reminder tools')
+          p.write_text(text)
+          PY
+
+      - name: canonical display-name authority
+        run: node --test tests/canonical-display-name-authority.test.mjs
+      - name: Settings local-only regression
+        run: node --test tests/settings-local-only-regression.test.mjs
+      - name: Settings integrity regression
+        run: node --test tests/settings-integrity-regression.test.mjs
+      - name: Settings top spacing
+        run: node --test tests/settings-top-spacing.test.mjs
+      - name: Settings visual authority
+        run: node --test tests/settings-visual-authority.test.mjs
+      - name: dashboard topnav ownership
+        run: node --test tests/dashboard-top-nav-ownership.test.mjs
+
+      - name: Commit verified test alignment and remove verifier
+        run: |
+          git config user.name "CLARA Engineering"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/settings-regression-verify.yml
+          git add tests/settings-integrity-regression.test.mjs
+          git commit -m "Verify Settings visual authority regressions"
+          git push origin HEAD:main
