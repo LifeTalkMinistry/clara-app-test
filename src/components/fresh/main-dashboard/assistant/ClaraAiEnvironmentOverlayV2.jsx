@@ -215,12 +215,30 @@ function placeholderFor(step) {
 
 const BuyCheckMessageRow = memo(function BuyCheckMessageRow({ role, text, isGuidePreview }) {
   const isUser = role === "user";
+  const isThinking = !isUser && !clean(text);
   const userBubble = isGuidePreview
     ? "w-fit max-w-[78%] rounded-[22px] border border-blue-300/22 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] px-4 py-2.5 text-[13px] font-semibold leading-5 text-white shadow-[0_12px_28px_rgba(23,105,255,0.20)]"
     : "max-w-[86%] rounded-[24px] border border-blue-300/22 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] px-4 py-3 text-[13px] font-semibold leading-5 text-white shadow-[0_12px_28px_rgba(23,105,255,0.20)]";
   const claraBubble = isGuidePreview
     ? "w-fit max-w-[86%] rounded-[22px] border border-blue-200/14 border-l-2 border-l-[#ffd84a]/45 bg-[#07152d]/88 px-4 py-3 text-[13.5px] leading-[1.55] text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-xl"
     : "w-[94%] max-w-[94%] rounded-[26px] border border-blue-200/14 border-l-2 border-l-[#ffd84a]/45 bg-[#07152d]/88 px-4 py-4 text-[13.5px] leading-6 text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-xl";
+
+  if (isThinking) {
+    return (
+      <div className="flex min-w-0 w-full justify-start" data-clara-buy-check-thinking-row="true">
+        <div
+          className="clara-buy-check-thinking-bubble"
+          role="status"
+          aria-label="CLARA is thinking"
+          aria-live="polite"
+        >
+          <span className="clara-buy-check-thinking-dot" aria-hidden="true" />
+          <span className="clara-buy-check-thinking-dot" aria-hidden="true" />
+          <span className="clara-buy-check-thinking-dot" aria-hidden="true" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex min-w-0 w-full ${isUser ? "justify-end" : "justify-start"}`}>
