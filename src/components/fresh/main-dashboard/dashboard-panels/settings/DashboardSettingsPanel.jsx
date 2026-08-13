@@ -36,6 +36,8 @@ import {
 } from "@/lib/canonical-clara-profile";
 import { Button } from "@/components/ui/button";
 import NotificationSettingsPanel from "@/components/notifications/NotificationSettingsPanel";
+import SupportTierBadge from "@/components/support/SupportTierBadge";
+import useClaraSupport from "@/hooks/useClaraSupport";
 import useNotificationPreferences from "@/hooks/useNotificationPreferences";
 import DashboardPanelShell from "@/components/fresh/main-dashboard/dashboard-panels/DashboardPanelShell";
 import {
@@ -115,7 +117,7 @@ export default function DashboardSettingsPanel({
   const navigate = useNavigate();
   const settingsRootRef = useRef(null);
 
-
+  const { support: supporterStatus } = useClaraSupport(user);
   const { preferences: notificationPreferences } =
     useNotificationPreferences(user?.id || "guest");
   const [localPerformanceMode, setLocalPerformanceMode] = useState(() =>
@@ -146,7 +148,6 @@ export default function DashboardSettingsPanel({
   const [isDataDetailsOpen, setIsDataDetailsOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const membershipState = useCommittedMembershipState({ billingRecord });
-
 
   useEffect(() => {
     const storedPerformanceMode = readStoredPerformanceMode(user?.id || "guest");
@@ -273,10 +274,7 @@ export default function DashboardSettingsPanel({
 
 const canonicalDisplayName = resolveCanonicalDisplayName(canonicalProfile);
 const displayName = canonicalDisplayName || "Your CLARA account";
-const currentPlan =
-  membershipState.membershipStatus === "loading"
-    ? "Syncing"
-    : membershipState.planLabel;
+const activeSupporterTier = supporterStatus?.active ? supporterStatus.tier : null;
 const supportEmail = "claraprogram2026@gmail.com";
 
   const openSetting = useCallback((settingKey) => {
@@ -377,7 +375,6 @@ const supportEmail = "claraprogram2026@gmail.com";
       return next;
     });
   }, [user?.id]);
-
 
   const clearLocalPreferences = useCallback(async () => {
     try {
@@ -545,7 +542,9 @@ const supportEmail = "claraprogram2026@gmail.com";
           title: "Plan & billing",
           description: "Enrollment, payment, and access level",
           icon: WalletCards,
-          badge: currentPlan,
+          badgeNode: activeSupporterTier ? (
+            <SupportTierBadge tier={activeSupporterTier} compact />
+          ) : null,
           action: () => openSetting("plan"),
         },
         {
@@ -650,7 +649,7 @@ const billingDetailsMessage =
     </span>
   );
 
-  const PremiumRow = ({ icon: Icon, title, description, badge, featured, onClick }) => (
+  const PremiumRow = ({ icon: Icon, title, description, badge, badgeNode, featured, onClick }) => (
     <button
       type="button"
       onClick={onClick}
@@ -675,11 +674,11 @@ const billingDetailsMessage =
         <p className="mt-1 truncate text-xs text-white/45">{description}</p>
       </div>
 
-      {badge ? (
+      {badgeNode || (badge ? (
         <span className="max-w-[96px] shrink-0 truncate rounded-full border border-white/15 bg-white/8 px-2.5 py-1 text-[10px] font-bold text-white/55">
           {badge}
         </span>
-      ) : null}
+      ) : null)}
 
       <ChevronRight className="h-4 w-4 shrink-0 text-white/30 transition group-hover:translate-x-0.5 group-hover:text-white/55" />
     </button>
@@ -948,7 +947,6 @@ const renderPlanPage = () => (
             <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:text-white/65" />
           </div>
         </button>
-
 
         {isAiPrivacyModalOpen ? (
           <div
@@ -1535,9 +1533,9 @@ const renderPlanPage = () => (
             <p className="truncate text-xs text-white/50">{user?.email || "CLARA user"}</p>
           </div>
 
-          <span className="shrink-0 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-black text-emerald-200">
-            {currentPlan}
-          </span>
+          {activeSupporterTier ? (
+            <SupportTierBadge tier={activeSupporterTier} compact />
+          ) : null}
         </div>
       </div>
 
@@ -1555,6 +1553,7 @@ const renderPlanPage = () => (
                 title={row.title}
                 description={row.description}
                 badge={row.badge}
+                badgeNode={row.badgeNode}
                 featured={row.featured}
                 onClick={row.action}
               />
