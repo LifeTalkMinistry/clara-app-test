@@ -34,4 +34,20 @@ jobs:
         run: npm run lint:buy-check
 
       - name: Build production app
-        run: npm run build
+        id: production_build
+        continue-on-error: true
+        run: npm run build > p0-f14-build.log 2>&1
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-f14-build-log
+          path: p0-f14-build.log
+          retention-days: 1
+
+      - name: Fail when production build fails
+        if: steps.production_build.outcome == 'failure'
+        run: |
+          cat p0-f14-build.log
+          exit 1
