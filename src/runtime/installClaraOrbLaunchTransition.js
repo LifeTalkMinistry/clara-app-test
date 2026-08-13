@@ -1,184 +1,225 @@
 import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "@/lib/clara-pause-events";
 
-const STYLE_ID = "clara-orb-launch-transition-style";
-const ACTIVE_CLASS = "clara-orb-launch-transition-active";
 const READY_FLAG = "claraOrbTransitionReady";
-const OPEN_DELAY_MS = 620;
-const CLEANUP_DELAY_MS = 980;
+const OPEN_DELAY_MS = 820;
+const CLEANUP_DELAY_MS = 1180;
 
-function ensureLaunchTransitionStyles() {
-  if (typeof document === "undefined" || document.getElementById(STYLE_ID)) return;
+function safeAnimate(element, keyframes, options) {
+  if (!element || typeof element.animate !== "function") return null;
 
-  const style = document.createElement("style");
-  style.id = STYLE_ID;
-  style.textContent = `
-    html.${ACTIVE_CLASS} [data-clara-orb-launcher="true"] {
-      z-index: 30;
-    }
+  try {
+    return element.animate(keyframes, options);
+  } catch {
+    return null;
+  }
+}
 
-    html.${ACTIVE_CLASS} [data-clara-orb-launcher="true"] .clara-orb-asset-shell {
-      overflow: visible !important;
-    }
+function createBloomLayer(launcher) {
+  const existing = launcher.querySelector('[data-clara-orb-bloom-layer="true"]');
+  if (existing) existing.remove();
 
-    html.${ACTIVE_CLASS} [data-clara-orb-launcher="true"] .clara-orb-asset-shell::after {
-      content: "";
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      width: 84%;
-      height: 84%;
-      border: 2px solid rgba(80, 199, 255, 0.86);
-      border-radius: 50%;
-      opacity: 0;
-      pointer-events: none;
-      box-shadow:
-        -18px 0 36px rgba(22, 139, 255, 0.34),
-        18px 0 36px rgba(243, 38, 69, 0.28),
-        0 0 26px rgba(78, 168, 255, 0.24),
-        inset -8px 0 24px rgba(243, 38, 69, 0.10),
-        inset 8px 0 24px rgba(22, 139, 255, 0.12);
-      transform: translate(-50%, -50%) scaleX(1) scaleY(1);
-      transform-origin: center;
-      will-change: transform, border-radius, opacity, box-shadow;
-      animation: clara-orb-chat-bloom 720ms cubic-bezier(0.22, 1, 0.36, 1) 130ms both;
-    }
+  const bloom = document.createElement("span");
+  bloom.setAttribute("data-clara-orb-bloom-layer", "true");
+  bloom.setAttribute("aria-hidden", "true");
 
-    html.${ACTIVE_CLASS} [data-clara-orb-launcher="true"] .clara-orb-vector > rect {
-      transform-box: fill-box;
-      transform-origin: center;
-      will-change: transform, opacity;
-      animation: clara-orb-eye-close 240ms cubic-bezier(0.4, 0, 1, 1) both;
-    }
+  Object.assign(bloom.style, {
+    position: "absolute",
+    left: "50%",
+    top: "50%",
+    width: "72%",
+    height: "72%",
+    borderRadius: "999px",
+    border: "2px solid rgba(92, 207, 255, 0.92)",
+    background:
+      "linear-gradient(115deg, rgba(22,139,255,0.13), rgba(28,73,255,0.05) 46%, rgba(243,38,69,0.11))",
+    boxShadow:
+      "-24px 0 58px rgba(22,139,255,0.46), 24px 0 58px rgba(243,38,69,0.38), 0 0 46px rgba(63,157,255,0.30), inset 10px 0 26px rgba(22,139,255,0.12), inset -10px 0 26px rgba(243,38,69,0.10)",
+    opacity: "0",
+    pointerEvents: "none",
+    transform: "translate(-50%, -50%) scale(0.82)",
+    transformOrigin: "center",
+    zIndex: "8",
+    willChange: "transform, opacity, width, height, border-radius, box-shadow",
+  });
 
-    html.${ACTIVE_CLASS} [data-clara-orb-launcher="true"] .clara-orb-vector > path {
-      transform-box: view-box;
-      transform-origin: 160px 153px;
-      will-change: transform, opacity;
-    }
+  launcher.appendChild(bloom);
+  return bloom;
+}
 
-    html.${ACTIVE_CLASS} [data-clara-orb-launcher="true"] .clara-orb-vector > path:nth-of-type(1) {
-      animation: clara-orb-segment-spin 610ms cubic-bezier(0.2, 0.8, 0.2, 1) 150ms both;
-    }
+function playLaunchAnimation(launcher) {
+  const shell = launcher.querySelector(".clara-orb-asset-shell");
+  const svg = launcher.querySelector(".clara-orb-vector");
+  if (!shell || !svg) return () => {};
 
-    html.${ACTIVE_CLASS} [data-clara-orb-launcher="true"] .clara-orb-vector > path:nth-of-type(2) {
-      animation: clara-orb-segment-spin 610ms cubic-bezier(0.2, 0.8, 0.2, 1) 180ms both;
-    }
+  shell.style.overflow = "visible";
 
-    html.${ACTIVE_CLASS} [data-clara-orb-launcher="true"] .clara-orb-vector > circle:nth-of-type(1) {
-      transform-box: view-box;
-      transform-origin: 160px 153px;
-      animation: clara-orb-soft-glow-release 600ms ease-out 150ms both;
-    }
+  const circles = [...svg.querySelectorAll(":scope > circle")];
+  const paths = [...svg.querySelectorAll(":scope > path")];
+  const rects = [...svg.querySelectorAll(":scope > rect")];
+  const bloom = createBloomLayer(launcher);
+  const animations = [];
 
-    html.${ACTIVE_CLASS} [data-clara-orb-launcher="true"] .clara-orb-vector > circle:nth-of-type(2),
-    html.${ACTIVE_CLASS} [data-clara-orb-launcher="true"] .clara-orb-vector > circle:nth-of-type(3) {
-      transform-box: view-box;
-      transform-origin: 160px 153px;
-      animation: clara-orb-core-dissolve 500ms ease-in 170ms both;
-    }
+  const remember = (animation) => {
+    if (animation) animations.push(animation);
+  };
 
-    @keyframes clara-orb-eye-close {
-      0% {
-        transform: scaleY(1);
-        opacity: 1;
+  // 1) CLARA closes its yellow eyes first.
+  rects.forEach((eye, index) => {
+    eye.style.transformBox = "fill-box";
+    eye.style.transformOrigin = "center";
+
+    remember(
+      safeAnimate(
+        eye,
+        [
+          { transform: "scaleY(1)", opacity: 1, offset: 0 },
+          { transform: "scaleY(0.18)", opacity: 1, offset: 0.62 },
+          { transform: "scaleY(0.01)", opacity: 0, offset: 1 },
+        ],
+        {
+          duration: 265,
+          delay: index > 1 ? 20 : 0,
+          easing: "cubic-bezier(0.4, 0, 1, 1)",
+          fill: "forwards",
+        }
+      )
+    );
+  });
+
+  // 2) Blue and red CLARA pieces visibly spin while the center gives way.
+  paths.forEach((segment, index) => {
+    segment.style.transformBox = "view-box";
+    segment.style.transformOrigin = "160px 153px";
+
+    remember(
+      safeAnimate(
+        segment,
+        [
+          { transform: "rotate(0deg) scale(1)", opacity: 1, offset: 0 },
+          { transform: `rotate(${index === 0 ? 120 : -105}deg) scale(1.04)`, opacity: 1, offset: 0.32 },
+          { transform: `rotate(${index === 0 ? 455 : -430}deg) scale(1.01)`, opacity: 0.96, offset: 0.78 },
+          { transform: `rotate(${index === 0 ? 540 : -515}deg) scale(0.86)`, opacity: 0.06, offset: 1 },
+        ],
+        {
+          duration: 670,
+          delay: 120 + index * 35,
+          easing: "cubic-bezier(0.18, 0.76, 0.2, 1)",
+          fill: "forwards",
+        }
+      )
+    );
+  });
+
+  circles.forEach((circle, index) => {
+    circle.style.transformBox = "view-box";
+    circle.style.transformOrigin = "160px 153px";
+
+    remember(
+      safeAnimate(
+        circle,
+        index === 0
+          ? [
+              { transform: "scale(1)", opacity: 0.2 },
+              { transform: "scale(1.22)", opacity: 0.32, offset: 0.35 },
+              { transform: "scale(1.78)", opacity: 0 },
+            ]
+          : [
+              { transform: "scale(1)", opacity: 1 },
+              { transform: "scale(0.96)", opacity: 0.9, offset: 0.32 },
+              { transform: "scale(0.84)", opacity: 0 },
+            ],
+        {
+          duration: index === 0 ? 720 : 520,
+          delay: 145,
+          easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+          fill: "forwards",
+        }
+      )
+    );
+  });
+
+  // 3) The whole orb releases outward so it feels like it becomes the chat surface.
+  remember(
+    safeAnimate(
+      shell,
+      [
+        { transform: "scale(1)", opacity: 1, filter: "brightness(1)", offset: 0 },
+        { transform: "scale(0.965)", opacity: 1, filter: "brightness(1.12)", offset: 0.18 },
+        { transform: "scale(1.035)", opacity: 1, filter: "brightness(1.25)", offset: 0.48 },
+        { transform: "scale(0.91)", opacity: 0, filter: "brightness(1.35)", offset: 1 },
+      ],
+      {
+        duration: 790,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        fill: "forwards",
       }
-      52% {
-        transform: scaleY(0.16);
-        opacity: 0.92;
-      }
-      100% {
-        transform: scaleY(0.015);
-        opacity: 0;
-      }
-    }
+    )
+  );
 
-    @keyframes clara-orb-segment-spin {
-      0% {
-        transform: rotate(0deg) scale(1);
-        opacity: 1;
+  // 4) Outer CLARA glow stretches from a circle into a rounded chat-box silhouette.
+  remember(
+    safeAnimate(
+      bloom,
+      [
+        {
+          width: "72%",
+          height: "72%",
+          borderRadius: "999px",
+          transform: "translate(-50%, -50%) scale(0.82)",
+          opacity: 0,
+          offset: 0,
+        },
+        {
+          width: "84%",
+          height: "84%",
+          borderRadius: "999px",
+          transform: "translate(-50%, -50%) scale(1)",
+          opacity: 1,
+          offset: 0.18,
+        },
+        {
+          width: "128%",
+          height: "152%",
+          borderRadius: "44px",
+          transform: "translate(-50%, -50%) scale(1.02)",
+          opacity: 0.92,
+          offset: 0.57,
+        },
+        {
+          width: "164%",
+          height: "232%",
+          borderRadius: "30px",
+          transform: "translate(-50%, -50%) scale(1.04)",
+          opacity: 0.18,
+          offset: 1,
+        },
+      ],
+      {
+        duration: 770,
+        delay: 95,
+        easing: "cubic-bezier(0.18, 0.84, 0.24, 1)",
+        fill: "forwards",
       }
-      30% {
-        transform: rotate(110deg) scale(0.99);
-        opacity: 1;
-      }
-      78% {
-        transform: rotate(395deg) scale(1.015);
-        opacity: 0.96;
-      }
-      100% {
-        transform: rotate(470deg) scale(0.90);
-        opacity: 0.12;
-      }
-    }
+    )
+  );
 
-    @keyframes clara-orb-core-dissolve {
-      0%, 24% {
-        transform: scale(1);
-        opacity: 1;
+  return () => {
+    animations.forEach((animation) => {
+      try {
+        animation.cancel();
+      } catch {
+        // Nothing to clean up.
       }
-      100% {
-        transform: scale(0.88);
-        opacity: 0;
-      }
-    }
+    });
 
-    @keyframes clara-orb-soft-glow-release {
-      0% {
-        transform: scale(1);
-        opacity: 0.20;
-      }
-      100% {
-        transform: scale(1.52);
-        opacity: 0;
-      }
-    }
+    bloom.remove();
+    shell.style.removeProperty("overflow");
 
-    @keyframes clara-orb-chat-bloom {
-      0% {
-        transform: translate(-50%, -50%) scaleX(0.96) scaleY(0.96);
-        border-radius: 50%;
-        opacity: 0;
-        box-shadow:
-          -10px 0 22px rgba(22, 139, 255, 0.18),
-          10px 0 22px rgba(243, 38, 69, 0.14),
-          0 0 12px rgba(78, 168, 255, 0.12);
-      }
-      18% {
-        opacity: 0.92;
-      }
-      62% {
-        transform: translate(-50%, -50%) scaleX(1.30) scaleY(1.78);
-        border-radius: 38px;
-        opacity: 0.76;
-        box-shadow:
-          -28px 0 58px rgba(22, 139, 255, 0.40),
-          28px 0 58px rgba(243, 38, 69, 0.32),
-          0 0 52px rgba(66, 153, 255, 0.30),
-          inset -10px 0 30px rgba(243, 38, 69, 0.10),
-          inset 10px 0 30px rgba(22, 139, 255, 0.14);
-      }
-      100% {
-        transform: translate(-50%, -50%) scaleX(1.48) scaleY(2.54);
-        border-radius: 28px;
-        opacity: 0;
-        box-shadow:
-          -38px 0 88px rgba(22, 139, 255, 0.34),
-          38px 0 88px rgba(243, 38, 69, 0.28),
-          0 0 86px rgba(66, 153, 255, 0.24);
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      html.${ACTIVE_CLASS} [data-clara-orb-launcher="true"] .clara-orb-asset-shell::after,
-      html.${ACTIVE_CLASS} [data-clara-orb-launcher="true"] .clara-orb-vector > rect,
-      html.${ACTIVE_CLASS} [data-clara-orb-launcher="true"] .clara-orb-vector > path,
-      html.${ACTIVE_CLASS} [data-clara-orb-launcher="true"] .clara-orb-vector > circle {
-        animation: none !important;
-      }
-    }
-  `;
-
-  document.head.appendChild(style);
+    [...circles, ...paths, ...rects].forEach((element) => {
+      element.style.removeProperty("transform-box");
+      element.style.removeProperty("transform-origin");
+    });
+  };
 }
 
 export function installClaraOrbLaunchTransition() {
@@ -191,13 +232,14 @@ export function installClaraOrbLaunchTransition() {
   }
 
   window.__claraOrbLaunchTransitionInstalled = true;
-  ensureLaunchTransitionStyles();
 
   let redispatchTimer = 0;
   let cleanupTimer = 0;
+  let cleanupAnimation = null;
 
-  const clearActiveState = () => {
-    document.documentElement.classList.remove(ACTIVE_CLASS);
+  const clearAnimation = () => {
+    cleanupAnimation?.();
+    cleanupAnimation = null;
   };
 
   const handlePauseOpenRequest = (event) => {
@@ -215,15 +257,15 @@ export function installClaraOrbLaunchTransition() {
     const launcher = document.querySelector('[data-clara-orb-launcher="true"]');
     if (!launcher) return;
 
+    // The first event is intentionally held for the animation. The re-dispatched
+    // event below is the one the CLARA chat bridge receives.
     event.stopImmediatePropagation();
 
     window.clearTimeout(redispatchTimer);
     window.clearTimeout(cleanupTimer);
-    clearActiveState();
+    clearAnimation();
 
-    // Force a clean restart if the user re-enters the Orb page quickly.
-    void document.documentElement.offsetWidth;
-    document.documentElement.classList.add(ACTIVE_CLASS);
+    cleanupAnimation = playLaunchAnimation(launcher);
 
     const forwardedDetail = {
       ...detail,
@@ -240,7 +282,7 @@ export function installClaraOrbLaunchTransition() {
     }, OPEN_DELAY_MS);
 
     cleanupTimer = window.setTimeout(() => {
-      clearActiveState();
+      clearAnimation();
     }, CLEANUP_DELAY_MS);
   };
 
@@ -249,7 +291,7 @@ export function installClaraOrbLaunchTransition() {
   return () => {
     window.clearTimeout(redispatchTimer);
     window.clearTimeout(cleanupTimer);
-    clearActiveState();
+    clearAnimation();
     window.removeEventListener(CLARA_PAUSE_OPEN_REQUEST_EVENT, handlePauseOpenRequest, true);
     window.__claraOrbLaunchTransitionInstalled = false;
   };
