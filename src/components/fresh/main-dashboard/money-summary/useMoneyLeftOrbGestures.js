@@ -18,7 +18,6 @@ export default function useMoneyLeftOrbGestures({
   isGuideOrbButtonDisabled,
   guideOrbPhase,
   handleMoneyLeftOrbClick,
-  openTransactionHub,
   onGuideOrbSingleTap,
   onGuideOrbDoubleTap,
   onGuideOrbLongPress,
@@ -210,25 +209,33 @@ export default function useMoneyLeftOrbGestures({
         return;
       }
 
-      const now = Date.now();
-      if (lastTapAtRef.current && now - lastTapAtRef.current <= DOUBLE_TAP_WINDOW) {
+      // Double tap is retained only inside the temporary Guide Mode training
+      // phase so the guide sequence remains stable. In the live app the orb has
+      // one tap action only: log an expense. Transactions now have a dedicated
+      // Money Left utility icon and are no longer hidden behind a double tap.
+      if (awaitDouble) {
+        const now = Date.now();
+        if (lastTapAtRef.current && now - lastTapAtRef.current <= DOUBLE_TAP_WINDOW) {
+          clearTap();
+          lastTapAtRef.current = 0;
+          playMoneyLeftOrbInteractionSound(button, "double");
+          onGuideOrbDoubleTap?.();
+          return;
+        }
+
+        lastTapAtRef.current = now;
         clearTap();
-        lastTapAtRef.current = 0;
-        playMoneyLeftOrbInteractionSound(button, "double");
-        if (awaitDouble) onGuideOrbDoubleTap?.();
-        else openTransactionHub?.(event);
+        tapTimerRef.current = window.setTimeout(() => {
+          tapTimerRef.current = null;
+          lastTapAtRef.current = 0;
+        }, DOUBLE_TAP_WINDOW);
         return;
       }
 
-      lastTapAtRef.current = now;
       clearTap();
-      tapTimerRef.current = window.setTimeout(() => {
-        tapTimerRef.current = null;
-        lastTapAtRef.current = 0;
-        if (awaitDouble) return;
-        playMoneyLeftOrbInteractionSound(button, "light");
-        openManualExpense();
-      }, DOUBLE_TAP_WINDOW);
+      lastTapAtRef.current = 0;
+      playMoneyLeftOrbInteractionSound(button, "light");
+      openManualExpense(event);
     },
     [
       awaitDouble,
@@ -239,7 +246,6 @@ export default function useMoneyLeftOrbGestures({
       onGuideOrbDoubleTap,
       onGuideOrbSingleTap,
       openManualExpense,
-      openTransactionHub,
       releasePointer,
       reset,
       stop,
