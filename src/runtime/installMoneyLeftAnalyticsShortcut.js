@@ -1,3 +1,5 @@
+import "./installMoneyLeftTransactionShortcut";
+
 const HOME_MONEY_LEFT_SELECTOR =
   '.clara-community-root[data-community-view="home"] .clara-community-home-money-left';
 const SUMMARY_SELECTOR = 'section[data-clara-dashboard-section="money-summary"]';
@@ -26,10 +28,6 @@ function navigateToAnalytics(event) {
 
   if (typeof window === 'undefined') return;
 
-  // CLARA is mounted under React Router's HashRouter. Changing pathname here
-  // creates a real /analytics request on GitHub Pages while leaving the old
-  // #/community route active. Route only through the hash so the SPA stays on
-  // its deployed base path and React Router receives the navigation.
   const targetHash = '#/analytics';
   if (window.location.hash === targetHash) return;
 
@@ -63,34 +61,35 @@ function installStyles() {
       position: absolute !important;
       z-index: 59 !important;
       top: clamp(12px, 3.4vw, 16px) !important;
-      left: calc(clamp(112px, 33vw, 132px) + 80px) !important;
-      width: 32px !important;
-      min-width: 32px !important;
-      height: 32px !important;
-      min-height: 32px !important;
+      left: calc(var(--clara-money-tool-start, clamp(112px, 33vw, 132px)) + (var(--clara-money-tool-step, 40px) * 2)) !important;
+      width: var(--clara-money-tool-size, 32px) !important;
+      min-width: var(--clara-money-tool-size, 32px) !important;
+      height: var(--clara-money-tool-size, 32px) !important;
+      min-height: var(--clara-money-tool-size, 32px) !important;
       padding: 0 !important;
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
-      border: 1px solid rgba(126, 181, 255, 0.26) !important;
+      border: 1px solid rgba(114, 148, 255, 0.46) !important;
       border-radius: 999px !important;
-      background: rgba(3, 18, 43, 0.68) !important;
-      color: #b9d9ff !important;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08) !important;
+      background: linear-gradient(145deg, rgba(27, 57, 132, 0.94), rgba(12, 20, 61, 0.96)) !important;
+      color: #8fb3ff !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 0 14px rgba(73,101,255,0.12) !important;
       transform: translateX(-50%) !important;
-      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, color 140ms ease, box-shadow 140ms ease !important;
+      transition: transform 150ms ease, border-color 150ms ease, background 150ms ease, color 150ms ease, box-shadow 150ms ease !important;
       cursor: pointer !important;
       -webkit-tap-highlight-color: transparent;
     }
 
     ${HOME_MONEY_LEFT_SELECTOR} ${ANALYTICS_SELECTOR}:hover {
-      border-color: rgba(255,216,74,0.46) !important;
-      background: rgba(7,31,71,0.92) !important;
+      border-color: rgba(255,255,255,0.52) !important;
+      background: linear-gradient(145deg, rgba(38, 77, 166, 0.98), rgba(13, 27, 70, 0.98)) !important;
       color: #ffffff !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 0 18px rgba(73,101,255,0.16) !important;
     }
 
     ${HOME_MONEY_LEFT_SELECTOR} ${ANALYTICS_SELECTOR}:active {
-      transform: translateX(-50%) scale(0.95) !important;
+      transform: translateX(-50%) scale(0.94) !important;
     }
 
     ${HOME_MONEY_LEFT_SELECTOR} ${ANALYTICS_SELECTOR}:focus-visible {
@@ -100,22 +99,16 @@ function installStyles() {
 
     ${HOME_MONEY_LEFT_SELECTOR} ${ANALYTICS_SELECTOR} > span {
       display: flex !important;
-      width: 14px !important;
-      height: 14px !important;
+      width: var(--clara-money-tool-icon, 14px) !important;
+      height: var(--clara-money-tool-icon, 14px) !important;
       align-items: center !important;
       justify-content: center !important;
     }
 
     ${HOME_MONEY_LEFT_SELECTOR} ${ANALYTICS_SELECTOR} svg {
       display: block !important;
-      width: 14px !important;
-      height: 14px !important;
-    }
-
-    @media (max-width: 340px) {
-      ${HOME_MONEY_LEFT_SELECTOR} ${ANALYTICS_SELECTOR} {
-        left: calc(clamp(112px, 33vw, 132px) + 76px) !important;
-      }
+      width: var(--clara-money-tool-icon, 14px) !important;
+      height: var(--clara-money-tool-icon, 14px) !important;
     }
   `;
   document.head.appendChild(style);
