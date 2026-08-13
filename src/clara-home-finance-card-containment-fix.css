@@ -1,16 +1,6 @@
-/*
- * CLARA Home — finance card containment + rhythm fix.
- *
- * Income Hub, Budget, and Debt were the remaining collapsed cards whose
- * internal stacks did not land on the same vertical rhythm as Wallet,
- * Emergency Fund, and Savings Goals. Keep the three outliers contained,
- * preserve their natural summary height, and pin their detail CTA row to the
- * same bottom rail used by the already-correct cards.
- */
+/* CLARA Home — finance card containment + collapsed rhythm normalization. */
 
-/* -------------------------------------------------------------------------- */
-/* BUDGET — undo accidental styling of the decorative top-left glow            */
-/* -------------------------------------------------------------------------- */
+/* Budget: undo accidental decorative glow styling. */
 #root .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
 [data-finance-card="budget"][data-expanded="false"]
@@ -24,15 +14,12 @@
   -webkit-backdrop-filter: none !important;
 }
 
-/* -------------------------------------------------------------------------- */
-/* THREE OUTLIERS — fill the AVAILABLE inner flex area, never parent height    */
-/* -------------------------------------------------------------------------- */
 /*
- * Important: the direct content wrapper already lives inside a padded h-full
- * card body. Forcing this wrapper to height:100% makes its content + the
- * parent's pb-4 exceed the usable card box, which is why the CTA rail appears
- * to leak through the bottom edge on Income Hub and Budget. Flex sizing uses
- * only the parent's available content area and keeps that bottom inset intact.
+ * Income Hub + Debt / Obligations empty states use the same shared
+ * FinanceCardSetupEmptyState structure as Savings Goals. Keep the inner stack
+ * flex-sized to the available card body, let the large setup panel absorb spare
+ * height, and leave the View rail in normal flow. This removes the dead vertical
+ * band that came from the old flex:0 + margin-top:auto pairing.
  */
 #root .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
@@ -52,8 +39,23 @@
   flex: 1 1 0% !important;
 }
 
-/* Income and Debt still use the lower rail behavior while they are being
- * normalized independently. Budget intentionally does NOT participate here. */
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card="investmentFund"][data-expanded="false"]
+> div > div > div:first-child,
+#root .clara-community-root[data-community-view="home"]
+.clara-community-home-financial-carousel
+[data-finance-card="debtObligations"][data-expanded="false"]
+> div > div > div:first-child {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  box-sizing: border-box !important;
+  flex: 1 1 0% !important;
+}
+
 #root .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
 [data-finance-card="investmentFund"][data-expanded="false"]
@@ -66,20 +68,11 @@
   max-width: 100% !important;
   min-width: 0 !important;
   box-sizing: border-box !important;
-  margin-top: auto !important;
+  margin-top: 0 !important;
   flex: 0 0 auto !important;
 }
 
-/* -------------------------------------------------------------------------- */
-/* BUDGET — mirror the already-correct Wallet collapsed rhythm                 */
-/* -------------------------------------------------------------------------- */
-/*
- * Budget's JSX has flex-1 on both the collapsed stack and its primary panel.
- * That makes the stack consume every remaining pixel and pushes the View
- * button against the outer shell. Wallet/Savings/Emergency use natural flow:
- * primary panel -> gap -> CTA, with unused space remaining below. Force Budget
- * onto that same proven geometry instead of compensating with transforms.
- */
+/* Budget keeps its proven natural-height collapsed geometry. */
 #root .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
 [data-finance-card="budget"][data-expanded="false"]
@@ -108,21 +101,10 @@
   transform: none !important;
 }
 
-/* -------------------------------------------------------------------------- */
-/* PRIMARY PANELS — natural height, never squeeze/crop their summary content   */
-/* -------------------------------------------------------------------------- */
 #root .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
 [data-finance-card="budget"][data-expanded="false"]
-> div > div:nth-child(2) > div:first-child,
-#root .clara-community-root[data-community-view="home"]
-.clara-community-home-financial-carousel
-[data-finance-card="investmentFund"][data-expanded="false"]
-> div > div > div:first-child,
-#root .clara-community-root[data-community-view="home"]
-.clara-community-home-financial-carousel
-[data-finance-card="debtObligations"][data-expanded="false"]
-> div > div > div:first-child {
+> div > div:nth-child(2) > div:first-child {
   width: 100% !important;
   max-width: 100% !important;
   min-width: 0 !important;
@@ -130,24 +112,11 @@
   min-height: 0 !important;
   box-sizing: border-box !important;
   flex: 0 0 auto !important;
-}
-
-/* Keep primary panels open; clip only their true rounded summary surfaces. */
-#root .clara-community-root[data-community-view="home"]
-.clara-community-home-financial-carousel
-[data-finance-card="budget"][data-expanded="false"]
-> div > div:nth-child(2) > div:first-child,
-#root .clara-community-root[data-community-view="home"]
-.clara-community-home-financial-carousel
-[data-finance-card="investmentFund"][data-expanded="false"]
-> div > div > div:first-child {
   overflow: visible !important;
   isolation: auto !important;
 }
 
-/* -------------------------------------------------------------------------- */
-/* TRUE SUMMARY SURFACES — these are the places that should actually clip      */
-/* -------------------------------------------------------------------------- */
+/* Clip only the true rounded summary surfaces / stat rails. */
 #root .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
 [data-finance-card="budget"][data-expanded="false"]
@@ -163,8 +132,6 @@
   overflow: hidden !important;
 }
 
-/* Income Hub's 3-stat strip must stay inside its own rounded rail on narrow
- * phones, including long source/status values. */
 #root .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
 [data-finance-card="investmentFund"][data-expanded="false"]
@@ -180,8 +147,6 @@
   overflow: hidden !important;
 }
 
-/* Debt's stat rail is already rounded/overflow-hidden in JSX; only harden the
- * grid cells so values cannot push the row outside the card. */
 #root .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
 [data-finance-card="debtObligations"][data-expanded="false"]
@@ -196,17 +161,7 @@
   overflow: hidden !important;
 }
 
-/* -------------------------------------------------------------------------- */
-/* BUDGET — target the REAL collapsed JSX flex layers                          */
-/* -------------------------------------------------------------------------- */
-/*
- * The structural overrides above predate the current BudgetCardContent DOM.
- * The live JSX now contains two explicit `flex-1` layers:
- *   1) the collapsed content stack
- *   2) the large bordered summary panel
- * Emergency Fund does not stretch either layer. Target those exact class
- * signatures so Budget resolves to the same natural-height geometry.
- */
+/* Budget: target the current collapsed JSX flex layers explicitly. */
 #root .clara-community-root[data-community-view="home"]
 .clara-community-home-financial-carousel
 [data-finance-card="budget"][data-expanded="false"]
