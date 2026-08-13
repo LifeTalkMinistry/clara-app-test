@@ -37,18 +37,17 @@ button[aria-label="Back to Community"]::after {
 }
 
 /*
- * Community owns its page scrolling directly.
+ * Community owns its page scrolling directly for the generic Community views.
+ * Settings is intentionally excluded: Community.jsx already gives Settings a
+ * dedicated min-h-0 flex child with overflow-y-auto, and viewport-edge-seam-fix
+ * gives that child a definite remaining viewport height. Letting this generic
+ * rule flatten Settings was the source of the competing scroll owners.
  *
  * IMPORTANT: identify this shell with stable class tokens rather than a
  * relational selector. Some Android WebView versions can ignore those
- * ownership rules even though desktop Chrome accepts them. The Community route
- * already has a unique full-screen class token (h-[100dvh]), so target that
- * stable token instead.
- *
- * This remains the desktop/browser fallback. Physical Android uses the later
- * mobile override so the already-proven Layout scroller owns touch scrolling.
+ * ownership rules even though desktop Chrome accepts them.
  */
-div[class~="z-[80]"][class~="h-[100dvh]"] {
+div[class~="z-[80]"][class~="h-[100dvh]"]:not([data-community-view="settings"]) {
   display: block !important;
   height: 100vh !important;
   height: 100dvh !important;
@@ -63,15 +62,15 @@ div[class~="z-[80]"][class~="h-[100dvh]"] {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Keep Community navigation visible while the shell itself scrolls. */
-div[class~="z-[80]"][class~="h-[100dvh]"] > header {
+/* Keep generic Community navigation visible while the shell itself scrolls. */
+div[class~="z-[80]"][class~="h-[100dvh]"]:not([data-community-view="settings"]) > header {
   position: sticky !important;
   top: 0 !important;
   z-index: 90 !important;
 }
 
-/* Let feed content grow naturally; the parent Community shell scrolls it. */
-div[class~="z-[80]"][class~="h-[100dvh]"] > main {
+/* Let generic Community page content grow naturally inside its shell. */
+div[class~="z-[80]"][class~="h-[100dvh]"]:not([data-community-view="settings"]) > main {
   display: block !important;
   flex: none !important;
   width: 100% !important;
@@ -95,17 +94,12 @@ div.z-\[90\] > header:has(button[aria-label="Back to Community"]) + main section
 /*
  * CAPACITOR / ANDROID WEBVIEW SCROLL FIX
  *
- * Desktop/mobile browsers can scroll an overflow element that is itself
- * position:fixed. On the installed Capacitor app, the same fixed nested
- * scroller can receive taps but fail to turn vertical drags into scrolling.
- *
- * On phone-sized viewports, stop making Community a fixed/nested scroll area.
- * Let CLARA's outer Layout <main> (which already scrolls correctly throughout
- * the native app) be the ONE vertical scroll owner. Community simply grows
- * inside that proven scroller and keeps only its header sticky.
+ * For generic Community views on phones, let CLARA's outer Layout <main> be the
+ * single vertical scroll owner. Settings is excluded from this rule because it
+ * owns a dedicated internal scrollport beneath the shared top navigation.
  */
 @media (max-width: 767px) {
-  div[class~="z-[80]"][class~="h-[100dvh]"] {
+  div[class~="z-[80]"][class~="h-[100dvh]"]:not([data-community-view="settings"]) {
     position: relative !important;
     inset: auto !important;
     top: auto !important;
@@ -126,13 +120,13 @@ div.z-\[90\] > header:has(button[aria-label="Back to Community"]) + main section
     contain: none !important;
   }
 
-  div[class~="z-[80]"][class~="h-[100dvh]"] > header {
+  div[class~="z-[80]"][class~="h-[100dvh]"]:not([data-community-view="settings"]) > header {
     position: sticky !important;
     top: 0 !important;
     z-index: 90 !important;
   }
 
-  div[class~="z-[80]"][class~="h-[100dvh]"] > main {
+  div[class~="z-[80]"][class~="h-[100dvh]"]:not([data-community-view="settings"]) > main {
     display: block !important;
     flex: none !important;
     width: 100% !important;
@@ -143,80 +137,6 @@ div.z-\[90\] > header:has(button[aria-label="Back to Community"]) + main section
     overscroll-behavior: auto !important;
     touch-action: auto !important;
     -webkit-overflow-scrolling: auto !important;
-  }
-}
-
-/*
- * SETTINGS MOBILE SCROLL OWNERSHIP
- *
- * Settings is a deliberate exception to the generic phone Community strategy.
- * Its content is substantially taller than one viewport, and the Settings
- * detail shell already has a stable direct child that can own scrolling.
- *
- * Keep the Community root fixed as a simple two-part flex column: shared nav,
- * then the Settings view. Only .clara-community-settings-view is allowed to
- * scroll. Lock the outer Layout scroller for this view so the final account
- * actions cannot fall into a second, unreachable scroll context.
- */
-@media (max-width: 767px) {
-  .theme-page-shell main:has(.clara-community-root[data-community-view="settings"]) {
-    overflow-x: hidden !important;
-    overflow-y: hidden !important;
-    overscroll-behavior: none !important;
-    touch-action: auto !important;
-    -webkit-overflow-scrolling: auto !important;
-  }
-
-  .clara-community-root[data-community-view="settings"] {
-    position: fixed !important;
-    inset: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    width: 100% !important;
-    min-width: 0 !important;
-    height: 100vh !important;
-    height: 100dvh !important;
-    min-height: 100vh !important;
-    min-height: 100dvh !important;
-    max-height: 100vh !important;
-    max-height: 100dvh !important;
-    overflow: hidden !important;
-    overscroll-behavior: none !important;
-    touch-action: auto !important;
-  }
-
-  .clara-community-root[data-community-view="settings"] > .clara-community-shell-header {
-    position: relative !important;
-    top: auto !important;
-    flex: 0 0 auto !important;
-    width: 100% !important;
-    min-height: 0 !important;
-    z-index: 90 !important;
-  }
-
-  .clara-community-root[data-community-view="settings"] > .clara-community-settings-view {
-    position: relative !important;
-    display: block !important;
-    flex: 1 1 0% !important;
-    min-width: 0 !important;
-    min-height: 0 !important;
-    width: 100% !important;
-    height: auto !important;
-    max-height: none !important;
-    box-sizing: border-box !important;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
-    overscroll-behavior-y: contain !important;
-    touch-action: pan-y !important;
-    -webkit-overflow-scrolling: touch !important;
-    padding-bottom: max(72px, calc(env(safe-area-inset-bottom, 0px) + 56px)) !important;
-    scroll-padding-bottom: max(72px, calc(env(safe-area-inset-bottom, 0px) + 56px)) !important;
-  }
-
-  .clara-community-root[data-community-view="settings"] > .clara-community-settings-view > div {
-    min-height: 0 !important;
-    height: auto !important;
-    overflow: visible !important;
   }
 }
 
