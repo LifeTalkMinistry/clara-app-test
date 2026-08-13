@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "@/lib/clara-pause-events";
 
 // Keep the traced CLARA silhouette, but express the long sampled blue contour as
@@ -223,40 +223,11 @@ function MoneyLeftOrbVisual({ launching = false }) {
 
 export default function ClaraOrbPage() {
   const [launching, setLaunching] = useState(false);
-  const [viewportTop, setViewportTop] = useState(null);
-  const pageRef = useRef(null);
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
     document.body.classList.add("clara-orb-page-active");
     return () => document.body.classList.remove("clara-orb-page-active");
-  }, []);
-
-  useLayoutEffect(() => {
-    if (typeof window === "undefined") return undefined;
-
-    const measure = () => {
-      const node = pageRef.current;
-      if (!node) return;
-      const top = Math.max(0, Math.round(node.getBoundingClientRect().top));
-      setViewportTop((current) => (current === top ? current : top));
-    };
-
-    measure();
-    const frame = window.requestAnimationFrame(measure);
-    window.addEventListener("resize", measure);
-    window.visualViewport?.addEventListener("resize", measure);
-
-    const observer =
-      typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
-    if (pageRef.current?.parentElement) observer?.observe(pageRef.current.parentElement);
-
-    return () => {
-      window.cancelAnimationFrame(frame);
-      window.removeEventListener("resize", measure);
-      window.visualViewport?.removeEventListener("resize", measure);
-      observer?.disconnect();
-    };
   }, []);
 
   const openClara = () => {
@@ -277,20 +248,9 @@ export default function ClaraOrbPage() {
     window.setTimeout(() => setLaunching(false), 700);
   };
 
-  const measuredViewportStyle =
-    viewportTop === null
-      ? undefined
-      : {
-          height: `calc(100dvh - ${viewportTop}px)`,
-          minHeight: `calc(100dvh - ${viewportTop}px)`,
-          flex: "0 0 auto",
-        };
-
   return (
     <main
-      ref={pageRef}
-      className="clara-community-orb-view relative flex w-full items-center justify-center overflow-hidden px-5 text-center text-white"
-      style={measuredViewportStyle}
+      className="clara-community-orb-view relative flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden px-5 text-center text-white"
       aria-label="CLARA Orb"
       data-clara-orb-page="true"
     >
@@ -354,8 +314,8 @@ export default function ClaraOrbPage() {
 
       <div
         className="relative z-10 flex w-full max-w-3xl flex-col items-center justify-center"
-        style={{ transform: "translateY(clamp(78px, 11dvh, 112px))" }}
-        data-clara-orb-visual-offset="down-2"
+        data-clara-orb-visual-offset="none"
+        data-clara-orb-composition="true"
       >
         <div className="mb-1 select-none">
           <p className="text-[10px] font-black uppercase tracking-[0.34em] text-white/42">CLARA ORB</p>
