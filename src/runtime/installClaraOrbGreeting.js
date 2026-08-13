@@ -1,3 +1,5 @@
+import "./installClaraOrbChatHandoff";
+
 /*
  * Personalized greeting for the dedicated CLARA Orb page.
  *
