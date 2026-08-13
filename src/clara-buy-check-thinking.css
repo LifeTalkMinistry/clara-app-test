@@ -87,3 +87,187 @@
     animation-duration: 1.6s !important;
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/* CLARA FINAL DECISION — BRANDED VERDICT SURFACE                             */
+/* -------------------------------------------------------------------------- */
+/* The last step is a verdict, not a generic form. Keep the existing behavior
+   and fields intact while making the whole surface match CLARA's blue/yellow/
+   red premium fintech language. These rules are deliberately lightweight for
+   Android: layered gradients and static shadows only, with no extra blur. */
+[data-clara-buy-check-final-decision-panel] {
+  isolation: isolate !important;
+  border: 1px solid rgba(115, 174, 255, 0.34) !important;
+  border-radius: 28px !important;
+  padding: 22px 18px 18px !important;
+  background:
+    radial-gradient(circle at -8% 12%, rgba(23, 105, 255, 0.22), transparent 38%),
+    radial-gradient(circle at 108% 88%, rgba(229, 57, 69, 0.15), transparent 42%),
+    radial-gradient(circle at 70% 112%, rgba(112, 72, 255, 0.11), transparent 34%),
+    linear-gradient(145deg, rgba(3, 12, 29, 0.995), rgba(5, 15, 36, 0.995) 54%, rgba(18, 8, 28, 0.99)) !important;
+  box-shadow:
+    0 22px 54px rgba(0, 0, 0, 0.46),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.025),
+    -8px 0 28px rgba(23, 105, 255, 0.07),
+    8px 0 30px rgba(229, 57, 69, 0.05) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+[data-clara-buy-check-final-decision-panel] > div:first-child {
+  height: 3px !important;
+  opacity: 1 !important;
+  background: linear-gradient(
+    90deg,
+    #1769ff 0%,
+    #1769ff 42%,
+    #ffd84a 42%,
+    #ffd84a 57%,
+    #e53945 57%,
+    #e53945 100%
+  ) !important;
+  box-shadow:
+    0 0 14px rgba(23, 105, 255, 0.24),
+    0 0 10px rgba(255, 216, 74, 0.10),
+    0 0 14px rgba(229, 57, 69, 0.16) !important;
+}
+
+[data-clara-buy-check-final-decision-panel] > p:first-of-type {
+  margin-top: 1px !important;
+  color: rgba(157, 204, 255, 0.92) !important;
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.24em !important;
+}
+
+[data-clara-buy-check-final-decision-panel] > h3 {
+  margin-top: 9px !important;
+  color: rgba(255, 255, 255, 0.98) !important;
+  font-size: 21px !important;
+  line-height: 1.22 !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.025em !important;
+  text-wrap: balance;
+}
+
+[data-clara-buy-check-final-decision-panel] > h3 + p {
+  margin-top: 9px !important;
+  color: rgba(226, 235, 248, 0.78) !important;
+  font-size: 12px !important;
+  line-height: 1.6 !important;
+  font-weight: 600 !important;
+}
+
+/* Decision note: remove the generic gray/system-form appearance on Android. */
+[data-clara-buy-check-final-decision-panel] > textarea {
+  width: 100% !important;
+  min-height: 92px !important;
+  margin-top: 16px !important;
+  padding: 15px 16px !important;
+  border: 1px solid rgba(93, 164, 255, 0.28) !important;
+  border-radius: 20px !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(23, 105, 255, 0.14), transparent 42%),
+    radial-gradient(circle at 100% 100%, rgba(154, 61, 255, 0.09), transparent 44%),
+    linear-gradient(145deg, rgba(5, 20, 45, 0.99), rgba(7, 15, 36, 0.99)) !important;
+  color: rgba(255, 255, 255, 0.93) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.93) !important;
+  caret-color: #8fc2ff !important;
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+  font-weight: 650 !important;
+  opacity: 1 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    inset 0 0 24px rgba(23, 105, 255, 0.035),
+    0 10px 28px rgba(0, 0, 0, 0.18) !important;
+}
+
+[data-clara-buy-check-final-decision-panel] > textarea:focus {
+  border-color: rgba(103, 184, 255, 0.62) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 2px rgba(23, 105, 255, 0.10),
+    0 12px 30px rgba(0, 0, 0, 0.22) !important;
+}
+
+[data-clara-buy-check-final-decision-panel] > textarea::placeholder {
+  color: rgba(176, 196, 222, 0.58) !important;
+  -webkit-text-fill-color: rgba(176, 196, 222, 0.58) !important;
+}
+
+/* BUY path wallet selector receives the same premium inset treatment. */
+[data-clara-buy-check-final-decision-panel="buy"] > div:not(:first-child):not(:last-child) label {
+  color: rgba(255, 216, 74, 0.84) !important;
+  letter-spacing: 0.18em !important;
+}
+
+[data-clara-buy-check-final-decision-panel="buy"] select {
+  border: 1px solid rgba(93, 164, 255, 0.25) !important;
+  border-radius: 18px !important;
+  background: rgba(5, 20, 45, 0.98) !important;
+  color: rgba(255, 255, 255, 0.94) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045) !important;
+}
+
+/* Final actions: decisive CLARA blue primary + quiet premium secondary. */
+[data-clara-buy-check-final-decision-panel] > div:last-child {
+  margin-top: 17px !important;
+  gap: 11px !important;
+}
+
+[data-clara-buy-check-final-decision-panel] > div:last-child > button {
+  min-height: 48px !important;
+  border-radius: 999px !important;
+  font-size: 12.5px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.005em !important;
+}
+
+[data-clara-buy-check-final-decision-panel] > div:last-child > button:first-child {
+  border: 1px solid rgba(126, 197, 255, 0.70) !important;
+  background: linear-gradient(135deg, #1686ff 0%, #1769ff 42%, #3155ef 72%, #6547f5 100%) !important;
+  color: #ffffff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 10px 28px rgba(23, 105, 255, 0.28),
+    0 0 18px rgba(23, 105, 255, 0.13) !important;
+}
+
+[data-clara-buy-check-final-decision-panel] > div:last-child > button:last-child {
+  border: 1px solid rgba(219, 230, 246, 0.34) !important;
+  background:
+    radial-gradient(circle at 100% 100%, rgba(229, 57, 69, 0.055), transparent 52%),
+    linear-gradient(145deg, rgba(8, 18, 40, 0.98), rgba(5, 11, 27, 0.99)) !important;
+  color: rgba(255, 255, 255, 0.91) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 10px 24px rgba(0, 0, 0, 0.20) !important;
+}
+
+[data-clara-buy-check-final-decision-panel] > div:last-child > button:disabled {
+  opacity: 0.52 !important;
+}
+
+/* Keep the branded panel compact and readable on narrow Android screens. */
+@media (max-width: 380px) {
+  [data-clara-buy-check-final-decision-panel] {
+    padding: 20px 15px 16px !important;
+  }
+
+  [data-clara-buy-check-final-decision-panel] > h3 {
+    font-size: 19px !important;
+  }
+
+  [data-clara-buy-check-final-decision-panel] > textarea {
+    min-height: 88px !important;
+    padding: 13px 14px !important;
+  }
+
+  [data-clara-buy-check-final-decision-panel] > div:last-child {
+    gap: 8px !important;
+  }
+}
