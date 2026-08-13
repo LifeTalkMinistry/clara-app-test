@@ -60,6 +60,8 @@ function buildDedicatedCarouselItems(items) {
   const masterclassItem = featuredMasterclass
     ? {
         ...featuredMasterclass,
+        kind: "masterclass",
+        type: "video",
         status: "available",
         constructionLabel: "",
         featured: true,
