@@ -182,7 +182,11 @@ export default function ChallengeRaceBoard() {
       : monthLabel(state.data?.raceMonth);
 
   return (
-    <section className={`relative overflow-hidden rounded-[26px] border bg-[#091727] p-4 sm:p-5 ${isTestRace ? "border-[#facc15]/24" : "border-[#22c7b8]/18"}`}>
+    <section
+      data-clara-challenge-race-board="true"
+      data-challenge-framework-zone="our-progress"
+      className={`relative overflow-hidden rounded-[26px] border bg-[#091727] p-4 sm:p-5 ${isTestRace ? "border-[#facc15]/24" : "border-[#22c7b8]/18"}`}
+    >
       <div className={`pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full blur-3xl ${isTestRace ? "bg-[#facc15]/[0.07]" : "bg-[#22c7b8]/[0.08]"}`} />
       <div className="relative">
         <div className="flex items-start justify-between gap-3">
@@ -193,13 +197,14 @@ export default function ChallengeRaceBoard() {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <p className={`text-[9px] font-black uppercase tracking-[0.17em] ${isTestRace ? "text-[#facc15]/70" : "text-[#5eead4]/60"}`}>
-                  CLARA Race Board
+                  Our Progress
                 </p>
                 {isTestRace ? (
                   <span className="rounded-full border border-[#facc15]/20 bg-[#facc15]/[0.06] px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.12em] text-[#fde68a]">Pre-launch test</span>
                 ) : null}
               </div>
-              <h3 className="mt-1 text-lg font-black tracking-[-0.03em] text-white">{heading}</h3>
+              <h3 className="mt-1 text-lg font-black tracking-[-0.03em] text-white">30-Day Contenders</h3>
+              <p className="mt-0.5 text-[9px] font-bold text-white/30">{heading}</p>
               {control?.raceStartDay ? (
                 <p className="mt-0.5 text-[9px] font-bold text-white/30">Starting line · {prettyDate(control.raceStartDay)}</p>
               ) : null}
