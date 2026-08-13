@@ -8,6 +8,10 @@ const FILTERS = [
   { key: "out", label: "Out" },
 ];
 const TEST_HIDDEN_ATTR = "data-clara-test-race-hidden";
+const FRAMEWORK_HIDDEN_ATTR = "data-clara-thirty-framework-hidden";
+const FRAMEWORK_METRICS_ID = "clara-thirty-framework-metrics";
+const RACE_BOARD_HOST_ID = "clara-live-race-board-host";
+const FRAMEWORK_SHELL_ATTR = "data-clara-thirty-framework-shell";
 
 function initials(name = "") {
   const parts = String(name || "CLARA Member").trim().split(/\s+/).filter(Boolean);
@@ -60,6 +64,165 @@ function setTestRacePresentation(enabled) {
     section.style.display = "none";
     section.setAttribute(TEST_HIDDEN_ATTR, "true");
   });
+}
+
+function challengeSections() {
+  const view = document.querySelector(".clara-community-challenges-view");
+  return view ? Array.from(view.querySelectorAll("section")) : [];
+}
+
+function findThirtyDayCard() {
+  return challengeSections().find((section) =>
+    Array.from(section.querySelectorAll("h3")).some(
+      (heading) => String(heading.textContent || "").trim() === "30-Day CLARA Streak",
+    )
+  ) || null;
+}
+
+function findThirtyDayRecord() {
+  return challengeSections().find((section) => {
+    const text = String(section.textContent || "");
+    return text.includes("Challenge record") && text.includes("Streak days") && text.includes("Active entries");
+  }) || null;
+}
+
+function findMonthlyDrawCard() {
+  return challengeSections().find((section) =>
+    String(section.textContent || "").includes("Monthly Finisher Draw")
+  ) || null;
+}
+
+function finiteInteger(value, fallback = 0) {
+  const match = String(value ?? "").match(/\d+/);
+  if (!match) return fallback;
+  const number = Number(match[0]);
+  return Number.isFinite(number) ? Math.max(0, Math.floor(number)) : fallback;
+}
+
+function readMetric(section, label) {
+  if (!section) return 0;
+  const labelNode = Array.from(section.querySelectorAll("p")).find(
+    (node) => String(node.textContent || "").trim().toLowerCase() === label.toLowerCase(),
+  );
+  return finiteInteger(labelNode?.previousElementSibling?.textContent, 0);
+}
+
+function daysToNextEntry(streakDays) {
+  if (streakDays <= 0) return 30;
+  const remainder = streakDays % 30;
+  return remainder === 0 ? 30 : 30 - remainder;
+}
+
+function makeMetric(label, value, suffix = "", accent = false) {
+  const cell = document.createElement("div");
+  cell.className = accent
+    ? "rounded-[17px] border border-[#facc15]/12 bg-[#facc15]/[0.035] px-2.5 py-3"
+    : "rounded-[17px] border border-white/[0.08] bg-white/[0.025] px-2.5 py-3";
+
+  const labelNode = document.createElement("p");
+  labelNode.className = accent
+    ? "text-[8px] font-black uppercase tracking-[0.1em] text-[#fde68a]/45"
+    : "text-[8px] font-black uppercase tracking-[0.1em] text-white/28";
+  labelNode.textContent = label;
+
+  const valueNode = document.createElement("p");
+  valueNode.className = accent
+    ? "mt-1 text-lg font-black text-[#fde68a]"
+    : "mt-1 text-lg font-black text-white";
+  valueNode.textContent = `${value}${suffix}`;
+
+  cell.append(labelNode, valueNode);
+  return cell;
+}
+
+function hideFrameworkLegacy(section) {
+  if (!section || section.getAttribute(FRAMEWORK_HIDDEN_ATTR) === "true") return;
+  section.dataset.claraThirtyFrameworkPreviousDisplay = section.style.display || "";
+  section.style.display = "none";
+  section.setAttribute(FRAMEWORK_HIDDEN_ATTR, "true");
+}
+
+function restoreFrameworkPresentation() {
+  document.getElementById(FRAMEWORK_METRICS_ID)?.remove();
+
+  document.querySelectorAll(`[${FRAMEWORK_HIDDEN_ATTR}="true"]`).forEach((section) => {
+    section.style.display = section.dataset.claraThirtyFrameworkPreviousDisplay || "";
+    delete section.dataset.claraThirtyFrameworkPreviousDisplay;
+    section.removeAttribute(FRAMEWORK_HIDDEN_ATTR);
+  });
+
+  const shell = document.querySelector(`[${FRAMEWORK_SHELL_ATTR}="true"]`);
+  if (shell) {
+    shell.style.display = shell.dataset.claraThirtyFrameworkPreviousDisplay || "";
+    shell.style.flexDirection = shell.dataset.claraThirtyFrameworkPreviousFlexDirection || "";
+    delete shell.dataset.claraThirtyFrameworkPreviousDisplay;
+    delete shell.dataset.claraThirtyFrameworkPreviousFlexDirection;
+    shell.removeAttribute(FRAMEWORK_SHELL_ATTR);
+  }
+
+  const host = document.getElementById(RACE_BOARD_HOST_ID);
+  if (host) {
+    host.style.order = "";
+    host.style.width = "";
+  }
+}
+
+function syncFrameworkPresentation() {
+  const challengeCard = findThirtyDayCard();
+  if (!challengeCard) return;
+
+  challengeCard.setAttribute("data-challenge-framework-zone", "my-progress");
+  const record = findThirtyDayRecord();
+  const streakDays = readMetric(record, "Streak days");
+  const activeEntries = readMetric(record, "Active entries");
+  const signature = `${streakDays}:${activeEntries}`;
+
+  let metrics = document.getElementById(FRAMEWORK_METRICS_ID);
+  if (!metrics) {
+    metrics = document.createElement("div");
+    metrics.id = FRAMEWORK_METRICS_ID;
+    metrics.className = "mt-4 grid grid-cols-3 gap-2";
+
+    const heading = Array.from(challengeCard.querySelectorAll("h3")).find(
+      (node) => String(node.textContent || "").trim() === "30-Day CLARA Streak",
+    );
+    const description = heading?.nextElementSibling;
+    if (description) description.insertAdjacentElement("afterend", metrics);
+  }
+
+  if (metrics && metrics.dataset.signature !== signature) {
+    metrics.dataset.signature = signature;
+    metrics.replaceChildren(
+      makeMetric("Active streak", streakDays, " days"),
+      makeMetric("Draw entries", activeEntries, "", true),
+      makeMetric("Next entry", daysToNextEntry(streakDays), " days"),
+    );
+  }
+
+  if (record) hideFrameworkLegacy(record);
+  challengeSections().forEach((section) => {
+    const text = String(section.textContent || "");
+    if (text.includes("Earned through consistency") || text.includes("CLARA challenge rule")) {
+      hideFrameworkLegacy(section);
+    }
+  });
+
+  findMonthlyDrawCard()?.setAttribute("data-challenge-framework-zone", "my-outcome");
+
+  const shell = challengeCard.parentElement;
+  if (shell && shell.getAttribute(FRAMEWORK_SHELL_ATTR) !== "true") {
+    shell.dataset.claraThirtyFrameworkPreviousDisplay = shell.style.display || "";
+    shell.dataset.claraThirtyFrameworkPreviousFlexDirection = shell.style.flexDirection || "";
+    shell.style.display = "flex";
+    shell.style.flexDirection = "column";
+    shell.setAttribute(FRAMEWORK_SHELL_ATTR, "true");
+  }
+
+  const host = document.getElementById(RACE_BOARD_HOST_ID);
+  if (host) {
+    host.style.order = "50";
+    host.style.width = "100%";
+  }
 }
 
 function statusMeta(participant) {
@@ -149,6 +312,30 @@ export default function ChallengeRaceBoard() {
       if (isTestRace) restoreTestHiddenCards();
     };
   }, [isTestRace]);
+
+  useEffect(() => {
+    let queued = false;
+    const run = () => {
+      queued = false;
+      syncFrameworkPresentation();
+    };
+    const queue = () => {
+      if (queued) return;
+      queued = true;
+      window.requestAnimationFrame(run);
+    };
+
+    syncFrameworkPresentation();
+    const view = document.querySelector(".clara-community-challenges-view");
+    const observer = view ? new MutationObserver(queue) : null;
+    observer?.observe(view, { childList: true, subtree: true, characterData: true });
+    window.setTimeout(queue, 0);
+
+    return () => {
+      observer?.disconnect();
+      restoreFrameworkPresentation();
+    };
+  }, []);
 
   const participants = Array.isArray(state.data?.participants) ? state.data.participants : [];
   const summary = state.data?.summary || { started: 0, stillIn: 0, finished: 0, out: 0 };
