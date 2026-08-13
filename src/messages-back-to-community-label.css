@@ -155,11 +155,18 @@ div.z-\[90\] > header:has(button[aria-label="Back to Community"]) + main section
  *
  * Keep the Community root fixed as a simple two-part flex column: shared nav,
  * then the Settings view. Only .clara-community-settings-view is allowed to
- * scroll. This removes the previous cascade where the root was changed to
- * natural height while the Settings child still inherited a percentage-height
- * internal scroll rule, leaving no element with a dependable scrollport.
+ * scroll. Lock the outer Layout scroller for this view so the final account
+ * actions cannot fall into a second, unreachable scroll context.
  */
 @media (max-width: 767px) {
+  .theme-page-shell main:has(.clara-community-root[data-community-view="settings"]) {
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+    overscroll-behavior: none !important;
+    touch-action: auto !important;
+    -webkit-overflow-scrolling: auto !important;
+  }
+
   .clara-community-root[data-community-view="settings"] {
     position: fixed !important;
     inset: 0 !important;
@@ -196,11 +203,14 @@ div.z-\[90\] > header:has(button[aria-label="Back to Community"]) + main section
     width: 100% !important;
     height: auto !important;
     max-height: none !important;
+    box-sizing: border-box !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
     overscroll-behavior-y: contain !important;
     touch-action: pan-y !important;
     -webkit-overflow-scrolling: touch !important;
+    padding-bottom: max(72px, calc(env(safe-area-inset-bottom, 0px) + 56px)) !important;
+    scroll-padding-bottom: max(72px, calc(env(safe-area-inset-bottom, 0px) + 56px)) !important;
   }
 
   .clara-community-root[data-community-view="settings"] > .clara-community-settings-view > div {
