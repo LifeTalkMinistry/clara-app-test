@@ -98,6 +98,18 @@ body:has(.clara-community-root),
   overscroll-behavior-x: none !important;
 }
 
+/* Settings is a long-form child of the fixed Community shell. The shell keeps
+   viewport ownership, while this view must own the vertical gesture/scroll
+   surface so notification families below the fold remain reachable. */
+.clara-community-root > .clara-community-settings-view {
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain !important;
+  touch-action: pan-y !important;
+  -webkit-overflow-scrolling: touch;
+}
+
 @supports (overflow: clip) {
   .clara-community-root {
     overflow-x: clip !important;
