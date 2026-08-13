@@ -64,6 +64,7 @@ function buildDedicatedCarouselItems(items) {
         constructionLabel: "",
         featured: true,
         masterclassPreviewOnly: true,
+        thumbnail: "/learning-hub/money-foundations/masterclass.png",
         badge: "CLARA MASTERCLASS",
         coverLabel: "FLAGSHIP CLASS",
         contentTypeLabel: "₱99 Masterclass",
