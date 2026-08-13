@@ -1,5 +1,5 @@
 /* CLARA Community badge polish
-   Keeps status markers compact, but gives them clearer hierarchy and a premium glass/metal finish. */
+   Status markers stay compact and use the official CLARA blue / red / gold symbol language. */
 
 /* Community post-type chips such as Win, Question, Struggle and Money Lesson. */
 span[class*="border-[#22c7b8]/16"][class*="bg-[#22c7b8]/8"] {
@@ -37,110 +37,118 @@ span[class*="border-[#22c7b8]/16"][class*="bg-[#22c7b8]/8"] svg {
   inset: 0;
   pointer-events: none;
   border-radius: inherit;
-  background: linear-gradient(115deg, transparent 12%, rgba(255,255,255,0.055) 43%, transparent 68%);
-  opacity: 0.75;
+  background: linear-gradient(115deg, transparent 16%, rgba(255,255,255,0.045) 44%, transparent 68%);
+  opacity: 0.6;
   z-index: 0;
 }
 
-/* Community feed identity: supporter status is an insignia, not a second text label. */
+.clara-support-mark {
+  display: block;
+  overflow: visible;
+}
+
+.clara-support-mark__blue {
+  color: #367dff;
+}
+
+.clara-support-mark__red {
+  color: #f04452;
+}
+
+.clara-support-mark__gold {
+  fill: #f7d455;
+}
+
+/* Community identity treatment: the supporter status is a tiny CLARA medallion,
+   not a second name or a generic heart / gem / crown icon. */
 .clara-community-post-card [data-clara-support-tier] {
-  width: 21px;
-  min-width: 21px;
-  height: 21px !important;
-  min-height: 21px;
+  width: 20px;
+  min-width: 20px;
+  height: 20px !important;
+  min-height: 20px;
+  margin-left: -2px;
   padding: 0 !important;
   gap: 0 !important;
   overflow: visible !important;
   border-width: 1px !important;
+  border-radius: 50% !important;
   background:
-    radial-gradient(circle at 30% 22%, rgba(255,255,255,0.16), transparent 28%),
-    linear-gradient(145deg, rgba(13,35,73,0.98), rgba(3,10,27,0.99)) !important;
+    radial-gradient(circle at 32% 24%, rgba(255,255,255,0.13), transparent 26%),
+    linear-gradient(150deg, rgba(9,25,55,0.99), rgba(2,8,22,0.99)) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.11),
-    inset 0 -1px 0 rgba(0,0,0,0.34),
-    0 4px 12px rgba(0,0,0,0.28) !important;
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    inset 0 -1px 0 rgba(0,0,0,0.38),
+    0 3px 9px rgba(0,0,0,0.26) !important;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   cursor: help;
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
 }
 
-.clara-community-post-card [data-clara-support-tier] > span:last-child {
+.clara-community-post-card [data-clara-support-tier] .clara-support-badge__label {
   display: none !important;
 }
 
-.clara-community-post-card [data-clara-support-tier] > span:first-child {
-  left: 4px !important;
-  right: 4px !important;
+.clara-community-post-card [data-clara-support-tier] .clara-support-badge__shine {
+  left: 5px !important;
+  right: 5px !important;
   top: 2px !important;
   height: 1px !important;
-  opacity: 0.58;
+  opacity: 0.42;
   border-radius: 999px;
 }
 
-.clara-community-post-card [data-clara-support-tier] > span:nth-child(2) {
-  width: 15px !important;
-  min-width: 15px;
-  height: 15px !important;
+.clara-community-post-card [data-clara-support-tier] .clara-support-badge__mark {
+  width: 16px !important;
+  min-width: 16px;
+  height: 16px !important;
   border: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
 }
 
-.clara-community-post-card [data-clara-support-tier] > span:nth-child(2) svg {
-  width: 10.5px !important;
-  height: 10.5px !important;
-  stroke-width: 2.35;
+.clara-community-post-card [data-clara-support-tier] .clara-support-mark {
+  width: 13px !important;
+  height: 13px !important;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.38));
 }
 
+/* Supporter: calm blue authority with a restrained gold edge. */
 .clara-community-post-card [data-clara-support-tier="supporter"] {
-  border-color: rgba(55,123,255,0.70) !important;
+  border-color: rgba(61,126,255,0.84) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.11),
+    0 0 0 1px rgba(247,212,85,0.08),
+    0 3px 9px rgba(0,0,0,0.27) !important;
+}
+
+/* Builder: same CLARA insignia, upgraded with a warmer metallic rim. */
+.clara-community-post-card [data-clara-support-tier="builder"] {
+  border-color: rgba(227,191,72,0.88) !important;
+  background:
+    radial-gradient(circle at 31% 22%, rgba(255,243,177,0.14), transparent 25%),
+    linear-gradient(150deg, rgba(13,29,58,0.99), rgba(3,9,22,0.99)) !important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.12),
-    0 0 0 1px rgba(30,94,255,0.08),
-    0 0 10px rgba(28,99,255,0.12),
-    0 4px 12px rgba(0,0,0,0.28) !important;
+    0 0 0 1px rgba(227,191,72,0.09),
+    0 3px 10px rgba(0,0,0,0.28) !important;
 }
 
-.clara-community-post-card [data-clara-support-tier="supporter"] svg {
-  color: #f4cf4a !important;
-  filter: drop-shadow(0 0 4px rgba(244,207,74,0.18));
-}
-
-.clara-community-post-card [data-clara-support-tier="builder"] {
-  border-color: rgba(238,195,66,0.74) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.13),
-    0 0 0 1px rgba(238,195,66,0.08),
-    0 0 11px rgba(238,195,66,0.13),
-    0 4px 12px rgba(0,0,0,0.28) !important;
-}
-
-.clara-community-post-card [data-clara-support-tier="builder"] svg {
-  color: #f7d75a !important;
-  filter: drop-shadow(0 0 4px rgba(247,215,90,0.20));
-}
-
+/* Champion: richer gold with one controlled CLARA-red reflection. */
 .clara-community-post-card [data-clara-support-tier="champion"] {
-  border-color: rgba(246,207,76,0.82) !important;
+  border-color: rgba(248,211,84,0.96) !important;
   background:
-    radial-gradient(circle at 74% 76%, rgba(226,48,64,0.12), transparent 34%),
-    radial-gradient(circle at 30% 22%, rgba(255,244,176,0.19), transparent 26%),
-    linear-gradient(145deg, rgba(22,43,79,0.99), rgba(7,12,27,0.99)) !important;
+    radial-gradient(circle at 78% 74%, rgba(240,68,82,0.15), transparent 31%),
+    radial-gradient(circle at 30% 22%, rgba(255,244,183,0.19), transparent 25%),
+    linear-gradient(150deg, rgba(17,32,59,0.99), rgba(4,9,21,0.99)) !important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.14),
-    0 0 0 1px rgba(246,207,76,0.10),
-    0 0 12px rgba(246,207,76,0.15),
-    0 4px 13px rgba(0,0,0,0.30) !important;
-}
-
-.clara-community-post-card [data-clara-support-tier="champion"] svg {
-  color: #ffe66a !important;
-  filter: drop-shadow(0 0 4px rgba(255,230,106,0.24));
+    0 0 0 1px rgba(248,211,84,0.11),
+    0 3px 10px rgba(0,0,0,0.30) !important;
 }
 
 .clara-community-post-card [data-clara-support-tier]:hover {
-  transform: translateY(-1px) translateZ(0);
+  transform: translateY(-1px) scale(1.025) translateZ(0);
 }
 
 @media (max-width: 420px) {
@@ -149,9 +157,20 @@ span[class*="border-[#22c7b8]/16"][class*="bg-[#22c7b8]/8"] svg {
   }
 
   .clara-community-post-card [data-clara-support-tier] {
-    width: 20px;
-    min-width: 20px;
-    height: 20px !important;
-    min-height: 20px;
+    width: 19px;
+    min-width: 19px;
+    height: 19px !important;
+    min-height: 19px;
+  }
+
+  .clara-community-post-card [data-clara-support-tier] .clara-support-badge__mark {
+    width: 15px !important;
+    min-width: 15px;
+    height: 15px !important;
+  }
+
+  .clara-community-post-card [data-clara-support-tier] .clara-support-mark {
+    width: 12.5px !important;
+    height: 12.5px !important;
   }
 }
