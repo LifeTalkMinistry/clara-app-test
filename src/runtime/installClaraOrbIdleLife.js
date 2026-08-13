@@ -5,11 +5,16 @@
  * controller owns only the main Community Orb launcher and animates the SVG's
  * existing halo and center bars directly, leaving page background, geometry,
  * navigation, and tap/launch behavior untouched.
+ *
+ * Performance rule: the idle animation must not keep consuming CPU/GPU behind
+ * the full-screen Buy Check conversation. It is paused while CLARA AI is open
+ * and while the app is backgrounded, then resumes when the Orb is visible.
  */
 
 const RUNTIME_KEY = "__claraOrbIdleLifeRuntime__";
 const LAUNCHER_SELECTOR =
   '.clara-community-root[data-community-view="orb"] [data-clara-orb-launcher="true"]';
+const CHAT_ACTIVE_CLASS = "clara-ai-environment-active";
 
 function numberAttr(node, name, fallback = 0) {
   const value = Number.parseFloat(node?.getAttribute?.(name) ?? "");
@@ -36,7 +41,8 @@ function restoreAttribute(node, name, value) {
 
 function createOrbController(launcher) {
   const svg = launcher.querySelector(".clara-orb-vector");
-  if (!svg) return null;
+  const shell = launcher.querySelector(".clara-orb-asset-shell");
+  if (!svg || !shell) return null;
 
   const directChildren = Array.from(svg.children);
   const circles = directChildren.filter((node) => node.tagName?.toLowerCase() === "circle");
@@ -61,17 +67,19 @@ function createOrbController(launcher) {
   let blinkFrame = 0;
   let blinkTimer = 0;
   let lastGlowPaint = 0;
+  let launchPaused = false;
   const glowStartedAt = performance.now();
 
-  const idleShell = () => launcher.querySelector(".clara-money-left-orb-idle");
+  // The previous implementation queried the DOM and rewrote these styles on
+  // every animation frame. They are invariant for the lifetime of this idle
+  // controller, so lock them once and release them during cleanup.
+  shell.style.setProperty("animation", "none", "important");
+  shell.style.setProperty("transform", "none", "important");
 
-  const lockIdleShell = () => {
-    const shell = idleShell();
-    if (!shell) return false;
-    shell.style.setProperty("animation", "none", "important");
-    shell.style.setProperty("transform", "none", "important");
-    return true;
-  };
+  const isIdle = () =>
+    launcher.isConnected &&
+    shell.isConnected &&
+    shell.classList.contains("clara-money-left-orb-idle");
 
   const applyBlink = (progress) => {
     const clamped = Math.max(0, Math.min(1, progress));
@@ -110,8 +118,19 @@ function createOrbController(launcher) {
   const animateGlow = (now) => {
     if (stopped) return;
 
-    const isIdle = lockIdleShell();
-    if (isIdle && now - lastGlowPaint >= 32) {
+    if (!isIdle()) {
+      if (!launchPaused) {
+        launchPaused = true;
+        restoreHalo();
+        restoreEyes();
+      }
+      glowFrame = window.requestAnimationFrame(animateGlow);
+      return;
+    }
+
+    launchPaused = false;
+
+    if (now - lastGlowPaint >= 32) {
       lastGlowPaint = now;
       const wave = (Math.sin((now - glowStartedAt) / 760) + 1) / 2;
 
@@ -119,9 +138,6 @@ function createOrbController(launcher) {
       halo.setAttribute("stroke", rimStroke);
       halo.setAttribute("stroke-width", (2.4 + wave * 6.6).toFixed(3));
       halo.setAttribute("stroke-opacity", (0.48 + wave * 0.52).toFixed(3));
-    } else if (!isIdle) {
-      restoreHalo();
-      restoreEyes();
     }
 
     glowFrame = window.requestAnimationFrame(animateGlow);
@@ -132,7 +148,7 @@ function createOrbController(launcher) {
     blinkTimer = window.setTimeout(() => {
       if (stopped || !launcher.isConnected) return;
 
-      if (!lockIdleShell()) {
+      if (!isIdle()) {
         scheduleBlink(500);
         return;
       }
@@ -142,7 +158,7 @@ function createOrbController(launcher) {
 
       const tick = (now) => {
         if (stopped) return;
-        if (!idleShell()) {
+        if (!isIdle()) {
           restoreEyes();
           scheduleBlink(650);
           return;
@@ -176,9 +192,8 @@ function createOrbController(launcher) {
     restoreHalo();
     restoreEyes();
 
-    const shell = launcher.querySelector(".clara-money-left-orb-idle");
-    shell?.style.removeProperty("animation");
-    shell?.style.removeProperty("transform");
+    shell.style.removeProperty("animation");
+    shell.style.removeProperty("transform");
   };
 }
 
@@ -189,18 +204,32 @@ function installClaraOrbIdleLife() {
 
   let activeLauncher = null;
   let cleanupController = null;
+  let controllerRunning = false;
   let syncQueued = false;
+
+  const shouldRunController = (launcher) =>
+    Boolean(
+      launcher &&
+        document.visibilityState !== "hidden" &&
+        !document.body.classList.contains(CHAT_ACTIVE_CLASS)
+    );
 
   const sync = () => {
     syncQueued = false;
     const launcher = document.querySelector(LAUNCHER_SELECTOR);
-    if (launcher === activeLauncher) return;
+    const shouldRun = shouldRunController(launcher);
+
+    if (launcher === activeLauncher && shouldRun === controllerRunning) return;
 
     cleanupController?.();
     cleanupController = null;
+    controllerRunning = false;
     activeLauncher = launcher;
 
-    if (launcher) cleanupController = createOrbController(launcher);
+    if (launcher && shouldRun) {
+      cleanupController = createOrbController(launcher);
+      controllerRunning = Boolean(cleanupController);
+    }
   };
 
   const queueSync = () => {
@@ -209,19 +238,43 @@ function installClaraOrbIdleLife() {
     window.requestAnimationFrame(sync);
   };
 
-  const observer = new MutationObserver(queueSync);
-  observer.observe(document.documentElement, {
+  // Route/mount observer. While the full-screen chat is active, its React
+  // mutations are irrelevant to the hidden Orb, so ignore them entirely.
+  const rootObserver = new MutationObserver(() => {
+    if (document.body.classList.contains(CHAT_ACTIVE_CLASS)) return;
+    queueSync();
+  });
+  const root = document.getElementById("root") || document.body;
+  rootObserver.observe(root, {
     childList: true,
     subtree: true,
   });
+
+  // This tiny observer is the only thing that needs to remain awake while the
+  // chat is open. It pauses/resumes the Orb controller when the AI overlay class
+  // changes, without watching the conversation DOM itself.
+  const bodyClassObserver = new MutationObserver(queueSync);
+  bodyClassObserver.observe(document.body, {
+    attributes: true,
+    attributeFilter: ["class"],
+  });
+
+  document.addEventListener("visibilitychange", queueSync);
+  window.addEventListener("hashchange", queueSync);
+  window.addEventListener("popstate", queueSync);
 
   queueSync();
 
   window[RUNTIME_KEY] = {
     destroy() {
-      observer.disconnect();
+      rootObserver.disconnect();
+      bodyClassObserver.disconnect();
+      document.removeEventListener("visibilitychange", queueSync);
+      window.removeEventListener("hashchange", queueSync);
+      window.removeEventListener("popstate", queueSync);
       cleanupController?.();
       cleanupController = null;
+      controllerRunning = false;
       activeLauncher = null;
       window[RUNTIME_KEY] = null;
     },
