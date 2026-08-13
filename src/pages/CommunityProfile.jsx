@@ -2,14 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, Briefcase, Camera, Check, ChevronDown, Eye, Flame, Loader2, Lock,
-  MessageCircle, Pencil, Route, Save, Settings, Shield, Target, TrendingUp, Trophy, Upload,
+  MessageCircle, Pencil, Route, Save, Shield, Target, TrendingUp, Trophy, Upload,
   Wallet, X,
 } from "lucide-react";
 import { backendRequest, getStoredBackendToken, getStoredBackendUser } from "@/lib/clara-backend-client";
 import SupportTierBadge from "@/components/support/SupportTierBadge";
-import DashboardSettingsPanel from "@/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel";
-import useUserRole from "@/hooks/useUserRole";
-import { useTheme } from "@/theme/ThemeProvider";
 
 const FINANCE_UPDATE_TYPE = "clara_financial_profile_v1";
 const PRIVATE_FINANCE_PREFIX = "clara-community-private-finance-v1:";
@@ -96,14 +93,13 @@ function PrivacyBadge({ visibility }) {
   return null;
 }
 
-function ProfileTabs({ activeTab, setActiveTab, moreOpen, setMoreOpen, own }) {
+function ProfileTabs({ activeTab, setActiveTab, moreOpen, setMoreOpen }) {
   const moreActive = MORE_TABS.includes(activeTab);
   return <>
     <nav className="mt-3 border-y border-white/10 bg-[#071725]/72 px-1 py-2">
-      <div className={`grid items-center gap-1 ${own ? "grid-cols-5" : "grid-cols-4"}`}>
-        {TOP_TABS.map((tab) => <button key={tab.key} type="button" onClick={() => { setActiveTab(tab.key); setMoreOpen(false); }} className={`flex h-10 min-w-0 items-center justify-center rounded-xl px-1 text-[10px] font-black transition ${activeTab === tab.key ? "bg-[#22c7b8]/14 text-[#ccfbf1]" : "text-white/46 hover:bg-white/[0.04]"}`}>{tab.label}</button>)}
-        <button type="button" onClick={() => setMoreOpen((current) => !current)} className={`flex h-10 min-w-0 items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-black transition ${moreActive || moreOpen ? "bg-[#22c7b8]/14 text-[#ccfbf1]" : "text-white/46 hover:bg-white/[0.04]"}`}>More <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition ${moreOpen ? "rotate-180" : ""}`} /></button>
-        {own ? <button type="button" onClick={() => { setActiveTab("settings"); setMoreOpen(false); }} className={`flex h-10 min-w-0 items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-black transition ${activeTab === "settings" ? "bg-[#22c7b8]/14 text-[#ccfbf1]" : "text-white/46 hover:bg-white/[0.04]"}`}><Settings className="h-3.5 w-3.5 shrink-0"/><span className="truncate">Settings</span></button> : null}
+      <div className="flex items-center gap-1">
+        {TOP_TABS.map((tab) => <button key={tab.key} type="button" onClick={() => { setActiveTab(tab.key); setMoreOpen(false); }} className={`h-10 flex-1 rounded-xl px-3 text-[11px] font-black transition ${activeTab === tab.key ? "bg-[#22c7b8]/14 text-[#ccfbf1]" : "text-white/46 hover:bg-white/[0.04]"}`}>{tab.label}</button>)}
+        <button type="button" onClick={() => setMoreOpen((current) => !current)} className={`flex h-10 flex-1 items-center justify-center gap-1 rounded-xl px-3 text-[11px] font-black transition ${moreActive || moreOpen ? "bg-[#22c7b8]/14 text-[#ccfbf1]" : "text-white/46 hover:bg-white/[0.04]"}`}>More <ChevronDown className={`h-3.5 w-3.5 transition ${moreOpen ? "rotate-180" : ""}`} /></button>
       </div>
     </nav>
     {moreOpen ? <div className="mt-2 grid grid-cols-2 gap-2 rounded-[20px] border border-white/10 bg-[#0a1a29] p-2 shadow-xl">{MORE_TABS.map((key) => { const section = SECTION_BY_KEY[key], Icon = section.icon; return <button key={key} type="button" onClick={() => { setActiveTab(key); setMoreOpen(false); }} className={`flex items-center gap-2 rounded-2xl border px-3 py-3 text-left ${activeTab === key ? "border-[#22c7b8]/28 bg-[#22c7b8]/10" : "border-white/[0.06] bg-[#071725]"}`}><Icon className="h-4 w-4 shrink-0 text-[#99f6e4]/75"/><span className="text-[10px] font-black text-white/70">{section.short}</span></button>; })}</div> : null}
@@ -139,8 +135,6 @@ function EditTabs({ active, setActive }) {
 
 export default function CommunityProfile() {
   const navigate = useNavigate(), { userId } = useParams(), backendUser = getStoredBackendUser(), token = getStoredBackendToken();
-  const { user: appUser, isAdmin = false } = useUserRole();
-  const { openThemePicker, setTheme } = useTheme();
   const targetId = userId || backendUser?.id || null, own = !userId || String(userId) === String(backendUser?.id || "");
   const [loading, setLoading] = useState(true), [saving, setSaving] = useState(false), [editing, setEditing] = useState(false), [uploading, setUploading] = useState("");
   const [error, setError] = useState(""), [success, setSuccess] = useState(""), [profile, setProfile] = useState(null);
@@ -196,7 +190,6 @@ export default function CommunityProfile() {
   const mission = financeValue(finance, "journey", "current_mission"), goal = financeValue(finance, "dreams", "main_goal") || financeValue(finance, "dreams", "biggest_life_goal"), streak = financeValue(finance, "discipline", "thirty_day_streak");
   const activeSection = SECTION_BY_KEY[activeTab];
   const editSection = SECTION_BY_KEY[editTab];
-  const settingsUser = appUser || backendUser;
 
   return <div className="min-h-screen bg-[#06111f] text-white">
     {photoViewer ? <div role="dialog" aria-modal="true" aria-label={photoViewer.label} onClick={() => setPhotoViewer(null)} className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#02070d]/95 p-4 pt-20">
@@ -221,20 +214,20 @@ export default function CommunityProfile() {
       </div>
     </section>
 
-    {editing ? <EditTabs active={editTab} setActive={setEditTab}/> : <ProfileTabs activeTab={activeTab} setActiveTab={setActiveTab} moreOpen={moreOpen} setMoreOpen={setMoreOpen} own={own}/>} 
+    {editing ? <EditTabs active={editTab} setActive={setEditTab}/> : <ProfileTabs activeTab={activeTab} setActiveTab={setActiveTab} moreOpen={moreOpen} setMoreOpen={setMoreOpen}/>} 
 
     {error ? <div className="mt-4 rounded-2xl border border-red-400/15 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div> : null}
     {success ? <div className="mt-4 flex items-center gap-2 rounded-2xl border border-[#22c7b8]/18 bg-[#22c7b8]/8 px-4 py-3 text-sm font-semibold text-[#ccfbf1]"><Check className="h-4 w-4"/>{success}</div> : null}
 
     {editing ? <div className="mt-4">
-      {editTab === "basic" ? <section className="rounded-[24px] border border-white/10 bg-[#0a1a29] p-5"><p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#5eead4]/58">Basic profile</p><div className="mt-4 space-y-4"><label className="block"><span className="mb-2 block text-xs font-bold text-white/55">Display name</span><input value={form.display_name} onChange={(e) => updateField("display_name", e.target.value)} maxLength={60} className="h-12 w-full rounded-2xl border border-white/10 bg-[#071725] px-4 text-sm font-semibold outline-none focus:border-[#22c7b8]/45"/></label><label className="block"><span className="mb-2 block text-xs font-bold text-white/55">Status / headline</span><input value={form.headline} onChange={(e) => updateField("headline", e.target.value)} maxLength={120} className="h-12 w-full rounded-2xl border border-white/10 bg-[#071725] px-4 text-sm font-semibold outline-none focus:border-[#22c7b8]/45" placeholder="What are you working toward?"/></label><label className="block"><span className="mb-2 block text-xs font-bold text-white/55">My financial story</span><textarea rows={5} value={form.bio} onChange={(e) => updateField("bio", e.target.value)} maxLength={800} className="w-full resize-none rounded-2xl border border-white/10 bg-[#071725] px-4 py-3 text-sm font-semibold leading-6 outline-none focus:border-[#22c7b8]/45" placeholder="Tell the community about your money journey, mission, or reason for being here."/></label></div></section> : editSection ? <section className="rounded-[24px] border border-white/10 bg-[#0a1a29] p-5"><div className="flex items-start gap-3 border-b border-white/[0.07] pb-4"><div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#22c7b8]/[0.08] text-[#99f6e4]"><editSection.icon className="h-4 w-4"/></div><div><p className="text-sm font-black">{editSection.title}</p><p className="mt-1 text-[10px] font-semibold leading-4 text-white/35">{editSection.subtitle}</p></div></div><div>{editSection.fields.map((field) => <FieldEditor key={field.key} sectionKey={editSection.key} field={field} value={form.financial?.[editSection.key]?.[field.key]} onChange={updateFinance}/>)}</div></section> : null}
+      {editTab === "basic" ? <section className="rounded-[24px] border border-white/10 bg-[#0a1a29] p-5"><p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#5eead4]/58">Basic profile</p><div className="mt-4 space-y-4"><label className="block"><span className="mb-2 block text-xs font-bold text-white/55">Display name</span><input value={form.display_name} onChange={(e) => updateField("display_name", e.target.value)} maxLength={60} className="h-12 w-full rounded-2xl border border-white/10 bg-[#071725] px-4 text-sm font-semibold outline-none focus:border-[#22c7b8]/45"/></label><label className="block"><span className="mb-2 block text-xs font-bold text-white/55">Status / headline</span><input value={form.headline} onChange={(e) => updateField("headline", e.target.value)} maxLength={120} className="h-12 w-full rounded-2xl border border-white/10 bg-[#071725] px-4 text-sm font-semibold outline-none focus:border-[#22c7b8]/45" placeholder="What are you working toward?"/></label><label className="block"><span className="mb-2 block text-xs font-bold text-white/55">My financial story</span><textarea rows={5} value={form.bio} onChange={(e) => updateField("bio", e.target.value)} maxLength={800} className="w-full resize-none rounded-2xl border border-white/10 bg-[#071725] px-4 py-3 text-sm font-semibold leading-6 outline-none focus:border-[#22c7b8]/45" placeholder="Tell the community about your money journey, mission, or reason for being here."/></label></div></section> : editSection ? <section className="rounded-[24px] border border-white/10 bg-[#0a1a29] p-5"><div className="flex items-start gap-3 border-b border-white/[0.07] pb-4"><div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#22c7b8]/[0.08] text-[#99f6e4]"><editSection.icon className="h-4 w-4"/></div><div><p className="text-sm font-black">{editSection.title}</p><p className="mt-1 text-[10px] font-semibold leading-4 text-white/35">{editSection.subtitle}</p></div></div><div>{editSection.fields.map((field) => <FieldEditor key={field.key} sectionKey={editSection.key} value={form.financial?.[editSection.key]?.[field.key]} field={field} onChange={updateFinance}/>)}</div></section> : null}
       <button type="button" onClick={saveProfile} disabled={saving || uploading} className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#22c7b8] font-black text-[#042f2e] disabled:opacity-60">{saving ? <Loader2 className="h-4 w-4 animate-spin"/> : <Save className="h-4 w-4"/>}{saving ? "Saving online..." : "Save Profile"}</button>
     </div> : <div className="mt-4">
       {activeTab === "overview" ? <div className="space-y-3">
         <section className="rounded-[24px] border border-[#22c7b8]/14 bg-[#0a1a29] p-4"><div className="grid grid-cols-3 gap-2">{[[Flame, "Right now", mission, "Add your mission"], [Target, "Main goal", goal, "Add your goal"], [Trophy, "Streak", streak, "Add streak"]].map(([Icon, label, value, fallback]) => <div key={label} className="min-w-0 rounded-2xl border border-white/[0.07] bg-[#071725] px-3 py-3"><Icon className="h-3.5 w-3.5 text-[#5eead4]/65"/><p className="mt-2 text-[8px] font-black uppercase tracking-[0.1em] text-white/28">{label}</p><p className="mt-1 line-clamp-2 text-[10px] font-bold leading-4 text-white/70">{value || (own ? fallback : "Not shared")}</p></div>)}</div></section>
         <section className="rounded-[24px] border border-white/10 bg-[#0a1a29] p-5"><p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#5eead4]/58">My financial story</p><p className="mt-3 text-sm font-semibold leading-7 text-white/72">{profile?.bio || (own ? "Tell the community why you are here, what you are working through, or what you hope money will make possible." : "This member has not shared their financial story yet.")}</p></section>
         {own ? <section className="rounded-[24px] border border-white/10 bg-[#0a1a29] p-4"><div className="flex items-start gap-3"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#22c7b8]/[0.08] text-[#99f6e4]"><Eye className="h-4 w-4"/></div><div><p className="text-xs font-black">Share bravely, not recklessly.</p><p className="mt-1 text-[10px] font-semibold leading-5 text-white/35">Use ranges when you want context without exact numbers. Private financial fields stay only on this device and are never uploaded to the Community profile.</p></div></div></section> : null}
-      </div> : activeTab === "settings" && own ? <div className="clara-profile-settings-scroll h-[48dvh] min-h-[300px] max-h-[520px] overflow-y-auto overscroll-y-contain touch-pan-y space-y-4 pr-1 pb-[calc(env(safe-area-inset-bottom)+72px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ WebkitOverflowScrolling: "touch" }}><DashboardSettingsPanel onBack={() => setActiveTab("overview")} user={settingsUser} isAdmin={isAdmin} openThemePicker={openThemePicker} resetThemeToDefault={() => setTheme("clara-hero-red-blue")} onOpenMessages={() => navigate("/community?view=messages")} /></div> : activeSection ? <SectionPanel section={activeSection} finance={finance} own={own}/> : null}
+      </div> : activeSection ? <SectionPanel section={activeSection} finance={finance} own={own}/> : null}
     </div>}
   </div></div>;
 }
