@@ -26,7 +26,7 @@ export default function useDashboardPanelUiState({
     loading: !authReady || authLoading,
     ready: authReady !== false,
   });
-  const isFreePlan =
+  const lacksCommittedAccess =
     membership.membershipStatus !== "loading" &&
     !membership.hasCommittedAccess;
 
@@ -71,17 +71,14 @@ export default function useDashboardPanelUiState({
   const headerQuickActions = useMemo(
     () => [
       { key: "home", label: "Home", icon: Home, badge: null },
-      {
-        key: "community",
-        label: "Community",
-        icon: Users,
-        badge: isFreePlan ? committedBadge : null,
-      },
+      // Community is universal CLARA core. Membership may never change whether
+      // this navigation destination looks locked or paid.
+      { key: "community", label: "Community", icon: Users, badge: null },
       {
         key: "schedule",
         label: "Schedule",
         icon: CalendarDays,
-        badge: isFreePlan
+        badge: lacksCommittedAccess
           ? committedBadge
           : feedHasHighlight
             ? {
@@ -94,7 +91,7 @@ export default function useDashboardPanelUiState({
       },
       { key: "settings", label: "Settings", icon: Settings, badge: null },
     ],
-    [feedHasHighlight, isFreePlan]
+    [feedHasHighlight, lacksCommittedAccess]
   );
 
   return {
