@@ -168,8 +168,11 @@ import "./installSettingsLogoutRow";
 import "../settings-cleanup.css";
 import "../settings-priority.css";
 import "../settings-support-compose.css";
-// Keep this last in the Settings stack so the official CLARA blue/gold/red system wins the cascade.
+// Legacy dashboard Settings route brand pass.
 import "../settings-official-brand-theme.css";
+// Actual Community-shell Settings route. This must stay last in the Settings
+// stack because Community.jsx owns the currently rendered Settings screen.
+import "../settings-community-brand-fix.css";
 
 // Life Stage visual patches
 import "../life-stage-collision.css";
