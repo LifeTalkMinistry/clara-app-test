@@ -8,6 +8,7 @@ import {
 } from "@/lib/clara-backend-client";
 
 const SESSION_WINDOW_MS = 30 * 60 * 1000;
+const INTEGRITY_HEARTBEAT_MS = 5 * 60 * 1000;
 const STATE_KEY_PREFIX = "clara:app-open-state:v1:";
 const QUEUE_KEY = "clara:app-open-queue:v1";
 const LIFECYCLE_KEY = "clara:app-lifecycle:v1";
@@ -401,5 +402,5 @@ if (typeof window !== "undefined" && typeof document !== "undefined") {
   [1000, 5000, 15000].forEach((delay) => {
     window.setTimeout(runHeartbeat, delay);
   });
-  window.setInterval(runHeartbeat, 60 * 1000);
+  window.setInterval(runHeartbeat, INTEGRITY_HEARTBEAT_MS);
 }
