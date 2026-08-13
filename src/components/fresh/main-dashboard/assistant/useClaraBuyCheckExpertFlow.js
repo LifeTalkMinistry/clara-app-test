@@ -13,7 +13,7 @@ import {
 } from "@/lib/clara-buy-check-expert-ai";
 import "@/clara-buy-check-thinking.css";
 
-const MIN_THINKING_MS = 650;
+const MIN_THINKING_MS = 1500;
 
 function wait(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
