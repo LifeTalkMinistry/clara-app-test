@@ -215,6 +215,22 @@ function clearOverlayViewportLock(overlay) {
   clearKeyboardAnchor(overlay);
 }
 
+function releaseKeyboardOwnedGeometry(overlay) {
+  if (!overlay) return;
+
+  clearOverlayViewportLock(overlay);
+  overlay.dataset.claraBuyCheckKeyboardActive = "false";
+  overlay.dataset.claraBuyCheckKeyboardInset = "0";
+
+  const activeElement = document.activeElement;
+  if (
+    activeElement instanceof HTMLElement &&
+    activeElement.closest?.(OVERLAY_SELECTOR)
+  ) {
+    activeElement.blur();
+  }
+}
+
 function syncBuyCheckToVisibleViewport({
   settle = false,
   forceLatest = false,
@@ -224,13 +240,27 @@ function syncBuyCheckToVisibleViewport({
   const overlay = document.querySelector(OVERLAY_SELECTOR);
   if (!overlay) return;
 
-  const visible = readVisibleViewport();
   const form = overlay.querySelector(FORM_SELECTOR);
+
+  // Once React removes the composer, Buy Check has left conversation mode.
+  // Android's visualViewport can continue reporting the old keyboard inset for
+  // several frames while the IME is dismissing. Treating that stale inset as an
+  // active keyboard kept the entire overlay locked to the reduced keyboard
+  // height on phones, even though desktop immediately expanded correctly.
+  // Release every keyboard-owned inline measurement as soon as the composer is
+  // gone so the fixed overlay can return to its full viewport and the result can
+  // own the screen.
+  if (!form) {
+    releaseKeyboardOwnedGeometry(overlay);
+    return;
+  }
+
+  const visible = readVisibleViewport();
   const messageViewport = overlay.querySelector(VIEWPORT_SELECTOR);
   const activeElement = document.activeElement;
   const inputFocused = Boolean(
     activeElement &&
-      form?.contains(activeElement) &&
+      form.contains(activeElement) &&
       activeElement.matches?.("input, textarea, select")
   );
   const keyboardActive =
@@ -247,10 +277,10 @@ function syncBuyCheckToVisibleViewport({
     Math.round(visible.keyboardInset)
   );
 
-  if (form) setImportantStyle(form, "z-index", "60");
+  setImportantStyle(form, "z-index", "60");
 
   if (messageViewport) {
-    const composerHeight = form?.getBoundingClientRect?.().height || 0;
+    const composerHeight = form.getBoundingClientRect?.().height || 0;
     setImportantStyle(
       messageViewport,
       "scroll-padding-bottom",
@@ -270,6 +300,12 @@ function syncBuyCheckToVisibleViewport({
     window.requestAnimationFrame(() => {
       const currentOverlay = document.querySelector(OVERLAY_SELECTOR);
       if (!currentOverlay) return;
+
+      const currentForm = currentOverlay.querySelector(FORM_SELECTOR);
+      if (!currentForm) {
+        releaseKeyboardOwnedGeometry(currentOverlay);
+        return;
+      }
 
       const currentVisible = readVisibleViewport();
       setImportantStyle(currentOverlay, "top", `${currentVisible.top}px`);
@@ -298,6 +334,7 @@ function installClaraBuyCheckKeyboardGuard() {
   let focusTimerC = 0;
   let lastOverlay = null;
   let activeMessageViewport = null;
+  let activeForm = null;
   let transcriptObserver = null;
   let formResizeObserver = null;
   let followLatest = true;
@@ -323,10 +360,10 @@ function installClaraBuyCheckKeyboardGuard() {
     window.cancelAnimationFrame(frame);
     frame = window.requestAnimationFrame(() => {
       const overlay = document.querySelector(OVERLAY_SELECTOR);
-      if (overlay !== lastOverlay) {
-        if (lastOverlay) clearOverlayViewportLock(lastOverlay);
-        bindOverlay(overlay);
+      if (overlay !== lastOverlay && lastOverlay) {
+        clearOverlayViewportLock(lastOverlay);
       }
+      bindOverlay(overlay);
       syncBuyCheckToVisibleViewport({
         settle,
         forceLatest,
@@ -338,7 +375,14 @@ function installClaraBuyCheckKeyboardGuard() {
 
   const bindOverlay = (overlay) => {
     const nextViewport = overlay?.querySelector(VIEWPORT_SELECTOR) || null;
-    if (overlay === lastOverlay && nextViewport === activeMessageViewport) return;
+    const nextForm = overlay?.querySelector(FORM_SELECTOR) || null;
+    if (
+      overlay === lastOverlay &&
+      nextViewport === activeMessageViewport &&
+      nextForm === activeForm
+    ) {
+      return;
+    }
 
     activeMessageViewport?.removeEventListener(
       "scroll",
@@ -348,6 +392,7 @@ function installClaraBuyCheckKeyboardGuard() {
 
     lastOverlay = overlay;
     activeMessageViewport = nextViewport;
+    activeForm = nextForm;
     followLatest = true;
 
     activeMessageViewport?.addEventListener(
@@ -378,10 +423,9 @@ function installClaraBuyCheckKeyboardGuard() {
       });
     }
 
-    const form = overlay.querySelector(FORM_SELECTOR);
-    if (form && typeof ResizeObserver !== "undefined") {
+    if (activeForm && typeof ResizeObserver !== "undefined") {
       formResizeObserver = new ResizeObserver(() => queueSync(false, false, false));
-      formResizeObserver.observe(form);
+      formResizeObserver.observe(activeForm);
     }
   };
 
@@ -408,12 +452,18 @@ function installClaraBuyCheckKeyboardGuard() {
 
   const handleViewportChange = () => queueSync(false, false, false);
 
+  // Ignore transcript mutations here because the scoped transcript observer
+  // already owns them. Structural changes beside the transcript — especially
+  // mounting/unmounting the composer when chat mode ends — must still reach the
+  // keyboard guard on Android so stale IME geometry is released immediately.
   const rootObserver = new MutationObserver((mutations) => {
     if (
-      lastOverlay &&
+      activeMessageViewport &&
       mutations.length > 0 &&
       mutations.every((mutation) =>
-        mutation.target instanceof Node ? lastOverlay.contains(mutation.target) : false
+        mutation.target instanceof Node
+          ? activeMessageViewport.contains(mutation.target)
+          : false
       )
     ) {
       return;
@@ -449,6 +499,7 @@ function installClaraBuyCheckKeyboardGuard() {
       );
       cancelPendingScroll(activeMessageViewport);
       activeMessageViewport = null;
+      activeForm = null;
       window.cancelAnimationFrame(frame);
       window.clearTimeout(focusTimerA);
       window.clearTimeout(focusTimerB);
