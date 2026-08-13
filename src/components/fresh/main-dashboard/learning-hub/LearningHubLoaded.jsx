@@ -239,6 +239,7 @@ function useActiveLearningBoardItem({ enabled, items }) {
 
 function LearningHubInfoBoard({ item }) {
   const meta = resolveBoardMeta(item);
+  const isMasterclass = Boolean(item?.masterclassPreviewOnly);
 
   if (!item) return null;
 
@@ -252,25 +253,27 @@ function LearningHubInfoBoard({ item }) {
       <div className="pointer-events-none absolute -bottom-14 -left-10 h-24 w-24 rounded-full border border-cyan-200/10 bg-cyan-300/[0.035]" />
 
       <div className="relative z-10">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-cyan-100/14 bg-cyan-100/[0.07] text-cyan-50/80">
-            {item.masterclassPreviewOnly || item.type === "video" ? (
-              <PlayCircle className="h-4 w-4" />
-            ) : (
-              <Sparkles className="h-4 w-4" />
-            )}
-          </span>
-          <div className="min-w-0">
-            <p className="text-[8.5px] font-black uppercase tracking-[0.18em] text-yellow-200/78">
-              {meta.eyebrow}
-            </p>
-            <p className="mt-0.5 text-[15px] font-black leading-tight tracking-[-0.025em] text-white/94">
-              {item.title}
-            </p>
+        {!isMasterclass ? (
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-cyan-100/14 bg-cyan-100/[0.07] text-cyan-50/80">
+              {item.type === "video" ? (
+                <PlayCircle className="h-4 w-4" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+            </span>
+            <div className="min-w-0">
+              <p className="text-[8.5px] font-black uppercase tracking-[0.18em] text-yellow-200/78">
+                {meta.eyebrow}
+              </p>
+              <p className="mt-0.5 text-[15px] font-black leading-tight tracking-[-0.025em] text-white/94">
+                {item.title}
+              </p>
+            </div>
           </div>
-        </div>
+        ) : null}
 
-        <p className="mt-3 text-[11px] font-semibold leading-[1.55] text-blue-100/58">
+        <p className={`${isMasterclass ? "" : "mt-3"} text-[11px] font-semibold leading-[1.55] text-blue-100/58`}>
           {item.description || item.subtitle || "Explore this CLARA learning path."}
         </p>
 
