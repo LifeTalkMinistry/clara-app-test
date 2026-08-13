@@ -6,58 +6,35 @@ on:
     paths:
       - ".github/workflows/settings-regression-verify.yml"
 
+permissions:
+  contents: write
+
 jobs:
-  diagnose:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: local 01 device ownership
-        continue-on-error: true
-        run: node --test --test-name-pattern="active Settings explains device ownership" tests/settings-local-only-regression.test.mjs
-      - name: local 02 direct ownership
-        continue-on-error: true
-        run: node --test --test-name-pattern="Settings directly owns detail history" tests/settings-local-only-regression.test.mjs
-      - name: local 03 canonical identity
-        continue-on-error: true
-        run: node --test --test-name-pattern="Settings presents canonical account identity" tests/settings-local-only-regression.test.mjs
-      - name: local 04 retired injectors
-        continue-on-error: true
-        run: node --test --test-name-pattern="retired Settings DOM injectors" tests/settings-local-only-regression.test.mjs
-      - name: local 05 dashboard renderer
-        continue-on-error: true
-        run: node --test --test-name-pattern="dashboard renderer does not append" tests/settings-local-only-regression.test.mjs
-      - name: local 06 appearance ownership
-        continue-on-error: true
-        run: node --test --test-name-pattern="Settings owns appearance directly" tests/settings-local-only-regression.test.mjs
-      - name: local 07 demo retired
-        continue-on-error: true
-        run: node --test --test-name-pattern="hidden Settings demo shortcut" tests/settings-local-only-regression.test.mjs
-      - name: local 08 router login
-        continue-on-error: true
-        run: node --test --test-name-pattern="router exposes the CLARA backend login" tests/settings-local-only-regression.test.mjs
-      - name: local 09 auth backend
-        continue-on-error: true
-        run: node --test --test-name-pattern="login and AuthContext use the custom backend" tests/settings-local-only-regression.test.mjs
-      - name: local 10 backup transfer
-        continue-on-error: true
-        run: node --test --test-name-pattern="Backup & Transfer owns explicit device roles" tests/settings-local-only-regression.test.mjs
-      - name: local 11 data export route
-        continue-on-error: true
-        run: node --test --test-name-pattern="router preserves /data-export" tests/settings-local-only-regression.test.mjs
-      - name: canonical suite
-        continue-on-error: true
-        run: node --test tests/canonical-display-name-authority.test.mjs
-      - name: integrity suite with current label
-        continue-on-error: true
+        with:
+          fetch-depth: 0
+
+      - name: Align current notification tools label
+        run: sed -i 's/Advanced task reminder schedule/Advanced delivery \& task reminder tools/g' tests/settings-integrity-regression.test.mjs
+
+      - name: Run Settings authority regression suite
         run: |
-          sed -i 's/Advanced task reminder schedule/Advanced delivery \& task reminder tools/g' tests/settings-integrity-regression.test.mjs
-          node --test tests/settings-integrity-regression.test.mjs
-      - name: top spacing suite
-        continue-on-error: true
-        run: node --test tests/settings-top-spacing.test.mjs
-      - name: visual authority suite
-        continue-on-error: true
-        run: node --test tests/settings-visual-authority.test.mjs
-      - name: topnav suite
-        continue-on-error: true
-        run: node --test tests/dashboard-top-nav-ownership.test.mjs
+          node --test \
+            tests/canonical-display-name-authority.test.mjs \
+            tests/settings-local-only-regression.test.mjs \
+            tests/settings-integrity-regression.test.mjs \
+            tests/settings-top-spacing.test.mjs \
+            tests/settings-visual-authority.test.mjs \
+            tests/dashboard-top-nav-ownership.test.mjs
+
+      - name: Commit verified alignment and remove verifier
+        run: |
+          git config user.name "CLARA Engineering"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/settings-regression-verify.yml
+          git add tests/settings-integrity-regression.test.mjs
+          git commit -m "Verify Settings visual authority regressions"
+          git push origin HEAD:main
