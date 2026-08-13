@@ -122,7 +122,7 @@ function WeeklyRulesSheet({ onClose }) {
             ["Join intentionally", "Opening CLARA or completing Daily Money Tip does not enter you. Tap Join This Week first."],
             ["Check in here", "After joining, return to this Weekly tab and press Check In Today once per day."],
             ["Finish 7/7", "All seven Monday-to-Sunday Weekly check-ins are required to become a Weekly Finisher."],
-            ["₱100 load draw", "Weekly Finishers qualify for the weekly ₱100 load draw. The 30-Day Race remains a separate Daily Money Tip competition."],
+            ["₱100 load draw", "Weekly Finishers earn 1 draw entry for the weekly ₱100 load draw. The 30-Day Race remains a separate Daily Money Tip competition."],
           ].map(([title, description], index) => (
             <div key={title} className="flex gap-3 rounded-[18px] border border-white/[0.07] bg-white/[0.025] p-3.5">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#facc15]/18 bg-[#facc15]/[0.07] text-[10px] font-black text-[#fde68a]">{index + 1}</span>
@@ -165,6 +165,7 @@ export default function WeeklyMiniStreakCard({ progress, setProgress }) {
     ? Math.max(0, Math.min(7, Number(serverState?.progress) || 0))
     : checkIns.length;
   const completed = authority === "server" ? Boolean(serverState?.completed) : progressCount === 7;
+  const drawEntries = completed ? 1 : 0;
   const alreadyCheckedIn = authority === "server"
     ? Boolean(serverState?.checkedInToday)
     : checked.has(windowState.todayKey);
@@ -337,8 +338,8 @@ export default function WeeklyMiniStreakCard({ progress, setProgress }) {
                 <p className="mt-1 text-lg font-black text-white">{progressCount}<span className="text-[10px] text-white/30">/7</span></p>
               </div>
               <div className="rounded-[17px] border border-white/[0.08] bg-white/[0.025] px-3 py-3">
-                <p className="text-[8px] font-black uppercase tracking-[0.12em] text-white/28">Reset</p>
-                <p className="mt-1 text-[11px] font-black text-white">Monday</p>
+                <p className="text-[8px] font-black uppercase tracking-[0.12em] text-white/28">Draw entries</p>
+                <p className="mt-1 text-lg font-black text-[#fde68a]">{drawEntries}</p>
               </div>
             </div>
             <div className="mt-4 grid grid-cols-7 gap-1.5">
@@ -385,7 +386,7 @@ export default function WeeklyMiniStreakCard({ progress, setProgress }) {
           <div className="rounded-[15px] border border-white/[0.07] bg-white/[0.02] px-2.5 py-3 text-center"><p className="text-[8px] font-black uppercase tracking-[0.1em] text-white/28">Cycle</p><p className="mt-1 text-[11px] font-black text-white">Mon–Sun</p></div>
         </div>
         {completed ? (
-          <div className="mt-3 flex items-center gap-2 rounded-[16px] border border-[#facc15]/16 bg-[#facc15]/[0.045] px-3 py-2.5 text-[10px] font-black text-[#fde68a]/80"><Trophy className="h-4 w-4 shrink-0" /> You finished 7/7 and qualify for this week's draw.</div>
+          <div className="mt-3 flex items-center gap-2 rounded-[16px] border border-[#facc15]/16 bg-[#facc15]/[0.045] px-3 py-2.5 text-[10px] font-black text-[#fde68a]/80"><Trophy className="h-4 w-4 shrink-0" /> You finished 7/7 and earned 1 draw entry for this week's draw.</div>
         ) : (
           <div className="mt-3 flex items-center gap-2 px-1 text-[9px] font-semibold text-white/30"><CalendarDays className="h-3.5 w-3.5 shrink-0" /> The board clears for a new competition every Monday.</div>
         )}
