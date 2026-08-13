@@ -19,44 +19,163 @@
   display: none !important;
 }
 
-.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section > div:first-child {
-  justify-content: center !important;
-  text-align: center;
-}
-
-.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section > div:first-child p:first-child,
-.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section > div:first-child > svg {
-  display: none !important;
-}
-
-.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section > div:first-child h3 {
-  margin-top: 0 !important;
-}
-
-.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section + section > div:first-child {
+/* Weekly-only community layer.
+   The personal Weekly Mini Streak card above already owns the PT's progress,
+   so the old personal Challenge Record is repurposed as a community-facing
+   Contender Viewer instead of repeating Joined / Finished / Points. */
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section {
   position: relative;
-  justify-content: center !important;
+  overflow: hidden;
+  border: 1px solid rgba(47, 125, 246, 0.20) !important;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(47, 125, 246, 0.10), transparent 42%),
+    #0a1a29;
+  padding: 16px;
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section > div:first-child {
+  display: block !important;
+  margin: 0 0 12px !important;
+  padding: 0 46px 0 0 !important;
+  position: relative;
+  text-align: left !important;
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section > div:first-child > * {
+  display: none !important;
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section > div:first-child::before {
+  content: "WEEKLY CONTENDERS";
+  display: block;
+  color: rgba(94, 168, 255, 0.72);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.17em;
+  line-height: 1.2;
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section > div:first-child::after {
+  content: "You're doing this together.";
+  display: block;
+  margin-top: 5px;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section::before {
+  content: "";
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(47, 125, 246, 0.20);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 38% 36%, rgba(120, 180, 255, 0.28) 0 2px, transparent 3px),
+    radial-gradient(circle at 62% 36%, rgba(120, 180, 255, 0.28) 0 2px, transparent 3px),
+    radial-gradient(circle at 50% 63%, rgba(120, 180, 255, 0.34) 0 5px, transparent 6px),
+    rgba(47, 125, 246, 0.08);
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section > div:nth-child(2) {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section > div:nth-child(2) > div {
+  position: relative;
+  min-width: 0;
+  min-height: 72px;
+  padding: 12px 6px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 17px !important;
+  background: #071725 !important;
   text-align: center;
 }
 
-.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section + section > div:first-child h3 {
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section > div:nth-child(2) > div > * {
   display: none !important;
 }
 
-.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section + section > div:first-child > svg {
-  position: absolute;
-  right: 0;
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section > div:nth-child(2) > div::before {
+  content: "—";
+  display: block;
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.90);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.1;
 }
 
-.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section + section > div:nth-child(2) > div > div.min-w-0 > p:last-child {
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section > div:nth-child(2) > div::after {
+  display: block;
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.34);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+  line-height: 1.25;
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section > div:nth-child(2) > div:nth-child(1)::after {
+  content: "CONTENDERS";
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section > div:nth-child(2) > div:nth-child(2)::after {
+  content: "STILL IN";
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section > div:nth-child(2) > div:nth-child(3)::after {
+  content: "QUALIFIED";
+  color: rgba(250, 204, 21, 0.66);
+}
+
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section::after {
+  content: "Community challenge progress will appear here. Personal financial amounts are never part of this board.";
+  display: block;
+  margin-top: 12px;
+  padding: 11px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.022);
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.55;
+  text-align: center;
+}
+
+/* Badges remain a personal achievement surface, so they no longer compete with
+   the Weekly community viewer on this tab. */
+.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section + section {
   display: none !important;
 }
 
-.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section + section > div:nth-child(2) > div {
-  padding-top: 10px !important;
-  padding-bottom: 10px !important;
-}
-
+/* The generic challenge rule is intentionally suppressed on Weekly because the
+   Weekly card already contains its own rules affordance and draw explanation. */
 .clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section + section + section {
   display: none !important;
+}
+
+@media (max-width: 380px) {
+  .clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section {
+    padding: 14px;
+  }
+
+  .clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section > div:nth-child(2) {
+    gap: 6px;
+  }
+
+  .clara-community-root[data-community-view="challenges"] .clara-community-challenges-view main:has(button[aria-label="View Weekly Mini Streak rules"]) section:has(button[aria-label="View Weekly Mini Streak rules"]) + section + section > div:nth-child(2) > div {
+    min-height: 68px;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
 }
