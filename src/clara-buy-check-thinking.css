@@ -1,0 +1,68 @@
+/* CLARA Buy Check thinking bubble
+   Empty CLARA message rows are deliberate transient placeholders. Keeping the
+   placeholder as a real message row preserves the transcript geometry while a
+   response is being prepared, so the final reply replaces it without a jump. */
+
+[data-clara-ai-message-stack="true"] > div:has(span.whitespace-pre-wrap:empty) > div {
+  width: 68px !important;
+  max-width: 68px !important;
+  min-height: 42px;
+  padding: 0 !important;
+  display: grid;
+  place-items: center;
+}
+
+[data-clara-ai-message-stack="true"] span.whitespace-pre-wrap:empty {
+  position: relative;
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(191, 219, 254, 0.92);
+  color: rgba(191, 219, 254, 0.92);
+  animation: clara-buy-check-thinking-dot 1.05s ease-in-out 0.16s infinite;
+}
+
+[data-clara-ai-message-stack="true"] span.whitespace-pre-wrap:empty::before,
+[data-clara-ai-message-stack="true"] span.whitespace-pre-wrap:empty::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  animation: clara-buy-check-thinking-dot 1.05s ease-in-out infinite;
+}
+
+[data-clara-ai-message-stack="true"] span.whitespace-pre-wrap:empty::before {
+  left: -13px;
+  animation-delay: 0s;
+}
+
+[data-clara-ai-message-stack="true"] span.whitespace-pre-wrap:empty::after {
+  left: 13px;
+  animation-delay: 0.32s;
+}
+
+@keyframes clara-buy-check-thinking-dot {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0) scale(0.82);
+    opacity: 0.42;
+  }
+  30% {
+    transform: translateY(-3px) scale(1);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-clara-ai-message-stack="true"] span.whitespace-pre-wrap:empty,
+  [data-clara-ai-message-stack="true"] span.whitespace-pre-wrap:empty::before,
+  [data-clara-ai-message-stack="true"] span.whitespace-pre-wrap:empty::after {
+    animation: none !important;
+    opacity: 0.72;
+  }
+}
