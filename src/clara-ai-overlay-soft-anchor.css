@@ -241,3 +241,141 @@ body.clara-ai-environment-active
     scroll-behavior: auto !important;
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/* SOLID CLARA CHAT + RESULT SURFACES                                          */
+/* -------------------------------------------------------------------------- */
+/* Keep the CLARA identity, but stop the Orb/background from bleeding through
+   message and verdict surfaces. These are intentionally opaque and avoid any
+   new mobile blur/filter cost. */
+body.clara-ai-environment-active
+  [data-clara-pause-overlay="true"]
+  [data-clara-ai-message-stack="true"]
+  > div.justify-start
+  > div:not(.clara-buy-check-thinking-bubble) {
+  background: linear-gradient(145deg, #071a34 0%, #071329 56%, #101126 100%) !important;
+  background-color: #071329 !important;
+  border-color: rgba(191, 219, 254, 0.24) !important;
+  border-left-color: rgba(255, 216, 74, 0.58) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 12px 30px rgba(0, 0, 0, 0.24) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.clara-ai-environment-active
+  [data-clara-pause-overlay="true"]
+  .clara-buy-check-thinking-bubble {
+  background: #07152d !important;
+  border-color: rgba(191, 219, 254, 0.22) !important;
+  border-left-color: rgba(255, 216, 74, 0.58) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 10px 24px rgba(0, 0, 0, 0.22) !important;
+}
+
+/* Final-decision and saved-result cards use a fully opaque CLARA shell instead
+   of the older glass panel. */
+body.clara-ai-environment-active
+  [data-clara-pause-overlay="true"]
+  [data-clara-buy-check-result-focus="true"]
+  > section {
+  position: relative !important;
+  isolation: isolate !important;
+  border-color: rgba(96, 165, 250, 0.34) !important;
+  background: linear-gradient(145deg, #061a34 0%, #071126 56%, #160d22 100%) !important;
+  background-color: #071126 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 20px 48px rgba(0, 0, 0, 0.38),
+    -10px 0 34px rgba(23, 105, 255, 0.08),
+    10px 0 34px rgba(229, 57, 69, 0.06) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.clara-ai-environment-active
+  [data-clara-pause-overlay="true"]
+  [data-clara-buy-check-result-focus="true"]
+  > section::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: -1 !important;
+  border-radius: inherit !important;
+  pointer-events: none !important;
+  background:
+    radial-gradient(circle at -8% 14%, rgba(23, 105, 255, 0.13), transparent 35%),
+    radial-gradient(circle at 108% 78%, rgba(229, 57, 69, 0.09), transparent 38%) !important;
+}
+
+/* Keep the CLARA blue-yellow-red identity line crisp on both the decision and
+   saved state, even when legacy classes try to soften it. */
+body.clara-ai-environment-active
+  [data-clara-pause-overlay="true"]
+  [data-clara-buy-check-result-focus="true"]
+  > section > div:first-child {
+  opacity: 1 !important;
+  background: linear-gradient(
+    90deg,
+    #1769ff 0%,
+    #1769ff 42%,
+    #ffd84a 42%,
+    #ffd84a 56%,
+    #e53945 56%,
+    #e53945 100%
+  ) !important;
+}
+
+body.clara-ai-environment-active
+  [data-clara-pause-overlay="true"]
+  [data-clara-buy-check-final-decision-panel]
+  textarea,
+body.clara-ai-environment-active
+  [data-clara-pause-overlay="true"]
+  [data-clara-buy-check-final-decision-panel]
+  select {
+  background: #081a35 !important;
+  background-color: #081a35 !important;
+  border-color: rgba(147, 197, 253, 0.22) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 0 0 1px rgba(23, 105, 255, 0.03) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* The resolved-state footer should read like the same CLARA verdict system,
+   not a translucent generic button strip. */
+body.clara-ai-environment-active
+  [data-clara-pause-overlay="true"][data-clara-buy-check-result-mode="true"]
+  > main + div
+  > button:last-child {
+  background: #07152d !important;
+  border-color: rgba(191, 219, 254, 0.24) !important;
+  color: #ffffff !important;
+}
+
+@media (max-width: 768px) {
+  body.clara-ai-environment-active
+    [data-clara-pause-overlay="true"]
+    [data-clara-ai-message-stack="true"]
+    > div.justify-start
+    > div:not(.clara-buy-check-thinking-bubble),
+  body.clara-ai-environment-active
+    [data-clara-pause-overlay="true"]
+    [data-clara-buy-check-result-focus="true"]
+    > section,
+  body.clara-ai-environment-active
+    [data-clara-pause-overlay="true"]
+    [data-clara-buy-check-final-decision-panel]
+    textarea,
+  body.clara-ai-environment-active
+    [data-clara-pause-overlay="true"]
+    [data-clara-buy-check-final-decision-panel]
+    select {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
