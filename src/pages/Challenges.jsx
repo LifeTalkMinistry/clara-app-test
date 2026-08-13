@@ -671,7 +671,7 @@ export default function Challenges() {
     isThirtyDay && completed ? "Keep My Streak Alive" : "Log My Check-In";
 
   return (
-    <div className="fixed inset-0 z-[80] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[#06111f] text-white">
+    <div className="relative z-[80] flex min-h-full w-full flex-col overflow-visible bg-[#06111f] text-white">
       <header className="shrink-0 border-b border-white/10 bg-[#06111f]/96 px-3 pb-3 pt-[max(12px,env(safe-area-inset-top))] backdrop-blur-xl sm:px-5">
         <div className="mx-auto flex w-full max-w-3xl items-center gap-3">
           <button
@@ -693,7 +693,7 @@ export default function Challenges() {
         </div>
       </header>
 
-      <main className="min-h-0 flex-1 overflow-y-auto px-3 pb-[calc(env(safe-area-inset-bottom)+32px)] pt-4 sm:px-5">
+      <main className="w-full flex-none overflow-visible px-3 pb-[calc(env(safe-area-inset-bottom)+32px)] pt-4 sm:px-5">
         <div className="mx-auto w-full max-w-3xl space-y-4">
           <section className="relative overflow-hidden rounded-[28px] border border-[#22c7b8]/20 bg-[#0a1a29] p-5">
             <div className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-[#22c7b8]/10 blur-3xl" />
