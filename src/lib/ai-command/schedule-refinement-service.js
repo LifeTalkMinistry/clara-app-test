@@ -1,226 +1,111 @@
-import { requestClaraGeminiProxyJson, getClaraProxyModel } from "@/lib/clara-gemini-proxy-client";
-const DEFAULT_MODEL = "gemini-2.5-flash";
-const DEFAULT_TIMEOUT_MS = 18000;
-const DEPRECATED_MODELS = new Set(["gemini-1.5-flash", "gemini-2.0-flash"]);
-
 function cleanText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
-}
-
-function normalizeModelName(value) {
-  const model = cleanText(value);
-  if (!model || DEPRECATED_MODELS.has(model)) return DEFAULT_MODEL;
-  return model;
-}
-
-function getGeminiConfig() {
-  return {
-    apiKey: 'server-proxy',
-    model: getClaraProxyModel(DEFAULT_MODEL),
-  };
-}
-
-function safeJsonParse(value) {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
-
-function extractJson(text) {
-  const raw = String(text || "").trim();
-  if (!raw) throw new Error("CLARA returned an empty schedule refinement response.");
-
-  const direct = safeJsonParse(raw);
-  if (direct) return direct;
-
-  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const candidate = String(fenced?.[1] || raw).trim();
-  const fencedParsed = safeJsonParse(candidate);
-  if (fencedParsed) return fencedParsed;
-
-  const start = candidate.indexOf("{");
-  const end = candidate.lastIndexOf("}");
-  if (start === -1 || end === -1 || end <= start) {
-    throw new Error("CLARA did not return valid schedule refinement JSON.");
-  }
-
-  const parsed = safeJsonParse(candidate.slice(start, end + 1));
-  if (!parsed) throw new Error("CLARA returned malformed schedule refinement JSON.");
-  return parsed;
-}
-
-function withTimeout(ms = DEFAULT_TIMEOUT_MS) {
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), ms);
-  return { signal: controller.signal, clear: () => window.clearTimeout(timeoutId) };
 }
 
 function normalizeCategory(value) {
   const raw = cleanText(value).toLowerCase();
   if (raw.includes("work")) return "Work";
   if (raw.includes("family")) return "Family";
-  if (raw.includes("health") || raw.includes("doctor") || raw.includes("medical")) return "Health";
+  if (raw.includes("health") || raw.includes("doctor") || raw.includes("medical") || raw.includes("dental")) return "Health";
   if (raw.includes("ministry") || raw.includes("church")) return "Ministry";
   if (raw.includes("errand")) return "Errand";
-  if (raw.includes("social") || raw.includes("friend") || raw.includes("outing")) return "Social";
+  if (raw.includes("social") || raw.includes("friend") || raw.includes("outing") || raw.includes("date")) return "Social";
   if (raw.includes("personal")) return "Personal";
   return "Other";
 }
 
-function normalizeConfidence(value) {
-  const raw = cleanText(value).toLowerCase();
-  if (["low", "medium", "high"].includes(raw)) return raw;
-  return "medium";
+function titleCase(value = "") {
+  return cleanText(value)
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function normalizeQuestions(value) {
-  const items = Array.isArray(value) ? value : [];
-  return items
-    .map((item, index) => {
-      if (typeof item === "string") {
-        return {
-          key: `question_${index + 1}`,
-          question: cleanText(item),
-          reason: "Needed to make the schedule clearer.",
-        };
-      }
+function inferTitle(form = {}) {
+  const existing = cleanText(form.title);
+  if (existing) return existing;
 
-      return {
-        key: cleanText(item?.key) || `question_${index + 1}`,
-        question: cleanText(item?.question),
-        reason: cleanText(item?.reason) || "Needed to make the schedule clearer.",
-      };
-    })
-    .filter((item) => item.question)
-    .slice(0, 3);
+  const note = cleanText(form.note || form.userNote);
+  const type = cleanText(form.type || form.category || "Personal");
+  const source = `${note} ${type}`.toLowerCase();
+
+  if (/dentist|dental|tooth|teeth|ngipin|oral/.test(source)) return "Dental appointment";
+  if (/doctor|checkup|clinic|hospital|medical|lab/.test(source)) return "Medical appointment";
+  if (/church|ministry|service|fellowship/.test(source)) return "Church schedule";
+  if (/birthday|party|celebration|fiesta/.test(source)) return "Celebration";
+  if (/work|office|meeting|shift|interview/.test(source)) return "Work schedule";
+  if (/date|girlfriend|boyfriend|partner|relationship/.test(source)) return "Relationship schedule";
+  if (/outing|trip|beach|resort|hangout|gala|lakad/.test(source)) return "Outing";
+
+  const short = note.replace(/[.!?]+$/g, "").split(" ").filter(Boolean).slice(0, 5).join(" ");
+  return titleCase(short || `${type} schedule`);
 }
 
-function normalizeRefinementResult(parsed = {}) {
-  const questions = normalizeQuestions(parsed?.next_questions);
-  const refinedIntention = cleanText(parsed?.refined_intention);
-  const suggestedTitle = cleanText(parsed?.suggested_title);
-
-  return {
-    refined_intention:
-      refinedIntention || suggestedTitle || "I want to add a schedule, but CLARA needs a little more detail.",
-    suggested_title: suggestedTitle || refinedIntention.split(" ").slice(0, 5).join(" ") || "Schedule plan",
-    suggested_category: normalizeCategory(parsed?.suggested_category),
-    detected_money_relevance: Boolean(parsed?.detected_money_relevance),
-    missing_details: (Array.isArray(parsed?.missing_details) ? parsed.missing_details : [])
-      .map(cleanText)
-      .filter(Boolean)
-      .slice(0, 6),
-    next_questions: questions,
-    confidence: normalizeConfidence(parsed?.confidence),
-    ready_to_save: Boolean(parsed?.ready_to_save) && questions.length === 0,
-  };
+function inferCategory(form = {}) {
+  const source = `${form.type || form.category || ""} ${form.title || ""} ${form.note || form.userNote || ""}`.toLowerCase();
+  if (/work|office|meeting|shift|interview/.test(source)) return "Work";
+  if (/family|birthday|fiesta/.test(source)) return "Family";
+  if (/doctor|dental|dentist|clinic|hospital|medical|health|lab/.test(source)) return "Health";
+  if (/church|ministry|service|fellowship/.test(source)) return "Ministry";
+  if (/errand|renewal|license|grocer/.test(source)) return "Errand";
+  if (/friend|outing|hangout|date|partner|relationship|party/.test(source)) return "Social";
+  return normalizeCategory(form.type || form.category || "Personal");
 }
 
-function buildPrompt({ form = {}, conversation = [], latestAnswer = "" } = {}) {
-  const recentConversation = (Array.isArray(conversation) ? conversation : [])
-    .slice(-10)
-    .map((message) => ({
-      role: message?.role === "assistant" ? "assistant" : "user",
-      content: cleanText(message?.content || message?.text).slice(0, 1200),
-    }))
-    .filter((message) => message.content);
-
-  return `You are CLARA, a personal money coach and schedule assistant.
-
-Your job is NOT to save the schedule yet.
-
-The user wrote a rough/vague schedule note.
-
-First, convert the rough note into a clear schedule intention.
-Then identify what important details are missing.
-Then decide the most practical follow-up questions needed to complete the schedule.
-
-Return JSON only.
-
-User note:
-${cleanText(form.note || form.userNote || form.title)}
-
-Selected date:
-${cleanText(form.date || form.selectedDate)}
-
-Current form values:
-Title: ${cleanText(form.title)}
-Time: ${cleanText(form.time)}
-Category: ${cleanText(form.type || form.category)}
-Estimated money impact: ${cleanText(form.amount || form.moneyImpact || "AI will calculate")}
-
-Latest user answer, if any:
-${cleanText(latestAnswer) || "None yet."}
-
-Recent refinement conversation:
-${JSON.stringify(recentConversation, null, 2)}
-
-Return this JSON shape:
-{
-  "refined_intention": "Clear sentence version of what the user probably means.",
-  "suggested_title": "Short schedule title",
-  "suggested_category": "Personal | Work | Family | Health | Ministry | Errand | Social | Other",
-  "detected_money_relevance": true,
-  "missing_details": ["time", "location", "cost", "people involved"],
-  "next_questions": [
-    {
-      "key": "time",
-      "question": "What time will this happen?",
-      "reason": "Needed to place it properly on the schedule."
-    }
-  ],
-  "confidence": "low | medium | high",
-  "ready_to_save": false
+function detectMoneyRelevance(form = {}) {
+  const source = `${form.title || ""} ${form.note || form.userNote || ""} ${form.type || form.category || ""}`.toLowerCase();
+  return /(buy|spend|cost|fee|fare|transport|food|meal|coffee|gift|contribution|offering|payment|bill|renew|clinic|doctor|dental|dentist|medicine|outing|trip|date|party|birthday|work|office|church|appointment)/.test(source);
 }
 
-Rules:
-- Ask only practical questions.
-- Maximum 3 questions at a time.
-- If money may be affected, include one money-impact question.
-- If the note is too vague, ask for clarification.
-- Keep CLARA's tone warm, simple, and helpful.
-- Do not invent exact time, place, or cost unless clearly stated.
-- If enough information is already present, set ready_to_save true.
-- Do not include markdown.
-- Do not include explanations outside JSON.`;
-}
+function buildRefinedIntention(form = {}, latestAnswer = "") {
+  const note = cleanText(latestAnswer) || cleanText(form.note || form.userNote);
+  const title = inferTitle(form);
+  if (!note) return `I want to add ${title.toLowerCase()} to my schedule.`;
 
-export async function askGeminiForScheduleRefinement({ form, conversation, latestAnswer } = {}) {
-  const { apiKey, model } = getGeminiConfig();
-  const prompt = buildPrompt({ form, conversation, latestAnswer });
-  const timeout = withTimeout();
-
-  try {
-    console.info("[CLARA Schedule] Refinement request started:", {
-      model,
-      hasNote: Boolean(cleanText(form?.note || form?.title)),
-      hasConversation: Array.isArray(conversation) && conversation.length > 0,
-    });
-
-    const textPayload = await requestClaraGeminiProxyJson({
-      prompt,
-      model,
-      signal: timeout.signal,
-      generationConfig: {
-        temperature: 0.55,
-        topP: 0.9,
-        topK: 40,
-        maxOutputTokens: 900,
-        responseMimeType: "application/json",
-      },
-    });
-
-    return normalizeRefinementResult(extractJson(textPayload));
-  } catch (error) {
-    const finalError =
-      error?.name === "AbortError"
-        ? Object.assign(new Error("Gemini schedule refinement timed out."), { code: "GEMINI_TIMEOUT" })
-        : error;
-    console.warn("[CLARA Schedule] Refinement unavailable:", finalError);
-    throw finalError;
-  } finally {
-    timeout.clear();
+  const normalized = note.replace(/[.!?]+$/g, "");
+  if (/^i\s+(want|need|plan|have|am|will)\b/i.test(normalized)) {
+    return `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}.`;
   }
+  return `I plan to ${normalized.charAt(0).toLowerCase()}${normalized.slice(1)}.`;
+}
+
+function buildQuestions(form = {}, latestAnswer = "") {
+  const note = cleanText(form.note || form.userNote);
+  const answer = cleanText(latestAnswer);
+  const questions = [];
+
+  if (!note && !answer) {
+    questions.push({
+      key: "purpose",
+      question: "What exactly will happen in this schedule?",
+      reason: "This helps CLARA make the schedule clear without guessing.",
+    });
+  }
+
+  if (!cleanText(form.time) && /appointment|meeting|shift|service|interview|doctor|dental|dentist|clinic|church/i.test(`${form.title || ""} ${note}`)) {
+    questions.push({
+      key: "time",
+      question: "Do you know what time this will happen?",
+      reason: "A time helps place the schedule correctly.",
+    });
+  }
+
+  return questions.slice(0, 2);
+}
+
+export async function askGeminiForScheduleRefinement({ form = {}, latestAnswer = "" } = {}) {
+  const nextQuestions = buildQuestions(form, latestAnswer);
+  const missingDetails = nextQuestions.map((item) => item.key);
+
+  // Deliberately local. Gemini is reserved for Ask Before You Spend.
+  return {
+    refined_intention: buildRefinedIntention(form, latestAnswer),
+    suggested_title: inferTitle(form),
+    suggested_category: inferCategory(form),
+    detected_money_relevance: detectMoneyRelevance(form),
+    missing_details: missingDetails,
+    next_questions: nextQuestions,
+    confidence: cleanText(form.note || form.userNote || latestAnswer) ? "high" : "medium",
+    ready_to_save: nextQuestions.length === 0,
+    meta: { source: "local_rule_engine" },
+  };
 }
