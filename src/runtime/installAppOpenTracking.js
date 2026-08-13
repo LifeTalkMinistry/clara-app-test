@@ -12,8 +12,12 @@ const STATE_KEY_PREFIX = "clara:app-open-state:v1:";
 const QUEUE_KEY = "clara:app-open-queue:v1";
 const LIFECYCLE_KEY = "clara:app-lifecycle:v1";
 const INSTALLATION_KEY = "clara:competition-install-id:v1";
+const DAILY_CHECK_IN_STORAGE_PREFIX = "clara_daily_check_in_v3:";
+const DAILY_CHECK_IN_UPDATE_EVENT = "clara:daily-check-in-updated";
 const MAX_QUEUED_EVENTS = 20;
+const MAX_COMPETITION_CHECK_INS = 45;
 let flushPromise = null;
+let integrityHeartbeatPromise = null;
 let memoryInstallationId = "";
 
 function safeStorage(kind = "localStorage") {
@@ -125,6 +129,41 @@ function stateKey(userId) {
   return `${STATE_KEY_PREFIX}${userId}`;
 }
 
+function readCompetitionCheckInEvents(userId) {
+  const state = readJson(
+    safeStorage(),
+    `${DAILY_CHECK_IN_STORAGE_PREFIX}${userId}`,
+    null,
+  );
+  const events = Array.isArray(state?.checkInEvents) ? state.checkInEvents : [];
+
+  return events
+    .filter((event) => event?.eventType === "daily_check_in" || !event?.eventType)
+    .slice(-MAX_COMPETITION_CHECK_INS)
+    .map((event) => ({
+      eventId: typeof event?.eventId === "string" ? event.eventId : "",
+      eligibleDay: typeof event?.eligibleDay === "string" ? event.eligibleDay : "",
+      source: typeof event?.source === "string" ? event.source : "unknown",
+      clientOccurredAt:
+        typeof event?.clientOccurredAt === "string"
+          ? event.clientOccurredAt
+          : typeof event?.createdAt === "string"
+            ? event.createdAt
+            : null,
+    }))
+    .filter((event) => event.eventId && /^\d{4}-\d{2}-\d{2}$/.test(event.eligibleDay));
+}
+
+function integrityPayload(identity, platform) {
+  return {
+    platform,
+    installationId: getInstallationId(),
+    clientTime: new Date().toISOString(),
+    timezoneOffsetMinutes: new Date().getTimezoneOffset(),
+    checkInEvents: readCompetitionCheckInEvents(identity.userId),
+  };
+}
+
 function readQueue() {
   const queue = readJson(safeStorage(), QUEUE_KEY, []);
   return Array.isArray(queue) ? queue.slice(-MAX_QUEUED_EVENTS) : [];
@@ -171,10 +210,7 @@ async function flushQueuedOpens() {
           timeoutMs: 8000,
           body: {
             sessionId: item.sessionId,
-            platform: item.platform,
-            installationId: getInstallationId(),
-            clientTime: new Date().toISOString(),
-            timezoneOffsetMinutes: new Date().getTimezoneOffset(),
+            ...integrityPayload(identity, item.platform),
           },
         });
       } catch (error) {
@@ -191,6 +227,42 @@ async function flushQueuedOpens() {
   });
 
   return flushPromise;
+}
+
+async function syncCompetitionIntegrity() {
+  if (integrityHeartbeatPromise) return integrityHeartbeatPromise;
+
+  integrityHeartbeatPromise = (async () => {
+    const identity = getAuthenticatedIdentity();
+    if (!identity || navigator?.onLine === false) return;
+
+    const storage = safeStorage();
+    const state = readJson(storage, stateKey(identity.userId), null);
+    const sessionId = state?.sessionId;
+    if (!sessionId) {
+      registerVisibleOpen();
+      return;
+    }
+
+    await backendRequest("/api/users/me/app-open", {
+      method: "POST",
+      token: identity.token,
+      timeoutMs: 8000,
+      body: {
+        sessionId,
+        ...integrityPayload(identity, state.platform || detectPlatform()),
+      },
+    });
+  })()
+    .catch(() => {
+      // Competition integrity is best-effort while offline. The next app open
+      // or visibility change will retry the server receipt without interrupting CLARA.
+    })
+    .finally(() => {
+      integrityHeartbeatPromise = null;
+    });
+
+  return integrityHeartbeatPromise;
 }
 
 function markHidden() {
@@ -255,14 +327,29 @@ function registerVisibleOpen() {
 
 function handleVisibilityChange() {
   if (document.visibilityState === "hidden") markHidden();
-  else registerVisibleOpen();
+  else {
+    registerVisibleOpen();
+    void syncCompetitionIntegrity();
+  }
+}
+
+function handleDailyCheckInUpdated(event) {
+  const identity = getAuthenticatedIdentity();
+  if (!identity) return;
+  const eventUserId = event?.detail?.userId;
+  if (eventUserId && String(eventUserId) !== identity.userId) return;
+  void syncCompetitionIntegrity();
 }
 
 if (typeof window !== "undefined" && typeof document !== "undefined") {
   document.addEventListener("visibilitychange", handleVisibilityChange);
   window.addEventListener("pageshow", registerVisibleOpen);
   window.addEventListener("focus", registerVisibleOpen);
-  window.addEventListener("online", flushQueuedOpens);
+  window.addEventListener("online", () => {
+    void flushQueuedOpens();
+    void syncCompetitionIntegrity();
+  });
+  window.addEventListener(DAILY_CHECK_IN_UPDATE_EVENT, handleDailyCheckInUpdated);
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", registerVisibleOpen, { once: true });
@@ -271,7 +358,10 @@ if (typeof window !== "undefined" && typeof document !== "undefined") {
   }
 
   [1000, 5000, 15000].forEach((delay) => {
-    window.setTimeout(registerVisibleOpen, delay);
+    window.setTimeout(() => {
+      registerVisibleOpen();
+      void syncCompetitionIntegrity();
+    }, delay);
   });
   window.setInterval(registerVisibleOpen, 60 * 1000);
 }
