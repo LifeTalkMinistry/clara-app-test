@@ -1,0 +1,22 @@
+/* Weekly Mini Streak header alignment.
+ * Keep the help control pinned to the right while the badge and draw title
+ * remain optically centered in the card.
+ */
+
+div:has(> button[aria-label="View Weekly Mini Streak rules"]) {
+  position: relative;
+  justify-content: center !important;
+  padding-inline: 44px;
+}
+
+div:has(> button[aria-label="View Weekly Mini Streak rules"]) > button[aria-label="View Weekly Mini Streak rules"] {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+div:has(> button[aria-label="View Weekly Mini Streak rules"]) + h3 {
+  width: 100%;
+  text-align: center;
+}
