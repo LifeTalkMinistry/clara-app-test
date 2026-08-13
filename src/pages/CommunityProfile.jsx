@@ -39,7 +39,7 @@ const FINANCE_SECTIONS = [
     F("financial_freedom_age", "Target age for financial freedom", "e.g. 45", true), F("emergency_fund_target", "Emergency fund target", "e.g. ₱100,000", true),
     F("savings_goal", "Savings goal", "e.g. ₱250,000", true), F("debt_free_target", "Debt-free target", "e.g. December 2027"), F("house_fund", "House fund target", "Optional", true),
     F("car_fund", "Car fund target", "Optional", true), F("business_capital", "Business capital target", "Optional", true), F("education_fund", "Education fund", "Optional", true),
-    F("wedding_fund", "Wedding fund", "Optional", true), F("travel_fund", "Travel fund", "Optional", true), F("retirement_goal", "Retirement goal", "Optional", true),
+    F("wedding_fund", "Wedding fund target", "Optional", true), F("travel_fund", "Travel fund target", "Optional", true), F("retirement_goal", "Retirement goal", "Optional", true),
     F("investment_target", "Investment target", "Optional", true), F("monthly_savings_target", "Monthly savings target", "e.g. ₱5,000/month", true),
   ]},
   { key: "journey", title: "My Money Journey", short: "Journey", subtitle: "The mission, struggles, lessons, and reasons behind the numbers.", icon: Route, fields: [
@@ -97,15 +97,16 @@ function PrivacyBadge({ visibility }) {
 }
 
 function ProfileTabs({ activeTab, setActiveTab, moreOpen, setMoreOpen, own }) {
-  const moreActive = MORE_TABS.includes(activeTab) || activeTab === "settings";
+  const moreActive = MORE_TABS.includes(activeTab);
   return <>
     <nav className="mt-3 border-y border-white/10 bg-[#071725]/72 px-1 py-2">
-      <div className="flex items-center gap-1">
-        {TOP_TABS.map((tab) => <button key={tab.key} type="button" onClick={() => { setActiveTab(tab.key); setMoreOpen(false); }} className={`h-10 flex-1 rounded-xl px-3 text-[11px] font-black transition ${activeTab === tab.key ? "bg-[#22c7b8]/14 text-[#ccfbf1]" : "text-white/46 hover:bg-white/[0.04]"}`}>{tab.label}</button>)}
-        <button type="button" onClick={() => setMoreOpen((current) => !current)} className={`flex h-10 flex-1 items-center justify-center gap-1 rounded-xl px-3 text-[11px] font-black transition ${moreActive || moreOpen ? "bg-[#22c7b8]/14 text-[#ccfbf1]" : "text-white/46 hover:bg-white/[0.04]"}`}>More <ChevronDown className={`h-3.5 w-3.5 transition ${moreOpen ? "rotate-180" : ""}`} /></button>
+      <div className={`grid items-center gap-1 ${own ? "grid-cols-5" : "grid-cols-4"}`}>
+        {TOP_TABS.map((tab) => <button key={tab.key} type="button" onClick={() => { setActiveTab(tab.key); setMoreOpen(false); }} className={`flex h-10 min-w-0 items-center justify-center rounded-xl px-1 text-[10px] font-black transition ${activeTab === tab.key ? "bg-[#22c7b8]/14 text-[#ccfbf1]" : "text-white/46 hover:bg-white/[0.04]"}`}>{tab.label}</button>)}
+        <button type="button" onClick={() => setMoreOpen((current) => !current)} className={`flex h-10 min-w-0 items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-black transition ${moreActive || moreOpen ? "bg-[#22c7b8]/14 text-[#ccfbf1]" : "text-white/46 hover:bg-white/[0.04]"}`}>More <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition ${moreOpen ? "rotate-180" : ""}`} /></button>
+        {own ? <button type="button" onClick={() => { setActiveTab("settings"); setMoreOpen(false); }} className={`flex h-10 min-w-0 items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-black transition ${activeTab === "settings" ? "bg-[#22c7b8]/14 text-[#ccfbf1]" : "text-white/46 hover:bg-white/[0.04]"}`}><Settings className="h-3.5 w-3.5 shrink-0"/><span className="truncate">Settings</span></button> : null}
       </div>
     </nav>
-    {moreOpen ? <div className="mt-2 grid grid-cols-2 gap-2 rounded-[20px] border border-white/10 bg-[#0a1a29] p-2 shadow-xl">{MORE_TABS.map((key) => { const section = SECTION_BY_KEY[key], Icon = section.icon; return <button key={key} type="button" onClick={() => { setActiveTab(key); setMoreOpen(false); }} className={`flex items-center gap-2 rounded-2xl border px-3 py-3 text-left ${activeTab === key ? "border-[#22c7b8]/28 bg-[#22c7b8]/10" : "border-white/[0.06] bg-[#071725]"}`}><Icon className="h-4 w-4 shrink-0 text-[#99f6e4]/75"/><span className="text-[10px] font-black text-white/70">{section.short}</span></button>; })}{own ? <button type="button" onClick={() => { setActiveTab("settings"); setMoreOpen(false); }} className={`col-span-2 flex items-center gap-2 rounded-2xl border px-3 py-3 text-left ${activeTab === "settings" ? "border-[#22c7b8]/28 bg-[#22c7b8]/10" : "border-white/[0.06] bg-[#071725]"}`}><Settings className="h-4 w-4 shrink-0 text-[#99f6e4]/75"/><span className="text-[10px] font-black text-white/70">Settings</span></button> : null}</div> : null}
+    {moreOpen ? <div className="mt-2 grid grid-cols-2 gap-2 rounded-[20px] border border-white/10 bg-[#0a1a29] p-2 shadow-xl">{MORE_TABS.map((key) => { const section = SECTION_BY_KEY[key], Icon = section.icon; return <button key={key} type="button" onClick={() => { setActiveTab(key); setMoreOpen(false); }} className={`flex items-center gap-2 rounded-2xl border px-3 py-3 text-left ${activeTab === key ? "border-[#22c7b8]/28 bg-[#22c7b8]/10" : "border-white/[0.06] bg-[#071725]"}`}><Icon className="h-4 w-4 shrink-0 text-[#99f6e4]/75"/><span className="text-[10px] font-black text-white/70">{section.short}</span></button>; })}</div> : null}
   </>;
 }
 
