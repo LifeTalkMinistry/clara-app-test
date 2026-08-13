@@ -341,6 +341,7 @@ export default function ClaraAiEnvironmentOverlay({
   const previousAcknowledgmentIndexRef = useRef(-1);
   const acknowledgmentSessionRef = useRef({ active: false, sessionId: "", index: -1, message: "" });
   const previousActiveRef = useRef(false);
+  const resultFocusRef = useRef(null);
   const isGuidePreview = layoutVariant === "guide-preview";
   const ownedFlow = useClaraBuyCheckFlow({ assistantContext: claraAssistantContext });
 
@@ -366,6 +367,8 @@ export default function ClaraAiEnvironmentOverlay({
   const step = activeState?.step || "item";
   const busy = Boolean(activeState?.busy || finalDecision?.busy);
   const inputLocked = Boolean(activeState && ["confirm", "diagnosis", "complete"].includes(step));
+  const showComposer = !["confirm", "diagnosis", "complete"].includes(step);
+  const resultMode = ["diagnosis", "complete"].includes(step);
 
   if (isActive && (!acknowledgmentSessionRef.current.active || acknowledgmentSessionRef.current.sessionId !== sessionId)) {
     const selection = selectAcknowledgment(previousAcknowledgmentIndexRef.current);
@@ -390,6 +393,19 @@ export default function ClaraAiEnvironmentOverlay({
     return () => window.removeEventListener("keydown", handleEscape);
   }, [isActive, onClose]);
 
+  useEffect(() => {
+    if (!isActive || !resultMode) return undefined;
+
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement) activeElement.blur();
+
+    if (step !== "complete") return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      resultFocusRef.current?.scrollIntoView?.({ behavior: "auto", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [finalDecision?.phase, isActive, resultMode, step]);
+
   if (!isActive) return null;
 
   const showDecisionCard = step === "complete" && finalDecision?.phase === "choose";
@@ -412,6 +428,7 @@ export default function ClaraAiEnvironmentOverlay({
       data-clara-ai-layout-variant={layoutVariant}
       data-clara-pause-overlay="true"
       data-clara-buy-check-react-owner="true"
+      data-clara-buy-check-result-mode={resultMode ? "true" : "false"}
     >
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_5%_4%,rgba(23,105,255,0.30),transparent_34%),radial-gradient(circle_at_52%_-8%,rgba(255,216,74,0.07),transparent_24%),radial-gradient(circle_at_96%_8%,rgba(229,57,69,0.18),transparent_34%),linear-gradient(180deg,#06152e_0%,#040b1a_44%,#020714_100%)]" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-[54%] bg-[linear-gradient(180deg,rgba(2,7,20,0)_0%,rgba(2,7,20,0.72)_22%,rgba(2,7,20,0.96)_100%)]" />
@@ -423,7 +440,10 @@ export default function ClaraAiEnvironmentOverlay({
         className="relative z-10 min-h-0 flex-1 overflow-y-auto px-0 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {visibleMessages.length ? (
-          <div data-clara-ai-message-stack="true" className="flex min-h-full min-w-0 flex-col justify-start gap-3 px-2 pb-28 pt-1">
+          <div
+            data-clara-ai-message-stack="true"
+            className={`flex min-h-full min-w-0 flex-col justify-start gap-3 px-2 pt-1 ${showComposer ? "pb-28" : "pb-5"}`}
+          >
             {visibleMessages.map((message, index) => (
               <BuyCheckMessageRow
                 key={message.id || `${message.role || "message"}-${index}`}
@@ -433,19 +453,27 @@ export default function ClaraAiEnvironmentOverlay({
               />
             ))}
 
-            {showDecisionCard ? <BuyCheckDecisionCard diagnosis={activeState?.diagnosis} onAction={runDecisionAction} /> : null}
+            {showDecisionCard || showFinalDecisionPanel ? (
+              <div
+                ref={resultFocusRef}
+                data-clara-buy-check-result-focus="true"
+                className={showFinalDecisionPanel ? "mt-3 border-t border-blue-200/10 pt-3" : ""}
+              >
+                {showDecisionCard ? (
+                  <BuyCheckDecisionCard diagnosis={activeState?.diagnosis} onAction={runDecisionAction} />
+                ) : null}
 
-            {showFinalDecisionPanel ? (
-              <div className="mt-3 border-t border-blue-200/10 pt-3">
-                <FinalDecisionPanel
-                  finalDecision={finalDecision}
-                  walletOptions={walletOptions}
-                  item={activeState?.item || "this purchase"}
-                  onExplanationChange={ownedFlow.setDecisionExplanation}
-                  onWalletChange={ownedFlow.setDecisionWallet}
-                  onSave={ownedFlow.submitFinalDecision}
-                  onCancel={ownedFlow.cancelFinalDecision}
-                />
+                {showFinalDecisionPanel ? (
+                  <FinalDecisionPanel
+                    finalDecision={finalDecision}
+                    walletOptions={walletOptions}
+                    item={activeState?.item || "this purchase"}
+                    onExplanationChange={ownedFlow.setDecisionExplanation}
+                    onWalletChange={ownedFlow.setDecisionWallet}
+                    onSave={ownedFlow.submitFinalDecision}
+                    onCancel={ownedFlow.cancelFinalDecision}
+                  />
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -466,13 +494,15 @@ export default function ClaraAiEnvironmentOverlay({
         onClose={onClose}
       />
 
-      <BuyCheckComposer
-        isActive={isActive}
-        inputLocked={inputLocked}
-        busy={busy}
-        step={step}
-        submitAnswer={submitAnswer}
-      />
+      {showComposer ? (
+        <BuyCheckComposer
+          isActive={isActive}
+          inputLocked={inputLocked}
+          busy={busy}
+          step={step}
+          submitAnswer={submitAnswer}
+        />
+      ) : null}
     </div>
   );
 }
