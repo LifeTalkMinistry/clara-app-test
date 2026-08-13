@@ -28,6 +28,8 @@
   transform: translate3d(0, 2px, 0) scale(0.78);
   opacity: 0.36;
   will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
   animation: clara-buy-check-thinking-dot 1.05s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
@@ -41,6 +43,28 @@
 
 .clara-buy-check-thinking-dot:nth-child(3) {
   animation-delay: 0.32s;
+}
+
+/* Performance Mode intentionally disables nearly every animation on phones.
+   The thinking dots are a functional chat-state indicator, not decoration, so
+   explicitly preserve this one cheap compositor-only animation. The extra
+   specificity + !important beats the global performance-mode animation reset
+   used by the Android app without re-enabling any other motion. */
+.clara-performance-mode .clara-buy-check-thinking-dot {
+  animation: clara-buy-check-thinking-dot 1.05s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
+  will-change: transform, opacity !important;
+}
+
+.clara-performance-mode .clara-buy-check-thinking-dot:nth-child(1) {
+  animation-delay: 0s !important;
+}
+
+.clara-performance-mode .clara-buy-check-thinking-dot:nth-child(2) {
+  animation-delay: 0.16s !important;
+}
+
+.clara-performance-mode .clara-buy-check-thinking-dot:nth-child(3) {
+  animation-delay: 0.32s !important;
 }
 
 @keyframes clara-buy-check-thinking-dot {
@@ -58,9 +82,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .clara-buy-check-thinking-dot {
-    animation-duration: 1.6s;
-    transform: none;
-    opacity: 0.72;
+  .clara-buy-check-thinking-dot,
+  .clara-performance-mode .clara-buy-check-thinking-dot {
+    animation-duration: 1.6s !important;
   }
 }
