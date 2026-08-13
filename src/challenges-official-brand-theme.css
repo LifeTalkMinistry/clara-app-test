@@ -66,13 +66,27 @@
 }
 
 .clara-community-root[data-community-view="challenges"]
-.clara-community-challenges-view main > div > section:first-child > div.relative > div:first-child {
-  border-color: rgba(82,153,255,.34) !important;
-  background: linear-gradient(145deg,rgba(8,103,255,.16),rgba(5,22,49,.88)) !important;
-  color: var(--ch-gold) !important;
+.clara-community-challenges-view [data-challenge-hub-hero] .challenge-hub-info-trigger {
+  border: 1px solid rgba(111,186,255,.24);
+  background: linear-gradient(145deg,rgba(8,103,255,.11),rgba(5,22,49,.74));
+  color: rgba(220,234,253,.66);
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.07),
-    0 0 26px rgba(8,103,255,.10) !important;
+    inset 0 1px 0 rgba(255,255,255,.055),
+    0 8px 24px rgba(0,0,0,.12);
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view [data-challenge-hub-hero] .challenge-hub-info-trigger:hover {
+  border-color: rgba(255,216,74,.28);
+  color: rgba(255,230,139,.92);
+  background: linear-gradient(145deg,rgba(8,103,255,.16),rgba(7,27,55,.86));
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view [data-challenge-hub-hero] .challenge-hub-info-trigger:focus-visible,
+.clara-community-root[data-community-view="challenges"] .challenge-hub-info-close:focus-visible {
+  outline: 2px solid rgba(255,216,74,.78);
+  outline-offset: 3px;
 }
 
 .clara-community-root[data-community-view="challenges"]
@@ -89,6 +103,57 @@
 .clara-community-root[data-community-view="challenges"]
 .clara-community-challenges-view main > div > section:first-child h2 + p {
   color: rgba(208,225,247,.58) !important;
+}
+
+/* React-owned Challenge Hub information dialog */
+.clara-community-root[data-community-view="challenges"] .challenge-hub-info-backdrop {
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  background: rgba(1,2,23,.76);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.clara-community-root[data-community-view="challenges"] .challenge-hub-info-dialog {
+  max-height: calc(100dvh - max(32px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+  overflow-y: auto;
+  border: 1px solid rgba(94,234,212,.16);
+  background:
+    radial-gradient(circle at 96% 0%,rgba(8,103,255,.12),transparent 34%),
+    radial-gradient(circle at 0% 100%,rgba(243,38,69,.045),transparent 38%),
+    linear-gradient(155deg,rgba(7,27,45,.995),rgba(7,15,35,.998));
+  color: #f8fbff;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.055),
+    0 28px 86px rgba(0,0,0,.48),
+    0 0 34px rgba(8,103,255,.055);
+}
+
+.clara-community-root[data-community-view="challenges"] .challenge-hub-info-close {
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.04);
+  color: rgba(255,255,255,.62);
+}
+
+.clara-community-root[data-community-view="challenges"] .challenge-hub-info-close:hover {
+  border-color: rgba(255,216,74,.20);
+  color: rgba(255,236,173,.92);
+  background: rgba(255,216,74,.055);
+}
+
+.clara-community-root[data-community-view="challenges"] .challenge-hub-info-eyebrow {
+  color: rgba(255,216,74,.80);
+  text-shadow: 0 0 14px rgba(255,216,74,.08);
+}
+
+.clara-community-root[data-community-view="challenges"] .challenge-hub-info-copy {
+  color: rgba(208,225,247,.59);
+}
+
+.clara-community-root[data-community-view="challenges"] .challenge-hub-info-principle {
+  border: 1px solid rgba(255,216,74,.15);
+  background: rgba(255,216,74,.045);
+  color: rgba(254,240,138,.82);
 }
 
 /* Challenge cadence tabs */
