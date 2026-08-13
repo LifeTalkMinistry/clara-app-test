@@ -6,7 +6,7 @@ export async function updateCurrentBackendProfile({ name } = {}) {
   if (!cleanName) throw new Error("Name is required.");
 
   const profile = await updateCanonicalClaraDisplayName(cleanName);
-  const canonicalName = String(profile?.display_name || profile?.full_name || cleanName).trim();
+  const canonicalName = String(profile?.display_name || cleanName).trim();
   const user = normalizeUser({
     ...profile,
     name: canonicalName,
