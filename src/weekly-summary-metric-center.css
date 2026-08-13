@@ -1,10 +1,54 @@
-.clara-community-root[data-community-view="challenges"] .clara-community-challenges-view section:has(button[aria-label="View Weekly Mini Streak rules"]) .grid.grid-cols-3 > div {
+/* Weekly Mini Streak local containment.
+ * The card is already height:auto; the excess came from legacy spacing that
+ * remained after the inline explanatory copy was removed. Keep the content
+ * flow natural and tighten only the vertical separators owned by this card.
+ */
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(button[aria-label="View Weekly Mini Streak rules"])
+.grid.grid-cols-3 > div {
   text-align: center;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(button[aria-label="View Weekly Mini Streak rules"]) > div:first-child {
+  padding-top: 16px;
+  padding-bottom: 12px;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(button[aria-label="View Weekly Mini Streak rules"])
+div:has(> button[aria-label="View Weekly Mini Streak rules"]) + h3 {
+  margin-top: 12px;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(button[aria-label="View Weekly Mini Streak rules"])
+h3 + .grid.grid-cols-3 {
+  margin-top: 12px;
 }
 
 .clara-community-root[data-community-view="challenges"]
 .clara-community-challenges-view
 section:has(button[aria-label="View Weekly Mini Streak rules"])
 .grid.grid-cols-3 + .grid.grid-cols-7 {
-  margin-top: 8px !important;
+  margin-top: 8px;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(button[aria-label="View Weekly Mini Streak rules"])
+.grid.grid-cols-7 + div[class*="h-1.5"] {
+  margin-top: 12px;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(button[aria-label="View Weekly Mini Streak rules"]) > div:last-child {
+  padding-top: 12px;
+  padding-bottom: 12px;
 }
