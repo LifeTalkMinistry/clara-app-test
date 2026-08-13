@@ -1,5 +1,4 @@
-import { requestGeminiJson, hasGeminiJsonConfig } from "@/lib/clara-gemini-json-utils";
-import { getAvailableCabinetNames, normalizeCabinetName, searchMultipleMemoryCabinets } from "@/lib/memory-cabinets";
+import { normalizeCabinetName, searchMultipleMemoryCabinets } from "@/lib/memory-cabinets";
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -32,51 +31,23 @@ function fallbackCabinets(userConcern = "") {
   return Array.from(selected).slice(0, 4);
 }
 
-function validateRouterJson(json = {}, userConcern = "") {
-  const candidates = Array.isArray(json.open_cabinets) ? json.open_cabinets : [];
-  const openCabinets = candidates.map(normalizeCabinetName).filter(Boolean).slice(0, 5);
+function validateRouterResult(openCabinets = [], userConcern = "") {
+  const normalized = (Array.isArray(openCabinets) ? openCabinets : [])
+    .map(normalizeCabinetName)
+    .filter(Boolean)
+    .slice(0, 5);
 
   return {
-    open_cabinets: openCabinets.length ? openCabinets : fallbackCabinets(userConcern),
-    reason: clean(json.reason) || "Fallback cabinet route selected from the user concern.",
+    open_cabinets: normalized.length ? normalized : fallbackCabinets(userConcern),
+    reason: "Local cabinet route selected from the user concern.",
+    source: "local_rule_engine",
   };
 }
 
+// Memory routing is deliberately deterministic and free. It never contacts an AI API.
 export async function routeClaraMemoryCabinets({ userConcern = "" } = {}) {
   const concern = clean(userConcern);
-
-  if (!concern || !hasGeminiJsonConfig()) {
-    return validateRouterJson({ open_cabinets: fallbackCabinets(concern) }, concern);
-  }
-
-  const prompt = `You are CLARA's Memory Cabinet Router.
-
-Based on this user concern, choose only the memory cabinets CLARA should open.
-
-Available cabinets:
-${getAvailableCabinetNames().map((name) => `- ${name}`).join("\n")}
-
-Rules:
-- Open only relevant cabinets.
-- Prefer 2 to 4 cabinets.
-- Never request all cabinets unless the concern truly requires it.
-- Return JSON only.
-
-User concern:
-${concern}
-
-JSON shape:
-{
-  "open_cabinets": [],
-  "reason": ""
-}`;
-
-  try {
-    const result = await requestGeminiJson({ prompt, temperature: 0.12, maxOutputTokens: 360, label: "CLARA Memory Cabinet Router" });
-    return validateRouterJson(result.json, concern);
-  } catch {
-    return validateRouterJson({ open_cabinets: fallbackCabinets(concern) }, concern);
-  }
+  return validateRouterResult(fallbackCabinets(concern), concern);
 }
 
 export async function buildRelevantMemoryContext({ userConcern = "", limit = 5 } = {}) {
