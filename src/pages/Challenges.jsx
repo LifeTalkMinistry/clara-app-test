@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import WeeklyMiniStreakCard from "@/components/challenges/WeeklyMiniStreakCard";
 import {
@@ -8,12 +8,14 @@ import {
   Check,
   CheckCircle2,
   Flame,
+  Info,
   Medal,
   Sparkles,
   Target,
   Ticket,
   Trophy,
   Users,
+  X,
 } from "lucide-react";
 
 const STORAGE_KEY = "clara-challenge-progress-v1";
@@ -507,10 +509,91 @@ function MonthlyDrawCard({ streak, rewardState, draw }) {
   );
 }
 
+function ChallengeHubHero({ infoButtonRef, isInfoOpen, onOpenInfo }) {
+  return (
+    <section className="clara-challenge-hub-hero relative overflow-hidden rounded-[28px] border border-[#22c7b8]/20 bg-[#0a1a29] p-5">
+      <div className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-[#22c7b8]/10 blur-3xl" />
+      <div className="clara-challenge-hub-hero__content relative flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="clara-challenge-hub-hero__eyebrow text-[9px] font-black uppercase tracking-[0.22em]">
+            Challenge Hub
+          </p>
+          <h2 className="clara-challenge-hub-hero__title mt-1 max-w-[19rem] text-xl font-black leading-[1.18] tracking-[-0.03em]">
+            Consistency builds financial strength.
+          </h2>
+        </div>
+
+        <button
+          ref={infoButtonRef}
+          type="button"
+          className="clara-challenge-hub-hero__info inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] border transition"
+          aria-label="About Challenge Hub"
+          aria-haspopup="dialog"
+          aria-controls="clara-challenge-hub-info-dialog"
+          aria-expanded={isInfoOpen}
+          onClick={onOpenInfo}
+        >
+          <Info className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function ChallengeHubInfoDialog({ closeButtonRef, onClose }) {
+  return (
+    <div
+      className="clara-challenge-hub-info-backdrop"
+      role="presentation"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section
+        id="clara-challenge-hub-info-dialog"
+        className="clara-challenge-hub-info-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="clara-challenge-hub-info-title"
+        aria-describedby="clara-challenge-hub-info-description"
+      >
+        <button
+          ref={closeButtonRef}
+          type="button"
+          className="clara-challenge-hub-info-dialog__close"
+          aria-label="Close Challenge Hub information"
+          onClick={onClose}
+        >
+          <X className="h-4 w-4" aria-hidden="true" />
+        </button>
+
+        <p className="clara-challenge-hub-info-dialog__eyebrow">CHALLENGE HUB</p>
+        <h3 id="clara-challenge-hub-info-title" className="clara-challenge-hub-info-dialog__title">
+          Consistency is the advantage.
+        </h3>
+        <p id="clara-challenge-hub-info-description" className="clara-challenge-hub-info-dialog__description">
+          Money habits are built through repeated action. Weekly challenges train short streaks, Monthly Missions reward steady in-app activity, and the 30-Day Race tests long-form discipline. CLARA measures your consistency—not your income.
+        </p>
+        <div className="clara-challenge-hub-info-dialog__principle">
+          Small actions, repeated well, become financial strength.
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function Challenges() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("weekly");
   const [progress, setProgress] = useState(loadProgress);
+  const [isChallengeHubInfoOpen, setIsChallengeHubInfoOpen] = useState(false);
+  const challengeHubInfoButtonRef = useRef(null);
+  const challengeHubInfoCloseButtonRef = useRef(null);
+
+  const closeChallengeHubInfo = () => {
+    setIsChallengeHubInfoOpen(false);
+    window.requestAnimationFrame(() => challengeHubInfoButtonRef.current?.focus());
+  };
 
   useEffect(() => {
     try {
@@ -519,6 +602,25 @@ export default function Challenges() {
       // Keep the challenge usable even when device storage is unavailable.
     }
   }, [progress]);
+
+  useEffect(() => {
+    if (!isChallengeHubInfoOpen) return undefined;
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      challengeHubInfoCloseButtonRef.current?.focus();
+    });
+    const handleKeyDown = (event) => {
+      if (event.key !== "Escape") return;
+      setIsChallengeHubInfoOpen(false);
+      window.requestAnimationFrame(() => challengeHubInfoButtonRef.current?.focus());
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isChallengeHubInfoOpen]);
 
   const challenge = CHALLENGES[activeTab];
   const entry = progress[challenge.id] || null;
@@ -697,21 +799,11 @@ export default function Challenges() {
 
       <main className="w-full flex-none overflow-visible px-3 pb-[calc(env(safe-area-inset-bottom)+32px)] pt-4 sm:px-5">
         <div className="mx-auto w-full max-w-3xl space-y-4">
-          <section className="relative overflow-hidden rounded-[28px] border border-[#22c7b8]/20 bg-[#0a1a29] p-5">
-            <div className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-[#22c7b8]/10 blur-3xl" />
-            <div className="relative flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] border border-[#5eead4]/20 bg-[#22c7b8]/10 text-[#99f6e4] shadow-[0_0_28px_rgba(34,199,184,.08)]">
-                <Trophy className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#5eead4]/55">Challenge Hub</p>
-                <h2 className="mt-1 text-xl font-black tracking-[-0.03em]">Consistency wins here.</h2>
-                <p className="mt-2 text-xs font-semibold leading-5 text-white/45">
-                  Weekly, monthly, and 30-day challenges designed to build stronger money habits—not compare incomes.
-                </p>
-              </div>
-            </div>
-          </section>
+          <ChallengeHubHero
+            infoButtonRef={challengeHubInfoButtonRef}
+            isInfoOpen={isChallengeHubInfoOpen}
+            onOpenInfo={() => setIsChallengeHubInfoOpen(true)}
+          />
 
           <div className="grid grid-cols-3 gap-2 rounded-[18px] border border-white/10 bg-[#071725] p-1.5">
             {TABS.map((tab) => (
@@ -923,6 +1015,13 @@ export default function Challenges() {
           </section>
         </div>
       </main>
+
+      {isChallengeHubInfoOpen ? (
+        <ChallengeHubInfoDialog
+          closeButtonRef={challengeHubInfoCloseButtonRef}
+          onClose={closeChallengeHubInfo}
+        />
+      ) : null}
     </div>
   );
 }
