@@ -181,7 +181,7 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex h-9 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-semibold text-white/70"
+          className="inline-flex h-9 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-3 text-xs font-semibold text-white/65 transition hover:bg-white/[0.06] hover:text-white"
         >
           <ArrowLeft className="h-4 w-4" /> Back
         </button>
@@ -189,32 +189,40 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
           type="button"
           aria-label="Close Support CLARA"
           onClick={onClose}
-          className="grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/5 text-white/70"
+          className="grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/[0.035] text-white/60 transition hover:bg-white/[0.06] hover:text-white"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="mt-5 rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.06] p-4">
-        <p className="text-[10px] font-black tracking-[0.16em] text-cyan-200/70">YOU CHOSE</p>
-        <div className="mt-1 flex items-end justify-between gap-3">
-          <div>
-            <p className="text-base font-bold text-white">{tier.name}</p>
-            <p className="mt-1 text-xs text-white/50">{tier.positioning}</p>
+      <div className="relative mt-4 overflow-hidden rounded-[22px] border border-blue-400/25 bg-[linear-gradient(145deg,rgba(30,64,175,0.14),rgba(2,6,23,0.72)_62%)] px-4 py-4 shadow-[0_16px_42px_rgba(0,0,0,0.18)]">
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 h-[2px]"
+          style={{
+            background: "linear-gradient(90deg, #2563eb 0 58%, #facc15 58% 72%, #ef4444 72% 100%)",
+          }}
+        />
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[9px] font-black tracking-[0.18em] text-blue-200/55">SUPPORT CLARA</p>
+            <p className="mt-1 truncate text-[15px] font-bold text-white">{tier.name}</p>
           </div>
-          <p className="text-2xl font-black text-white">₱{tier.price}<span className="text-[10px] font-semibold text-white/40"> / month</span></p>
+          <p className="shrink-0 text-[22px] font-black tracking-tight text-white">
+            ₱{tier.price}<span className="ml-1 text-[9px] font-semibold text-white/35">/ month</span>
+          </p>
         </div>
       </div>
 
-      <div className="mt-5">
-        <p className="text-sm font-bold text-white">Choose how you want to support</p>
-        <p className="mt-1 text-xs leading-5 text-white/45">Select GCash, Maya, or Security Bank. CLARA will show the payment details configured specifically for the ₱{tier.price} tier.</p>
+      <div className="mt-5 flex items-center justify-between gap-3">
+        <p className="text-sm font-bold text-white">Pay with</p>
+        <p className="text-[10px] font-medium text-white/30">Choose one</p>
       </div>
 
       {loading ? (
-        <div className="grid place-items-center py-10 text-white/50"><Loader2 className="h-6 w-6 animate-spin" /></div>
+        <div className="grid place-items-center py-9 text-white/45"><Loader2 className="h-5 w-5 animate-spin" /></div>
       ) : error ? (
-        <div className="mt-4 rounded-xl border border-rose-300/15 bg-rose-300/[0.06] px-3 py-3 text-xs leading-5 text-rose-100/80">{error}</div>
+        <div className="mt-3 rounded-xl border border-rose-300/15 bg-rose-300/[0.05] px-3 py-3 text-xs leading-5 text-rose-100/75">{error}</div>
       ) : (
         <div className="mt-3 grid grid-cols-3 gap-2">
           {methods.map((method) => {
@@ -226,11 +234,20 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
                 type="button"
                 disabled={!method.configured}
                 onClick={() => { setSelectedKey(method.key); setReference(""); setProof(null); setSubmitted(false); }}
-                className={`rounded-2xl border px-2 py-3 text-center transition disabled:cursor-not-allowed disabled:opacity-35 ${active ? "border-cyan-300/50 bg-cyan-300/[0.11] text-cyan-100" : "border-white/10 bg-white/[0.04] text-white/65"}`}
+                className={`relative rounded-2xl border px-2 py-3.5 text-center transition duration-200 disabled:cursor-not-allowed disabled:opacity-30 ${
+                  active
+                    ? "border-blue-400/55 bg-blue-500/[0.11] text-white shadow-[0_0_0_1px_rgba(59,130,246,0.08)_inset,0_10px_26px_rgba(37,99,235,0.10)]"
+                    : "border-white/10 bg-white/[0.028] text-white/58 hover:bg-white/[0.05] hover:text-white/80"
+                }`}
               >
-                <Icon className="mx-auto h-5 w-5" />
-                <span className="mt-1.5 block text-[11px] font-bold">{method.label}</span>
-                {!method.configured && <span className="mt-1 block text-[8px] font-bold tracking-wide text-white/35">SET UP FIRST</span>}
+                {active && (
+                  <span className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full bg-amber-300 text-slate-950">
+                    <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                  </span>
+                )}
+                <Icon className="mx-auto h-[19px] w-[19px]" />
+                <span className="mt-1.5 block text-[10px] font-bold">{method.label}</span>
+                {!method.configured && <span className="mt-1 block text-[7px] font-bold tracking-wide text-white/30">UNAVAILABLE</span>}
               </button>
             );
           })}
@@ -238,116 +255,110 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
       )}
 
       {!loading && !error && methods.length === 0 && (
-        <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3 text-xs leading-5 text-white/55">
-          No payment methods are enabled yet for this tier. Configure them from the CLARA Admin Dashboard → Settings.
+        <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs leading-5 text-white/50">
+          No payment methods are available yet.
         </div>
       )}
 
       {selected && (
-        <div className="mt-4 rounded-[22px] border border-white/10 bg-white/[0.035] p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-bold text-white">Pay ₱{tier.price} with {selected.label}</p>
-              <p className="mt-1 text-[11px] leading-4 text-white/45">{selected.instructions || "Use the details below to send your support."}</p>
+        <div className="mt-4 rounded-[22px] border border-white/10 bg-black/10 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-white">Pay ₱{tier.price} via {selected.label}</p>
+              {selected.instructions && (
+                <p className="mt-1 text-[10px] leading-4 text-white/38">{selected.instructions}</p>
+              )}
             </div>
-            <Check className="h-5 w-5 text-cyan-300" />
+            <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-amber-300 shadow-[0_0_10px_rgba(250,204,21,0.45)]" />
           </div>
 
           {selected.qrCodeDataUrl && (
             <div className="mt-4 rounded-2xl bg-white p-3">
-              <img src={selected.qrCodeDataUrl} alt={`${selected.label} ₱${tier.price} payment QR code`} className="mx-auto block max-h-[260px] w-auto max-w-full object-contain" />
+              <img src={selected.qrCodeDataUrl} alt={`${selected.label} ₱${tier.price} payment QR code`} className="mx-auto block max-h-[250px] w-auto max-w-full object-contain" />
             </div>
           )}
 
           <div className="mt-4 space-y-2">
             {selected.accountName && (
-              <div className="rounded-xl border border-white/10 bg-black/15 px-3 py-2.5">
-                <p className="text-[9px] font-bold tracking-[0.14em] text-white/35">ACCOUNT NAME</p>
-                <p className="mt-1 text-sm font-bold text-white">{selected.accountName}</p>
+              <div className="rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 py-2.5">
+                <p className="text-[8px] font-bold tracking-[0.14em] text-white/28">ACCOUNT NAME</p>
+                <p className="mt-1 text-sm font-semibold text-white/90">{selected.accountName}</p>
               </div>
             )}
             {selected.accountNumber && (
-              <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/15 px-3 py-2.5">
+              <div className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 py-2.5">
                 <div className="min-w-0 flex-1">
-                  <p className="text-[9px] font-bold tracking-[0.14em] text-white/35">NUMBER / ACCOUNT</p>
-                  <p className="mt-1 break-all text-sm font-bold text-white">{selected.accountNumber}</p>
+                  <p className="text-[8px] font-bold tracking-[0.14em] text-white/28">NUMBER / ACCOUNT</p>
+                  <p className="mt-1 break-all text-sm font-semibold text-white/90">{selected.accountNumber}</p>
                 </div>
-                <button type="button" onClick={() => copyText(selected.accountNumber, selected.label)} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/5 text-cyan-200" aria-label={`Copy ${selected.label} account number`}>
+                <button
+                  type="button"
+                  onClick={() => copyText(selected.accountNumber, selected.label)}
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-blue-400/20 bg-blue-500/[0.07] text-blue-200"
+                  aria-label={`Copy ${selected.label} account number`}
+                >
                   <Clipboard className="h-4 w-4" />
                 </button>
               </div>
             )}
           </div>
 
-          <div className="mt-4 border-t border-white/10 pt-4">
+          <div className="mt-4 border-t border-white/[0.08] pt-4">
             {submitted ? (
-              <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/[0.07] p-3 text-xs leading-5 text-emerald-100/80">
-                Payment proof submitted and is now Pending Review. Your supporter badge activates only after an administrator verifies the payment. 💙
+              <div className="rounded-xl border border-emerald-300/15 bg-emerald-300/[0.05] p-3 text-xs leading-5 text-emerald-100/75">
+                Submitted for review. Your supporter badge activates after verification.
               </div>
             ) : (
               <>
-                <label className="text-[10px] font-bold tracking-[0.12em] text-white/45">AFTER YOU SEND THE PAYMENT</label>
-                <div className="mt-3 rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.04] p-3">
-                  <p className="text-[10px] font-black tracking-[0.12em] text-cyan-100/70">OPTION 1 · RECOMMENDED</p>
-                  <p className="mt-1 text-xs font-bold text-white">Upload your payment screenshot</p>
-                  <p className="mt-1 text-[10px] leading-4 text-white/40">This is the fastest way for CLARA to verify what you sent.</p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[10px] font-bold tracking-[0.10em] text-white/42">PAYMENT PROOF</p>
+                  <p className="text-[9px] text-white/25">Screenshot or reference</p>
+                </div>
 
-                  <input
-                    id={`support-payment-proof-${tier.key}-${selected.key}`}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    className="hidden"
-                    disabled={proofBusy}
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) handleProofFile(file);
-                      event.target.value = "";
-                    }}
-                  />
-                  <label
-                    htmlFor={`support-payment-proof-${tier.key}-${selected.key}`}
-                    className="mt-3 flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/[0.08] text-xs font-bold text-cyan-100"
-                  >
-                    {proofBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
-                    {proof ? "Replace screenshot" : "Upload payment screenshot"}
-                  </label>
+                <input
+                  id={`support-payment-proof-${tier.key}-${selected.key}`}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  disabled={proofBusy}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) handleProofFile(file);
+                    event.target.value = "";
+                  }}
+                />
+                <label
+                  htmlFor={`support-payment-proof-${tier.key}-${selected.key}`}
+                  className="mt-3 flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-blue-400/20 bg-blue-500/[0.07] text-xs font-bold text-blue-100 transition hover:bg-blue-500/[0.11]"
+                >
+                  {proofBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                  {proof ? "Replace screenshot" : "Upload screenshot"}
+                </label>
 
-                  {proof && (
-                    <div className="mt-3 overflow-hidden rounded-xl border border-white/10 bg-black/20 p-2">
-                      <img src={proof.dataUrl} alt="Payment screenshot preview" className="mx-auto max-h-44 w-auto max-w-full rounded-lg object-contain" />
-                      <div className="mt-2 flex items-center justify-between gap-2 px-1">
-                        <span className="min-w-0 truncate text-[10px] text-white/45">{proof.originalName}</span>
-                        <button type="button" onClick={() => setProof(null)} className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-200/70">
-                          <Trash2 className="h-3 w-3" /> Remove
-                        </button>
-                      </div>
+                {proof && (
+                  <div className="mt-3 overflow-hidden rounded-xl border border-white/[0.08] bg-black/15 p-2">
+                    <img src={proof.dataUrl} alt="Payment screenshot preview" className="mx-auto max-h-44 w-auto max-w-full rounded-lg object-contain" />
+                    <div className="mt-2 flex items-center justify-between gap-2 px-1">
+                      <span className="min-w-0 truncate text-[9px] text-white/35">{proof.originalName}</span>
+                      <button type="button" onClick={() => setProof(null)} className="inline-flex items-center gap-1 text-[9px] font-bold text-rose-200/60">
+                        <Trash2 className="h-3 w-3" /> Remove
+                      </button>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
-                <div className="my-3 flex items-center gap-3">
-                  <span className="h-px flex-1 bg-white/10" />
-                  <span className="text-[9px] font-black tracking-[0.15em] text-white/30">OR</span>
-                  <span className="h-px flex-1 bg-white/10" />
-                </div>
-
-                <div>
-                  <p className="text-[10px] font-black tracking-[0.12em] text-white/40">OPTION 2</p>
-                  <input
-                    value={reference}
-                    onChange={(event) => setReference(event.target.value)}
-                    placeholder="Enter reference number (optional with screenshot)"
-                    className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none placeholder:text-white/25 focus:border-cyan-300/35"
-                  />
-                </div>
-
-                <p className="mt-3 text-center text-[10px] leading-4 text-white/35">You only need one: a screenshot or the payment reference number.</p>
+                <input
+                  value={reference}
+                  onChange={(event) => setReference(event.target.value)}
+                  placeholder="Reference number (optional)"
+                  className="mt-2.5 h-11 w-full rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 text-sm text-white outline-none placeholder:text-white/22 focus:border-blue-400/30"
+                />
 
                 <button
                   type="button"
                   disabled={submitting || proofBusy}
                   onClick={submitPaymentNotice}
-                  className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-cyan-300/15 text-sm font-bold text-cyan-100 disabled:opacity-50"
+                  className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-bold text-white shadow-[0_10px_28px_rgba(37,99,235,0.22)] transition hover:bg-blue-500 disabled:opacity-50"
                 >
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   I’ve sent the payment
@@ -358,8 +369,8 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
         </div>
       )}
 
-      <p className="mt-4 text-center text-[10px] leading-4 text-white/35">
-        Support is voluntary. Core CLARA features remain free whether you contribute or not.
+      <p className="mt-4 text-center text-[9px] leading-4 text-white/28">
+        Voluntary support · Core CLARA stays free.
       </p>
     </div>
   );
