@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 const readSource = (relativePath) => readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
-const settings = readSource("src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx");
+const settings = readSource("src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanelOfficial.jsx");
 const orbGreeting = readSource("src/runtime/installClaraOrbGreeting.js");
 const canonicalClient = readSource("src/lib/canonical-clara-profile.js");
 const compatibilityClient = readSource("src/lib/profile-backend-client.js");
