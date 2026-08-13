@@ -12,7 +12,6 @@ import { createDailyCheckInEvent } from "@/components/fresh/main-dashboard/daily
 import { loadState, writeState } from "@/components/fresh/main-dashboard/daily-tip/logic/dailyCheckInPersistence.js";
 import ChallengeRaceBoard from "@/components/challenges/ChallengeRaceBoard.jsx";
 import "./installMonthlyMissionRuntime.jsx";
-import "./installChallengeHeroRefinement.js";
 
 const DAILY_CHECK_IN_STORAGE_PREFIX = "clara_daily_check_in_v3:";
 const DAILY_CHECK_IN_UPDATE_EVENT = "clara:daily-check-in-updated";
