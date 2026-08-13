@@ -1,8 +1,4 @@
-/* Weekly Mini Streak local containment.
- * The card is already height:auto; the excess came from legacy spacing that
- * remained after the inline explanatory copy was removed. Keep the content
- * flow natural and tighten only the vertical separators owned by this card.
- */
+/* Weekly Mini Streak local density normalization. */
 
 .clara-community-root[data-community-view="challenges"]
 .clara-community-challenges-view
@@ -23,6 +19,8 @@ section:has(button[aria-label="View Weekly Mini Streak rules"]) > div:first-chil
 section:has(button[aria-label="View Weekly Mini Streak rules"])
 div:has(> button[aria-label="View Weekly Mini Streak rules"]) + h3 {
   margin-top: 12px;
+  font-size: 18px;
+  line-height: 22px;
 }
 
 .clara-community-root[data-community-view="challenges"]
@@ -30,6 +28,37 @@ div:has(> button[aria-label="View Weekly Mini Streak rules"]) + h3 {
 section:has(button[aria-label="View Weekly Mini Streak rules"])
 h3 + .grid.grid-cols-3 {
   margin-top: 12px;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(button[aria-label="View Weekly Mini Streak rules"])
+.grid.grid-cols-3 > div > p:first-child {
+  font-size: 8px;
+  line-height: 12px;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(button[aria-label="View Weekly Mini Streak rules"])
+.grid.grid-cols-3 > div > p:last-child {
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(button[aria-label="View Weekly Mini Streak rules"])
+.grid.grid-cols-3 > div:nth-child(2) > p:last-child {
+  font-size: 13px;
+  line-height: 16px;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(button[aria-label="View Weekly Mini Streak rules"])
+.grid.grid-cols-3 > div:nth-child(2) > p:last-child > span {
+  font-size: 9px;
 }
 
 .clara-community-root[data-community-view="challenges"]
@@ -51,4 +80,12 @@ section:has(button[aria-label="View Weekly Mini Streak rules"])
 section:has(button[aria-label="View Weekly Mini Streak rules"]) > div:last-child {
   padding-top: 12px;
   padding-bottom: 12px;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(button[aria-label="View Weekly Mini Streak rules"]) > div:last-child > button {
+  height: 44px;
+  font-size: 12px;
+  line-height: 16px;
 }
