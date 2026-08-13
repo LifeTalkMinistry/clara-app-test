@@ -1,5 +1,6 @@
 const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const DEFAULT_MODEL = "gemini-2.5-flash";
+const ALLOWED_FEATURE = "ask-before-you-spend";
 const MAX_PROMPT_CHARS = 90000;
 const REQUEST_TIMEOUT_MS = 30000;
 const BLOCKED_MODEL_KEYWORDS = [
@@ -134,16 +135,25 @@ export default async function handler(req, res) {
     return sendJson(res, 405, { ok: false, error: "Method not allowed." });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return sendJson(res, 500, { ok: false, error: "CLARA AI is not configured on the server." });
-  }
-
   let body;
   try {
     body = await readJsonBody(req);
   } catch {
     return sendJson(res, 400, { ok: false, error: "Invalid JSON body." });
+  }
+
+  const feature = cleanText(body?.feature).toLowerCase();
+  if (feature !== ALLOWED_FEATURE) {
+    return sendJson(res, 403, {
+      ok: false,
+      code: "CLARA_AI_FEATURE_DISABLED",
+      error: "CLARA AI is intentionally enabled only for Ask Before You Spend.",
+    });
+  }
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return sendJson(res, 500, { ok: false, error: "CLARA AI is not configured on the server." });
   }
 
   const prompt = String(body?.prompt || "").trim();
@@ -186,7 +196,7 @@ export default async function handler(req, res) {
       return sendJson(res, 502, { ok: false, error: "CLARA AI returned an empty response.", model });
     }
 
-    return sendJson(res, 200, { ok: true, text, model });
+    return sendJson(res, 200, { ok: true, text, model, feature: ALLOWED_FEATURE });
   } catch (error) {
     const isTimeout = error?.name === "AbortError";
     return sendJson(res, isTimeout ? 504 : 502, {
