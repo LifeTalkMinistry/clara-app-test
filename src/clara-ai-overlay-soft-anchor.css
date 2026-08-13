@@ -153,3 +153,63 @@ body.clara-ai-environment-active
   > main[data-clara-ai-message-viewport="true"] {
   padding-top: 54px !important;
 }
+
+/* -------------------------------------------------------------------------- */
+/* ANDROID IME / CHATGPT-LIKE CONVERSATION GEOMETRY                           */
+/* -------------------------------------------------------------------------- */
+/*
+ * When the software keyboard is open, the composer must remain a real flex
+ * sibling inside the resized app viewport — never a panel hidden underneath
+ * the IME. The Android activity now uses adjustResize; this layer makes the
+ * React-owned Buy Check consume that resized height in the same way a native
+ * chat screen does.
+ */
+body.clara-ai-environment-active
+  [data-clara-pause-overlay="true"][data-clara-buy-check-keyboard-active="true"] {
+  min-height: 0 !important;
+  padding-top: max(env(safe-area-inset-top), 4px) !important;
+  padding-bottom: max(env(safe-area-inset-bottom), 6px) !important;
+  overflow: hidden !important;
+}
+
+body.clara-ai-environment-active
+  [data-clara-pause-overlay="true"][data-clara-buy-check-keyboard-active="true"]
+  > main[data-clara-ai-message-viewport="true"] {
+  min-height: 0 !important;
+  flex: 1 1 auto !important;
+  padding-top: 48px !important;
+  padding-bottom: 4px !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/* The empty-state board should move into the conversation stream when typing,
+   instead of remaining vertically centered and forcing the composer offscreen. */
+body.clara-ai-environment-active
+  [data-clara-pause-overlay="true"][data-clara-buy-check-keyboard-active="true"]
+  > main[data-clara-ai-message-viewport="true"]
+  > div.flex.min-h-full.flex-col.justify-center {
+  min-height: 0 !important;
+  justify-content: flex-start !important;
+  padding-top: 4px !important;
+  padding-bottom: 8px !important;
+}
+
+body.clara-ai-environment-active
+  [data-clara-pause-overlay="true"][data-clara-buy-check-keyboard-active="true"]
+  [data-clara-pause-entry-board="true"] {
+  margin-top: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+body.clara-ai-environment-active
+  [data-clara-pause-overlay="true"][data-clara-buy-check-keyboard-active="true"]
+  > form[data-clara-buy-check-react-form="true"] {
+  position: relative !important;
+  bottom: auto !important;
+  flex: 0 0 auto !important;
+  margin: 0 !important;
+  z-index: 80 !important;
+  transform: translateZ(0) !important;
+}
