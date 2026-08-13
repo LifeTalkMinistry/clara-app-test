@@ -46,6 +46,21 @@ function createBloomLayer(launcher) {
   return bloom;
 }
 
+function resolveCopyElements(launcher) {
+  const greetingBlock = launcher.previousElementSibling;
+  const ctaBlock = launcher.nextElementSibling;
+
+  return {
+    greetingLabel:
+      greetingBlock?.querySelector('[data-clara-orb-user-greeting="true"]') ||
+      greetingBlock?.querySelector("p") ||
+      null,
+    greetingRule: greetingBlock?.querySelector("div") || null,
+    ctaTitle: ctaBlock?.querySelector("h1") || null,
+    ctaHint: ctaBlock?.querySelector("p") || null,
+  };
+}
+
 function playLaunchAnimation(launcher) {
   const shell = launcher.querySelector(".clara-orb-asset-shell");
   const svg = launcher.querySelector(".clara-orb-vector");
@@ -57,11 +72,106 @@ function playLaunchAnimation(launcher) {
   const paths = [...svg.querySelectorAll(":scope > path")];
   const rects = [...svg.querySelectorAll(":scope > rect")];
   const bloom = createBloomLayer(launcher);
+  const { greetingLabel, greetingRule, ctaTitle, ctaHint } = resolveCopyElements(launcher);
+  const copyElements = [greetingLabel, greetingRule, ctaTitle, ctaHint].filter(Boolean);
   const animations = [];
 
   const remember = (animation) => {
     if (animation) animations.push(animation);
   };
+
+  copyElements.forEach((element) => {
+    element.style.willChange = "transform, opacity, filter";
+  });
+
+  // The instruction disappears first: the user's tap has already completed it.
+  remember(
+    safeAnimate(
+      ctaHint,
+      [
+        { transform: "translateY(0) scale(1)", opacity: 1, filter: "blur(0px)", offset: 0 },
+        { transform: "translateY(2px) scale(0.985)", opacity: 0.72, filter: "blur(0px)", offset: 0.36 },
+        { transform: "translateY(7px) scale(0.96)", opacity: 0, filter: "blur(1.6px)", offset: 1 },
+      ],
+      {
+        duration: 230,
+        easing: "cubic-bezier(0.4, 0, 0.6, 1)",
+        fill: "forwards",
+      }
+    )
+  );
+
+  // The personalized greeting gets its own soft acknowledgement before clearing upward.
+  remember(
+    safeAnimate(
+      greetingLabel,
+      [
+        {
+          transform: "translateY(0) scale(1)",
+          opacity: 1,
+          filter: "blur(0px)",
+          textShadow: "0 0 0 rgba(67, 184, 255, 0)",
+          offset: 0,
+        },
+        {
+          transform: "translateY(-2px) scale(1.025)",
+          opacity: 1,
+          filter: "blur(0px)",
+          textShadow: "0 0 18px rgba(67, 184, 255, 0.42)",
+          offset: 0.34,
+        },
+        {
+          transform: "translateY(-17px) scale(0.985)",
+          opacity: 0,
+          filter: "blur(2.4px)",
+          textShadow: "0 0 24px rgba(67, 184, 255, 0.12)",
+          offset: 1,
+        },
+      ],
+      {
+        duration: 455,
+        delay: 55,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        fill: "forwards",
+      }
+    )
+  );
+
+  // Its small CLARA color rule retracts separately instead of vanishing with the name.
+  remember(
+    safeAnimate(
+      greetingRule,
+      [
+        { transform: "scaleX(1)", opacity: 0.7, offset: 0 },
+        { transform: "scaleX(0.72)", opacity: 0.82, offset: 0.32 },
+        { transform: "scaleX(0.08)", opacity: 0, offset: 1 },
+      ],
+      {
+        duration: 330,
+        delay: 95,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        fill: "forwards",
+      }
+    )
+  );
+
+  // The main promise lingers a fraction longer, then travels toward the Orb as it transforms.
+  remember(
+    safeAnimate(
+      ctaTitle,
+      [
+        { transform: "translateY(0) scale(1)", opacity: 1, filter: "blur(0px)", offset: 0 },
+        { transform: "translateY(-2px) scale(1.012)", opacity: 1, filter: "blur(0px)", offset: 0.32 },
+        { transform: "translateY(-15px) scale(0.965)", opacity: 0, filter: "blur(2px)", offset: 1 },
+      ],
+      {
+        duration: 470,
+        delay: 105,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        fill: "forwards",
+      }
+    )
+  );
 
   // 1) CLARA closes its yellow eyes first.
   rects.forEach((eye, index) => {
@@ -214,6 +324,10 @@ function playLaunchAnimation(launcher) {
 
     bloom.remove();
     shell.style.removeProperty("overflow");
+
+    copyElements.forEach((element) => {
+      element.style.removeProperty("will-change");
+    });
 
     [...circles, ...paths, ...rects].forEach((element) => {
       element.style.removeProperty("transform-box");
