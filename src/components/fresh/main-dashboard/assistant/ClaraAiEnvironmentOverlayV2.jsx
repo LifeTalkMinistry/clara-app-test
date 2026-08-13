@@ -266,6 +266,10 @@ const BuyCheckComposer = memo(function BuyCheckComposer({
 
   const composerLocked = inputLocked || busy;
 
+  const blockLockedInput = (event) => {
+    if (composerLocked) event.preventDefault();
+  };
+
   return (
     <form
       onSubmit={submitDraft}
@@ -278,8 +282,12 @@ const BuyCheckComposer = memo(function BuyCheckComposer({
         <input
           ref={inputRef}
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          readOnly={composerLocked}
+          onBeforeInput={blockLockedInput}
+          onPaste={blockLockedInput}
+          onDrop={blockLockedInput}
+          onChange={(event) => {
+            if (!composerLocked) setDraft(event.target.value);
+          }}
           aria-disabled={composerLocked ? "true" : undefined}
           className={`min-w-0 flex-1 bg-transparent py-2 text-[14px] font-medium text-white outline-none placeholder:text-slate-400/72 ${composerLocked ? "opacity-55" : ""}`}
           placeholder={placeholderFor(step)}
