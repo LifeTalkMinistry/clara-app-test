@@ -65,7 +65,6 @@ jobs:
       - name: Run production web build
         run: npm run build:web
         env:
-          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
           VITE_GEMINI_MODEL: gemini-2.5-flash
           VITE_CLARA_RUNTIME_MODE: local_only
           VITE_CLARA_AUTH_ENABLED: "false"
