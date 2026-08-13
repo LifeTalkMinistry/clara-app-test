@@ -1,8 +1,11 @@
 const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const DEFAULT_MODEL = "gemini-2.5-flash";
 const ALLOWED_FEATURE = "ask-before-you-spend";
-const MAX_PROMPT_CHARS = 90000;
+const MAX_PROMPT_CHARS = 60000;
+const MAX_OUTPUT_TOKENS = 700;
 const REQUEST_TIMEOUT_MS = 30000;
+const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
+const RATE_LIMIT_MAX_REQUESTS = 40;
 const BLOCKED_MODEL_KEYWORDS = [
   "image",
   "vision",
@@ -21,6 +24,9 @@ const BLOCKED_MODEL_KEYWORDS = [
   "native-audio",
   "thinking-exp",
 ];
+
+const rateBuckets = globalThis.__CLARA_GEMINI_RATE_BUCKETS__ || new Map();
+globalThis.__CLARA_GEMINI_RATE_BUCKETS__ = rateBuckets;
 
 function setCorsHeaders(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -73,7 +79,7 @@ function buildGenerationConfig(input = {}) {
   const config = {
     temperature: safeNumber(source.temperature, 0.55, 0, 2),
     topP: safeNumber(source.topP, 0.86, 0, 1),
-    maxOutputTokens: Math.round(safeNumber(source.maxOutputTokens, 520, 1, 4096)),
+    maxOutputTokens: Math.round(safeNumber(source.maxOutputTokens, 520, 1, MAX_OUTPUT_TOKENS)),
   };
 
   if (source.topK !== undefined) {
@@ -88,7 +94,7 @@ function buildGenerationConfig(input = {}) {
     const thinkingBudget = Number(source.thinkingConfig.thinkingBudget);
     if (Number.isFinite(thinkingBudget)) {
       config.thinkingConfig = {
-        thinkingBudget: Math.round(safeNumber(thinkingBudget, 0, 0, 4096)),
+        thinkingBudget: Math.round(safeNumber(thinkingBudget, 0, 0, 1024)),
       };
     }
   }
@@ -122,6 +128,49 @@ function safeErrorMessage(status) {
   return "CLARA AI could not complete the request.";
 }
 
+function isAllowedBuyCheckPrompt(prompt = "") {
+  const head = String(prompt || "").trim().slice(0, 1800).toLowerCase();
+  if (!head) return false;
+  return head.includes("ask before you spend") ||
+    head.includes("buy check") ||
+    head.includes("pre-purchase money coach");
+}
+
+function getClientKey(req) {
+  const forwarded = cleanText(req.headers?.["x-forwarded-for"] || "");
+  if (forwarded) return forwarded.split(",")[0].trim();
+  return cleanText(
+    req.headers?.["x-real-ip"] ||
+    req.headers?.["cf-connecting-ip"] ||
+    req.socket?.remoteAddress ||
+    "unknown"
+  );
+}
+
+function takeRateLimitSlot(req) {
+  const key = getClientKey(req);
+  const now = Date.now();
+  const existing = rateBuckets.get(key);
+  const bucket = existing && now - existing.startedAt < RATE_LIMIT_WINDOW_MS
+    ? existing
+    : { startedAt: now, count: 0 };
+
+  bucket.count += 1;
+  rateBuckets.set(key, bucket);
+
+  if (rateBuckets.size > 1000) {
+    for (const [bucketKey, value] of rateBuckets.entries()) {
+      if (now - value.startedAt >= RATE_LIMIT_WINDOW_MS) rateBuckets.delete(bucketKey);
+    }
+  }
+
+  return {
+    allowed: bucket.count <= RATE_LIMIT_MAX_REQUESTS,
+    remaining: Math.max(0, RATE_LIMIT_MAX_REQUESTS - bucket.count),
+    retryAfterSeconds: Math.max(1, Math.ceil((RATE_LIMIT_WINDOW_MS - (now - bucket.startedAt)) / 1000)),
+  };
+}
+
 export default async function handler(req, res) {
   setCorsHeaders(res);
 
@@ -151,18 +200,38 @@ export default async function handler(req, res) {
     });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return sendJson(res, 500, { ok: false, error: "CLARA AI is not configured on the server." });
-  }
-
   const prompt = String(body?.prompt || "").trim();
   if (!prompt) {
     return sendJson(res, 400, { ok: false, error: "Prompt is required." });
   }
 
+  if (!isAllowedBuyCheckPrompt(prompt)) {
+    return sendJson(res, 403, {
+      ok: false,
+      code: "CLARA_AI_PROMPT_BLOCKED",
+      error: "Only Ask Before You Spend prompts are allowed through this endpoint.",
+    });
+  }
+
   if (prompt.length > MAX_PROMPT_CHARS) {
     return sendJson(res, 413, { ok: false, error: "Prompt is too large for one CLARA AI request." });
+  }
+
+  const rateLimit = takeRateLimitSlot(req);
+  res.setHeader("X-RateLimit-Limit", String(RATE_LIMIT_MAX_REQUESTS));
+  res.setHeader("X-RateLimit-Remaining", String(rateLimit.remaining));
+  if (!rateLimit.allowed) {
+    res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds));
+    return sendJson(res, 429, {
+      ok: false,
+      code: "CLARA_AI_RATE_LIMITED",
+      error: "Too many Ask Before You Spend AI requests. Please try again shortly.",
+    });
+  }
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return sendJson(res, 500, { ok: false, error: "CLARA AI is not configured on the server." });
   }
 
   const model = chooseModel(body?.model);
