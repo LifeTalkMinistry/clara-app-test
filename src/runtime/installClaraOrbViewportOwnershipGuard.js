@@ -12,12 +12,17 @@
  * - neutralize containing-block makers only while the Orb route is active;
  * - make the Community root own the viewport without relying on dvh;
  * - make the Orb page fill that root with absolute inset geometry;
+ * - use that page as the single content stage for the usable vertical region;
+ * - reserve the real responsive TopNav height even while the nav is hidden;
+ * - neutralize the legacy visual translate so the composition centers by flex;
  * - restore every touched inline style when leaving the Orb route.
  */
 
 const RUNTIME_KEY = "__claraOrbViewportOwnershipGuard__";
 const ROOT_SELECTOR = '.clara-community-root[data-community-view="orb"]';
 const PAGE_SELECTOR = '.clara-community-orb-view[data-clara-orb-page="true"]';
+const HEADER_SELECTOR = ".clara-community-shell-header";
+const COMPOSITION_SELECTOR = '[data-clara-orb-visual-offset]';
 const ORB_BACKGROUND = "#010217";
 
 const CONTAINING_BLOCK_PROPERTIES = [
@@ -65,10 +70,16 @@ function installClaraOrbViewportOwnershipGuard() {
 
   let activeRoot = null;
   let activePage = null;
+  let activeHeader = null;
+  let activeComposition = null;
   let snapshots = [];
   let syncQueued = false;
+  let headerResizeObserver = null;
 
   const release = () => {
+    headerResizeObserver?.disconnect();
+    headerResizeObserver = null;
+
     for (let index = snapshots.length - 1; index >= 0; index -= 1) {
       restoreInlineStyle(snapshots[index]);
     }
@@ -76,14 +87,36 @@ function installClaraOrbViewportOwnershipGuard() {
 
     activeRoot?.removeAttribute("data-clara-orb-viewport-owner");
     activePage?.removeAttribute("data-clara-orb-viewport-fill");
+    activePage?.removeAttribute("data-clara-orb-content-stage");
+    activeComposition?.removeAttribute("data-clara-orb-centered-composition");
     activeRoot = null;
     activePage = null;
+    activeHeader = null;
+    activeComposition = null;
   };
 
-  const apply = (root, page) => {
+  const refreshStageLayout = () => {
+    if (!activePage) return;
+
+    const headerHeight = activeHeader
+      ? Math.max(0, Math.ceil(activeHeader.getBoundingClientRect().height))
+      : 0;
+
+    // The Orb nav is a fixed overlay. Reserve its actual responsive height in
+    // every nav state so reveal/hide transitions never move the composition.
+    activePage.style.setProperty(
+      "padding-top",
+      headerHeight > 0 ? `${headerHeight}px` : "env(safe-area-inset-top, 0px)",
+      "important"
+    );
+  };
+
+  const apply = (root, page, header, composition) => {
     release();
     activeRoot = root;
     activePage = page;
+    activeHeader = header;
+    activeComposition = composition;
 
     // Walk the complete rendered hierarchy instead of assuming which Layout
     // layer became the Android containing block.
@@ -117,9 +150,10 @@ function installClaraOrbViewportOwnershipGuard() {
     setImportant(root, "background-color", ORB_BACKGROUND, snapshots);
     setImportant(root, "background-image", "none", snapshots);
 
-    // The shared Community nav is already an overlay on the Orb route. The Orb
-    // canvas therefore fills the root directly instead of calculating its own
-    // height from 100dvh - getBoundingClientRect().top.
+    // The shared Community nav is already a fixed overlay on the Orb route. The
+    // Orb page therefore owns the whole viewport and becomes the one centering
+    // stage. Padding reserves the nav/safe-area exclusion while flex centers the
+    // greeting -> divider -> Orb -> tagline -> CTA as one composition.
     setImportant(page, "position", "absolute", snapshots);
     setImportant(page, "top", "0", snapshots);
     setImportant(page, "right", "0", snapshots);
@@ -131,11 +165,34 @@ function installClaraOrbViewportOwnershipGuard() {
     setImportant(page, "max-height", "none", snapshots);
     setImportant(page, "flex", "none", snapshots);
     setImportant(page, "margin", "0", snapshots);
+    setImportant(page, "display", "flex", snapshots);
+    setImportant(page, "align-items", "center", snapshots);
+    setImportant(page, "justify-content", "center", snapshots);
+    setImportant(page, "box-sizing", "border-box", snapshots);
+    setImportant(page, "padding-top", "env(safe-area-inset-top, 0px)", snapshots);
+    setImportant(page, "padding-bottom", "env(safe-area-inset-bottom, 0px)", snapshots);
     setImportant(page, "background-color", ORB_BACKGROUND, snapshots);
     setImportant(page, "background-image", "none", snapshots);
 
-    root.dataset.claraOrbViewportOwner = "runtime-v1";
-    page.dataset.claraOrbViewportFill = "runtime-v1";
+    if (composition) {
+      // Retire the screenshot-tuned translateY as a placement authority. The
+      // composition remains one normal-flow flex item centered by the stage.
+      setImportant(composition, "transform", "none", snapshots);
+      composition.dataset.claraOrbCenteredComposition = "true";
+    }
+
+    root.dataset.claraOrbViewportOwner = "runtime-v2";
+    page.dataset.claraOrbViewportFill = "runtime-v2";
+    page.dataset.claraOrbContentStage = "runtime-v2";
+
+    refreshStageLayout();
+
+    if (typeof ResizeObserver !== "undefined" && activeHeader) {
+      headerResizeObserver = new ResizeObserver(() => {
+        refreshStageLayout();
+      });
+      headerResizeObserver.observe(activeHeader);
+    }
   };
 
   const sync = () => {
@@ -143,14 +200,25 @@ function installClaraOrbViewportOwnershipGuard() {
 
     const root = document.querySelector(ROOT_SELECTOR);
     const page = root?.querySelector(PAGE_SELECTOR) || null;
+    const header = root?.querySelector(HEADER_SELECTOR) || null;
+    const composition = page?.querySelector(COMPOSITION_SELECTOR) || null;
 
     if (!root || !page) {
       if (activeRoot || activePage) release();
       return;
     }
 
-    if (root === activeRoot && page === activePage) return;
-    apply(root, page);
+    if (
+      root === activeRoot &&
+      page === activePage &&
+      header === activeHeader &&
+      composition === activeComposition
+    ) {
+      refreshStageLayout();
+      return;
+    }
+
+    apply(root, page, header, composition);
   };
 
   const queueSync = () => {
