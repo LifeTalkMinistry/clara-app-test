@@ -105,11 +105,20 @@ test("Gemini cost controls use one model, bounded history, rate limit, timeout, 
   assert.match(api, /REQUEST_TIMEOUT_MS = 20000/);
   assert.match(api, /MAX_OUTPUT_TOKENS = 700/);
   assert.match(api, /MAX_PROMPT_CHARS = 28000/);
+  assert.doesNotMatch(proxy, /getClaraGeminiProxyModelCandidates/);
   assert.doesNotMatch(proxy, /gemini-2\.5-flash-lite/);
   assert.doesNotMatch(proxy, /gemini-2\.0-flash/);
   assert.doesNotMatch(proxy, /gemini-1\.5-flash/);
   assert.doesNotMatch(json, /for \(const model of models\)/);
   assert.match(expert, /history\.slice\(-12\)/);
+});
+
+test("post-decision saving does not spend another Gemini call", async () => {
+  const finalization = await source("src/components/fresh/main-dashboard/assistant/useClaraBuyCheckFlowV5.js");
+
+  assert.doesNotMatch(finalization, /requestClaraGemini/);
+  assert.doesNotMatch(finalization, /interpretFinalBuyExplanation/);
+  assert.match(finalization, /explanationSource: "local"/);
 });
 
 test("Gemini secret stays server-side and no browser API-key variable is introduced", async () => {
@@ -137,13 +146,10 @@ test("Gemini gateway reuses canonical CLARA backend authentication", async () =>
   assert.match(api, /Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With/);
 });
 
-test("legacy deterministic diagnosis remains present for rollback but outside the active expert verdict path", async () => {
-  const legacyDiagnosis = await source("src/lib/clara-buy-check-diagnosis-v5.js");
-  const legacyCore = await source("src/lib/clara-buy-check-decision-core.js");
-  const activeFlow = await source("src/components/fresh/main-dashboard/assistant/useClaraBuyCheckExpertFlow.js");
-
-  assert.match(legacyDiagnosis, /calculateBuyCheckDiagnosis/);
-  assert.match(legacyCore, /function calculateBuyCheckDiagnosis/);
-  assert.doesNotMatch(activeFlow, /calculateBuyCheckDiagnosis/);
-  assert.doesNotMatch(activeFlow, /validateBuyCheckDiagnosis/);
+test("legacy deterministic verdict engine and obsolete interpreter layer are removed", async () => {
+  await assert.rejects(() => source("src/lib/clara-buy-check-diagnosis-v5.js"), { code: "ENOENT" });
+  await assert.rejects(() => source("src/lib/clara-buy-check-decision-core.js"), { code: "ENOENT" });
+  await assert.rejects(() => source("src/components/fresh/main-dashboard/assistant/useClaraBuyCheckBudgetFlowDeterministic.js"), { code: "ENOENT" });
+  await assert.rejects(() => source("src/components/fresh/main-dashboard/assistant/buyCheckReasonInterpreterV2.js"), { code: "ENOENT" });
+  await assert.rejects(() => source("src/components/fresh/main-dashboard/assistant/useClaraBuyCheckReasonSummary.js"), { code: "ENOENT" });
 });

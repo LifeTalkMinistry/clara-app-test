@@ -1,13 +1,15 @@
-name: Verify Buy Check Reconstruction
+name: Verify Buy Check Architecture
 
 on:
   pull_request:
     branches: [main]
     paths:
+      - "api/clara-gemini.js"
       - "src/lib/clara-buy-check-*.js"
+      - "src/lib/clara-gemini-*.js"
+      - "src/lib/clara-spending-decision-ai.js"
       - "src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay*.jsx"
       - "src/components/fresh/main-dashboard/assistant/buy-check/*.jsx"
-      - "src/components/fresh/main-dashboard/assistant/buyCheckReasonInterpreter*.js"
       - "src/components/fresh/main-dashboard/assistant/useClaraBuyCheck*.js"
       - "tests/buy-check-*.test.mjs"
       - "package.json"
@@ -33,11 +35,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run deterministic Buy Check tests
-        run: npm test
+      - name: Verify Buy Check facts and Gemini authority
+        run: node --test tests/buy-check-context-facts.test.mjs tests/buy-check-gemini-authority.test.mjs
 
-      - name: Lint Buy Check reconstruction
+      - name: Lint Buy Check architecture
         run: npm run lint:buy-check
 
       - name: Build production app
-        run: npm run build
+        run: npx vite build --base=./
