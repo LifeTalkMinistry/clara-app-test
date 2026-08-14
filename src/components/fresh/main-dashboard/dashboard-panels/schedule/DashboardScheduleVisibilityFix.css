@@ -20,6 +20,17 @@
   background: rgba(91, 143, 255, 0.24);
 }
 
+[role="dialog"][aria-label="Add schedule"]
+  form > div[class*="rounded-[22px]"][class*="border-white/8"] > div:first-child {
+  justify-content: center !important;
+}
+
+[role="dialog"][aria-label="Add schedule"]
+  form > div[class*="rounded-[22px]"][class*="border-white/8"] > div:first-child > div:first-child {
+  width: 100%;
+  text-align: center;
+}
+
 [role="dialog"][aria-label="Add schedule"] button[type="submit"] {
   position: sticky;
   bottom: 0;
