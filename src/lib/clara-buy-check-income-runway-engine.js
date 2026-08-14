@@ -1,4 +1,7 @@
-const DAY_MS = 24 * 60 * 60 * 1000;
+import {
+  getExpectedIncomeWindow,
+  getRecurringCashFlowOwnerId,
+} from "./recurringCashFlowRepository.js";
 
 const clean = (value = "") => String(value ?? "").replace(/\s+/g, " ").trim();
 const toNumber = (value) => {
@@ -70,124 +73,113 @@ function collectIncomeRecords(context = {}) {
     .sort((left, right) => new Date(left.date) - new Date(right.date));
 }
 
-function explicitNextIncome(context = {}, now = new Date()) {
-  const sources = Array.isArray(context.incomeSources) ? context.incomeSources : [];
-  const candidates = sources.flatMap((source) => [
-    source.nextIncomeDate,
-    source.next_income_date,
-    source.nextPayDate,
-    source.next_pay_date,
-    source.nextPaymentDate,
-    source.next_payment_date,
-    source.expectedDate,
-    source.expected_date,
-  ].map((value) => ({ value, source })));
-  const next = candidates
-    .map(({ value, source }) => ({ date: parseDate(value), source }))
-    .filter((entry) => entry.date && entry.date > now)
-    .sort((left, right) => left.date - right.date)[0];
-  if (!next) return null;
+function normalizeScheduledIncomeSnapshot(snapshot = {}) {
+  if (!snapshot || typeof snapshot !== "object") return null;
+  const nextExpectedDate = clean(snapshot.nextExpectedDate || snapshot.next_expected_date);
+  const previousExpectedDate = clean(snapshot.previousExpectedDate || snapshot.previous_expected_date);
+  const timing = snapshot.timing && typeof snapshot.timing === "object" ? snapshot.timing : {};
+  const configured = snapshot.configured === true || snapshot.connected === true || Boolean(nextExpectedDate || previousExpectedDate || timing.id);
+
+  if (!configured) return null;
+
   return {
-    date: next.date,
-    sourceName: sourceName(next.source),
-    amount: Math.abs(toNumber(next.source.expectedAmount ?? next.source.expected_amount ?? next.source.amount)),
-    basis: "explicit_income_schedule",
+    configured: true,
+    nextExpectedDate: nextExpectedDate || null,
+    previousExpectedDate: previousExpectedDate || null,
+    daysUntilNextIncome: Number.isFinite(Number(snapshot.daysUntilNextIncome ?? snapshot.days_until_next_income))
+      ? Math.max(0, Number(snapshot.daysUntilNextIncome ?? snapshot.days_until_next_income))
+      : null,
+    sourceName: clean(snapshot.sourceName || snapshot.source_name || timing.sourceName || timing.source_name),
   };
 }
 
-function median(values = []) {
-  if (!values.length) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
-  const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+function readScheduledIncome(context = {}, now = new Date()) {
+  const supplied = normalizeScheduledIncomeSnapshot(
+    context.incomeTimingSnapshot ||
+      context.incomeScheduleSnapshot ||
+      context.incomeSchedule ||
+      null
+  );
+  if (supplied) return supplied;
+
+  const ownerIdentity = context.user || context.userId || context.user_id || context.localUserId || context.local_user_id;
+  if (!ownerIdentity) return null;
+
+  try {
+    const ownerId = getRecurringCashFlowOwnerId(ownerIdentity);
+    const window = getExpectedIncomeWindow(ownerId, now);
+    if (!window?.timing) return null;
+
+    return {
+      configured: true,
+      nextExpectedDate: window.nextExpectedDate || null,
+      previousExpectedDate: window.previousExpectedDate || null,
+      daysUntilNextIncome: Number.isFinite(Number(window.daysUntilNextIncome))
+        ? Math.max(0, Number(window.daysUntilNextIncome))
+        : null,
+      sourceName: clean(window.timing.sourceName || window.timing.source_name),
+    };
+  } catch (error) {
+    console.warn("[CLARA Buy Check] Income schedule timing could not be read safely.", error);
+    return null;
+  }
 }
 
-function classifyInterval(days) {
-  if (days >= 6 && days <= 8) return "regular";
-  if (days >= 12 && days <= 17) return "semi_regular";
-  if (days >= 26 && days <= 35) return "regular";
-  return "irregular";
-}
-
-function choosePattern(records = []) {
-  const groups = new Map();
-  records.forEach((record) => {
-    const key = record.sourceName.toLowerCase();
-    const group = groups.get(key) || [];
-    group.push(record);
-    groups.set(key, group);
-  });
-  return [...groups.values()]
-    .filter((group) => group.length >= 2)
-    .sort((left, right) => right.length - left.length || new Date(right[right.length - 1].date) - new Date(left[left.length - 1].date))[0] || null;
+function scheduledDateToIso(dateKey) {
+  if (!dateKey) return null;
+  const date = parseDate(`${dateKey}T12:00:00`);
+  return date ? date.toISOString() : null;
 }
 
 function analyzeIncomeRunway(context = {}, options = {}) {
   const now = parseDate(options.now) || new Date();
   const records = collectIncomeRecords(context);
   const latest = records[records.length - 1] || null;
-  const explicit = explicitNextIncome(context, now);
-  if (explicit) {
+  const scheduledIncome = readScheduledIncome(context, now);
+
+  if (scheduledIncome?.nextExpectedDate) {
     return {
       connected: true,
       latestIncomeDate: latest?.date || null,
       latestIncomeAmount: latest?.amount || 0,
-      sourceName: explicit.sourceName || latest?.sourceName || "",
-      estimatedNextIncomeDate: explicit.date.toISOString(),
-      daysUntilNextIncome: Math.max(0, Math.ceil((explicit.date - now) / DAY_MS)),
-      regularity: "regular",
+      sourceName: scheduledIncome.sourceName || latest?.sourceName || "",
+      estimatedNextIncomeDate: scheduledDateToIso(scheduledIncome.nextExpectedDate),
+      daysUntilNextIncome: scheduledIncome.daysUntilNextIncome,
+      regularity: "scheduled",
       confidence: "high",
-      basis: [explicit.basis],
+      timingAuthority: "schedule",
+      basis: ["configured_income_schedule"],
       recordCount: records.length,
     };
   }
 
-  const pattern = choosePattern(records);
-  if (!pattern) {
+  if (scheduledIncome?.configured) {
     return {
-      connected: Boolean(context.incomeHubSnapshot?.connected || Array.isArray(context.incomes) || Array.isArray(context.incomeSources)),
+      connected: true,
       latestIncomeDate: latest?.date || null,
       latestIncomeAmount: latest?.amount || 0,
-      sourceName: latest?.sourceName || "",
+      sourceName: scheduledIncome.sourceName || latest?.sourceName || "",
       estimatedNextIncomeDate: null,
       daysUntilNextIncome: null,
-      regularity: "unknown",
-      confidence: records.length ? "low" : "none",
-      basis: records.length ? ["insufficient_repeated_income_history"] : [],
+      regularity: "scheduled",
+      confidence: "low",
+      timingAuthority: "schedule",
+      basis: ["configured_income_schedule_has_no_next_occurrence"],
       recordCount: records.length,
     };
   }
 
-  const intervals = pattern.slice(1).map((record, index) => Math.round((new Date(record.date) - new Date(pattern[index].date)) / DAY_MS)).filter((days) => days > 0 && days <= 62);
-  const typicalDays = Math.round(median(intervals));
-  const deviations = intervals.map((days) => Math.abs(days - typicalDays));
-  const maxDeviation = deviations.length ? Math.max(...deviations) : Infinity;
-  const consistent = typicalDays > 0 && maxDeviation <= Math.max(2, Math.round(typicalDays * 0.2));
-  const regularity = consistent ? classifyInterval(typicalDays) : "irregular";
-  const latestPattern = pattern[pattern.length - 1];
-  let nextDate = typicalDays > 0 ? new Date(new Date(latestPattern.date).getTime() + typicalDays * DAY_MS) : null;
-  let guard = 0;
-  while (nextDate && nextDate <= now && guard < 12) {
-    nextDate = new Date(nextDate.getTime() + typicalDays * DAY_MS);
-    guard += 1;
-  }
-  const confidence = consistent && pattern.length >= 4 ? "high" : consistent && pattern.length >= 3 ? "medium" : "low";
-  if (confidence === "low") nextDate = null;
-
   return {
-    connected: true,
-    latestIncomeDate: latestPattern.date,
-    latestIncomeAmount: latestPattern.amount,
-    sourceName: latestPattern.sourceName,
-    estimatedNextIncomeDate: nextDate?.toISOString() || null,
-    daysUntilNextIncome: nextDate ? Math.max(0, Math.ceil((nextDate - now) / DAY_MS)) : null,
-    regularity,
-    confidence,
-    basis: [
-      `same_source_records:${pattern.length}`,
-      `typical_interval_days:${typicalDays || "unknown"}`,
-      `maximum_interval_deviation:${Number.isFinite(maxDeviation) ? maxDeviation : "unknown"}`,
-    ],
+    connected: Boolean(context.incomeHubSnapshot?.connected || Array.isArray(context.incomes) || Array.isArray(context.incomeSources)),
+    latestIncomeDate: latest?.date || null,
+    latestIncomeAmount: latest?.amount || 0,
+    sourceName: latest?.sourceName || "",
+    estimatedNextIncomeDate: null,
+    daysUntilNextIncome: null,
+    regularity: "unknown",
+    confidence: "none",
+    timingAuthority: "schedule",
+    basis: ["no_configured_income_schedule"],
     recordCount: records.length,
   };
 }
