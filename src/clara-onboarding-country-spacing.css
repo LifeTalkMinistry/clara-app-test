@@ -1,0 +1,9 @@
+.clara-mission-onboarding .clara-onboarding-title.clara-onboarding-title--country {
+  margin-top: 56px !important;
+}
+
+@media (max-height: 760px) {
+  .clara-mission-onboarding .clara-onboarding-title.clara-onboarding-title--country {
+    margin-top: 44px !important;
+  }
+}
