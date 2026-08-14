@@ -173,7 +173,7 @@ function CountryScreen() {
   return (
     <ScreenFrame>
       <Eyebrow>Why <ClaraBrandName /> exists</Eyebrow>
-      <h1 className="clara-onboarding-title">Filipinos work hard for every peso.</h1>
+      <h1 className="clara-onboarding-title clara-onboarding-title--country">Filipinos work hard for every peso.</h1>
       <p className="clara-onboarding-body clara-onboarding-body--lead">
         But earning money and knowing how to protect it are two different skills.
       </p>
@@ -743,6 +743,7 @@ export default function UniversalOnboarding() {
           text-shadow: 0 1px 0 rgba(255, 255, 255, .025), 0 12px 34px rgba(0, 0, 0, .18);
         }
 
+        .clara-onboarding-title--country { margin-top: 38px; }
         .clara-onboarding-title--personal { max-width: 375px; }
         .clara-onboarding-title--mission { max-width: 390px; font-size: clamp(2rem, 8.7vw, 2.62rem); }
         .clara-onboarding-title--support { max-width: 385px; font-size: clamp(1.88rem, 8vw, 2.42rem); }
@@ -1298,6 +1299,7 @@ export default function UniversalOnboarding() {
           .clara-onboarding-screen { padding-top: 105px; padding-bottom: 96px; }
           .clara-onboarding-screen--dense { justify-content: flex-start; padding-top: 103px; }
           .clara-onboarding-title { margin-top: 21px; font-size: clamp(1.9rem, 8.4vw, 2.35rem); }
+          .clara-onboarding-title--country { margin-top: 30px; }
           .clara-onboarding-title--support-clean { margin-top: 0; }
           .clara-onboarding-body { margin-top: 16px; }
           .clara-onboarding-support-intro { margin-top: 13px; }
