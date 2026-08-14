@@ -3,6 +3,7 @@ import {
   getRecurringCashFlowOwnerId,
 } from "./recurringCashFlowRepository.js";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
 const clean = (value = "") => String(value ?? "").replace(/\s+/g, " ").trim();
 const toNumber = (value) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -93,6 +94,10 @@ function normalizeScheduledIncomeSnapshot(snapshot = {}) {
   };
 }
 
+function getScheduleOwnerIdentity(context = {}) {
+  return context.user || context.userId || context.user_id || context.localUserId || context.local_user_id || null;
+}
+
 function readScheduledIncome(context = {}, now = new Date()) {
   const supplied = normalizeScheduledIncomeSnapshot(
     context.incomeTimingSnapshot ||
@@ -102,7 +107,7 @@ function readScheduledIncome(context = {}, now = new Date()) {
   );
   if (supplied) return supplied;
 
-  const ownerIdentity = context.user || context.userId || context.user_id || context.localUserId || context.local_user_id;
+  const ownerIdentity = getScheduleOwnerIdentity(context);
   if (!ownerIdentity) return null;
 
   try {
@@ -129,6 +134,109 @@ function scheduledDateToIso(dateKey) {
   if (!dateKey) return null;
   const date = parseDate(`${dateKey}T12:00:00`);
   return date ? date.toISOString() : null;
+}
+
+function median(values = []) {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+function classifyInterval(days) {
+  if (days >= 6 && days <= 8) return "regular";
+  if (days >= 12 && days <= 17) return "semi_regular";
+  if (days >= 26 && days <= 35) return "regular";
+  return "irregular";
+}
+
+function choosePattern(records = []) {
+  const groups = new Map();
+  records.forEach((record) => {
+    const key = record.sourceName.toLowerCase();
+    const group = groups.get(key) || [];
+    group.push(record);
+    groups.set(key, group);
+  });
+  return [...groups.values()]
+    .filter((group) => group.length >= 2)
+    .sort((left, right) => right.length - left.length || new Date(right[right.length - 1].date) - new Date(left[left.length - 1].date))[0] || null;
+}
+
+function legacyExplicitNextIncome(context = {}, now = new Date()) {
+  const sources = Array.isArray(context.incomeSources) ? context.incomeSources : [];
+  const candidates = sources.flatMap((source) => [
+    source.nextIncomeDate,
+    source.next_income_date,
+    source.nextPayDate,
+    source.next_pay_date,
+    source.nextPaymentDate,
+    source.next_payment_date,
+    source.expectedDate,
+    source.expected_date,
+  ].map((value) => ({ value, source })));
+  const next = candidates
+    .map(({ value, source }) => ({ date: parseDate(value), source }))
+    .filter((entry) => entry.date && entry.date > now)
+    .sort((left, right) => left.date - right.date)[0];
+  if (!next) return null;
+  return {
+    date: next.date,
+    sourceName: sourceName(next.source),
+    amount: Math.abs(toNumber(next.source.expectedAmount ?? next.source.expected_amount ?? next.source.amount)),
+  };
+}
+
+function analyzeLegacyUnscopedTiming(context = {}, records = [], now = new Date()) {
+  const latest = records[records.length - 1] || null;
+  const explicit = legacyExplicitNextIncome(context, now);
+  if (explicit) {
+    return {
+      connected: true,
+      latestIncomeDate: latest?.date || null,
+      latestIncomeAmount: latest?.amount || 0,
+      sourceName: explicit.sourceName || latest?.sourceName || "",
+      estimatedNextIncomeDate: explicit.date.toISOString(),
+      daysUntilNextIncome: Math.max(0, Math.ceil((explicit.date - now) / DAY_MS)),
+      regularity: "regular",
+      confidence: "high",
+      timingAuthority: "legacy_unscoped_fallback",
+      basis: ["legacy_unscoped_explicit_income_date"],
+      recordCount: records.length,
+    };
+  }
+
+  const pattern = choosePattern(records);
+  if (!pattern) return null;
+  const intervals = pattern.slice(1).map((record, index) => Math.round((new Date(record.date) - new Date(pattern[index].date)) / DAY_MS)).filter((days) => days > 0 && days <= 62);
+  const typicalDays = Math.round(median(intervals));
+  const deviations = intervals.map((days) => Math.abs(days - typicalDays));
+  const maxDeviation = deviations.length ? Math.max(...deviations) : Infinity;
+  const consistent = typicalDays > 0 && maxDeviation <= Math.max(2, Math.round(typicalDays * 0.2));
+  const regularity = consistent ? classifyInterval(typicalDays) : "irregular";
+  const latestPattern = pattern[pattern.length - 1];
+  let nextDate = typicalDays > 0 ? new Date(new Date(latestPattern.date).getTime() + typicalDays * DAY_MS) : null;
+  let guard = 0;
+  while (nextDate && nextDate <= now && guard < 12) {
+    nextDate = new Date(nextDate.getTime() + typicalDays * DAY_MS);
+    guard += 1;
+  }
+  const confidence = consistent && pattern.length >= 4 ? "high" : consistent && pattern.length >= 3 ? "medium" : "low";
+  if (confidence === "low") nextDate = null;
+
+  return {
+    connected: true,
+    latestIncomeDate: latestPattern.date,
+    latestIncomeAmount: latestPattern.amount,
+    sourceName: latestPattern.sourceName,
+    estimatedNextIncomeDate: nextDate?.toISOString() || null,
+    daysUntilNextIncome: nextDate ? Math.max(0, Math.ceil((nextDate - now) / DAY_MS)) : null,
+    regularity,
+    confidence,
+    timingAuthority: "legacy_unscoped_fallback",
+    basis: ["legacy_unscoped_income_history"],
+    recordCount: records.length,
+  };
 }
 
 function analyzeIncomeRunway(context = {}, options = {}) {
@@ -167,6 +275,11 @@ function analyzeIncomeRunway(context = {}, options = {}) {
       basis: ["configured_income_schedule_has_no_next_occurrence"],
       recordCount: records.length,
     };
+  }
+
+  if (!getScheduleOwnerIdentity(context)) {
+    const legacyFallback = analyzeLegacyUnscopedTiming(context, records, now);
+    if (legacyFallback) return legacyFallback;
   }
 
   return {
