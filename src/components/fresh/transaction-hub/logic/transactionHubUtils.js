@@ -410,18 +410,35 @@ export const getToneClasses = (group, signedAmount = 0) => {
   };
 };
 
+const TRANSACTION_HUB_TIME_ZONE = "Asia/Manila";
+
+const transactionCalendarKey = (dateValue = new Date()) => {
+  if (typeof dateValue === "string") {
+    const text = dateValue.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  }
+
+  const date = parseDate(dateValue);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: TRANSACTION_HUB_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+};
+
+const calendarDayNumber = (dateValue) => {
+  const [year, month, day] = transactionCalendarKey(dateValue).split("-").map(Number);
+  return Date.UTC(year, month - 1, day) / 86400000;
+};
+
 export const startOfDay = (dateValue) => {
-  const d = parseDate(dateValue);
-  d.setHours(0, 0, 0, 0);
-  return d;
+  const [year, month, day] = transactionCalendarKey(dateValue).split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
 };
 
-export const daysBetween = (dateValue) => {
-  const today = startOfDay(new Date());
-  const target = startOfDay(dateValue);
-
-  return Math.floor((today.getTime() - target.getTime()) / 86400000);
-};
+export const daysBetween = (dateValue) =>
+  calendarDayNumber(new Date()) - calendarDayNumber(dateValue);
 
 export const getTimelineKey = (dateValue) => {
   const diff = daysBetween(dateValue);
@@ -437,6 +454,7 @@ export const TIMELINE_GROUPS = [
   { key: "today", label: "Today" },
   { key: "yesterday", label: "Yesterday" },
   { key: "thisWeek", label: "This Week" },
+  { key: "earlier", label: "Earlier this month" },
 ];
 
 export const getBudgetCategory = (item) =>
