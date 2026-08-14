@@ -40,6 +40,13 @@ const CLARA_WORDMARK_LETTERS = [
   { char: "A", tone: "red" },
 ];
 
+const SPENDING_IMPACT_TIMEFRAMES = [
+  { id: "30d", label: "30 days", period: "Over 30 days", amount: "≈ ₱3,000–₱5,000" },
+  { id: "3m", label: "3 months", period: "Over 3 months", amount: "≈ ₱9,000–₱15,000" },
+  { id: "6m", label: "6 months", period: "Over 6 months", amount: "≈ ₱18,000–₱30,000" },
+  { id: "1y", label: "1 year", period: "Over 1 year", amount: "≈ ₱36,000–₱60,000" },
+];
+
 function firstNameFrom(profile, user) {
   const rawName =
     profile?.full_name ||
@@ -213,26 +220,64 @@ function QuietSpendingScreen() {
   );
 }
 
-function SpendingImpactScreen() {
+function SpendingImpactScreen({ reduceMotion }) {
+  const [timeframeId, setTimeframeId] = useState("30d");
+  const activeImpact = SPENDING_IMPACT_TIMEFRAMES.find((item) => item.id === timeframeId) || SPENDING_IMPACT_TIMEFRAMES[0];
+
   return (
     <ScreenFrame>
       <Eyebrow tone="gold">Did you know?</Eyebrow>
-      <div className="clara-onboarding-compare">
+      <div className="clara-onboarding-compare clara-onboarding-impact-compare">
         <section className="clara-onboarding-compare-block clara-onboarding-compare-block--muted">
           <p className="clara-onboarding-kicker">Small unplanned spending</p>
           <p className="clara-onboarding-compare-copy">₱100–₱165 a day</p>
         </section>
+
+        <div className="clara-onboarding-impact-selector-wrap">
+          <p className="clara-onboarding-impact-prompt">See what it becomes over time</p>
+          <div className="clara-onboarding-impact-selector" role="group" aria-label="Choose a spending timeframe">
+            {SPENDING_IMPACT_TIMEFRAMES.map((item) => {
+              const selected = item.id === timeframeId;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`clara-onboarding-impact-option ${selected ? "is-selected" : ""}`}
+                  aria-pressed={selected}
+                  onClick={() => setTimeframeId(item.id)}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <AccentRule />
-        <section className="clara-onboarding-compare-block clara-onboarding-compare-block--clara">
-          <p className="clara-onboarding-kicker clara-onboarding-kicker--blue">Over 30 days</p>
-          <p className="clara-onboarding-compare-copy clara-onboarding-compare-copy--hero">
-            ≈ ₱3,000–₱5,000
-          </p>
+
+        <section className="clara-onboarding-compare-block clara-onboarding-compare-block--clara clara-onboarding-impact-result">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={activeImpact.id}
+              className="clara-onboarding-impact-result-inner"
+              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 7 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -5 }}
+              transition={{ duration: reduceMotion ? 0.12 : 0.26, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <p className="clara-onboarding-kicker clara-onboarding-kicker--blue">{activeImpact.period}</p>
+              <p className="clara-onboarding-compare-copy clara-onboarding-compare-copy--hero clara-onboarding-impact-amount">
+                {activeImpact.amount}
+              </p>
+            </motion.div>
+          </AnimatePresence>
         </section>
       </div>
-      <p className="clara-onboarding-body clara-onboarding-body--narrow">
-        Imagine if that money became savings, an emergency fund, or progress toward a goal instead.
+
+      <p className="clara-onboarding-body clara-onboarding-body--narrow clara-onboarding-impact-closing">
+        Imagine what that could have become instead.
       </p>
+      <p className="clara-onboarding-impact-destinations">Emergency fund <i /> Savings <i /> A goal</p>
     </ScreenFrame>
   );
 }
@@ -458,7 +503,7 @@ export default function UniversalOnboarding() {
   const content = (() => {
     if (activeScreen === "country") return <CountryScreen />;
     if (activeScreen === "quiet-spending") return <QuietSpendingScreen />;
-    if (activeScreen === "spending-impact") return <SpendingImpactScreen />;
+    if (activeScreen === "spending-impact") return <SpendingImpactScreen reduceMotion={reduceMotion} />;
     if (activeScreen === "before") return <BeforeScreen />;
     if (activeScreen === "personal") return <PersonalScreen firstName={firstName} />;
     if (activeScreen === "clara") return <ClaraRevealScreen reduceMotion={reduceMotion} />;
@@ -886,6 +931,103 @@ export default function UniversalOnboarding() {
           letter-spacing: -.052em;
         }
 
+        .clara-onboarding-impact-compare { margin-top: 28px; }
+
+        .clara-onboarding-impact-selector-wrap {
+          width: 100%;
+          margin-top: 25px;
+        }
+
+        .clara-onboarding-impact-prompt {
+          margin: 0 0 10px;
+          color: rgba(238, 245, 255, .42);
+          font-size: 10.5px;
+          line-height: 1.3;
+          font-weight: 600;
+          letter-spacing: .02em;
+        }
+
+        .clara-onboarding-impact-selector {
+          display: grid;
+          width: 100%;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 4px;
+          padding: 4px;
+          border: 1px solid rgba(92, 139, 215, .13) !important;
+          border-radius: 16px;
+          background: rgba(8, 20, 43, .46) !important;
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, .025) !important;
+        }
+
+        .clara-onboarding-impact-option {
+          min-width: 0;
+          height: 35px;
+          padding: 0 5px;
+          border: 0 !important;
+          border-radius: 12px;
+          outline: none;
+          background: transparent !important;
+          box-shadow: none !important;
+          color: rgba(235, 242, 255, .38);
+          font-size: 9.5px;
+          line-height: 1;
+          font-weight: 650;
+          letter-spacing: -.01em;
+          white-space: nowrap;
+          transition: color .18s ease, background .18s ease, box-shadow .18s ease, transform .16s ease;
+        }
+
+        .clara-onboarding-impact-option.is-selected {
+          color: #f7fbff;
+          background: linear-gradient(180deg, rgba(38, 105, 245, .32), rgba(20, 65, 154, .22)) !important;
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 0 16px rgba(43, 117, 255, .08) !important;
+        }
+
+        .clara-onboarding-impact-option:active { transform: scale(.97); }
+        .clara-onboarding-impact-option:focus-visible { box-shadow: 0 0 0 2px rgba(88, 153, 255, .24) !important; }
+
+        .clara-onboarding-impact-result {
+          min-height: 67px;
+          justify-content: center;
+        }
+
+        .clara-onboarding-impact-result-inner {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+
+        .clara-onboarding-impact-amount {
+          margin-top: 12px;
+          font-variant-numeric: tabular-nums;
+        }
+
+        .clara-onboarding-impact-closing {
+          margin-top: 24px;
+          color: rgba(238, 245, 255, .54);
+        }
+
+        .clara-onboarding-impact-destinations {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 9px;
+          margin: 12px 0 0;
+          color: rgba(240, 246, 255, .35);
+          font-size: 9.5px;
+          line-height: 1;
+          font-weight: 650;
+          letter-spacing: .04em;
+        }
+
+        .clara-onboarding-impact-destinations i {
+          width: 3px;
+          height: 3px;
+          border-radius: 50%;
+          background: #ffd552;
+          box-shadow: 0 0 7px rgba(255, 210, 63, .28);
+        }
+
         .clara-onboarding-personal-list {
           width: 100%;
           max-width: 365px;
@@ -1306,6 +1448,11 @@ export default function UniversalOnboarding() {
           .clara-onboarding-chip-grid,
           .clara-onboarding-mission-grid { margin-top: 21px; }
           .clara-onboarding-personal-list { margin-top: 28px; }
+          .clara-onboarding-impact-compare { margin-top: 20px; }
+          .clara-onboarding-impact-selector-wrap { margin-top: 18px; }
+          .clara-onboarding-impact-selector { border-radius: 14px; }
+          .clara-onboarding-impact-option { height: 31px; font-size: 9px; }
+          .clara-onboarding-impact-closing { margin-top: 17px; }
           .clara-onboarding-support-panel { margin-top: 20px; }
           .clara-onboarding-support-row { padding: 11px 0; }
           .clara-onboarding-support-benefit { margin-top: 12px; padding-top: 10px; padding-bottom: 10px; }
@@ -1321,6 +1468,7 @@ export default function UniversalOnboarding() {
         @media (prefers-reduced-motion: reduce) {
           .clara-onboarding-screen > *,
           .clara-onboarding-progress-segment,
+          .clara-onboarding-impact-option,
           .clara-onboarding-continue svg,
           .clara-onboarding-support-benefit,
           .clara-onboarding-support-benefit-arrow {
