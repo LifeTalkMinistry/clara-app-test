@@ -112,3 +112,9 @@ export function installMissionOnboardingSupportCardRouting() {
 
   observer.observe(document.documentElement, { childList: true, subtree: true });
 }
+
+try {
+  installMissionOnboardingSupportCardRouting();
+} catch (error) {
+  console.warn("CLARA onboarding supporter card routing failed to init:", error);
+}
