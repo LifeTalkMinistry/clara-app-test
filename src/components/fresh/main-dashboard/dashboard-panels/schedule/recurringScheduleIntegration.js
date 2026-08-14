@@ -171,7 +171,9 @@ export async function dispatchIncomeTimingOccurrences(ownerId) {
   // Replacing all managed income projections also removes stale dates after an edit.
   persistIncomeScheduleProjection(ownerId, projectedEvents);
 
-  // If Schedule is currently mounted, replace its managed payday rows immediately.
+  // Refresh an already-mounted Schedule with the same deterministic events.
+  // Existing create-event handling deduplicates by id.
+  projectedEvents.forEach((event) => dispatchClaraEvent(SCHEDULE_CREATE_EVENT, event));
   dispatchClaraEvent(SCHEDULE_SYNC_INCOME_EVENT, { events: projectedEvents });
 
   return projectedEvents;
