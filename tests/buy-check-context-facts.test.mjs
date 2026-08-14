@@ -13,6 +13,7 @@ import { analyzeCalendarImpact } from "../src/lib/clara-buy-check-calendar-engin
 import { analyzeObligations } from "../src/lib/clara-buy-check-obligation-engine.js";
 import { analyzeGoalProtection } from "../src/lib/clara-buy-check-goal-protection-engine.js";
 import { analyzeLifeStageContext } from "../src/lib/clara-buy-check-life-stage-engine.js";
+import { readScheduleEventsForAI } from "../src/lib/clara-schedule-ai-context.js";
 
 const now = "2026-07-02T00:00:00.000Z";
 const budget = (overrides = {}) => ({
@@ -145,14 +146,86 @@ test("seeded schedule events are ignored unless user confirmed", () => {
   assert.equal(result.knownMoneyImpactTotal, 0);
 });
 
-test("unknown calendar cost warns without fabricating a deduction", () => {
+test("pending money-out schedule warns without fabricating a deduction", () => {
   const result = analyzeCalendarImpact({ scheduleEvents: {
     connected: true,
     source: "schedule_storage",
-    upcomingEvents: [{ id: "church", title: "Church event", date: "2026-07-06", amount: "", source: "schedule_storage" }],
+    upcomingEvents: [{
+      id: "dental",
+      title: "Dental appointment",
+      date: "2026-07-06",
+      amount: "",
+      source: "schedule_storage",
+      impactBreakdown: [{ direction: "out", pendingAmount: true, source: "manual" }],
+    }],
   } }, { confidence: "none", estimatedNextIncomeDate: null }, { now });
   assert.equal(result.unknownCostEvents.length, 1);
   assert.equal(result.knownMoneyImpactTotal, 0);
+});
+
+test("non-money appointment remains visible without becoming an unknown cost", () => {
+  const result = analyzeCalendarImpact({ scheduleEvents: {
+    connected: true,
+    source: "schedule_storage",
+    upcomingEvents: [{ id: "meeting", title: "Project meeting", type: "Appointment", date: "2026-07-06", amount: "", impactBreakdown: [] }],
+  } }, { confidence: "none", estimatedNextIncomeDate: null }, { now });
+  assert.equal(result.upcomingEvents.length, 1);
+  assert.equal(result.unknownCostEvents.length, 0);
+  assert.equal(result.knownMoneyImpactTotal, 0);
+});
+
+test("money-in schedule is not counted as a spending commitment", () => {
+  const result = analyzeCalendarImpact({ scheduleEvents: {
+    connected: true,
+    source: "schedule_storage",
+    upcomingEvents: [{
+      id: "refund",
+      title: "Refund arrives",
+      type: "Event",
+      date: "2026-07-06",
+      amount: 5000,
+      impactBreakdown: [{ direction: "in", amount: 5000, source: "manual" }],
+    }],
+  } }, { confidence: "none", estimatedNextIncomeDate: null }, { now });
+  assert.equal(result.knownMoneyImpactTotal, 0);
+  assert.equal(result.knownMoneyInTotal, 5000);
+  assert.equal(result.knownIncomeEvents.length, 1);
+});
+
+test("schedule AI reader uses only the active user's exact storage key", () => {
+  const previousWindow = globalThis.window;
+  const records = new Map([
+    ["clara_schedule_events_v2_user-a", JSON.stringify([
+      { id: "sample-bill", title: "Bill protection", date: "2026-07-03" },
+      { id: "dental-a", title: "Dental appointment", date: "2026-07-06", amount: "1200" },
+    ])],
+    ["clara_schedule_events_v2_user-b", JSON.stringify([
+      { id: "private-b", title: "Other user's appointment", date: "2026-07-04", amount: "9999" },
+    ])],
+  ]);
+
+  globalThis.window = {
+    localStorage: {
+      getItem(key) {
+        return records.get(key) || null;
+      },
+      key(index) {
+        return [...records.keys()][index] || null;
+      },
+      get length() {
+        return records.size;
+      },
+    },
+  };
+
+  try {
+    const result = readScheduleEventsForAI({ user: { id: "user-a" } });
+    assert.deepEqual(result.map((event) => event.id), ["dental-a"]);
+    assert.equal(result.some((event) => event.id === "private-b"), false);
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  }
 });
 
 test("debt due before next income is counted once and linked to its budget", () => {
