@@ -1,0 +1,39 @@
+name: Patch CLARA reveal wordmark motion
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/patch-clara-wordmark-motion.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply CLARA reveal wordmark motion patch
+        run: python scripts/patch_clara_wordmark_motion.py
+
+      - name: Verify changed onboarding source
+        run: npx eslint src/pages/onboarding/UniversalOnboarding.jsx
+
+      - name: Verify Vite production compile
+        run: npx vite build --base=./
+
+      - name: Commit CLARA reveal wordmark motion correction
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/onboarding/UniversalOnboarding.jsx
+          git commit -m "Make CLARA reveal letter motion visibly perceptible"
+          git push origin main
