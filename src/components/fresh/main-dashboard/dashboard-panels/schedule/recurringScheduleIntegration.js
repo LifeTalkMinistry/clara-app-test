@@ -1,4 +1,5 @@
 import { dispatchClaraEvent } from "@/components/fresh/main-dashboard/dashboard-events/dashboardEvents";
+import { getIncomeSources } from "@/lib/incomeHubRepository";
 import {
   getBillOccurrencesForRange,
   getIncomeTimingRecords,
@@ -45,6 +46,19 @@ function getScheduleProjectionRange() {
   };
 }
 
+function stableMinimumAmount(source = {}) {
+  if (String(source?.stability || "").trim().toLowerCase() !== "stable") return 0;
+  const value =
+    source?.minimumStableIncome ??
+    source?.minimum_stable_income ??
+    source?.minimumExpectedIncome ??
+    source?.minimum_expected_income ??
+    source?.expectedAmount ??
+    source?.expected_amount;
+  const amount = Number(String(value ?? "").replace(/php/gi, "").replace(/[₱,\s]/g, ""));
+  return Number.isFinite(amount) ? Math.max(0, amount) : 0;
+}
+
 export function dispatchRecurringBillOccurrences(ownerId, bill) {
   if (!bill?.id) return;
   const { start, end } = getScheduleProjectionRange();
@@ -70,12 +84,27 @@ export function dispatchRecurringBillOccurrences(ownerId, bill) {
     );
 }
 
-export function dispatchIncomeTimingOccurrences(ownerId) {
+export async function dispatchIncomeTimingOccurrences(ownerId) {
   const { start, end } = getScheduleProjectionRange();
+  let incomeSources = [];
+
+  try {
+    incomeSources = await getIncomeSources(ownerId);
+  } catch (error) {
+    console.warn("CLARA income source amounts could not be loaded for Schedule projection:", error);
+  }
+
+  const sourceById = new Map(
+    (Array.isArray(incomeSources) ? incomeSources : [])
+      .filter((source) => source?.id)
+      .map((source) => [String(source.id), source])
+  );
 
   getIncomeTimingRecords(ownerId).forEach((timing) => {
     const sourceId = String(timing.incomeSourceId || timing.income_source_id || timing.id || "income");
     const sourceName = String(timing.sourceName || timing.source_name || "Expected income").trim() || "Expected income";
+    const incomeSource = sourceById.get(sourceId) || null;
+    const minimumAmount = stableMinimumAmount(incomeSource);
 
     getRecurrenceOccurrences(
       timing.recurrence || timing.recurrence_rule,
@@ -89,19 +118,23 @@ export function dispatchIncomeTimingOccurrences(ownerId) {
         date,
         time: "",
         type: "Payday",
-        amount: "",
-        note: `Expected income from ${sourceName}. CLARA uses this schedule for payday timing; actual received money remains owned by Income Hub.`,
-        impactBreakdown: [],
+        amount: minimumAmount > 0 ? minimumAmount : "",
+        note: minimumAmount > 0
+          ? `At least ₱${minimumAmount.toLocaleString("en-PH", { maximumFractionDigits: 2 })} is expected from ${sourceName}. This is the conservative stable-income floor; actual received money remains owned by Income Hub.`
+          : `Expected income from ${sourceName}. CLARA uses this schedule for payday timing; actual received money remains owned by Income Hub.`,
+        impactBreakdown: minimumAmount > 0
+          ? [{ direction: "in", amount: minimumAmount, source: "stable_income_minimum" }]
+          : [{ direction: "in", pendingAmount: true, source: "income_timing" }],
       })
     );
   });
 }
 
-export function syncRecurringBillsIntoSchedule(ownerId) {
+export async function syncRecurringBillsIntoSchedule(ownerId) {
   getRecurringBills(ownerId).forEach((bill) =>
     dispatchRecurringBillOccurrences(ownerId, bill)
   );
-  dispatchIncomeTimingOccurrences(ownerId);
+  await dispatchIncomeTimingOccurrences(ownerId);
 }
 
 export function saveRecurringScheduleBill(ownerId, draft, amountOverride = 0) {
