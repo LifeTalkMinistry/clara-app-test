@@ -339,18 +339,8 @@
   box-shadow: 0 0 16px rgba(8, 103, 255, 0.12) !important;
 }
 
-.clara-community-root[data-community-view="feed"] .clara-community-post-card [data-clara-support-tier="supporter"] {
-  border-color: rgba(88, 155, 255, 0.36) !important;
-  background: linear-gradient(90deg, rgba(8, 103, 255, 0.15), rgba(5, 30, 67, 0.55)) !important;
-  color: rgba(238, 247, 255, 0.92) !important;
-  box-shadow: 0 0 16px rgba(8, 103, 255, 0.09) !important;
-}
-
-.clara-community-root[data-community-view="feed"] .clara-community-post-card [data-clara-support-tier="supporter"] > span:nth-child(2) {
-  border-color: rgba(255, 216, 74, 0.30) !important;
-  background: rgba(255, 216, 74, 0.09) !important;
-  color: rgba(255, 224, 99, 0.92) !important;
-}
+/* Tier 1 Supporter intentionally has no official-theme surface treatment.
+   community-badge-premium.css owns its naked transparent artwork contract. */
 
 .clara-community-root[data-community-view="feed"] .clara-community-post-card [data-clara-support-tier="builder"] {
   border-color: rgba(93, 151, 237, 0.30) !important;
