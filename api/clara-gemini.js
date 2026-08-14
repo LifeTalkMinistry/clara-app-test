@@ -10,7 +10,7 @@ const PLAIN_MAX_OUTPUT_TOKENS = 700;
 const REQUEST_TIMEOUT_MS = 20000;
 const AUTH_TIMEOUT_MS = 8000;
 const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
-const RATE_LIMIT_MAX_REQUESTS = 10;
+const RATE_LIMIT_MAX_REQUESTS = 30;
 const DUPLICATE_WINDOW_MS = 2500;
 
 const CONVERSATION_TURN_SCHEMA = Object.freeze({
@@ -236,7 +236,7 @@ function extractAllowedFactIds(prompt = "") {
 
   const tail = source.slice(markerIndex + marker.length);
   const outputRulesIndex = tail.indexOf("\n\nOutput rules:");
-  const factSection = (outputRulesIndex >= 0 ? tail.slice(0, outputRulesIndex) : tail.slice(0, 10000));
+  const factSection = outputRulesIndex >= 0 ? tail.slice(0, outputRulesIndex) : tail.slice(0, 10000);
   const ids = [];
   const pattern = /"id"\s*:\s*"([a-z0-9_:-]+)"/gi;
   let match;
@@ -250,28 +250,9 @@ function extractAllowedFactIds(prompt = "") {
   return ids;
 }
 
-function buildSpendingDecisionSchema(prompt = "") {
-  const allowedFactIds = extractAllowedFactIds(prompt);
-  return {
-    ...SPENDING_DECISION_SCHEMA,
-    properties: {
-      ...SPENDING_DECISION_SCHEMA.properties,
-      factsUsed: {
-        ...SPENDING_DECISION_SCHEMA.properties.factsUsed,
-        items: allowedFactIds.length
-          ? { type: "string", enum: allowedFactIds }
-          : { type: "string" },
-      },
-    },
-  };
-}
-
 function resolveStructuredOutputSchema(prompt = "") {
   const source = String(prompt || "");
-
-  if (isSpendingDecisionPrompt(source)) {
-    return buildSpendingDecisionSchema(source);
-  }
+  if (isSpendingDecisionPrompt(source)) return SPENDING_DECISION_SCHEMA;
 
   if (
     source.includes("WHAT TO DO THIS TURN") ||
@@ -330,13 +311,60 @@ function extractGeminiText(payload = {}) {
     .trim();
 }
 
-function isValidJsonText(value = "") {
+function parseJsonText(value = "") {
   try {
-    JSON.parse(String(value || ""));
-    return true;
+    return JSON.parse(String(value || ""));
   } catch {
-    return false;
+    return null;
   }
+}
+
+function selectClaraProvenanceFactIds(prompt = "", proposed = []) {
+  const allowed = extractAllowedFactIds(prompt);
+  if (!allowed.length) return [];
+
+  const allowedSet = new Set(allowed);
+  const validProposed = Array.isArray(proposed)
+    ? proposed
+        .map((value) => cleanText(value))
+        .filter((value) => allowedSet.has(value))
+        .filter((value, index, list) => list.indexOf(value) === index)
+        .slice(0, 10)
+    : [];
+
+  if (validProposed.length) return validProposed;
+
+  const priority = [
+    "purchase_price",
+    "spendable_wallet_money",
+    "money_after_purchase",
+    "safe_to_spend_after_purchase",
+    "budget_remaining_after",
+    "budget_remaining_before",
+    "obligations_before_next_income",
+    "days_until_next_income",
+    "financial_data_confidence",
+    "purchase_item",
+  ];
+
+  const grounded = priority.filter((id) => allowedSet.has(id)).slice(0, 6);
+  return grounded.length ? grounded : allowed.slice(0, 3);
+}
+
+function normalizeStructuredOutputText(text = "", prompt = "") {
+  const parsed = parseJsonText(text);
+  if (!parsed || !isSpendingDecisionPrompt(prompt)) return text;
+
+  const allowedFactIds = extractAllowedFactIds(prompt);
+  if (!allowedFactIds.length) return text;
+
+  const factsUsed = selectClaraProvenanceFactIds(prompt, parsed?.factsUsed);
+  if (!factsUsed.length) return text;
+
+  return JSON.stringify({
+    ...parsed,
+    factsUsed,
+  });
 }
 
 function safeErrorMessage(status) {
@@ -405,9 +433,7 @@ function takeDuplicateSlot(req, prompt) {
   const key = `${getClientKey(req)}:${promptFingerprint(prompt)}`;
   const previous = Number(recentRequests.get(key) || 0);
 
-  if (previous && now - previous < DUPLICATE_WINDOW_MS) {
-    return false;
-  }
+  if (previous && now - previous < DUPLICATE_WINDOW_MS) return false;
 
   recentRequests.set(key, now);
   if (recentRequests.size > 1500) {
@@ -537,12 +563,12 @@ export default async function handler(req, res) {
       });
     }
 
-    const text = extractGeminiText(payload);
+    let text = extractGeminiText(payload);
     if (!text) {
       return sendJson(res, 502, { ok: false, error: "CLARA AI returned an empty response.", model });
     }
 
-    if (wantsJson && !isValidJsonText(text)) {
+    if (wantsJson && !parseJsonText(text)) {
       const candidate = payload?.candidates?.[0] || {};
       const usage = payload?.usageMetadata || {};
       console.warn("[CLARA Gemini] Structured output was not valid JSON.", {
@@ -560,6 +586,21 @@ export default async function handler(req, res) {
         error: "CLARA AI returned an incomplete structured response. Please try again.",
         model,
       });
+    }
+
+    if (wantsJson && isSpendingDecisionPrompt(prompt)) {
+      const allowedFactIds = extractAllowedFactIds(prompt);
+      if (!allowedFactIds.length) {
+        console.warn("[CLARA Gemini] Spending decision had no CLARA-owned verified fact catalog.", { model });
+        return sendJson(res, 502, {
+          ok: false,
+          code: "CLARA_AI_NO_VERIFIED_FACTS",
+          error: "CLARA could not verify financial facts for this decision.",
+          model,
+        });
+      }
+
+      text = normalizeStructuredOutputText(text, prompt);
     }
 
     return sendJson(res, 200, { ok: true, text, model, feature: ALLOWED_FEATURE });
