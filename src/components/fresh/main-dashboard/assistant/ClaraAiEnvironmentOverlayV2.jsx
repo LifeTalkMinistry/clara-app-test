@@ -22,29 +22,15 @@ function readClaraAttitude() {
   }
 }
 
-function BuyCheckAttitudeSelector({ value, onChange, onClose }) {
+function BuyCheckAttitudeSelector({ value, onChange }) {
   const selected = CLARA_ATTITUDE_OPTIONS.find((option) => option.id === value) || CLARA_ATTITUDE_OPTIONS[2];
 
   return (
     <section
       data-clara-buy-check-attitude-selector="true"
-      className="absolute bottom-[76px] right-0 z-40 w-[min(340px,calc(100vw-28px))] rounded-[22px] border border-blue-200/20 bg-[#050d1f]/98 px-3.5 py-3.5 shadow-[0_24px_70px_rgba(0,0,0,0.58),inset_0_1px_0_rgba(255,255,255,0.045)] backdrop-blur-2xl"
+      className="absolute bottom-[72px] right-0 z-40 w-[min(336px,calc(100vw-28px))] rounded-[18px] border border-blue-200/16 bg-[#050d1f]/98 p-2 shadow-[0_20px_58px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-2xl"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[12.5px] font-black tracking-[-0.01em] text-white/95">How should CLARA talk to you?</p>
-          <p className="mt-0.5 text-[9.5px] font-bold text-blue-100/45">Same financial judgment. Different delivery.</p>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.035] text-white/65 transition hover:bg-white/[0.07]"
-          aria-label="Close CLARA communication style options"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-2" role="radiogroup" aria-label="CLARA communication attitude">
+      <div className="flex items-center gap-1.5" role="radiogroup" aria-label="CLARA communication attitude">
         {CLARA_ATTITUDE_OPTIONS.map((option) => {
           const active = option.id === selected.id;
           return (
@@ -54,14 +40,11 @@ function BuyCheckAttitudeSelector({ value, onChange, onClose }) {
               role="radio"
               aria-checked={active}
               onClick={() => onChange?.(option.id)}
-              className={`min-h-10 rounded-[15px] border px-3 text-left transition active:scale-[0.98] ${active
-                ? "border-[#ffd84a]/48 bg-[#ffd84a]/10 text-[#ffe783] shadow-[0_8px_22px_rgba(255,216,74,0.07)]"
-                : "border-blue-200/12 bg-white/[0.035] text-blue-50/74 hover:border-blue-200/25 hover:bg-white/[0.06]"}`}
+              className={`min-w-0 flex-1 rounded-[12px] px-1.5 py-2.5 text-center text-[10.5px] font-black tracking-[-0.02em] transition active:scale-[0.97] ${active
+                ? "bg-[#ffd84a]/12 text-[#ffe783] shadow-[inset_0_0_0_1px_rgba(255,216,74,0.32)]"
+                : "text-blue-50/68 hover:bg-white/[0.045] hover:text-white/90"}`}
             >
-              <span className="block text-[11px] font-black">{option.label}</span>
-              <span className={`mt-0.5 block text-[9.5px] font-semibold leading-4 ${active ? "text-[#ffe783]/68" : "text-slate-300/55"}`}>
-                {option.description}
-              </span>
+              {option.label}
             </button>
           );
         })}
