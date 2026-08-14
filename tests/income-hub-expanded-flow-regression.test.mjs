@@ -54,6 +54,14 @@ test("stable income minimum is projected as money-in on the Payday schedule", ()
   assert.equal(recurringScheduleIntegration.includes('direction: "in"'), true);
 });
 
+test("payday projection is durable and limited to one rolling year", () => {
+  assert.equal(recurringScheduleIntegration.includes("RECURRING_SCHEDULE_WINDOW_MONTHS = 12"), true);
+  assert.equal(recurringScheduleIntegration.includes("persistIncomeScheduleProjection"), true);
+  assert.equal(recurringScheduleIntegration.includes('SCHEDULE_STORAGE_PREFIX = "clara_schedule_events_v2"'), true);
+  assert.equal(recurringScheduleIntegration.includes("getMonth() + RECURRING_SCHEDULE_WINDOW_MONTHS"), true);
+  assert.equal(recurringScheduleIntegration.includes("projectedEvents.forEach((event) => dispatchClaraEvent(SCHEDULE_CREATE_EVENT, event))"), true);
+});
+
 test("one Hide tap is not swallowed by an open source menu", () => {
   assert.equal(card.includes("data-clara-finance-expand-toggle"), true);
   assert.equal(card.includes("suppressRootClickUntilRef"), false);
