@@ -1,4 +1,4 @@
-import logo from "../../assets/icon.png";
+import { ClaraOrbMark } from "@/components/community/ClaraOrbPage";
 
 export default function ClaraLogo({
   variant = "full",
@@ -7,9 +7,6 @@ export default function ClaraLogo({
 }) {
   const isDark = theme === "dark";
   const textColor = isDark ? "text-white" : "text-[#182028]";
-  const wordGlow = isDark
-    ? "drop-shadow-[0_0_14px_rgba(45,212,191,0.28)]"
-    : "drop-shadow-[0_0_12px_rgba(20,184,166,0.22)]";
 
   return (
     <div
@@ -18,19 +15,19 @@ export default function ClaraLogo({
         animation: "claraLogoFadeIn 1200ms ease-out both",
       }}
     >
-      <div className="h-20 w-20 overflow-hidden rounded-full bg-[#071018]/75 shadow-[0_0_24px_rgba(45,212,191,0.34)]">
-        <img
-          src={logo}
-          alt="CLARA Logo"
-          className="h-full w-full object-cover"
-        />
-      </div>
+      <ClaraOrbMark
+        className="h-20 w-20 shrink-0"
+        title="CLARA official orb"
+      />
 
       {variant === "full" && (
         <p
-          className={`font-heading text-xl font-bold leading-tight tracking-wide transition duration-500 ${textColor} ${wordGlow}`}
+          className={`font-heading text-xl font-bold leading-tight tracking-[0.12em] transition duration-500 ${textColor}`}
+          aria-label="CLARA"
         >
-          CLARA
+          <span className="text-[#4d8cff]">CL</span>
+          <span className="text-[#ffd42f]">A</span>
+          <span className="text-[#ff4d55]">RA</span>
         </p>
       )}
 
