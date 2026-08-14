@@ -1,0 +1,130 @@
+name: Fix Transaction Hub hidden Buy Check expense once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-transaction-hub-hidden-buy-check-expense-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Sync main
+        run: git pull --ff-only origin main
+
+      - name: Repair Transaction Hub timeline authority
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/components/fresh/transaction-hub/logic/transactionHubUtils.js')
+          source = path.read_text(encoding='utf-8')
+
+          old = '''export const startOfDay = (dateValue) => {
+            const d = parseDate(dateValue);
+            d.setHours(0, 0, 0, 0);
+            return d;
+          };
+
+          export const daysBetween = (dateValue) => {
+            const today = startOfDay(new Date());
+            const target = startOfDay(dateValue);
+
+            return Math.floor((today.getTime() - target.getTime()) / 86400000);
+          };
+
+          export const getTimelineKey = (dateValue) => {
+            const diff = daysBetween(dateValue);
+
+            if (diff === 0) return "today";
+            if (diff === 1) return "yesterday";
+            if (diff >= 2 && diff <= 6) return "thisWeek";
+
+            return "earlier";
+          };
+
+          export const TIMELINE_GROUPS = [
+            { key: "today", label: "Today" },
+            { key: "yesterday", label: "Yesterday" },
+            { key: "thisWeek", label: "This Week" },
+          ];'''.replace('          ', '')
+
+          new = '''const TRANSACTION_HUB_TIME_ZONE = "Asia/Manila";
+
+          const transactionCalendarKey = (dateValue = new Date()) => {
+            if (typeof dateValue === "string") {
+              const text = dateValue.trim();
+              if (/^\\d{4}-\\d{2}-\\d{2}$/.test(text)) return text;
+            }
+
+            const date = parseDate(dateValue);
+            return new Intl.DateTimeFormat("en-CA", {
+              timeZone: TRANSACTION_HUB_TIME_ZONE,
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+            }).format(date);
+          };
+
+          const calendarDayNumber = (dateValue) => {
+            const [year, month, day] = transactionCalendarKey(dateValue).split("-").map(Number);
+            return Date.UTC(year, month - 1, day) / 86400000;
+          };
+
+          export const startOfDay = (dateValue) => {
+            const [year, month, day] = transactionCalendarKey(dateValue).split("-").map(Number);
+            return new Date(Date.UTC(year, month - 1, day));
+          };
+
+          export const daysBetween = (dateValue) =>
+            calendarDayNumber(new Date()) - calendarDayNumber(dateValue);
+
+          export const getTimelineKey = (dateValue) => {
+            const diff = daysBetween(dateValue);
+
+            if (diff === 0) return "today";
+            if (diff === 1) return "yesterday";
+            if (diff >= 2 && diff <= 6) return "thisWeek";
+
+            return "earlier";
+          };
+
+          export const TIMELINE_GROUPS = [
+            { key: "today", label: "Today" },
+            { key: "yesterday", label: "Yesterday" },
+            { key: "thisWeek", label: "This Week" },
+            { key: "earlier", label: "Earlier this month" },
+          ];'''.replace('          ', '')
+
+          count = source.count(old)
+          if count != 1:
+              raise SystemExit(f'Expected exactly one timeline block, found {count}')
+
+          source = source.replace(old, new, 1)
+          path.write_text(source, encoding='utf-8')
+          PY
+
+      - name: Validate repair
+        run: |
+          git diff --check
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx vite build --base=./
+
+      - name: Commit repair and remove one-off workflow
+        run: |
+          git config user.name "CLARA App Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/components/fresh/transaction-hub/logic/transactionHubUtils.js
+          git rm .github/workflows/fix-transaction-hub-hidden-buy-check-expense-once.yml
+          git commit -m "Fix hidden Buy Check expenses in Transaction Hub"
+          git pull --rebase origin main
+          git push origin HEAD:main
