@@ -7,6 +7,7 @@ import {
   Gift,
   Target,
   Trophy,
+  Users,
   X,
 } from "lucide-react";
 import { backendRequest, getStoredBackendToken } from "@/lib/clara-backend-client";
@@ -103,6 +104,110 @@ function historySnapshot(entry) {
   };
 }
 
+function initials(name = "") {
+  const parts = String(name || "CLARA Member").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "CL";
+  return (parts.length > 1 ? `${parts[0][0]}${parts[1][0]}` : parts[0].slice(0, 2)).toUpperCase();
+}
+
+function contenderStatus(participant) {
+  if (participant?.status === "qualified") {
+    return { label: "Qualified", textClass: "text-[#fde68a]", ringClass: "border-[#facc15]/28 bg-[#facc15]/[0.07]" };
+  }
+  if (participant?.status === "out") {
+    return { label: "Out", textClass: "text-[#fecdd3]/55", ringClass: "border-[#fb7185]/14 bg-[#fb7185]/[0.035]" };
+  }
+  if (participant?.status === "checked_in") {
+    return { label: "Still in · Today secured", textClass: "text-[#99f6e4]/75", ringClass: "border-[#22c7b8]/20 bg-[#22c7b8]/[0.055]" };
+  }
+  return { label: "Still in · Needs today", textClass: "text-[#bfdbfe]/60", ringClass: "border-[#60a5fa]/14 bg-[#60a5fa]/[0.035]" };
+}
+
+function WeeklyContendersCard({ communityState }) {
+  const summary = communityState.data?.summary || {};
+  const participants = Array.isArray(communityState.data?.participants)
+    ? communityState.data.participants
+    : [];
+
+  return (
+    <section data-weekly-contenders="true" className="relative overflow-hidden rounded-[24px] border border-[#2f7df6]/20 bg-[#0a1a29] p-4">
+      <div className="pointer-events-none absolute -right-14 -top-14 h-32 w-32 rounded-full bg-[#2f7df6]/[0.08] blur-3xl" />
+      <div className="relative">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-[0.17em] text-[#5ea8ff]/72">Weekly Contenders</p>
+            <h3 className="mt-1 text-base font-black tracking-[-0.02em] text-white">You're doing this together.</h3>
+          </div>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] border border-[#2f7df6]/20 bg-[#2f7df6]/[0.08] text-[#8dbbff]/70">
+            <Users className="h-4 w-4" />
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          {[
+            ["Contenders", summary.joined],
+            ["Still In", summary.stillEligible],
+            ["Qualified", summary.qualified],
+          ].map(([label, value]) => (
+            <div key={label} className="min-h-[72px] rounded-[17px] border border-white/[0.08] bg-[#071725] px-2 py-3 text-center">
+              <p className={`text-lg font-black ${label === "Qualified" ? "text-[#fde68a]" : "text-white"}`}>
+                {communityState.loading ? "…" : Number(value || 0)}
+              </p>
+              <p className={`mt-1.5 text-[8px] font-black uppercase tracking-[0.1em] ${label === "Qualified" ? "text-[#facc15]/65" : "text-white/34"}`}>
+                {label}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-3">
+          {communityState.loading ? (
+            <div className="space-y-2">
+              {[0, 1].map((item) => (
+                <div key={item} className="h-[58px] animate-pulse rounded-[16px] border border-white/[0.06] bg-white/[0.025]" />
+              ))}
+            </div>
+          ) : communityState.error ? (
+            <div className="rounded-[16px] border border-white/[0.07] bg-white/[0.02] px-3 py-4 text-center text-[10px] font-semibold text-white/38">
+              {communityState.error}
+            </div>
+          ) : participants.length ? (
+            <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+              {participants.map((participant) => {
+                const meta = contenderStatus(participant);
+                return (
+                  <div key={participant.userId} className={`flex items-center gap-3 rounded-[16px] border px-3 py-2.5 ${meta.ringClass} ${participant.status === "out" ? "opacity-60" : ""}`}>
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-[#10243a] text-[10px] font-black text-white">
+                      {initials(participant.displayName)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[11px] font-black text-white">{participant.displayName}</p>
+                      <p className={`mt-0.5 text-[8px] font-black uppercase tracking-[0.07em] ${meta.textClass}`}>{meta.label}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[7px] font-black uppercase tracking-[0.08em] text-white/28">Streak</p>
+                      <p className="mt-0.5 text-[11px] font-black text-white">{Number(participant.progress || 0)}<span className="text-[8px] text-white/28">/7</span></p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-[16px] border border-white/[0.07] bg-white/[0.02] px-3 py-4 text-center">
+              <p className="text-[10px] font-black text-white/55">No contenders yet.</p>
+              <p className="mt-1 text-[9px] font-semibold text-white/28">The first person who joins this week will appear here.</p>
+            </div>
+          )}
+        </div>
+
+        <p className="mt-3 text-center text-[8px] font-semibold leading-4 text-white/25">
+          Only challenge identity and progress are shown here. Personal financial amounts stay private.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 function WeeklyRulesSheet({ onClose }) {
   return (
     <div className="fixed inset-0 z-[170] flex items-end justify-center bg-[#020814]/75 px-3 pb-[max(12px,env(safe-area-inset-bottom))] backdrop-blur-sm" role="presentation" onClick={onClose}>
@@ -145,6 +250,7 @@ export default function WeeklyMiniStreakCard({ progress, setProgress }) {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [authority, setAuthority] = useState("loading");
   const [serverState, setServerState] = useState(null);
+  const [communityState, setCommunityState] = useState({ loading: true, data: null, error: "" });
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState("");
   const localWindow = useMemo(() => weeklyWindow(), []);
@@ -194,6 +300,29 @@ export default function WeeklyMiniStreakCard({ progress, setProgress }) {
     });
   };
 
+  const refreshCommunity = async ({ preserveExisting = false } = {}) => {
+    const token = getStoredBackendToken();
+    if (!token) {
+      setCommunityState({ loading: false, data: null, error: "Sign in to view Weekly Contenders." });
+      return;
+    }
+
+    if (!preserveExisting) {
+      setCommunityState((current) => ({ ...current, loading: true, error: "" }));
+    }
+
+    try {
+      const data = await backendRequest("/api/users/me/weekly-challenge/community", { token });
+      setCommunityState({ loading: false, data: data || null, error: "" });
+    } catch {
+      setCommunityState((current) => ({
+        loading: false,
+        data: preserveExisting ? current.data : null,
+        error: preserveExisting && current.data ? "" : "Weekly Contenders are temporarily unavailable.",
+      }));
+    }
+  };
+
   useEffect(() => {
     const token = getStoredBackendToken();
     if (!token) {
@@ -216,6 +345,37 @@ export default function WeeklyMiniStreakCard({ progress, setProgress }) {
     };
     // Initial authority handshake only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const token = getStoredBackendToken();
+    if (!token) {
+      setCommunityState({ loading: false, data: null, error: "Sign in to view Weekly Contenders." });
+      return undefined;
+    }
+
+    const load = async () => {
+      try {
+        const data = await backendRequest("/api/users/me/weekly-challenge/community", { token });
+        if (!cancelled) setCommunityState({ loading: false, data: data || null, error: "" });
+      } catch {
+        if (!cancelled) {
+          setCommunityState((current) => ({
+            loading: false,
+            data: current.data,
+            error: current.data ? "" : "Weekly Contenders are temporarily unavailable.",
+          }));
+        }
+      }
+    };
+
+    load();
+    const intervalId = window.setInterval(load, 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
   }, []);
 
   const joinLocally = () => {
@@ -253,6 +413,7 @@ export default function WeeklyMiniStreakCard({ progress, setProgress }) {
       const data = await backendRequest("/api/users/me/weekly-challenge/join", { method: "POST", token });
       setServerState(data || null);
       mirrorServerState(data);
+      await refreshCommunity({ preserveExisting: true });
     } catch (error) {
       setActionError(error?.message || "CLARA could not join this week's mini streak.");
     } finally {
@@ -295,6 +456,7 @@ export default function WeeklyMiniStreakCard({ progress, setProgress }) {
       const data = await backendRequest("/api/users/me/weekly-challenge/check-in", { method: "POST", token });
       setServerState(data || null);
       mirrorServerState(data);
+      await refreshCommunity({ preserveExisting: true });
     } catch (error) {
       setActionError(error?.message || "CLARA could not secure today's Weekly check-in.");
     } finally {
@@ -391,6 +553,8 @@ export default function WeeklyMiniStreakCard({ progress, setProgress }) {
           <div className="mt-3 flex items-center gap-2 px-1 text-[9px] font-semibold text-white/30"><CalendarDays className="h-3.5 w-3.5 shrink-0" /> The board clears for a new competition every Monday.</div>
         )}
       </section>
+
+      <WeeklyContendersCard communityState={communityState} />
 
       {rulesOpen ? <WeeklyRulesSheet onClose={() => setRulesOpen(false)} /> : null}
     </>
