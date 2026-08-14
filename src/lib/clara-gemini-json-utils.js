@@ -1,9 +1,8 @@
 import {
+  ASK_BEFORE_YOU_SPEND_FEATURE,
   getClaraProxyModel,
   requestClaraGeminiProxyJson,
 } from "./clara-gemini-proxy-client";
-
-const ASK_BEFORE_YOU_SPEND_FEATURE = "ask-before-you-spend";
 
 function safeJsonParse(value) {
   try {
@@ -13,8 +12,8 @@ function safeJsonParse(value) {
   }
 }
 
-function isBuyCheckLabel(label = "") {
-  return /\bbuy check\b/i.test(String(label || ""));
+function normalizeFeature(value = "") {
+  return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
 }
 
 function featureDisabledError(label = "CLARA Gemini JSON") {
@@ -67,11 +66,12 @@ function withTimeout(ms = 14000) {
   };
 }
 
-export function hasGeminiJsonConfig(label = "") {
-  return isBuyCheckLabel(label);
+export function hasGeminiJsonConfig(feature = "") {
+  return normalizeFeature(feature) === ASK_BEFORE_YOU_SPEND_FEATURE;
 }
 
 export async function requestGeminiJson({
+  feature = "",
   prompt,
   temperature = 0.18,
   maxOutputTokens = 650,
@@ -79,12 +79,13 @@ export async function requestGeminiJson({
   label = "CLARA Gemini JSON",
 } = {}) {
   const cleanPrompt = String(prompt || "").trim();
+  const normalizedFeature = normalizeFeature(feature);
 
   if (!cleanPrompt) {
     throw new Error(`${label} prompt is empty.`);
   }
 
-  if (!isBuyCheckLabel(label)) {
+  if (!hasGeminiJsonConfig(normalizedFeature)) {
     throw featureDisabledError(label);
   }
 
@@ -93,7 +94,7 @@ export async function requestGeminiJson({
 
   try {
     const text = await requestClaraGeminiProxyJson({
-      feature: ASK_BEFORE_YOU_SPEND_FEATURE,
+      feature: normalizedFeature,
       prompt: cleanPrompt,
       model,
       signal: timeout.signal,
