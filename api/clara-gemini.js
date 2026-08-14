@@ -4,7 +4,9 @@ const APPROVED_MODELS = new Set([DEFAULT_MODEL]);
 const ALLOWED_FEATURE = "ask-before-you-spend";
 const DEFAULT_CLARA_BACKEND_API_URL = "https://api.clarapmc.com";
 const MAX_PROMPT_CHARS = 28000;
-const MAX_OUTPUT_TOKENS = 700;
+const MAX_OUTPUT_TOKENS = 2048;
+const STRUCTURED_MIN_OUTPUT_TOKENS = 1200;
+const PLAIN_MAX_OUTPUT_TOKENS = 700;
 const REQUEST_TIMEOUT_MS = 20000;
 const AUTH_TIMEOUT_MS = 8000;
 const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
@@ -238,19 +240,29 @@ function resolveStructuredOutputSchema(prompt = "") {
   return null;
 }
 
+function isStructuredJsonRequest(input = {}) {
+  return input && typeof input === "object" && input.responseMimeType === "application/json";
+}
+
 function buildGenerationConfig(input = {}, prompt = "") {
   const source = input && typeof input === "object" ? input : {};
+  const wantsJson = isStructuredJsonRequest(source);
   const config = {
-    maxOutputTokens: Math.round(safeNumber(source.maxOutputTokens, 520, 1, MAX_OUTPUT_TOKENS)),
+    maxOutputTokens: wantsJson
+      ? Math.round(safeNumber(source.maxOutputTokens, STRUCTURED_MIN_OUTPUT_TOKENS, STRUCTURED_MIN_OUTPUT_TOKENS, MAX_OUTPUT_TOKENS))
+      : Math.round(safeNumber(source.maxOutputTokens, 520, 1, PLAIN_MAX_OUTPUT_TOKENS)),
   };
 
-  if (source.responseMimeType === "application/json") {
+  if (wantsJson) {
     const schema = resolveStructuredOutputSchema(prompt);
     config.responseFormat = {
       text: {
         mimeType: "APPLICATION_JSON",
         ...(schema ? { schema } : {}),
       },
+    };
+    config.thinkingConfig = {
+      thinkingLevel: schema === SPENDING_DECISION_SCHEMA ? "low" : "minimal",
     };
   }
 
@@ -273,6 +285,15 @@ function extractGeminiText(payload = {}) {
     .filter(Boolean)
     .join("\n")
     .trim();
+}
+
+function isValidJsonText(value = "") {
+  try {
+    JSON.parse(String(value || ""));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function safeErrorMessage(status) {
@@ -436,6 +457,7 @@ export default async function handler(req, res) {
 
   const model = chooseModel(body?.model);
   const generationConfig = buildGenerationConfig(body?.generationConfig, prompt);
+  const wantsJson = isStructuredJsonRequest(body?.generationConfig);
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
@@ -475,6 +497,26 @@ export default async function handler(req, res) {
     const text = extractGeminiText(payload);
     if (!text) {
       return sendJson(res, 502, { ok: false, error: "CLARA AI returned an empty response.", model });
+    }
+
+    if (wantsJson && !isValidJsonText(text)) {
+      const candidate = payload?.candidates?.[0] || {};
+      const usage = payload?.usageMetadata || {};
+      console.warn("[CLARA Gemini] Structured output was not valid JSON.", {
+        model,
+        finishReason: cleanText(candidate?.finishReason),
+        outputChars: text.length,
+        promptTokenCount: Number(usage?.promptTokenCount || 0),
+        candidatesTokenCount: Number(usage?.candidatesTokenCount || 0),
+        thoughtsTokenCount: Number(usage?.thoughtsTokenCount || 0),
+        totalTokenCount: Number(usage?.totalTokenCount || 0),
+      });
+      return sendJson(res, 502, {
+        ok: false,
+        code: "CLARA_AI_INVALID_STRUCTURED_OUTPUT",
+        error: "CLARA AI returned an incomplete structured response. Please try again.",
+        model,
+      });
     }
 
     return sendJson(res, 200, { ok: true, text, model, feature: ALLOWED_FEATURE });
