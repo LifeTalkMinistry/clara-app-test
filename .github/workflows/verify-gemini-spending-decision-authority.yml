@@ -1,0 +1,33 @@
+name: Verify Gemini Spending Decision Authority
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "api/clara-gemini.js"
+      - "src/lib/clara-gemini-*.js"
+      - "src/lib/clara-spending-decision-ai.js"
+      - "src/lib/clara-buy-check-expert-ai.js"
+      - "src/components/fresh/main-dashboard/assistant/useClaraBuyCheckExpertFlow.js"
+      - "src/components/fresh/main-dashboard/assistant/useClaraBuyCheckBudgetFlow.js"
+      - "tests/buy-check-gemini-authority.test.mjs"
+      - ".github/workflows/verify-gemini-spending-decision-authority.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify Gemini spending authority contract
+        run: node --test tests/buy-check-gemini-authority.test.mjs
