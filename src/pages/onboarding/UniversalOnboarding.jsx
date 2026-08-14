@@ -365,8 +365,6 @@ function SupportScreen({ onExploreSupport }) {
         <span>See supporter benefits</span>
         <ArrowRight />
       </button>
-
-      <p className="clara-onboarding-footnote">CLARA stays free to use.</p>
     </ScreenFrame>
   );
 }
