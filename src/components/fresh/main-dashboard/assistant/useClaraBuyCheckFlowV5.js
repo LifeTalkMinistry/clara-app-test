@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { addBuyCheckExpense } from "@/lib/clara-buy-check-expense-repository";
+import { saveAvoidedSpendingDecision } from "@/lib/clara-buy-check-impact-ledger";
 import useClaraBuyCheckBudgetFlow from "./useClaraBuyCheckBudgetFlow.js";
 import {
   clean,
@@ -210,6 +211,7 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
         created_at: createdAt,
       };
       saveLocalList("clara_buy_check_not_buy_reflections", memoryPayload);
+      saveAvoidedSpendingDecision(memoryPayload);
       window.dispatchEvent(new CustomEvent("clara:buy-check-decision-memory", { detail: memoryPayload }));
       setDecision((current) => ({
         ...current,
@@ -219,7 +221,9 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
         result: {
           choice: "not_buy",
           title: "Decision saved",
-          message: "Your decision not to buy was saved so CLARA can remember the reason and the pattern.",
+          message: amount > 0
+            ? `${money(amount)} protected. This decision now counts toward your CLARA Impact for the month.`
+            : "Your decision not to buy was saved so CLARA can remember the reason and the pattern.",
         },
       }));
       return true;
