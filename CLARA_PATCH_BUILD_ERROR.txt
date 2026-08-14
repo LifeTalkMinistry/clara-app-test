@@ -1,0 +1,250 @@
+            .clara-onboarding-continue {
+              position: relative;
+              flex: 1;
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              gap: 10px;
+              padding: 0 20px;
+              overflow: hidden;
+              border: 1px solid rgba(102, 162, 255, .52) !important;
+              background: linear-gradient(112deg, #1854ed 0%, #256bff 48%, #2787ff 100%) !important;
+              box-shadow:
+                inset 0 1px 0 rgba(255,255,255,.34),
+                inset 0 -1px 0 rgba(0,32,105,.28),
+                0 16px 36px rgba(20, 79, 231, .25),
+                0 0 0 1px rgba(16, 79, 241, .10) !important;
+              color: #fff;
+              font-size: 13px;
+              line-height: 1;
+              font-weight: 680;
+              letter-spacing: -.012em;
+            }
+    
+            .clara-onboarding-continue::before {
+              content: "";
+              position: absolute;
+              left: 12%;
+              right: 12%;
+              top: -1px;
+              height: 1px;
+              background: linear-gradient(90deg, transparent, rgba(255, 216, 71, .68), rgba(255,255,255,.46), transparent);
+              opacity: .75;
+            }
+    
+            .clara-onboarding-continue svg { width: 15px; height: 15px; transition: transform .18s ease; }
+            .clara-onboarding-continue:hover { filter: brightness(1.05); }
+            .clara-onboarding-continue:hover svg { transform: translateX(2px); }
+            .clara-onboarding-back:active,
+            .clara-onboarding-continue:active { transform: scale(.985); }
+    
+            .clara-onboarding-back:focus-visible,
+            .clara-onboarding-continue:focus-visible,
+            .clara-onboarding-support-link:focus-visible {
+              box-shadow: 0 0 0 3px rgba(88, 153, 255, .22) !important;
+            }
+    
+            @media (max-height: 760px) {
+              .clara-onboarding-screen { padding-top: 105px; padding-bottom: 96px; }
+              .clara-onboarding-screen--dense { justify-content: flex-start; padding-top: 103px; }
+              .clara-onboarding-title { margin-top: 21px; font-size: clamp(1.9rem, 8.4vw, 2.35rem); }
+              .clara-onboarding-body { margin-top: 16px; }
+              .clara-onboarding-chip-grid,
+              .clara-onboarding-mission-grid { margin-top: 21px; }
+              .clara-onboarding-personal-list { margin-top: 28px; }
+              .clara-onboarding-footer { padding-top: 28px; }
+            }
+    
+            @media (min-width: 640px) {
+              .clara-onboarding-header { padding-left: 28px; padding-right: 28px; }
+              .clara-onboarding-screen { padding-left: 30px; padding-right: 30px; }
+              .clara-onboarding-footer { padding-left: 28px; padding-right: 28px; }
+            }
+    
+            @media (prefers-reduced-motion: reduce) {
+              .clara-onboarding-screen > *,
+              .clara-onboarding-progress-segment,
+              .clara-onboarding-continue svg,
+              .clara-onboarding-support-link svg {
+                animation: none !important;
+                transition: none !important;
+              }
+            }
+          `}</style>
+    
+          <AmbientField />
+    
+          <header className="clara-onboarding-header">
+            <div className="clara-onboarding-header-row">
+              <ClaraWordmark />
+              <span className="clara-onboarding-counter">
+                {String(screenIndex + 1).padStart(2, "0")} / {String(SCREEN_IDS.length).padStart(2, "0")}
+              </span>
+            </div>
+            <div className="clara-onboarding-progress" aria-hidden="true">
+              {SCREEN_IDS.map((screenId, index) => (
+                <span
+                  key={screenId}
+                  className={`clara-onboarding-progress-segment ${
+                    index <= screenIndex ? "is-active" : ""
+                  } ${index === screenIndex ? "is-current" : ""}`}
+                />
+              ))}
+            </div>
+          </header>
+    
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={activeScreen}
+              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6 }}
+              transition={{ duration: reduceMotion ? 0.16 : 0.38, ease: [0.22, 1, 0.36, 1] }}
+              className="clara-onboarding-transition"
+            >
+              {content}
+            </motion.div>
+          </AnimatePresence>
+    
+          <footer className="clara-onboarding-footer">
+            <div className="clara-onboarding-footer-inner">
+              {!isFirst ? (
+                <button type="button" onClick={goBack} aria-label="Go back" className="clara-onboarding-back">
+                  <ChevronLeft />
+                </button>
+              ) : null}
+    
+              <button
+                type="button"
+                onClick={isLast ? enterClara : goNext}
+                className="clara-onboarding-continue"
+              >
+                <span>
+                  {isLast ? "Start with CLARA" : activeScreen === "support" ? "Continue with free CLARA" : "Continue"}
+                </span>
+                <ArrowRight />
+              </button>
+            </div>
+          </footer>
+        </div>
+      );
+    }
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (file:///home/runner/work/clara-app-test/clara-app-test/tests/universal-onboarding-scroll.test.mjs:122:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: Community scroll ownership does not depend on :has support in Android WebView
+not ok 313 - Community scroll ownership does not depend on :has support in Android WebView
+  ---
+  duration_ms: 0.479355
+  type: 'test'
+  location: '/home/runner/work/clara-app-test/clara-app-test/tests/universal-onboarding-scroll.test.mjs:130:1'
+  failureType: 'testCodeFailure'
+  error: 'Expected "actual" to be strictly unequal to: -1'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: -1
+  actual: -1
+  operator: 'notStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/runner/work/clara-app-test/clara-app-test/tests/universal-onboarding-scroll.test.mjs:139:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: phone Community keeps Layout main as the single vertical scroll owner
+ok 314 - phone Community keeps Layout main as the single vertical scroll owner
+  ---
+  duration_ms: 0.376101
+  type: 'test'
+  ...
+# Subtest: route settle cannot create a transformed or filtered Community containing block
+ok 315 - route settle cannot create a transformed or filtered Community containing block
+  ---
+  duration_ms: 3.411183
+  type: 'test'
+  ...
+# Subtest: production builds point directly to the self-hosted CLARA API hostname
+ok 316 - production builds point directly to the self-hosted CLARA API hostname
+  ---
+  duration_ms: 0.962899
+  type: 'test'
+  ...
+# Subtest: Vercel no longer proxies CLARA backend traffic through a tunnel provider
+ok 317 - Vercel no longer proxies CLARA backend traffic through a tunnel provider
+  ---
+  duration_ms: 0.253268
+  type: 'test'
+  ...
+# Subtest: coaching requests use the same direct backend base as the rest of CLARA
+ok 318 - coaching requests use the same direct backend base as the rest of CLARA
+  ---
+  duration_ms: 0.215637
+  type: 'test'
+  ...
+# Subtest: the production API hostname remains the owned CLARA hostname
+ok 319 - the production API hostname remains the owned CLARA hostname
+  ---
+  duration_ms: 0.890522
+  type: 'test'
+  ...
+# Subtest: Settings backend clients coalesce rapid repeated reads
+ok 320 - Settings backend clients coalesce rapid repeated reads
+  ---
+  duration_ms: 0.225767
+  type: 'test'
+  ...
+# Subtest: Wallet card does not create a second finance controller or poll every 900ms
+ok 321 - Wallet card does not create a second finance controller or poll every 900ms
+  ---
+  duration_ms: 0.874923
+  type: 'test'
+  ...
+# Subtest: wallet editing preserves provider identity and shows inline errors
+ok 322 - wallet editing preserves provider identity and shows inline errors
+  ---
+  duration_ms: 0.213994
+  type: 'test'
+  ...
+# Subtest: wallet transfers respect spendable balance after protected funds
+ok 323 - wallet transfers respect spendable balance after protected funds
+  ---
+  duration_ms: 0.157998
+  type: 'test'
+  ...
+# Subtest: wallet removal blocks money loss and preserves transaction history
+ok 324 - wallet removal blocks money loss and preserves transaction history
+  ---
+  duration_ms: 0.165743
+  type: 'test'
+  ...
+# Subtest: wallet reorder touches only the two adjacent wallets
+ok 325 - wallet reorder touches only the two adjacent wallets
+  ---
+  duration_ms: 0.234353
+  type: 'test'
+  ...
+# Subtest: expanded Wallet activity can show more than the collapsed two-row preview
+ok 326 - expanded Wallet activity can show more than the collapsed two-row preview
+  ---
+  duration_ms: 0.136788
+  type: 'test'
+  ...
+1..326
+# tests 326
+# suites 0
+# pass 316
+# fail 10
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1333.306852
