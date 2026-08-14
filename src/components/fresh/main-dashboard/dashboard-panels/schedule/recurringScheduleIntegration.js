@@ -9,8 +9,11 @@ import {
   upsertRecurringBill,
 } from "@/lib/recurringCashFlowRepository";
 
-export const RECURRING_SCHEDULE_WINDOW_MONTHS = 24;
+export const RECURRING_SCHEDULE_WINDOW_MONTHS = 12;
 const SCHEDULE_CREATE_EVENT = "clara:schedule:create-event";
+const SCHEDULE_SYNC_INCOME_EVENT = "clara:schedule:sync-income-events";
+const SCHEDULE_STORAGE_PREFIX = "clara_schedule_events_v2";
+const INCOME_SCHEDULE_ID_PREFIX = "income-schedule-";
 const SCHEDULE_AGENDA_BREATHING_ROOM_STYLE_ID = "clara-schedule-agenda-breathing-room";
 
 function installScheduleAgendaBreathingRoomStyles() {
@@ -40,9 +43,12 @@ installScheduleAgendaBreathingRoomStyles();
 
 function getScheduleProjectionRange() {
   const now = new Date();
+  const end = new Date(now);
+  end.setMonth(end.getMonth() + RECURRING_SCHEDULE_WINDOW_MONTHS);
+
   return {
     start: toLocalDateKey(now),
-    end: toLocalDateKey(new Date(now.getFullYear() + 2, now.getMonth(), now.getDate())),
+    end: toLocalDateKey(end),
   };
 }
 
@@ -57,6 +63,36 @@ function stableMinimumAmount(source = {}) {
     source?.expected_amount;
   const amount = Number(String(value ?? "").replace(/php/gi, "").replace(/[₱,\s]/g, ""));
   return Number.isFinite(amount) ? Math.max(0, amount) : 0;
+}
+
+function scheduleStorageKey(ownerId) {
+  return `${SCHEDULE_STORAGE_PREFIX}_${String(ownerId || "guest").trim() || "guest"}`;
+}
+
+function readStoredSchedule(ownerId) {
+  if (typeof window === "undefined" || !window.localStorage) return [];
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(scheduleStorageKey(ownerId)) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistIncomeScheduleProjection(ownerId, projectedEvents) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+
+  try {
+    const retained = readStoredSchedule(ownerId).filter(
+      (event) => !String(event?.id || "").startsWith(INCOME_SCHEDULE_ID_PREFIX)
+    );
+    window.localStorage.setItem(
+      scheduleStorageKey(ownerId),
+      JSON.stringify([...retained, ...projectedEvents])
+    );
+  } catch (error) {
+    console.warn("CLARA income Schedule projection could not be persisted:", error);
+  }
 }
 
 export function dispatchRecurringBillOccurrences(ownerId, bill) {
@@ -100,34 +136,45 @@ export async function dispatchIncomeTimingOccurrences(ownerId) {
       .map((source) => [String(source.id), source])
   );
 
-  getIncomeTimingRecords(ownerId).forEach((timing) => {
+  const projectedEvents = getIncomeTimingRecords(ownerId).flatMap((timing) => {
     const sourceId = String(timing.incomeSourceId || timing.income_source_id || timing.id || "income");
     const sourceName = String(timing.sourceName || timing.source_name || "Expected income").trim() || "Expected income";
     const incomeSource = sourceById.get(sourceId) || null;
     const minimumAmount = stableMinimumAmount(incomeSource);
 
-    getRecurrenceOccurrences(
+    return getRecurrenceOccurrences(
       timing.recurrence || timing.recurrence_rule,
       start,
       end,
       { kind: "income" }
-    ).forEach((date) =>
-      dispatchClaraEvent(SCHEDULE_CREATE_EVENT, {
-        id: `income-schedule-${sourceId}-${date}`,
-        title: sourceName,
-        date,
-        time: "",
-        type: "Payday",
-        amount: minimumAmount > 0 ? minimumAmount : "",
-        note: minimumAmount > 0
-          ? `At least ₱${minimumAmount.toLocaleString("en-PH", { maximumFractionDigits: 2 })} is expected from ${sourceName}. This is the conservative stable-income floor; actual received money remains owned by Income Hub.`
-          : `Expected income from ${sourceName}. CLARA uses this schedule for payday timing; actual received money remains owned by Income Hub.`,
-        impactBreakdown: minimumAmount > 0
-          ? [{ direction: "in", amount: minimumAmount, source: "stable_income_minimum" }]
-          : [{ direction: "in", pendingAmount: true, source: "income_timing" }],
-      })
-    );
+    ).map((date) => ({
+      id: `${INCOME_SCHEDULE_ID_PREFIX}${sourceId}-${date}`,
+      title: sourceName,
+      date,
+      time: "",
+      type: "Payday",
+      amount: minimumAmount > 0 ? minimumAmount : "",
+      note: minimumAmount > 0
+        ? `At least ₱${minimumAmount.toLocaleString("en-PH", { maximumFractionDigits: 2 })} is expected from ${sourceName}. This is the conservative stable-income floor; actual received money remains owned by Income Hub.`
+        : `Expected income from ${sourceName}. CLARA uses this schedule for payday timing; actual received money remains owned by Income Hub.`,
+      impactBreakdown: minimumAmount > 0
+        ? [{ direction: "in", amount: minimumAmount, source: "stable_income_minimum" }]
+        : [{ direction: "in", pendingAmount: true, source: "income_timing" }],
+      source: "income_timing_projection",
+      incomeSourceId: sourceId,
+      income_source_id: sourceId,
+    }));
   });
+
+  // Persist the exact rolling 12-month projection so Schedule remains correct
+  // even when Income Hub and Schedule are not mounted at the same time.
+  // Replacing all managed income projections also removes stale dates after an edit.
+  persistIncomeScheduleProjection(ownerId, projectedEvents);
+
+  // If Schedule is currently mounted, replace its managed payday rows immediately.
+  dispatchClaraEvent(SCHEDULE_SYNC_INCOME_EVENT, { events: projectedEvents });
+
+  return projectedEvents;
 }
 
 export async function syncRecurringBillsIntoSchedule(ownerId) {
