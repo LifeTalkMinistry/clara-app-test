@@ -326,8 +326,8 @@ ${JSON.stringify(financialContext)}
 ACTIONS
 reply=natural response; probe=one decision-relevant question or alternative permission; ready=guidance sufficient, ask final purchase choice; continue=continue current discussion; reassess=new facts materially change guidance; redirect=outside scope or harm boundary.
 
-Return valid JSON only:
-{"action":"reply|probe|ready|continue|reassess|redirect","reply":"exact user-facing response","evidence":{"item":"","price":0,"purpose":"","currentSituation":"","urgency":"","alternatives":"","timing":"","constraints":"","readinessSummary":""},"readinessConfidence":0.0}`;
+Return valid JSON only using one action above:
+{"action":"reply","reply":"exact user-facing response","evidence":{"item":"","price":0,"purpose":"","currentSituation":"","urgency":"","alternatives":"","timing":"","constraints":"","readinessSummary":""},"readinessConfidence":0.0}`;
 }
 
 function fallbackTurn(message = "", evidence = {}, assistantContext = {}) {
