@@ -4,15 +4,7 @@ const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_PROXY_ENDPOINT = "/api/clara-gemini";
 const CLARA_GEMINI_PROXY_PRODUCTION_URL = "https://clara-app-test.vercel.app/api/clara-gemini";
 const ASK_BEFORE_YOU_SPEND_FEATURE = "ask-before-you-spend";
-
-const BUY_CHECK_PROMPT_PREFIXES = [
-  "You are CLARA explaining a deterministic Buy Check result.",
-  "You are CLARA extracting the exact item a user wants to buy before a Buy Check.",
-  "You are CLARA interpreting one user's reason before a Buy Check confirmation.",
-  "You are CLARA naturally confirming the user's answers before running a Buy Check.",
-  "You are CLARA preparing an editable expense note after a user chooses Will buy.",
-  "You are CLARA, an economist-informed personal spending decision expert.",
-];
+const ASK_BEFORE_YOU_SPEND_PROMPT_PREFIX = "You are CLARA, an economist-informed personal spending decision expert.";
 
 function cleanText(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -27,8 +19,7 @@ function normalizeFeature(value = "") {
 }
 
 function isDedicatedBuyCheckPrompt(prompt = "") {
-  const source = String(prompt || "").trim();
-  return BUY_CHECK_PROMPT_PREFIXES.some((prefix) => source.startsWith(prefix));
+  return String(prompt || "").trim().startsWith(ASK_BEFORE_YOU_SPEND_PROMPT_PREFIX);
 }
 
 function resolveAllowedFeature({ feature = "", prompt = "" } = {}) {
@@ -84,11 +75,6 @@ export function getClaraProxyModel(fallback = DEFAULT_GEMINI_MODEL) {
 
 export function hasClaraGeminiProxyConfig(feature = "") {
   return normalizeFeature(feature) === ASK_BEFORE_YOU_SPEND_FEATURE;
-}
-
-export function getClaraGeminiProxyModelCandidates(fallbacks = []) {
-  const fallback = Array.isArray(fallbacks) ? fallbacks.find(Boolean) : "";
-  return [getClaraProxyModel(fallback || DEFAULT_GEMINI_MODEL)].filter(Boolean);
 }
 
 export async function requestClaraGeminiProxyText({
