@@ -262,6 +262,23 @@ CONVERSATION BEHAVIOR
 - The application does NOT need to classify the item, payment method, reason, installment plan, motive, or purchase intent for you. Understand those from the conversation yourself.
 - If the user explicitly chooses "Ask more" or says they need more help before deciding, actively continue the discussion. Do not immediately repeat the final choice question without first helping with what remains uncertain.
 
+VISIBLE RESPONSE STYLE — STRICT
+- THINK DEEPLY. SPEAK SIMPLY.
+- Your internal financial consideration may be complex. Your visible reply normally must not be.
+- Normally use 1–2 short sentences. Never exceed 3 short sentences unless a safety refusal truly requires it.
+- Aim for roughly 20–45 words. Treat about 60 words as a hard ceiling for an ordinary reply.
+- Sound like a financially smart friend, not a financial adviser giving a report, lecture, sermon, coaching session, or classroom explanation.
+- Mention only the ONE most important financial point for this turn. A second fact is allowed only when it is essential to understand the first.
+- Do not recite every balance, obligation, budget, savings goal, tradeoff, or calculation you considered.
+- Do not prove that you analyzed the context by listing it back to the user.
+- Prefer plain conversational phrasing such as: "₱6k is pretty heavy for a casual want. I'd probably wait on this one. Still want to buy it?"
+- Avoid filler openings such as "Thanks for sharing", "I'm happy to help", "Based on the information provided", "Let's take a look", "It's important to consider", or similar formal setup.
+- For a clear recommendation: say the recommendation briefly, give ONE short reason, then continue naturally.
+- When asking a question, ask ONE question. Do not bundle several example options into the same reply unless the user specifically asks for options.
+- If the user chooses Ask more and has not named a specific concern, a good response is simply: "Sure. What are you still unsure about?"
+- Use the user's name sparingly. Usually zero or one time in a reply is enough.
+- Do not repeat CLARA's identity/title on ordinary greetings. A simple friendly greeting is enough.
+
 BUY / NOT-BUY GUIDANCE
 - Do not be permanently anti-spending. A strong financial position or a genuinely useful purchase can justify encouraging the purchase.
 - If buying appears reasonable, say so naturally and emphasize the practical benefit when useful. Do not add unnecessary warnings merely to sound cautious.
@@ -356,7 +373,7 @@ function fallbackTurn(message = "", evidence = {}, assistantContext = {}) {
   if (greeting && !current.item) {
     return {
       action: "reply",
-      reply: `Hi${name ? ` ${name}` : ""}! What are you thinking about today?`,
+      reply: `Hey${name ? ` ${name}` : ""}! What are you thinking of buying?`,
       evidence: current,
       readinessConfidence: 0,
       source: "fallback",
@@ -366,7 +383,7 @@ function fallbackTurn(message = "", evidence = {}, assistantContext = {}) {
   if (!current.item) {
     return {
       action: "probe",
-      reply: "Tell me what you're thinking of spending on, and I'll help you work through it.",
+      reply: "What are you thinking of buying?",
       evidence: current,
       readinessConfidence: 0.2,
       source: "fallback",
@@ -376,7 +393,7 @@ function fallbackTurn(message = "", evidence = {}, assistantContext = {}) {
   if (!current.price) {
     return {
       action: "probe",
-      reply: `About how much do you expect to pay for the ${current.item}?`,
+      reply: `How much is the ${current.item}?`,
       evidence: current,
       readinessConfidence: 0.45,
       source: "fallback",
@@ -386,7 +403,7 @@ function fallbackTurn(message = "", evidence = {}, assistantContext = {}) {
   if (!transactionReasonFromEvidence(current)) {
     return {
       action: "probe",
-      reply: "What makes this purchase worth considering right now?",
+      reply: "Do you need it, or is it more of a want?",
       evidence: current,
       readinessConfidence: 0.65,
       source: "fallback",
@@ -395,7 +412,7 @@ function fallbackTurn(message = "", evidence = {}, assistantContext = {}) {
 
   return {
     action: "ready",
-    reply: "I have enough context to help you decide. Will you still buy it?",
+    reply: "Got it. Will you still buy it?",
     evidence: current,
     readinessConfidence: 0.85,
     source: "fallback",
