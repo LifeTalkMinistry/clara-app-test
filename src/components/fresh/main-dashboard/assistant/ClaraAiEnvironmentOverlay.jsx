@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import ClaraAiEnvironmentOverlayV2 from "./ClaraAiEnvironmentOverlayV2.jsx";
+import ClaraBuyCheckImpactPortal from "./ClaraBuyCheckImpactPortal.jsx";
 
 const NATURAL_INPUT_PROMPT = "Talk to CLARA naturally about the purchase";
 
@@ -64,5 +65,13 @@ export default function ClaraAiEnvironmentOverlay(props) {
     return () => observer.disconnect();
   }, [props?.isActive, props?.layoutVariant]);
 
-  return <ClaraAiEnvironmentOverlayV2 {...props} />;
+  return (
+    <>
+      <ClaraAiEnvironmentOverlayV2 {...props} />
+      <ClaraBuyCheckImpactPortal
+        isActive={Boolean(props?.isActive)}
+        disabled={props?.layoutVariant === "guide-preview"}
+      />
+    </>
+  );
 }
