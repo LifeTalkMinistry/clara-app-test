@@ -1,11 +1,12 @@
 const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const DEFAULT_MODEL = "gemini-2.5-flash";
 const ALLOWED_FEATURE = "ask-before-you-spend";
-const MAX_PROMPT_CHARS = 60000;
+const MAX_PROMPT_CHARS = 28000;
 const MAX_OUTPUT_TOKENS = 700;
-const REQUEST_TIMEOUT_MS = 30000;
+const REQUEST_TIMEOUT_MS = 20000;
 const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
-const RATE_LIMIT_MAX_REQUESTS = 40;
+const RATE_LIMIT_MAX_REQUESTS = 10;
+const DUPLICATE_WINDOW_MS = 2500;
 const BLOCKED_MODEL_KEYWORDS = [
   "image",
   "vision",
@@ -27,12 +28,15 @@ const BLOCKED_MODEL_KEYWORDS = [
 
 const rateBuckets = globalThis.__CLARA_GEMINI_RATE_BUCKETS__ || new Map();
 globalThis.__CLARA_GEMINI_RATE_BUCKETS__ = rateBuckets;
+const recentRequests = globalThis.__CLARA_GEMINI_RECENT_REQUESTS__ || new Map();
+globalThis.__CLARA_GEMINI_RECENT_REQUESTS__ = recentRequests;
 
 function setCorsHeaders(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Requested-With");
   res.setHeader("Access-Control-Max-Age", "86400");
+  res.setHeader("Cache-Control", "no-store");
 }
 
 function sendJson(res, statusCode, payload) {
@@ -59,11 +63,11 @@ function isSafeGeminiModel(model = "") {
 }
 
 function chooseModel(requestedModel = "") {
-  const requested = normalizeModelName(requestedModel);
-  if (isSafeGeminiModel(requested)) return requested;
-
   const envModel = normalizeModelName(process.env.GEMINI_MODEL || "");
   if (isSafeGeminiModel(envModel)) return envModel;
+
+  const requested = normalizeModelName(requestedModel);
+  if (isSafeGeminiModel(requested)) return requested;
 
   return DEFAULT_MODEL;
 }
@@ -133,6 +137,7 @@ function isAllowedBuyCheckPrompt(prompt = "") {
   if (!head) return false;
   return head.includes("ask before you spend") ||
     head.includes("buy check") ||
+    head.includes("spending decision expert") ||
     head.includes("pre-purchase money coach");
 }
 
@@ -169,6 +174,34 @@ function takeRateLimitSlot(req) {
     remaining: Math.max(0, RATE_LIMIT_MAX_REQUESTS - bucket.count),
     retryAfterSeconds: Math.max(1, Math.ceil((RATE_LIMIT_WINDOW_MS - (now - bucket.startedAt)) / 1000)),
   };
+}
+
+function promptFingerprint(prompt = "") {
+  let hash = 2166136261;
+  const source = String(prompt || "");
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `${source.length}:${(hash >>> 0).toString(36)}`;
+}
+
+function takeDuplicateSlot(req, prompt) {
+  const now = Date.now();
+  const key = `${getClientKey(req)}:${promptFingerprint(prompt)}`;
+  const previous = Number(recentRequests.get(key) || 0);
+
+  if (previous && now - previous < DUPLICATE_WINDOW_MS) {
+    return false;
+  }
+
+  recentRequests.set(key, now);
+  if (recentRequests.size > 1500) {
+    for (const [requestKey, timestamp] of recentRequests.entries()) {
+      if (now - timestamp >= DUPLICATE_WINDOW_MS) recentRequests.delete(requestKey);
+    }
+  }
+  return true;
 }
 
 export default async function handler(req, res) {
@@ -215,6 +248,14 @@ export default async function handler(req, res) {
 
   if (prompt.length > MAX_PROMPT_CHARS) {
     return sendJson(res, 413, { ok: false, error: "Prompt is too large for one CLARA AI request." });
+  }
+
+  if (!takeDuplicateSlot(req, prompt)) {
+    return sendJson(res, 409, {
+      ok: false,
+      code: "CLARA_AI_DUPLICATE_REQUEST",
+      error: "That Ask Before You Spend request is already being processed.",
+    });
   }
 
   const rateLimit = takeRateLimitSlot(req);
