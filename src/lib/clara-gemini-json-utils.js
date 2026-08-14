@@ -73,7 +73,6 @@ export function hasGeminiJsonConfig(feature = "") {
 export async function requestGeminiJson({
   feature = "",
   prompt,
-  temperature = 0.18,
   maxOutputTokens = 650,
   timeoutMs = 14000,
   label = "CLARA Gemini JSON",
@@ -99,8 +98,6 @@ export async function requestGeminiJson({
       model,
       signal: timeout.signal,
       generationConfig: {
-        temperature,
-        topP: 0.86,
         maxOutputTokens,
         responseMimeType: "application/json",
       },
