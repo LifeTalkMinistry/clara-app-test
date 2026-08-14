@@ -1,3 +1,5 @@
+import { getStoredBackendToken } from "./clara-backend-client.js";
+
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_PROXY_ENDPOINT = "/api/clara-gemini";
 const CLARA_GEMINI_PROXY_PRODUCTION_URL = "https://clara-app-test.vercel.app/api/clara-gemini";
@@ -40,6 +42,13 @@ function featureDisabledError() {
   const error = new Error("CLARA AI is intentionally disabled outside Ask Before You Spend.");
   error.code = "CLARA_AI_FEATURE_DISABLED";
   error.status = 403;
+  return error;
+}
+
+function authRequiredError() {
+  const error = new Error("Your CLARA session is required before Ask Before You Spend can use AI.");
+  error.code = "CLARA_AI_AUTH_REQUIRED";
+  error.status = 401;
   return error;
 }
 
@@ -100,9 +109,15 @@ export async function requestClaraGeminiProxyText({
   const allowedFeature = resolveAllowedFeature({ feature, prompt: cleanPrompt });
   if (!allowedFeature) throw featureDisabledError();
 
+  const token = getStoredBackendToken();
+  if (!token) throw authRequiredError();
+
   const response = await fetch(getClaraGeminiProxyEndpoint(), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
     signal,
     body: JSON.stringify({
       feature: allowedFeature,

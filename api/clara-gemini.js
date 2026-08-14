@@ -1,9 +1,11 @@
 const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const DEFAULT_MODEL = "gemini-2.5-flash";
 const ALLOWED_FEATURE = "ask-before-you-spend";
+const DEFAULT_CLARA_BACKEND_API_URL = "https://api.clarapmc.com";
 const MAX_PROMPT_CHARS = 28000;
 const MAX_OUTPUT_TOKENS = 700;
 const REQUEST_TIMEOUT_MS = 20000;
+const AUTH_TIMEOUT_MS = 8000;
 const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
 const RATE_LIMIT_MAX_REQUESTS = 10;
 const DUPLICATE_WINDOW_MS = 2500;
@@ -34,7 +36,7 @@ globalThis.__CLARA_GEMINI_RECENT_REQUESTS__ = recentRequests;
 function setCorsHeaders(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Requested-With");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
   res.setHeader("Access-Control-Max-Age", "86400");
   res.setHeader("Cache-Control", "no-store");
 }
@@ -52,6 +54,95 @@ function cleanText(value = "") {
 
 function normalizeModelName(model = "") {
   return cleanText(model).replace(/^models\//, "");
+}
+
+function getClaraBackendApiUrl() {
+  return cleanText(process.env.CLARA_BACKEND_API_URL || DEFAULT_CLARA_BACKEND_API_URL).replace(/\/+$/, "");
+}
+
+function getBearerToken(req) {
+  const authorization = cleanText(req.headers?.authorization || "");
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  return cleanText(match?.[1] || "");
+}
+
+function extractAuthenticatedUser(payload = {}) {
+  const candidates = [payload, payload?.user, payload?.data, payload?.profile, payload?.account];
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== "object") continue;
+    const id = candidate.id ?? candidate.user_id ?? candidate.userId;
+    if (id !== undefined && id !== null && String(id).trim()) {
+      return { id: String(id).trim() };
+    }
+  }
+  return null;
+}
+
+async function authenticateClaraUser(req) {
+  const token = getBearerToken(req);
+  if (!token) {
+    return {
+      ok: false,
+      status: 401,
+      code: "CLARA_AI_AUTH_REQUIRED",
+      error: "Your CLARA session is required before Ask Before You Spend can use AI.",
+    };
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${getClaraBackendApiUrl()}/api/users/me`, {
+      method: "GET",
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      signal: controller.signal,
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (response.status === 401 || response.status === 403) {
+      return {
+        ok: false,
+        status: 401,
+        code: "CLARA_AI_AUTH_INVALID",
+        error: "Your CLARA session is no longer valid. Please sign in again.",
+      };
+    }
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: 503,
+        code: "CLARA_AI_AUTH_UNAVAILABLE",
+        error: "CLARA couldn't verify your session right now, so no AI money check was run.",
+      };
+    }
+
+    const user = extractAuthenticatedUser(payload);
+    if (!user) {
+      return {
+        ok: false,
+        status: 503,
+        code: "CLARA_AI_AUTH_UNAVAILABLE",
+        error: "CLARA couldn't verify your session right now, so no AI money check was run.",
+      };
+    }
+
+    return { ok: true, user };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 503,
+      code: error?.name === "AbortError" ? "CLARA_AI_AUTH_TIMEOUT" : "CLARA_AI_AUTH_UNAVAILABLE",
+      error: "CLARA couldn't verify your session right now, so no AI money check was run.",
+    };
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 function isSafeGeminiModel(model = "") {
@@ -250,14 +341,6 @@ export default async function handler(req, res) {
     return sendJson(res, 413, { ok: false, error: "Prompt is too large for one CLARA AI request." });
   }
 
-  if (!takeDuplicateSlot(req, prompt)) {
-    return sendJson(res, 409, {
-      ok: false,
-      code: "CLARA_AI_DUPLICATE_REQUEST",
-      error: "That Ask Before You Spend request is already being processed.",
-    });
-  }
-
   const rateLimit = takeRateLimitSlot(req);
   res.setHeader("X-RateLimit-Limit", String(RATE_LIMIT_MAX_REQUESTS));
   res.setHeader("X-RateLimit-Remaining", String(rateLimit.remaining));
@@ -267,6 +350,23 @@ export default async function handler(req, res) {
       ok: false,
       code: "CLARA_AI_RATE_LIMITED",
       error: "Too many Ask Before You Spend AI requests. Please try again shortly.",
+    });
+  }
+
+  const authentication = await authenticateClaraUser(req);
+  if (!authentication.ok) {
+    return sendJson(res, authentication.status, {
+      ok: false,
+      code: authentication.code,
+      error: authentication.error,
+    });
+  }
+
+  if (!takeDuplicateSlot(req, prompt)) {
+    return sendJson(res, 409, {
+      ok: false,
+      code: "CLARA_AI_DUPLICATE_REQUEST",
+      error: "That Ask Before You Spend request is already being processed.",
     });
   }
 

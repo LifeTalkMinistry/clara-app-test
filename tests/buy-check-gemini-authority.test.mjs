@@ -124,6 +124,19 @@ test("Gemini secret stays server-side and no browser API-key variable is introdu
   assert.doesNotMatch(decision, /VITE_GEMINI_API_KEY/);
 });
 
+test("Gemini gateway reuses canonical CLARA backend authentication", async () => {
+  const api = await source("api/clara-gemini.js");
+  const proxy = await source("src/lib/clara-gemini-proxy-client.js");
+
+  assert.match(proxy, /getStoredBackendToken/);
+  assert.match(proxy, /Authorization: `Bearer \$\{token\}`/);
+  assert.match(api, /\/api\/users\/me/);
+  assert.match(api, /CLARA_AI_AUTH_REQUIRED/);
+  assert.match(api, /CLARA_AI_AUTH_INVALID/);
+  assert.match(api, /AUTH_TIMEOUT_MS = 8000/);
+  assert.match(api, /Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With/);
+});
+
 test("legacy deterministic diagnosis remains present for rollback but outside the active expert verdict path", async () => {
   const legacyDiagnosis = await source("src/lib/clara-buy-check-diagnosis-v5.js");
   const legacyCore = await source("src/lib/clara-buy-check-decision-core.js");
