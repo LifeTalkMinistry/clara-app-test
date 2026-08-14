@@ -1,1087 +1,455 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
-  BadgeCheck,
   ChevronLeft,
-  Compass,
   HeartHandshake,
+  ShieldCheck,
   Sparkles,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { useAuth } from "../../context/AuthContext";
-import {
-  buildUniversalOnboardingContent,
-  loadUniversalOnboardingContent,
-} from "@/lib/universal-onboarding-content";
-import { appendMemory, getMemories, setMemories } from "@/lib/ai/clara-memory";
-import { saveAccessSnapshot } from "@/lib/offline-access-cache";
-import {
-  getLocalSetupProfile,
-  saveLocalSetupProfile,
-} from "@/lib/claraLocalProfile";
+import ClaraLogo from "@/components/ClaraLogo";
+import { useAuth } from "@/context/AuthContext";
 
-const SAVE_ERROR_MESSAGE = "We couldn’t save your setup yet. Please try again.";
-const FREE_VERSION_ROUTE = "/dashboard";
-const ACTIVE_MEMORY_USER_ID_KEY = "clara_active_memory_user_id";
-const UNIVERSAL_ONBOARDING_DRAFT_KEY = "clara_universal_onboarding_answers_draft";
-const MOBILE_QUERY = "(max-width: 640px)";
+const CLARA_ORB_PATH = "/community?view=orb";
+const SUPPORT_BUBBLE_EPOCH_KEY = "clara_support_bubble_cycle_epoch_v2";
+const OPEN_SUPPORT_AFTER_ONBOARDING_KEY = "clara_open_support_after_onboarding_v1";
+const MISSION_ONBOARDING_COMPLETE_PREFIX = "clara_mission_onboarding_complete_v1";
 
-const QUESTION_SETS = [
-  {
-    id: "commitment_level",
-    selectionMode: "single",
-    eyebrow: "Commitment check",
-    title: "How ready are you to work on your money right now?",
-    description: "No pressure. CLARA only needs to understand your readiness level.",
-    options: [
-      {
-        id: "just_exploring",
-        label: "I’m just exploring",
-        description: "I want to look around and understand what CLARA can do.",
-      },
-      {
-        id: "build_better_habits",
-        label: "I want to build better habits",
-        description: "I want my money routine to feel more consistent.",
-      },
-      {
-        id: "take_seriously",
-        label: "I’m ready to take this seriously",
-        description: "I want structure, clarity, and a stronger direction.",
-      },
-      {
-        id: "need_structure_now",
-        label: "I badly need structure right now",
-        description: "My money life feels heavy, and I need help organizing it.",
-      },
-    ],
-  },
-  {
-    id: "lifestyle_context",
-    selectionMode: "multiple",
-    eyebrow: "Lifestyle clarity",
-    title: "What kind of life is your money supporting right now?",
-    description: "This helps CLARA understand the responsibilities around your money.",
-    options: [
-      {
-        id: "just_myself",
-        label: "Just myself",
-        description: "My money mostly supports my own needs.",
-      },
-      {
-        id: "family_household",
-        label: "My family or household",
-        description: "My money helps support people or responsibilities at home.",
-      },
-      {
-        id: "partner_shared_expenses",
-        label: "A partner or shared expenses",
-        description: "I manage money with someone else or share regular costs.",
-      },
-      {
-        id: "school_personal_needs",
-        label: "School and personal needs",
-        description: "My money has to support studies and everyday life.",
-      },
-      {
-        id: "freelance_irregular_income",
-        label: "Freelance or irregular income",
-        description: "My income changes and is not always predictable.",
-      },
-      {
-        id: "business_side_hustle",
-        label: "Business or side hustle",
-        description: "My money also supports income-building activities.",
-      },
-      {
-        id: "debt_bills_pressure",
-        label: "Debt, bills, or pressure from others",
-        description: "A lot of my money is already pulled by obligations.",
-      },
-    ],
-  },
-  {
-    id: "money_pressure_point",
-    selectionMode: "multiple",
-    exclusiveOptionIds: ["not_sure_yet"],
-    eyebrow: "Current pressure",
-    title: "What feels heaviest in your money life right now?",
-    description: "CLARA will use this as your first pressure point to watch.",
-    options: [
-      { id: "bills", label: "Bills", description: "Regular payments are taking a lot of space." },
-      {
-        id: "food_daily_needs",
-        label: "Food and daily needs",
-        description: "Everyday needs are the main pressure.",
-      },
-      {
-        id: "family_responsibilities",
-        label: "Family responsibilities",
-        description: "Supporting others affects my money decisions.",
-      },
-      {
-        id: "impulse_spending",
-        label: "Impulse spending",
-        description: "I sometimes spend before thinking it through.",
-      },
-      { id: "debt", label: "Debt", description: "Payments or balances feel hard to escape." },
-      {
-        id: "irregular_income",
-        label: "Irregular income",
-        description: "My money timing is inconsistent.",
-      },
-      {
-        id: "saving_money",
-        label: "Saving money",
-        description: "It is hard to keep money aside.",
-      },
-      {
-        id: "not_sure_yet",
-        label: "I’m not sure yet",
-        description: "I need CLARA to help me see the pattern first.",
-      },
-    ],
-  },
-  {
-    id: "spending_trigger",
-    selectionMode: "multiple",
-    eyebrow: "Ask before you spend",
-    title: "When do you usually need help before spending?",
-    description: "This tells CLARA when to help you pause before a risky decision.",
-    options: [
-      {
-        id: "sudden_purchase",
-        label: "When I want to buy something suddenly",
-        description: "The decision happens fast.",
-      },
-      {
-        id: "friends_family_invite",
-        label: "When friends or family invite me out",
-        description: "Social pressure can affect my spending.",
-      },
-      {
-        id: "stress_spending",
-        label: "When I feel stressed",
-        description: "Emotions can push me to spend.",
-      },
-      {
-        id: "sale_promo",
-        label: "When I see a sale or promo",
-        description: "Discounts make the purchase feel urgent.",
-      },
-      {
-        id: "payday_arrives",
-        label: "When payday arrives",
-        description: "Fresh income can disappear quickly.",
-      },
-      {
-        id: "affordability_uncertain",
-        label: "When I’m not sure if I can afford it",
-        description: "I need a clear check before deciding.",
-      },
-    ],
-  },
-  {
-    id: "spending_guidance_style",
-    selectionMode: "multiple",
-    eyebrow: "Spending check preference",
-    title: "What kind of spending check would help you most?",
-    description: "CLARA can be gentle, direct, or budget-based depending on what helps you act.",
-    options: [
-      {
-        id: "simple_yes_no",
-        label: "Simple yes or no guidance",
-        description: "Just tell me if it looks okay or risky.",
-      },
-      {
-        id: "short_explanation",
-        label: "A short explanation",
-        description: "Give me a quick reason behind the guidance.",
-      },
-      {
-        id: "strict_warning",
-        label: "A strict warning when risky",
-        description: "Be firm when the decision can hurt my plan.",
-      },
-      {
-        id: "softer_reminder",
-        label: "A softer reminder",
-        description: "Guide me without making it feel heavy.",
-      },
-      {
-        id: "budget_based_check",
-        label: "A budget-based check",
-        description: "Compare the decision with my actual budget first.",
-      },
-    ],
-  },
-  {
-    id: "guidance_intensity",
-    selectionMode: "single",
-    eyebrow: "Real guidance",
-    title: "How do you want CLARA to guide you?",
-    description: "This shapes how strong CLARA’s coaching voice should feel.",
-    options: [
-      {
-        id: "keep_simple",
-        label: "Keep it simple",
-        description: "I want clean guidance without too much detail.",
-      },
-      {
-        id: "clear_next_steps",
-        label: "Give me clear next steps",
-        description: "Show me what to do next.",
-      },
-      {
-        id: "risk_warnings",
-        label: "Warn me when I’m at risk",
-        description: "Help me catch problems before they grow.",
-      },
-      {
-        id: "understand_patterns",
-        label: "Help me understand my patterns",
-        description: "Show me the behavior behind my money.",
-      },
-      {
-        id: "money_coach",
-        label: "Guide me like a money coach",
-        description: "Give me stronger guidance and practical direction.",
-      },
-    ],
-  },
+const SCREEN_IDS = [
+  "country",
+  "quiet-spending",
+  "before",
+  "personal",
+  "clara",
+  "mission",
+  "support",
+  "rule",
 ];
 
-const ONBOARDING_MEMORY_MAPPINGS = {
-  commitment_level: {
-    category: "onboarding_commitment",
-    content: {
-      just_exploring: "User is exploring CLARA and may need gentle guidance.",
-      build_better_habits: "User wants to build better money habits and consistency.",
-      take_seriously: "User is ready to take money management seriously.",
-      need_structure_now: "User needs structure urgently and may feel financially overwhelmed.",
-    },
-  },
-  lifestyle_context: {
-    category: "onboarding_lifestyle_clarity",
-    content: {
-      just_myself: "User’s money mostly supports personal needs.",
-      family_household: "User’s money supports family or household responsibilities.",
-      partner_shared_expenses: "User manages money with a partner or shared expenses.",
-      school_personal_needs: "User’s money supports school and personal needs.",
-      freelance_irregular_income: "User has freelance or irregular income patterns.",
-      business_side_hustle: "User’s money also supports a business or side hustle.",
-      debt_bills_pressure: "User’s money is pressured by debt, bills, or obligations to others.",
-    },
-  },
-  money_pressure_point: {
-    category: "onboarding_money_pressure",
-    content: {
-      bills: "Bills are the user’s heaviest current money pressure.",
-      food_daily_needs: "Food and daily needs are the user’s main money pressure.",
-      family_responsibilities: "Family responsibilities strongly affect the user’s money decisions.",
-      impulse_spending: "Impulse spending is a major pressure point for the user.",
-      debt: "Debt is a major financial pressure for the user.",
-      irregular_income: "Irregular income makes the user’s money timing unstable.",
-      saving_money: "Saving money is difficult for the user right now.",
-      not_sure_yet: "User is not yet sure what their main money pressure is.",
-    },
-  },
-  spending_trigger: {
-    category: "onboarding_spending_trigger",
-    content: {
-      sudden_purchase: "Sudden purchases are a spending risk moment for the user.",
-      friends_family_invite: "Social invitations can pressure the user to spend.",
-      stress_spending: "Stress can trigger the user’s spending.",
-      sale_promo: "Sales and promos can trigger the user’s spending.",
-      payday_arrives: "Payday is a high-risk spending moment for the user.",
-      affordability_uncertain: "User needs help when they are unsure if they can afford something.",
-    },
-  },
-  spending_guidance_style: {
-    category: "onboarding_guidance_style",
-    content: {
-      simple_yes_no: "User prefers simple yes-or-no spending guidance.",
-      short_explanation: "User prefers short explanations behind CLARA’s guidance.",
-      strict_warning: "User wants strict warnings when a decision is risky.",
-      softer_reminder: "User prefers softer reminders instead of heavy warnings.",
-      budget_based_check: "User prefers spending checks based on actual budget data.",
-    },
-  },
-  guidance_intensity: {
-    category: "onboarding_guidance_intensity",
-    content: {
-      keep_simple: "User wants simple and clean money guidance.",
-      clear_next_steps: "User wants clear next steps.",
-      risk_warnings: "User wants CLARA to warn them when they are at risk.",
-      understand_patterns: "User wants CLARA to help them understand money patterns.",
-      money_coach: "User wants practical money-coach style guidance.",
-    },
-  },
-};
+function firstNameFrom(profile, user) {
+  const rawName =
+    profile?.full_name ||
+    profile?.display_name ||
+    profile?.name ||
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    "";
 
-const SCREENS = [
-  { id: "welcome", type: "welcome" },
-  ...QUESTION_SETS.map((question, index) => ({
-    id: `question-${question.id}`,
-    type: "question",
-    index,
-  })),
-  { id: "mission", type: "mission" },
-];
+  const firstName = String(rawName).trim().split(/\s+/)[0];
+  if (firstName) return firstName;
 
-function warnInDevelopment(...args) {
-  if (import.meta.env?.DEV) console.warn(...args);
+  const emailPrefix = String(user?.email || "").split("@")[0].trim();
+  return emailPrefix || "there";
 }
 
-function isPlainObject(value) {
-  if (!value || typeof value !== "object") return false;
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
+function completionKey(user) {
+  const identity = user?.id || user?.email || "local";
+  return `${MISSION_ONBOARDING_COMPLETE_PREFIX}:${identity}`;
 }
 
-function toAnswerArray(value) {
-  if (Array.isArray(value)) {
-    return [...new Set(value.map((item) => String(item || "").trim()).filter(Boolean))];
-  }
-  const singleValue = String(value || "").trim();
-  return singleValue ? [singleValue] : [];
-}
-
-function hasAnswerValue(value) {
-  return toAnswerArray(value).length > 0;
-}
-
-function getQuestionById(questionId) {
-  return QUESTION_SETS.find((question) => question.id === questionId) || null;
-}
-
-function normalizeAnswerValue(question, value) {
-  if (!question) return value;
-  const validOptionIds = new Set(question.options.map((option) => option.id));
-  const validValues = toAnswerArray(value).filter((item) => validOptionIds.has(item));
-  return question.selectionMode === "multiple" ? validValues : validValues[0] || "";
-}
-
-function normalizeAnswers(rawAnswers) {
-  if (!isPlainObject(rawAnswers)) return {};
-  return QUESTION_SETS.reduce((normalized, question) => {
-    const value = normalizeAnswerValue(question, rawAnswers[question.id]);
-    if (hasAnswerValue(value)) normalized[question.id] = value;
-    return normalized;
-  }, {});
-}
-
-function toggleMultipleAnswer(question, currentValue, optionId) {
-  const currentValues = toAnswerArray(currentValue);
-  const exclusiveIds = new Set(question?.exclusiveOptionIds || []);
-
-  if (exclusiveIds.has(optionId)) {
-    return currentValues.includes(optionId) ? [] : [optionId];
-  }
-
-  const withoutExclusiveValues = currentValues.filter((item) => !exclusiveIds.has(item));
-  return withoutExclusiveValues.includes(optionId)
-    ? withoutExclusiveValues.filter((item) => item !== optionId)
-    : [...withoutExclusiveValues, optionId];
-}
-
-function safelyParseOnboardingDraft() {
-  if (typeof window === "undefined") return null;
-  try {
-    const rawDraft = window.sessionStorage?.getItem(UNIVERSAL_ONBOARDING_DRAFT_KEY);
-    if (!rawDraft) return null;
-    const parsedDraft = JSON.parse(rawDraft);
-    return isPlainObject(parsedDraft) ? normalizeAnswers(parsedDraft) : null;
-  } catch (error) {
-    warnInDevelopment("CLARA onboarding draft parse failed:", error);
-    return null;
-  }
-}
-
-function persistOnboardingDraft(nextAnswers) {
-  if (typeof window === "undefined" || !isPlainObject(nextAnswers)) return;
-  try {
-    window.sessionStorage?.setItem(
-      UNIVERSAL_ONBOARDING_DRAFT_KEY,
-      JSON.stringify(normalizeAnswers(nextAnswers))
-    );
-  } catch {
-    // Session draft persistence is best effort only.
-  }
-}
-
-function clearOnboardingDraft() {
+function rememberCompletion(user) {
   if (typeof window === "undefined") return;
   try {
-    window.sessionStorage?.removeItem(UNIVERSAL_ONBOARDING_DRAFT_KEY);
+    window.localStorage.setItem(completionKey(user), new Date().toISOString());
   } catch {
-    // Draft cleanup is best effort only.
+    // Onboarding should never fail because storage is unavailable.
   }
 }
 
-function getRecommendedAccessLevel(answers) {
-  const committedSignals = new Set([
-    "take_seriously",
-    "need_structure_now",
-    "strict_warning",
-    "budget_based_check",
-    "risk_warnings",
-    "money_coach",
-  ]);
-  const relevantAnswers = [
-    ...toAnswerArray(answers.commitment_level),
-    ...toAnswerArray(answers.spending_guidance_style),
-    ...toAnswerArray(answers.guidance_intensity),
-  ];
-  return relevantAnswers.some((value) => committedSignals.has(value)) ? "committed" : "free";
-}
-
-function getMissingRequiredAnswer(answers) {
-  return QUESTION_SETS.find((question) => !hasAnswerValue(answers[question.id]));
-}
-
-function buildOnboardingMemoryEntries(answers) {
-  return Object.entries(ONBOARDING_MEMORY_MAPPINGS).flatMap(([answerKey, mapping]) =>
-    toAnswerArray(answers[answerKey])
-      .map((answerValue) => {
-        const content = mapping.content[answerValue];
-        return content ? { category: mapping.category, content } : null;
-      })
-      .filter(Boolean)
-  );
-}
-
-function saveOnboardingAnswersToLocalMemory(userId, answers) {
-  if (!userId) return;
-
-  try {
-    const cleanedMemories = getMemories(userId).filter(
-      (memory) => !String(memory?.category || "").startsWith("onboarding_")
-    );
-    const memoryEntries = buildOnboardingMemoryEntries(answers);
-
-    setMemories(userId, cleanedMemories);
-    memoryEntries.forEach((memory) => appendMemory(userId, memory));
-
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage?.setItem(ACTIVE_MEMORY_USER_ID_KEY, userId);
-      } catch {
-        // The memory review bridge can still scan local CLARA memory keys.
-      }
-
-      window.dispatchEvent(
-        new CustomEvent("clara-onboarding-memory-updated", {
-          detail: {
-            userId,
-            categories: [...new Set(memoryEntries.map((memory) => memory.category))],
-          },
-        })
-      );
-    }
-  } catch (error) {
-    warnInDevelopment("CLARA onboarding local memory save skipped:", error);
-  }
-}
-
-function getIsPerformanceMode() {
-  if (typeof document === "undefined") return false;
+function ClaraWordmark({ className = "" }) {
   return (
-    document.documentElement.classList.contains("clara-performance-mode") ||
-    document.documentElement.dataset.claraVisualMode === "performance"
+    <div className={`font-black tracking-[0.18em] ${className}`} aria-label="CLARA">
+      <span className="text-[#3b82f6]">CL</span>
+      <span className="text-[#facc15]">A</span>
+      <span className="text-[#ef4444]">RA</span>
+    </div>
   );
 }
 
-function useOnboardingMotionPreference() {
-  const prefersReducedMotion = useReducedMotion();
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== "undefined" ? window.matchMedia(MOBILE_QUERY).matches : false
-  );
-  const [isPerformanceMode, setIsPerformanceMode] = useState(getIsPerformanceMode);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof document === "undefined") return undefined;
-
-    const media = window.matchMedia(MOBILE_QUERY);
-    const update = () => {
-      setIsMobile(media.matches);
-      setIsPerformanceMode(getIsPerformanceMode());
-    };
-
-    update();
-    media.addEventListener?.("change", update);
-    const observer =
-      typeof MutationObserver !== "undefined" ? new MutationObserver(update) : null;
-    observer?.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class", "data-clara-visual-mode"],
-    });
-
-    return () => {
-      media.removeEventListener?.("change", update);
-      observer?.disconnect();
-    };
-  }, []);
-
-  return {
-    prefersReducedMotion: Boolean(prefersReducedMotion),
-    useMinimalMotion: Boolean(prefersReducedMotion || isMobile || isPerformanceMode),
-  };
-}
-
-function WelcomeStep({ content, onNext }) {
+function PhilippineAmbientMark() {
   return (
-    <div className="flex min-h-full flex-col justify-center gap-8 sm:gap-10">
-      <div className="max-w-xl space-y-5">
-        <div className="inline-flex items-center gap-2 rounded-full border border-[#f4cd71]/25 bg-[#f4cd71]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#f7d98e]">
-          <Sparkles className="h-3.5 w-3.5" />
-          {content.welcome.badge}
-        </div>
-        <div className="space-y-4">
-          <h1 className="max-w-lg text-[2.15rem] font-semibold leading-tight text-white sm:text-5xl">
-            {content.welcome.headline}
-          </h1>
-          <p className="max-w-xl text-base leading-7 text-white/72 sm:text-lg">
-            {content.welcome.subheadline}
-          </p>
-        </div>
-        <div className="space-y-3 pt-1">
-          <Button
-            type="button"
-            onClick={onNext}
-            className="h-12 rounded-2xl bg-[#f4cd71] px-5 text-[#101010] hover:bg-[#f7d98e]"
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+      <div className="absolute -left-28 top-[12%] h-[360px] w-[360px] rounded-full bg-[#2563eb]/[0.13] blur-[90px]" />
+      <div className="absolute -right-28 bottom-[8%] h-[330px] w-[330px] rounded-full bg-[#ef4444]/[0.10] blur-[95px]" />
+      <div className="absolute left-[8%] top-[18%] h-44 w-44 opacity-[0.09]">
+        <div className="absolute left-1/2 top-1/2 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#facc15]/80" />
+        {[0, 45, 90, 135].map((rotation) => (
+          <span
+            key={rotation}
+            className="absolute left-1/2 top-1/2 h-px w-40 origin-left bg-gradient-to-r from-[#facc15]/70 to-transparent"
+            style={{ transform: `rotate(${rotation}deg)` }}
+          />
+        ))}
+        <span className="absolute left-2 top-3 h-1.5 w-1.5 rotate-45 bg-[#facc15]" />
+        <span className="absolute right-5 top-9 h-1.5 w-1.5 rotate-45 bg-[#facc15]" />
+        <span className="absolute bottom-4 left-9 h-1.5 w-1.5 rotate-45 bg-[#facc15]" />
+      </div>
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      <div className="absolute inset-0 opacity-[0.025] [background-image:linear-gradient(rgba(255,255,255,.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.08)_1px,transparent_1px)] [background-size:64px_64px]" />
+    </div>
+  );
+}
+
+function Eyebrow({ children, tone = "blue" }) {
+  const toneClass =
+    tone === "gold"
+      ? "border-[#facc15]/20 bg-[#facc15]/[0.07] text-[#fde68a]"
+      : tone === "red"
+        ? "border-[#ef4444]/20 bg-[#ef4444]/[0.07] text-[#fecaca]"
+        : "border-[#3b82f6]/20 bg-[#3b82f6]/[0.08] text-[#bfdbfe]";
+
+  return (
+    <span
+      className={`inline-flex rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] ${toneClass}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function ScreenFrame({ children, align = "center" }) {
+  return (
+    <div
+      className={`mx-auto flex w-full max-w-[460px] flex-1 flex-col justify-center px-6 pb-32 pt-24 sm:px-8 ${
+        align === "left" ? "items-start text-left" : "items-center text-center"
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function CountryScreen() {
+  return (
+    <ScreenFrame>
+      <Eyebrow>Why CLARA exists</Eyebrow>
+      <h1 className="mt-6 max-w-sm text-[2.05rem] font-semibold leading-[1.1] tracking-[-0.04em] text-white sm:text-[2.35rem]">
+        Filipinos work hard for every peso.
+      </h1>
+      <p className="mt-5 max-w-[340px] text-[15px] leading-7 text-white/56">
+        But earning money and knowing how to protect it are two different skills.
+      </p>
+      <div className="mt-9 h-px w-20 bg-gradient-to-r from-transparent via-[#facc15]/70 to-transparent" />
+      <p className="mt-6 max-w-[320px] text-sm leading-6 text-white/42">
+        A country that works this hard deserves a better relationship with money.
+      </p>
+    </ScreenFrame>
+  );
+}
+
+function QuietSpendingScreen() {
+  return (
+    <ScreenFrame>
+      <Eyebrow tone="red">The quiet problem</Eyebrow>
+      <h1 className="mt-6 max-w-sm text-[2rem] font-semibold leading-[1.12] tracking-[-0.04em] text-white">
+        Money rarely disappears in one dramatic moment.
+      </h1>
+      <p className="mt-5 max-w-[350px] text-[15px] leading-7 text-white/56">
+        It happens through small decisions that feel harmless on their own — until they become a pattern.
+      </p>
+      <div className="mt-8 flex flex-wrap justify-center gap-2.5">
+        {["One quick ride", "One small checkout", "One more delivery"].map((label) => (
+          <span
+            key={label}
+            className="rounded-full border border-white/[0.08] bg-white/[0.035] px-3.5 py-2 text-xs text-white/55 backdrop-blur-xl"
           >
-            {content.welcome.cta}
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-          <p className="text-sm text-white/52">No judgment. Just clarity before guidance.</p>
-        </div>
+            {label}
+          </span>
+        ))}
       </div>
-
-      <div className="max-w-xl rounded-[26px] border border-white/10 bg-white/[0.035] p-3 sm:p-4">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#f4cd71]/75">
-          Setup preview
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {["Commitment", "Lifestyle Clarity", "Ask Before You Spend"].map((item) => (
-            <span
-              key={item}
-              className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/72"
-            >
-              {item}
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
+      <p className="mt-8 text-sm font-medium text-white/72">Then payday comes again.</p>
+    </ScreenFrame>
   );
 }
 
-function QuestionStep({ question, selectedAnswer, onSelect, onContinue, disabled }) {
-  const isMultiple = question.selectionMode === "multiple";
-  const selectedValues = toAnswerArray(selectedAnswer);
-  const hasSelection = selectedValues.length > 0;
-
+function BeforeScreen() {
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#f4cd71]">
-          {question.eyebrow}
-        </p>
-        <h2 className="mt-3 max-w-xl text-[1.75rem] font-semibold leading-tight text-white sm:text-4xl">
-          {question.title}
-        </h2>
-        <p className="mt-3 text-base leading-7 text-white/68">{question.description}</p>
-        {isMultiple ? (
-          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#f4cd71]/72">
-            Select all that apply
+    <ScreenFrame>
+      <Eyebrow>CLARA&apos;s difference</Eyebrow>
+      <div className="mt-7 max-w-sm space-y-7">
+        <div>
+          <p className="text-[13px] font-semibold uppercase tracking-[0.16em] text-white/34">
+            Traditional tracking
           </p>
-        ) : null}
+          <p className="mt-2 text-xl font-medium leading-8 text-white/62">
+            Tells you what happened to your money.
+          </p>
+        </div>
+        <div className="mx-auto h-px w-16 bg-white/10" />
+        <div>
+          <p className="text-[13px] font-semibold uppercase tracking-[0.16em] text-[#93c5fd]">
+            CLARA
+          </p>
+          <p className="mt-2 text-[1.75rem] font-semibold leading-9 tracking-[-0.03em] text-white">
+            Helps you before the decision is made.
+          </p>
+        </div>
       </div>
-
-      <div className="grid gap-3">
-        {question.options.map((option) => {
-          const isSelected = selectedValues.includes(option.id);
-          return (
-            <button
-              key={option.id}
-              type="button"
-              onClick={() => onSelect(question.id, option.id)}
-              disabled={disabled}
-              aria-pressed={isSelected}
-              className={`clara-universal-onboarding-option w-full touch-manipulation rounded-[24px] border px-4 py-3.5 text-left transition-[border-color,background-color,color] duration-75 disabled:cursor-default sm:py-4 ${
-                isSelected
-                  ? "border-[#f4cd71]/60 bg-[#f4cd71]/12 shadow-[0_10px_30px_rgba(244,205,113,0.12)]"
-                  : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div
-                  className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center border transition-colors duration-75 ${
-                    isMultiple ? "rounded-md" : "rounded-full"
-                  } ${
-                    isSelected
-                      ? "border-[#f4cd71] bg-[#f4cd71] text-[#111827]"
-                      : "border-white/20 bg-transparent"
-                  }`}
-                >
-                  {isSelected ? <BadgeCheck className="h-3.5 w-3.5" /> : null}
-                </div>
-                <div>
-                  <p className="text-base font-medium text-white">{option.label}</p>
-                  <p className="mt-1 text-sm leading-5 text-white/58 sm:leading-6">
-                    {option.description}
-                  </p>
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {isMultiple ? (
-        <Button
-          type="button"
-          onClick={() => onContinue(question.id)}
-          disabled={!hasSelection || disabled}
-          className="h-12 w-full touch-manipulation rounded-2xl bg-[#f4cd71] text-[#101010] hover:bg-[#f7d98e] disabled:cursor-not-allowed disabled:opacity-45"
-        >
-          Continue
-          <ArrowRight className="h-4 w-4" />
-        </Button>
-      ) : null}
-    </div>
+      <p className="mt-8 max-w-[330px] text-sm leading-6 text-white/44">
+        Because the most important moment in your budget is often the few seconds before you spend.
+      </p>
+    </ScreenFrame>
   );
 }
 
-function MissionStep({ saving, error, onFinish }) {
+function PersonalScreen({ firstName }) {
   return (
-    <div className="flex min-h-full flex-col justify-center space-y-5">
-      <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#8ce6c0]/20 bg-[#8ce6c0]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#a7efd0]">
-        <Compass className="h-3.5 w-3.5" />
-        CLARA advocacy
+    <ScreenFrame>
+      <Eyebrow tone="gold">Now it becomes personal</Eyebrow>
+      <h1 className="mt-6 max-w-sm text-[2.05rem] font-semibold leading-[1.12] tracking-[-0.04em] text-white">
+        {firstName}, your financial future is built one decision at a time.
+      </h1>
+      <div className="mt-9 space-y-3 text-[1.35rem] font-medium tracking-[-0.02em]">
+        <p className="text-white/46">Every “yes” matters.</p>
+        <p className="text-white/64">Every “not now” matters.</p>
+        <p className="text-[#fde68a]">Every pause matters.</p>
       </div>
-      <div className="rounded-[28px] border border-[#34d399]/18 bg-[linear-gradient(180deg,rgba(52,211,153,0.08),rgba(255,255,255,0.025))] p-5 sm:p-6">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#34d399]/15 text-[#8ce6c0]">
-          <HeartHandshake className="h-6 w-6" />
-        </div>
-        <h2 className="mt-5 max-w-xl text-3xl font-semibold leading-tight text-white sm:text-4xl">
-          CLARA was built for more than tracking money.
-        </h2>
-        <p className="mt-4 max-w-xl text-base leading-7 text-white/72 sm:text-lg">
-          CLARA helps you build money clarity first. As it grows, the mission is to support
-          students, families, and communities in need through the CLARA Charity Fund.
-        </p>
-        <div className="mt-5 flex flex-wrap gap-2">
-          <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/70">
-            For your clarity
-          </span>
-          <span className="rounded-full border border-[#34d399]/15 bg-[#34d399]/[0.07] px-3 py-1.5 text-xs font-medium text-[#a7efd0]">
-            For others later
-          </span>
-        </div>
-      </div>
-      <Button
-        type="button"
-        onClick={onFinish}
-        disabled={saving}
-        className="h-12 w-fit touch-manipulation rounded-2xl bg-[#34d399] px-5 text-[#092218] hover:bg-[#52e6a7] disabled:cursor-not-allowed disabled:opacity-55"
+    </ScreenFrame>
+  );
+}
+
+function ClaraRevealScreen() {
+  return (
+    <ScreenFrame>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.88 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+        className="relative"
       >
-        {saving ? "Preparing CLARA..." : "Ready to Explore CLARA"}
-        {!saving ? <ArrowRight className="h-4 w-4" /> : null}
-      </Button>
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
-    </div>
+        <div className="absolute inset-0 scale-150 rounded-full bg-[#2563eb]/12 blur-3xl" />
+        <div className="relative scale-[1.35]">
+          <ClaraLogo variant="icon" theme="dark" />
+        </div>
+      </motion.div>
+      <ClaraWordmark className="mt-9 text-[2rem]" />
+      <p className="mt-3 text-lg font-medium tracking-[-0.02em] text-white">Ask before you spend.</p>
+      <p className="mt-5 max-w-[340px] text-sm leading-6 text-white/48">
+        Your financial accountability companion for the moment between wanting something and deciding what is wise.
+      </p>
+    </ScreenFrame>
+  );
+}
+
+function MissionScreen() {
+  return (
+    <ScreenFrame>
+      <Eyebrow tone="gold">The bigger mission</Eyebrow>
+      <h1 className="mt-6 max-w-sm text-[2rem] font-semibold leading-[1.12] tracking-[-0.04em] text-white">
+        Better money decisions should become normal in the Philippines.
+      </h1>
+      <p className="mt-5 max-w-[350px] text-[15px] leading-7 text-white/56">
+        CLARA exists to help build a generation of Filipinos who are wiser, more intentional, more disciplined, and better prepared financially.
+      </p>
+      <div className="mt-8 grid w-full max-w-[350px] grid-cols-3 gap-2.5">
+        {["One person", "One decision", "One habit"].map((label, index) => (
+          <div
+            key={label}
+            className="rounded-2xl border border-white/[0.07] bg-white/[0.035] px-2 py-4 text-center"
+          >
+            <p className="text-[10px] font-bold tracking-[0.13em] text-[#93c5fd]">0{index + 1}</p>
+            <p className="mt-1.5 text-xs font-medium text-white/68">{label}</p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-8 text-sm font-semibold text-white/82">Now you&apos;re part of that movement.</p>
+    </ScreenFrame>
+  );
+}
+
+function SupportScreen({ onExploreSupport }) {
+  return (
+    <ScreenFrame align="left">
+      <Eyebrow tone="gold">Support is a choice</Eyebrow>
+      <h1 className="mt-6 max-w-sm text-[2rem] font-semibold leading-[1.12] tracking-[-0.04em] text-white">
+        CLARA is free to start. You are never forced to pay to begin.
+      </h1>
+      <p className="mt-4 max-w-[365px] text-sm leading-6 text-white/52">
+        If CLARA becomes valuable to you, you can choose to support what we&apos;re building and receive additional supporter tools and experiences.
+      </p>
+
+      <div className="mt-7 w-full max-w-[380px] space-y-3">
+        <div className="flex gap-3 rounded-2xl border border-[#3b82f6]/14 bg-[#3b82f6]/[0.055] p-4">
+          <HeartHandshake className="mt-0.5 h-5 w-5 shrink-0 text-[#93c5fd]" />
+          <div>
+            <p className="text-sm font-semibold text-white">Support the mission</p>
+            <p className="mt-1 text-xs leading-5 text-white/48">
+              Help CLARA keep improving and reach more Filipinos.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex gap-3 rounded-2xl border border-[#facc15]/14 bg-[#facc15]/[0.045] p-4">
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#fde68a]" />
+          <div>
+            <p className="text-sm font-semibold text-white">Make a commitment</p>
+            <p className="mt-1 text-xs leading-5 text-white/48">
+              Supporting CLARA doesn&apos;t buy discipline. It can be your deliberate commitment to practice it.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4">
+          <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-white/65" />
+          <div>
+            <p className="text-sm font-semibold text-white">Go deeper</p>
+            <p className="mt-1 text-xs leading-5 text-white/48">
+              Supporters receive extra benefits designed to deepen the CLARA experience.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={onExploreSupport}
+        className="mt-6 inline-flex items-center gap-2 rounded-full px-1 py-2 text-xs font-semibold text-[#bfdbfe] transition hover:text-white focus:outline-none focus:ring-2 focus:ring-[#3b82f6]/40"
+      >
+        Explore supporter benefits
+        <ArrowRight className="h-3.5 w-3.5" />
+      </button>
+
+      <p className="mt-2 text-[11px] leading-5 text-white/32">
+        No pressure. Your habits — not a payment — are what build financial stability.
+      </p>
+    </ScreenFrame>
+  );
+}
+
+function RuleScreen() {
+  return (
+    <ScreenFrame>
+      <Eyebrow>One rule to remember</Eyebrow>
+      <div className="mt-7 relative">
+        <div className="absolute inset-0 scale-150 rounded-full bg-[#2563eb]/10 blur-3xl" />
+        <div className="relative scale-110">
+          <ClaraLogo variant="icon" theme="dark" />
+        </div>
+      </div>
+      <h1 className="mt-9 max-w-sm text-[2.3rem] font-semibold leading-[1.08] tracking-[-0.05em] text-white">
+        Before you spend,
+        <span className="block text-[#93c5fd]">ask CLARA.</span>
+      </h1>
+      <p className="mt-5 max-w-[320px] text-sm leading-6 text-white/48">
+        You don&apos;t need to be perfect with money. Start by creating a pause before the next decision.
+      </p>
+      <p className="mt-8 text-xs font-semibold uppercase tracking-[0.16em] text-white/34">
+        Pause · Think · Decide
+      </p>
+    </ScreenFrame>
   );
 }
 
 export default function UniversalOnboarding() {
   const navigate = useNavigate();
+  const reduceMotion = useReducedMotion();
   const { user, profile } = useAuth();
-  const { prefersReducedMotion, useMinimalMotion } = useOnboardingMotionPreference();
-  const [saving, setSaving] = useState(false);
-  const [content, setContent] = useState(() => buildUniversalOnboardingContent());
   const [screenIndex, setScreenIndex] = useState(0);
-  const [answers, setAnswers] = useState({});
-  const [nameError, setNameError] = useState("");
-  const [advancingScreenId, setAdvancingScreenId] = useState(null);
-  const answersRef = useRef({});
-  const hasHydratedAnswersRef = useRef(false);
-  const onboardingShellRef = useRef(null);
-  const advancingScreenIdRef = useRef(null);
-  const savingRef = useRef(false);
-  const advanceScheduleRef = useRef({ firstFrame: null, secondFrame: null, timer: null });
+  const firstName = useMemo(() => firstNameFrom(profile, user), [profile, user]);
+  const activeScreen = SCREEN_IDS[screenIndex];
+  const isFirst = screenIndex === 0;
+  const isLast = screenIndex === SCREEN_IDS.length - 1;
 
-  useEffect(() => {
-    answersRef.current = answers;
-  }, [answers]);
+  const goNext = () => {
+    if (isLast) return;
+    setScreenIndex((current) => Math.min(current + 1, SCREEN_IDS.length - 1));
+  };
 
-  useEffect(() => {
-    const currentAnswers = isPlainObject(answersRef.current) ? answersRef.current : {};
-    const hasCurrentAnswers = Object.keys(currentAnswers).length > 0;
-    if (hasHydratedAnswersRef.current && hasCurrentAnswers) return;
-
-    const localSetupProfile = getLocalSetupProfile();
-    const localAnswers =
-      isPlainObject(localSetupProfile?.answers) &&
-      Object.keys(localSetupProfile.answers).length > 0
-        ? normalizeAnswers(localSetupProfile.answers)
-        : null;
-    const draftAnswers = localAnswers ? null : safelyParseOnboardingDraft();
-    const nextAnswers = normalizeAnswers(localAnswers || draftAnswers || {});
-
-    hasHydratedAnswersRef.current = true;
-    answersRef.current = nextAnswers;
-    setAnswers(nextAnswers);
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    loadUniversalOnboardingContent()
-      .then((nextContent) => {
-        if (active && nextContent) setContent(nextContent);
-      })
-      .catch((error) => {
-        warnInDevelopment("CLARA onboarding content hydration skipped:", error);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const clearAdvanceSchedule = useCallback(() => {
-    const schedule = advanceScheduleRef.current;
-    if (schedule.firstFrame !== null && typeof cancelAnimationFrame === "function") {
-      cancelAnimationFrame(schedule.firstFrame);
-    }
-    if (schedule.secondFrame !== null && typeof cancelAnimationFrame === "function") {
-      cancelAnimationFrame(schedule.secondFrame);
-    }
-    if (schedule.timer !== null) clearTimeout(schedule.timer);
-    advanceScheduleRef.current = { firstFrame: null, secondFrame: null, timer: null };
-  }, []);
-
-  const clearScreenLock = useCallback(() => {
-    advancingScreenIdRef.current = null;
-    setAdvancingScreenId(null);
-  }, []);
-
-  useEffect(() => () => clearAdvanceSchedule(), [clearAdvanceSchedule]);
-
-  useEffect(() => {
-    clearScreenLock();
-    const frame = requestAnimationFrame(() => {
-      onboardingShellRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [clearScreenLock, screenIndex]);
-
-  const screen = SCREENS[screenIndex];
-  const currentQuestion =
-    screen?.type === "question" ? QUESTION_SETS[screen.index] : null;
-  const canGoBack = screenIndex > 0 && !saving;
-  const isCurrentScreenAdvancing =
-    Boolean(screen?.id) && advancingScreenId === screen.id;
-  const isQuestionScreen = screen?.type === "question";
-  const isFinalOnboardingScreen =
-    screen?.type === "mission" && screenIndex === SCREENS.length - 1;
-  const progressValue = SCREENS.length
-    ? ((screenIndex + 1) / SCREENS.length) * 100
-    : 0;
-  const setupHelperText = isFinalOnboardingScreen
-    ? "Setup complete"
-    : `Guided setup ${screenIndex + 1} of ${SCREENS.length}`;
-
-  const motionProps = useMemo(() => {
-    if (prefersReducedMotion) {
-      return {
-        initial: false,
-        animate: { opacity: 1, y: 0 },
-        transition: { duration: 0 },
-      };
-    }
-    if (useMinimalMotion) {
-      return {
-        initial: { opacity: 0 },
-        animate: { opacity: 1 },
-        transition: { duration: 0.1, ease: "easeOut" },
-      };
-    }
-    return {
-      initial: { opacity: 0, y: 6 },
-      animate: { opacity: 1, y: 0 },
-      transition: { duration: 0.2, ease: "easeOut" },
-    };
-  }, [prefersReducedMotion, useMinimalMotion]);
-
-  function getStableAnswersSnapshot() {
-    const currentAnswers = isPlainObject(answersRef.current)
-      ? answersRef.current
-      : answers;
-    return normalizeAnswers(currentAnswers);
-  }
-
-  function lockCurrentScreen() {
-    const currentScreenId = screen?.id || null;
-    if (!currentScreenId) return false;
-    advancingScreenIdRef.current = currentScreenId;
-    setAdvancingScreenId(currentScreenId);
-    return true;
-  }
-
-  function goNext() {
-    setScreenIndex((current) => Math.min(current + 1, SCREENS.length - 1));
-  }
-
-  function goBack() {
-    if (!canGoBack) return;
-    clearAdvanceSchedule();
-    clearScreenLock();
-    setNameError("");
+  const goBack = () => {
+    if (isFirst) return;
     setScreenIndex((current) => Math.max(current - 1, 0));
-  }
+  };
 
-  function scheduleQuestionAdvance() {
-    const advance = () => {
-      advanceScheduleRef.current = { firstFrame: null, secondFrame: null, timer: null };
-      goNext();
-    };
+  const enterClara = () => {
+    rememberCompletion(user);
+    navigate(CLARA_ORB_PATH, { replace: true });
+  };
 
-    if (typeof requestAnimationFrame !== "function") {
-      const timer = setTimeout(advance, 0);
-      advanceScheduleRef.current = { firstFrame: null, secondFrame: null, timer };
-      return;
-    }
-
-    const firstFrame = requestAnimationFrame(() => {
-      const secondFrame = requestAnimationFrame(advance);
-      advanceScheduleRef.current = { firstFrame: null, secondFrame, timer: null };
-    });
-    advanceScheduleRef.current = { firstFrame, secondFrame: null, timer: null };
-  }
-
-  function commitAnswers(nextAnswers) {
-    const normalizedAnswers = normalizeAnswers(nextAnswers);
-    answersRef.current = normalizedAnswers;
-    setAnswers(normalizedAnswers);
-    persistOnboardingDraft(normalizedAnswers);
-    setNameError("");
-    return normalizedAnswers;
-  }
-
-  function handleSelectAnswer(questionId, optionId) {
-    const question = getQuestionById(questionId);
-    if (!question) return;
-
-    if (question.selectionMode === "multiple") {
-      const currentAnswers = getStableAnswersSnapshot();
-      const nextSelectedValues = toggleMultipleAnswer(
-        question,
-        currentAnswers[questionId],
-        optionId
-      );
-      commitAnswers({ ...currentAnswers, [questionId]: nextSelectedValues });
-      return;
-    }
-
-    if (advancingScreenIdRef.current === screen?.id) return;
-    if (!lockCurrentScreen()) return;
-
-    commitAnswers({
-      ...getStableAnswersSnapshot(),
-      [questionId]: optionId,
-    });
-    clearAdvanceSchedule();
-    scheduleQuestionAdvance();
-  }
-
-  function handleContinueQuestion(questionId) {
-    const question = getQuestionById(questionId);
-    if (!question || question.selectionMode !== "multiple") return;
-    if (!hasAnswerValue(getStableAnswersSnapshot()[questionId])) return;
-    if (advancingScreenIdRef.current === screen?.id) return;
-    if (!lockCurrentScreen()) return;
-
-    clearAdvanceSchedule();
-    goNext();
-  }
-
-  function saveCompletedOnboardingAccessSnapshot(recommendedAccessSnapshot) {
-    if (!user?.id) return;
-
-    try {
-      const planKey = profile?.plan_key || profile?.plan || "free";
-      const accessStatus = profile?.status || profile?.subscription_status || "free";
-      const subscriptionStatus = profile?.subscription_status || accessStatus;
-      const completedProfileSnapshot = {
-        ...(profile || {}),
-        id: user.id,
-        email: user.email || profile?.email || null,
-        role: profile?.role || "user",
-        plan: planKey,
-        plan_key: planKey,
-        subscription_status: subscriptionStatus,
-        status: accessStatus,
-        onboarding_completed: true,
-        has_completed_onboarding: true,
-        has_completed_universal_onboarding: true,
-        has_seen_universal_onboarding: true,
-        recommended_access_level: recommendedAccessSnapshot,
-      };
-
-      saveAccessSnapshot({
-        user,
-        profile: completedProfileSnapshot,
-        role: completedProfileSnapshot.role,
-        plan: planKey,
-        planLabel: profile?.subscription_label || "Free",
-        subscriptionStatus,
-        accessStatus,
-        onboardingCompleted: true,
-        lastResolvedAppFlow: "normal",
-        lastValidRoute: FREE_VERSION_ROUTE,
-      });
-    } catch (error) {
-      warnInDevelopment("CLARA onboarding completion access snapshot skipped:", error);
-    }
-  }
-
-  async function completeOnboardingSetup() {
-    clearAdvanceSchedule();
-    clearScreenLock();
-
-    const answerSnapshot = getStableAnswersSnapshot();
-    const missingAnswer = getMissingRequiredAnswer(answerSnapshot);
-    if (missingAnswer) {
-      setNameError("Please complete your setup answers before continuing.");
-      const missingScreenIndex = SCREENS.findIndex(
-        (entry) => entry.id === `question-${missingAnswer.id}`
-      );
-      if (missingScreenIndex >= 0 && missingScreenIndex < screenIndex) {
-        setScreenIndex(missingScreenIndex);
+  const exploreSupport = () => {
+    rememberCompletion(user);
+    if (typeof window !== "undefined") {
+      try {
+        window.sessionStorage.setItem(OPEN_SUPPORT_AFTER_ONBOARDING_KEY, "1");
+        window.localStorage.setItem(SUPPORT_BUBBLE_EPOCH_KEY, String(Date.now()));
+      } catch {
+        // The user can still continue into CLARA if storage is restricted.
       }
-      return false;
     }
+    navigate(CLARA_ORB_PATH, { replace: true });
+  };
 
-    const recommendedAccessSnapshot = getRecommendedAccessLevel(answerSnapshot);
-    saveLocalSetupProfile({
-      answers: answerSnapshot,
-      recommended_access_level: recommendedAccessSnapshot,
-      completed: true,
-      completed_at: new Date().toISOString(),
-    });
-    saveCompletedOnboardingAccessSnapshot(recommendedAccessSnapshot);
-    clearOnboardingDraft();
-    saveOnboardingAnswersToLocalMemory(user?.id, answerSnapshot);
-    return true;
-  }
-
-  async function finishOnboarding(destination = FREE_VERSION_ROUTE) {
-    if (savingRef.current || saving) return;
-    savingRef.current = true;
-    clearAdvanceSchedule();
-
-    try {
-      setSaving(true);
-      setNameError("");
-      const completed = await completeOnboardingSetup();
-      if (!completed) return;
-      const recommendedAccessSnapshot = getRecommendedAccessLevel(
-        getStableAnswersSnapshot()
-      );
-      navigate(destination, {
-        replace: true,
-        state: {
-          fromOnboarding: true,
-          recommendedAccessLevel: recommendedAccessSnapshot,
-        },
-      });
-    } catch (error) {
-      console.error("Universal onboarding completion error:", error);
-      setNameError(SAVE_ERROR_MESSAGE);
-    } finally {
-      savingRef.current = false;
-      setSaving(false);
-    }
-  }
-
-  if (!screen) return null;
-
-  const contentPanelClass = isQuestionScreen
-    ? "mt-4 w-full flex-none rounded-[28px] border border-white/10 bg-[#0d1728]/82 p-4 sm:mt-6 sm:p-7"
-    : "mt-4 flex min-h-0 flex-1 rounded-[28px] border border-white/10 bg-[#0d1728]/82 p-4 sm:mt-6 sm:p-7";
-  const screenContentClass = isQuestionScreen
-    ? "clara-universal-onboarding-screen flex w-full flex-col space-y-4 sm:space-y-6"
-    : "clara-universal-onboarding-screen flex min-h-full w-full flex-col space-y-4 sm:space-y-6";
+  const content = (() => {
+    if (activeScreen === "country") return <CountryScreen />;
+    if (activeScreen === "quiet-spending") return <QuietSpendingScreen />;
+    if (activeScreen === "before") return <BeforeScreen />;
+    if (activeScreen === "personal") return <PersonalScreen firstName={firstName} />;
+    if (activeScreen === "clara") return <ClaraRevealScreen />;
+    if (activeScreen === "mission") return <MissionScreen />;
+    if (activeScreen === "support") return <SupportScreen onExploreSupport={exploreSupport} />;
+    return <RuleScreen />;
+  })();
 
   return (
-    <div className="clara-universal-onboarding relative h-[100dvh] min-h-[100dvh] overflow-hidden bg-[#08111f] text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(244,205,113,0.16),_transparent_32%),radial-gradient(circle_at_82%_18%,_rgba(18,129,92,0.15),_transparent_26%),radial-gradient(circle_at_12%_82%,_rgba(84,61,31,0.22),_transparent_32%),linear-gradient(180deg,_#08111f_0%,_#0b1525_48%,_#08111f_100%)]" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent)] opacity-35" />
-      <div className="relative mx-auto flex h-[100dvh] min-h-0 w-full max-w-3xl items-start justify-start px-3 py-3 sm:items-center sm:justify-center sm:px-6 sm:py-6">
-        <div
-          ref={onboardingShellRef}
-          className="clara-universal-onboarding-shell flex h-[calc(100dvh-24px)] min-h-0 max-h-[calc(100dvh-24px)] w-full flex-col overflow-y-auto overscroll-y-contain rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.04))] px-3 pb-4 pt-3 shadow-[0_30px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:h-[calc(100dvh-48px)] sm:max-h-[calc(100dvh-48px)] sm:rounded-[32px] sm:px-6 sm:pb-6 sm:pt-6"
-        >
-          <div className="flex items-center justify-between gap-3 sm:gap-4">
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#f6cd71]">
-                CLARA
-              </p>
-              <p className="mt-1 text-sm text-white/60 sm:mt-2">{setupHelperText}</p>
-            </div>
-            {canGoBack ? (
-              <Button
-                type="button"
-                variant="ghost"
-                className="rounded-full border border-white/10 bg-white/[0.03] px-3 text-white hover:bg-white/[0.08]"
-                onClick={goBack}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Back
-              </Button>
-            ) : (
-              <div className="h-10 w-20" aria-hidden="true" />
-            )}
-          </div>
+    <div className="fixed inset-0 z-[500] flex min-h-[100dvh] flex-col overflow-hidden bg-[#040817] text-white">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(37,99,235,.13),transparent_42%),linear-gradient(180deg,#050a1b_0%,#030611_58%,#02030a_100%)]" />
+      <PhilippineAmbientMark />
 
-          <div className="mt-4 sm:mt-5">
-            <Progress
-              value={progressValue}
-              className="h-2 rounded-full bg-white/10 [&>div]:bg-[linear-gradient(90deg,#f4cd71_0%,#34d399_100%)]"
-            />
-          </div>
-
-          <div className={contentPanelClass}>
-            <motion.div key={screen.id} {...motionProps} className={screenContentClass}>
-              {screen.type === "welcome" ? (
-                <WelcomeStep content={content} onNext={goNext} />
-              ) : null}
-
-              {screen.type === "question" && currentQuestion ? (
-                <QuestionStep
-                  question={currentQuestion}
-                  selectedAnswer={answers[currentQuestion.id]}
-                  onSelect={handleSelectAnswer}
-                  onContinue={handleContinueQuestion}
-                  disabled={isCurrentScreenAdvancing}
-                />
-              ) : null}
-
-              {screen.type === "mission" ? (
-                <MissionStep
-                  saving={saving}
-                  error={nameError}
-                  onFinish={() => finishOnboarding(FREE_VERSION_ROUTE)}
-                />
-              ) : null}
-            </motion.div>
-          </div>
+      <header className="absolute inset-x-0 top-0 z-20 px-5 pt-[max(env(safe-area-inset-top),18px)] sm:px-7">
+        <div className="mx-auto flex max-w-[460px] items-center justify-between">
+          <ClaraWordmark className="text-[13px]" />
+          <span className="text-[10px] font-semibold tracking-[0.14em] text-white/28">
+            {String(screenIndex + 1).padStart(2, "0")} / {String(SCREEN_IDS.length).padStart(2, "0")}
+          </span>
         </div>
-      </div>
+        <div className="mx-auto mt-4 flex max-w-[460px] gap-1.5">
+          {SCREEN_IDS.map((screenId, index) => (
+            <span
+              key={screenId}
+              className={`h-[2px] flex-1 rounded-full transition-all duration-500 ${
+                index <= screenIndex ? "bg-[#3b82f6]/75" : "bg-white/[0.07]"
+              }`}
+            />
+          ))}
+        </div>
+      </header>
+
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={activeScreen}
+          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 14, scale: 0.992 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.995 }}
+          transition={{ duration: reduceMotion ? 0.18 : 0.42, ease: [0.22, 1, 0.36, 1] }}
+          className="relative z-10 flex min-h-0 flex-1"
+        >
+          {content}
+        </motion.div>
+      </AnimatePresence>
+
+      <footer className="absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-[#02030a] via-[#02030a]/94 to-transparent px-5 pb-[max(env(safe-area-inset-bottom),18px)] pt-10 sm:px-7">
+        <div className="mx-auto flex max-w-[460px] items-center gap-3">
+          {!isFirst ? (
+            <button
+              type="button"
+              onClick={goBack}
+              aria-label="Go back"
+              className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-white/[0.08] bg-white/[0.035] text-white/55 transition hover:bg-white/[0.06] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#3b82f6]/35"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={isLast ? enterClara : goNext}
+            className="group inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl border border-[#3b82f6]/30 bg-[linear-gradient(135deg,#2563eb_0%,#1d4ed8_100%)] px-5 text-sm font-semibold text-white shadow-[0_18px_50px_rgba(37,99,235,.22)] transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[#60a5fa]/50 active:scale-[0.99]"
+          >
+            <span>{isLast ? "Start with CLARA" : activeScreen === "support" ? "Continue with free CLARA" : "Continue"}</span>
+            <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+          </button>
+        </div>
+      </footer>
     </div>
   );
 }
