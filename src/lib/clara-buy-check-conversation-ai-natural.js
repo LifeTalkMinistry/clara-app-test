@@ -32,7 +32,14 @@ function transcript(history = []) {
 }
 
 async function askJson(prompt, label, temperature = 0.3) {
-  const { json } = await requestGeminiJson({ prompt, label, temperature, maxOutputTokens: 360, timeoutMs: 10000 });
+  const { json } = await requestGeminiJson({
+    feature: "ask-before-you-spend",
+    prompt,
+    label,
+    temperature,
+    maxOutputTokens: 360,
+    timeoutMs: 10000,
+  });
   return json || {};
 }
 
