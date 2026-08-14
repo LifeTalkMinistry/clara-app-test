@@ -3,6 +3,59 @@ import { ArrowUp, X } from "lucide-react";
 import useClaraBuyCheckFlow from "@/components/fresh/main-dashboard/assistant/useClaraBuyCheckFlow";
 
 const CLARA_AI_BRAIN_VERSION = "pause-react-owned-buy-check-v7-continuous-financial-conversation";
+const CLARA_ATTITUDE_STORAGE_KEY = "clara_buy_check_attitude_v1";
+const CLARA_ATTITUDE_OPTIONS = [
+  { id: "gentle", label: "Gentle", description: "Patient, reassuring, and soft when correcting." },
+  { id: "supportive", label: "Supportive", description: "Encouraging and understanding, with clear accountability." },
+  { id: "balanced", label: "Balanced", description: "Calm, practical, objective, and straightforward." },
+  { id: "firm", label: "Firm", description: "Direct and disciplined; challenges weak spending reasons." },
+  { id: "strict", label: "Strict", description: "Maximum accountability; very direct without shaming." },
+];
+
+function readClaraAttitude() {
+  if (typeof window === "undefined") return "balanced";
+  try {
+    const stored = window.localStorage.getItem(CLARA_ATTITUDE_STORAGE_KEY);
+    return CLARA_ATTITUDE_OPTIONS.some((option) => option.id === stored) ? stored : "balanced";
+  } catch {
+    return "balanced";
+  }
+}
+
+function BuyCheckAttitudeSelector({ value, onChange }) {
+  const selected = CLARA_ATTITUDE_OPTIONS.find((option) => option.id === value) || CLARA_ATTITUDE_OPTIONS[2];
+
+  return (
+    <section
+      data-clara-buy-check-attitude-selector="true"
+      className="mx-2 mt-5 rounded-[22px] border border-blue-200/14 bg-[#07152d]/72 px-3.5 py-3.5 shadow-[0_14px_36px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-xl"
+    >
+      <p className="text-center text-[13px] font-black tracking-[-0.01em] text-white/94">How should CLARA talk to you?</p>
+      <div className="mt-3 flex flex-wrap justify-center gap-2" role="radiogroup" aria-label="CLARA communication attitude">
+        {CLARA_ATTITUDE_OPTIONS.map((option) => {
+          const active = option.id === selected.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => onChange?.(option.id)}
+              className={`min-h-9 rounded-full border px-3 text-[11px] font-black transition active:scale-95 ${active
+                ? "border-[#ffd84a]/55 bg-[#ffd84a]/12 text-[#ffe783] shadow-[0_8px_22px_rgba(255,216,74,0.08)]"
+                : "border-blue-200/12 bg-white/[0.035] text-blue-50/70 hover:border-blue-200/26 hover:bg-white/[0.06]"}`}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-3 text-center text-[11.5px] font-semibold leading-5 text-slate-200/76">{selected.description}</p>
+      <p className="mt-1 text-center text-[10px] font-bold text-blue-100/42">Same financial judgment. Different delivery.</p>
+    </section>
+  );
+}
+
 const BUY_CHECK_ACKNOWLEDGMENTS = [
   "Good move—you paused before buying. Let’s see if it fits your money.",
   "Nice. You stopped before spending. Let’s check this purchase together.",
@@ -389,7 +442,18 @@ export default function ClaraAiEnvironmentOverlay({
   const previousActiveRef = useRef(false);
   const resultFocusRef = useRef(null);
   const isGuidePreview = layoutVariant === "guide-preview";
+  const [communicationAttitude, setCommunicationAttitude] = useState(readClaraAttitude);
   const ownedFlow = useClaraBuyCheckFlow({ assistantContext: claraAssistantContext });
+
+  const selectCommunicationAttitude = (attitude) => {
+    const next = CLARA_ATTITUDE_OPTIONS.some((option) => option.id === attitude) ? attitude : "balanced";
+    setCommunicationAttitude(next);
+    try {
+      window.localStorage.setItem(CLARA_ATTITUDE_STORAGE_KEY, next);
+    } catch {
+      // Keep the in-session selection even if storage is unavailable.
+    }
+  };
 
   useEffect(() => {
     if (isGuidePreview) return;
@@ -505,6 +569,9 @@ export default function ClaraAiEnvironmentOverlay({
         ) : (
           <div className="flex min-h-full flex-col justify-center px-1 pb-24 pt-3">
             <PauseEntryBoard acknowledgmentMessage={acknowledgmentSessionRef.current.message || BUY_CHECK_ACKNOWLEDGMENTS[0]} />
+            {!isGuidePreview ? (
+              <BuyCheckAttitudeSelector value={communicationAttitude} onChange={selectCommunicationAttitude} />
+            ) : null}
           </div>
         )}
       </main>
