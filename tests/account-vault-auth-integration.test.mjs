@@ -30,13 +30,16 @@ test("signup does not retry account creation after local activation fails", () =
   assert.match(source, /activationError\.accountCreated = true/);
 });
 
-test("signup routes directly to dashboard", () => {
+test("signup enters the founding beta welcome before official onboarding", () => {
   const source = readRepositoryFile("src/pages/Login.jsx");
   assert.match(
     source,
+    /await signUp\([\s\S]*?navigate\("\/beta-welcome", \{ replace: true \}\)/
+  );
+  assert.doesNotMatch(
+    source,
     /await signUp\([\s\S]*?navigate\("\/dashboard", \{ replace: true \}\)/
   );
-  assert.doesNotMatch(source, /navigate\("\/onboarding"/);
 });
 
 test("sign out clears memory caches but preserves local vault storage", () => {

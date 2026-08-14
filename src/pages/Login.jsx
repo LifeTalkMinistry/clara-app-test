@@ -131,7 +131,7 @@ export default function Login() {
           password,
           fullName: fullName.trim(),
         });
-        navigate("/onboarding", { replace: true });
+        navigate("/beta-welcome", { replace: true });
       } else if (mode === "forgot") {
         const result = await requestClaraPasswordReset({ email: email.trim() });
         setSuccess(true);
