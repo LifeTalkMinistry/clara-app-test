@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
@@ -32,12 +32,12 @@ const BETA_BEATS = [
     ),
     secondary: (
       <>
-        But nothing replaces a real person using it in real life. You may never know how much it means to our team to finally have actual users experiencing what we&apos;ve spent so long building.
+        But nothing replaces a real person using it in real life. You may never know how much it means to our team to finally have people experiencing what we&apos;ve spent so long building.
       </>
     ),
   },
   {
-    eyebrow: "You&apos;re part of the beginning",
+    eyebrow: "You're part of the beginning",
     title: (
       <>
         You&apos;re helping shape what <span>CLARA becomes.</span>
@@ -62,28 +62,16 @@ function rememberCompletion(user) {
   try {
     window.localStorage.setItem(completionKey(user), new Date().toISOString());
   } catch {
-    // The welcome should never block onboarding if storage is unavailable.
+    // Storage restrictions must never block the official onboarding.
   }
 }
 
 function ClaraWordmark() {
   return (
     <div className="clara-beta-wordmark" aria-label="CLARA">
-      <span className="clara-beta-wordmark-blue">CL</span>
-      <span className="clara-beta-wordmark-gold">A</span>
-      <span className="clara-beta-wordmark-red">RA</span>
-    </div>
-  );
-}
-
-function AmbientField() {
-  return (
-    <div className="clara-beta-ambient" aria-hidden="true">
-      <span className="clara-beta-glow clara-beta-glow--blue" />
-      <span className="clara-beta-glow clara-beta-glow--red" />
-      <span className="clara-beta-glow clara-beta-glow--gold" />
-      <span className="clara-beta-vignette" />
-      <span className="clara-beta-grain" />
+      <span className="clara-beta-blue">CL</span>
+      <span className="clara-beta-gold">A</span>
+      <span className="clara-beta-red">RA</span>
     </div>
   );
 }
@@ -93,7 +81,7 @@ export default function FoundingBetaWelcome() {
   const reduceMotion = useReducedMotion();
   const { user } = useAuth();
   const [beatIndex, setBeatIndex] = useState(0);
-  const beat = useMemo(() => BETA_BEATS[beatIndex], [beatIndex]);
+  const beat = BETA_BEATS[beatIndex];
   const isLast = beatIndex === BETA_BEATS.length - 1;
 
   const continueWelcome = () => {
@@ -115,69 +103,41 @@ export default function FoundingBetaWelcome() {
         }
 
         .clara-founding-beta-welcome {
-          --clara-beta-blue: #2b75ff;
-          --clara-beta-gold: #ffd34e;
-          --clara-beta-red: #ff4c55;
           position: fixed;
           inset: 0;
           z-index: 500;
           min-height: 100dvh;
           overflow: hidden;
+          isolation: isolate;
           color: #f8fbff;
-          background: #020617;
+          background:
+            radial-gradient(circle at 50% -10%, rgba(43,117,255,.20), transparent 38%),
+            radial-gradient(circle at -12% 47%, rgba(43,117,255,.12), transparent 30%),
+            radial-gradient(circle at 112% 72%, rgba(255,76,85,.08), transparent 27%),
+            linear-gradient(180deg, #03091b 0%, #020617 50%, #01030b 100%);
           font-family: Inter, "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
           font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
           -webkit-font-smoothing: antialiased;
           text-rendering: geometricPrecision;
-          isolation: isolate;
         }
 
-        .clara-beta-ambient,
-        .clara-beta-ambient > span {
+        .clara-founding-beta-welcome::before,
+        .clara-founding-beta-welcome::after {
+          content: "";
           position: absolute;
+          inset: 0;
           pointer-events: none;
         }
 
-        .clara-beta-ambient {
-          inset: 0;
-          overflow: hidden;
-          background:
-            radial-gradient(circle at 50% -10%, rgba(40, 101, 255, .20), transparent 38%),
-            linear-gradient(180deg, #03091b 0%, #020617 50%, #01030b 100%);
+        .clara-founding-beta-welcome::before {
+          z-index: -2;
+          background: radial-gradient(circle at 50% 46%, transparent 0 48%, rgba(0,0,0,.34) 100%);
         }
 
-        .clara-beta-glow { border-radius: 999px; filter: blur(88px); }
-        .clara-beta-glow--blue {
-          width: 420px;
-          height: 420px;
-          left: -280px;
-          top: 23%;
-          background: rgba(38, 105, 255, .13);
-        }
-        .clara-beta-glow--red {
-          width: 340px;
-          height: 340px;
-          right: -255px;
-          bottom: 13%;
-          background: rgba(255, 68, 82, .085);
-        }
-        .clara-beta-glow--gold {
-          width: 190px;
-          height: 190px;
-          left: 50%;
-          bottom: -160px;
-          transform: translateX(-50%);
-          background: rgba(255, 211, 78, .07);
-          filter: blur(72px);
-        }
-        .clara-beta-vignette {
-          inset: 0;
-          background: radial-gradient(circle at 50% 45%, transparent 0%, transparent 48%, rgba(0, 0, 0, .36) 100%);
-        }
-        .clara-beta-grain {
-          inset: 0;
+        .clara-founding-beta-welcome::after {
+          z-index: -1;
           opacity: .04;
-          background-image: radial-gradient(rgba(255, 255, 255, .34) .4px, transparent .45px);
+          background-image: radial-gradient(rgba(255,255,255,.34) .4px, transparent .45px);
           background-size: 5px 5px;
           mask-image: linear-gradient(to bottom, transparent, black 18%, black 82%, transparent);
         }
@@ -208,14 +168,15 @@ export default function FoundingBetaWelcome() {
           font-weight: 850;
           letter-spacing: .205em;
           text-transform: uppercase;
-          filter: drop-shadow(0 0 12px rgba(43, 117, 255, .11));
+          filter: drop-shadow(0 0 12px rgba(43,117,255,.11));
         }
-        .clara-beta-wordmark-blue { color: #4d8cff; }
-        .clara-beta-wordmark-gold { color: #ffd42f; }
-        .clara-beta-wordmark-red { color: #ff4d55; }
+
+        .clara-beta-blue { color: #4d8cff; }
+        .clara-beta-gold { color: #ffd42f; }
+        .clara-beta-red { color: #ff4d55; }
 
         .clara-beta-counter {
-          color: rgba(248, 251, 255, .58);
+          color: rgba(248,251,255,.58);
           font-size: 10px;
           line-height: 1;
           font-weight: 650;
@@ -232,6 +193,7 @@ export default function FoundingBetaWelcome() {
           overscroll-behavior: contain;
           scrollbar-width: none;
         }
+
         .clara-beta-stage::-webkit-scrollbar { display: none; }
 
         .clara-beta-screen {
@@ -240,7 +202,7 @@ export default function FoundingBetaWelcome() {
           max-width: 430px;
           min-height: 100dvh;
           margin: 0 auto;
-          padding: 108px 26px 116px;
+          padding: 106px 26px 116px;
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -256,13 +218,15 @@ export default function FoundingBetaWelcome() {
           place-items: center;
           margin-bottom: 27px;
         }
+
         .clara-beta-logo-halo {
           position: absolute;
           inset: 8px;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(36, 112, 255, .22), rgba(36, 112, 255, .05) 47%, transparent 72%);
+          background: radial-gradient(circle, rgba(36,112,255,.22), rgba(36,112,255,.05) 47%, transparent 72%);
           filter: blur(18px);
         }
+
         .clara-beta-logo-mark {
           position: relative;
           transform: scale(1.58);
@@ -274,10 +238,10 @@ export default function FoundingBetaWelcome() {
           align-items: center;
           justify-content: center;
           padding: 0 14px;
-          border: 1px solid rgba(255, 210, 70, .24);
+          border: 1px solid rgba(255,210,70,.24);
           border-radius: 999px;
-          background: linear-gradient(180deg, rgba(114, 84, 8, .075), rgba(44, 31, 4, .02));
-          box-shadow: inset 0 1px 0 rgba(255,255,255,.025), 0 0 22px rgba(255, 206, 44, .04);
+          background: linear-gradient(180deg, rgba(114,84,8,.075), rgba(44,31,4,.02));
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.025), 0 0 22px rgba(255,206,44,.04);
           color: #ffe28a;
           font-size: 9.5px;
           line-height: 1;
@@ -295,8 +259,9 @@ export default function FoundingBetaWelcome() {
           font-weight: 680;
           letter-spacing: -.055em;
           text-wrap: balance;
-          text-shadow: 0 12px 34px rgba(0, 0, 0, .18);
+          text-shadow: 0 12px 34px rgba(0,0,0,.18);
         }
+
         .clara-beta-title span { color: #8dbbff; }
 
         .clara-beta-body,
@@ -304,28 +269,31 @@ export default function FoundingBetaWelcome() {
         .clara-beta-closing {
           max-width: 355px;
           margin: 20px 0 0;
-          color: rgba(238, 245, 255, .57);
+          color: rgba(238,245,255,.57);
           font-size: 14px;
           line-height: 1.72;
           font-weight: 420;
           letter-spacing: -.01em;
           text-wrap: balance;
         }
+
         .clara-beta-secondary {
           margin-top: 13px;
-          color: rgba(238, 245, 255, .46);
+          color: rgba(238,245,255,.46);
           font-size: 13.5px;
         }
+
         .clara-beta-closing {
           position: relative;
           max-width: 340px;
           margin-top: 31px;
           padding-top: 27px;
-          color: rgba(249, 251, 255, .82);
+          color: rgba(249,251,255,.82);
           font-size: 13.5px;
           line-height: 1.62;
           font-weight: 590;
         }
+
         .clara-beta-closing::before {
           content: "";
           position: absolute;
@@ -334,8 +302,9 @@ export default function FoundingBetaWelcome() {
           width: 78px;
           height: 1px;
           transform: translateX(-50%);
-          background: linear-gradient(90deg, transparent, rgba(255, 210, 66, .58), transparent);
+          background: linear-gradient(90deg, transparent, rgba(255,210,66,.58), transparent);
         }
+
         .clara-beta-closing::after {
           content: "";
           position: absolute;
@@ -346,7 +315,7 @@ export default function FoundingBetaWelcome() {
           transform: translateX(-50%);
           border-radius: 50%;
           background: #ffe16b;
-          box-shadow: 0 0 9px rgba(255, 207, 53, .48);
+          box-shadow: 0 0 9px rgba(255,207,53,.48);
         }
 
         .clara-beta-beat-progress {
@@ -356,6 +325,7 @@ export default function FoundingBetaWelcome() {
           gap: 7px;
           margin-top: 29px;
         }
+
         .clara-beta-beat-dot {
           width: 5px;
           height: 5px;
@@ -363,10 +333,11 @@ export default function FoundingBetaWelcome() {
           background: rgba(255,255,255,.13);
           transition: width .32s ease, background .32s ease, box-shadow .32s ease;
         }
+
         .clara-beta-beat-dot.is-active {
           width: 20px;
           background: linear-gradient(90deg, #357cff, #79adff);
-          box-shadow: 0 0 10px rgba(52, 126, 255, .28);
+          box-shadow: 0 0 10px rgba(52,126,255,.28);
         }
 
         .clara-beta-footer {
@@ -386,18 +357,18 @@ export default function FoundingBetaWelcome() {
           justify-content: center;
           gap: 10px;
           overflow: hidden;
-          border: 1px solid rgba(102, 162, 255, .52);
+          border: 1px solid rgba(102,162,255,.52);
           border-radius: 18px;
           outline: none;
           background: linear-gradient(112deg, #1854ed 0%, #256bff 48%, #2787ff 100%);
           box-shadow: inset 0 1px 0 rgba(255,255,255,.34), inset 0 -1px 0 rgba(0,32,105,.28), 0 16px 36px rgba(20,79,231,.25);
           color: #fff;
           font-size: 13px;
-          line-height: 1;
           font-weight: 680;
           letter-spacing: -.012em;
           transition: transform .16s ease, filter .16s ease, box-shadow .16s ease;
         }
+
         .clara-beta-continue::before {
           content: "";
           position: absolute;
@@ -405,18 +376,22 @@ export default function FoundingBetaWelcome() {
           right: 12%;
           top: -1px;
           height: 1px;
-          background: linear-gradient(90deg, transparent, rgba(255, 216, 71, .68), rgba(255,255,255,.46), transparent);
+          background: linear-gradient(90deg, transparent, rgba(255,216,71,.68), rgba(255,255,255,.46), transparent);
           opacity: .75;
         }
+
         .clara-beta-continue svg {
           width: 15px;
           height: 15px;
           transition: transform .18s ease;
         }
+
         .clara-beta-continue:hover { filter: brightness(1.05); }
         .clara-beta-continue:hover svg { transform: translateX(2px); }
         .clara-beta-continue:active { transform: scale(.985); }
-        .clara-beta-continue:focus-visible { box-shadow: 0 0 0 3px rgba(88,153,255,.22), 0 16px 36px rgba(20,79,231,.25); }
+        .clara-beta-continue:focus-visible {
+          box-shadow: 0 0 0 3px rgba(88,153,255,.22), 0 16px 36px rgba(20,79,231,.25);
+        }
 
         @media (max-height: 760px) {
           .clara-beta-screen { padding-top: 96px; padding-bottom: 102px; }
@@ -429,12 +404,6 @@ export default function FoundingBetaWelcome() {
           .clara-beta-footer { padding-top: 28px; }
         }
 
-        @media (min-width: 640px) {
-          .clara-beta-header { padding-left: 28px; padding-right: 28px; }
-          .clara-beta-screen { padding-left: 30px; padding-right: 30px; }
-          .clara-beta-footer { padding-left: 28px; padding-right: 28px; }
-        }
-
         @media (prefers-reduced-motion: reduce) {
           .clara-beta-beat-dot,
           .clara-beta-continue,
@@ -444,8 +413,6 @@ export default function FoundingBetaWelcome() {
           }
         }
       `}</style>
-
-      <AmbientField />
 
       <header className="clara-beta-header">
         <div className="clara-beta-header-inner">
@@ -484,7 +451,10 @@ export default function FoundingBetaWelcome() {
             {beat.secondary ? <p className="clara-beta-secondary">{beat.secondary}</p> : null}
             {beat.closing ? <p className="clara-beta-closing">{beat.closing}</p> : null}
 
-            <div className="clara-beta-beat-progress" aria-label={`Welcome message ${beatIndex + 1} of ${BETA_BEATS.length}`}>
+            <div
+              className="clara-beta-beat-progress"
+              aria-label={`Welcome message ${beatIndex + 1} of ${BETA_BEATS.length}`}
+            >
               {BETA_BEATS.map((_, index) => (
                 <span
                   key={index}
