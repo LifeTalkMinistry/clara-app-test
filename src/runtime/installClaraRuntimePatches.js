@@ -20,6 +20,7 @@ import "./installSoundTouchFeedbackBridge";
 
 // Route-level scroll ownership
 import "./installUniversalOnboardingScrollIsolation";
+import "./installMissionOnboardingSupportCardRouting";
 import "./installSettingsModalBehavior";
 import "./installCommunityProfileScrollOwnership";
 
