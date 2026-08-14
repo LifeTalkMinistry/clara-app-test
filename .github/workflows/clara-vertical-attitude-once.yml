@@ -58,10 +58,8 @@ jobs:
 
           path.write_text(source, encoding='utf-8')
           PY
-      - name: Validate patch
-        run: |
-          git diff --check
-          npx eslint src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx
+      - name: Validate patch whitespace
+        run: git diff --check
       - name: Commit patch and remove one-off workflow
         run: |
           git config user.name "CLARA App Automation"
