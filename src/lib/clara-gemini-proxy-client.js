@@ -3,8 +3,7 @@ import { getStoredBackendToken } from "./clara-backend-client.js";
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_PROXY_ENDPOINT = "/api/clara-gemini";
 const CLARA_GEMINI_PROXY_PRODUCTION_URL = "https://clara-app-test.vercel.app/api/clara-gemini";
-const ASK_BEFORE_YOU_SPEND_FEATURE = "ask-before-you-spend";
-const ASK_BEFORE_YOU_SPEND_PROMPT_PREFIX = "You are CLARA, an economist-informed personal spending decision expert.";
+export const ASK_BEFORE_YOU_SPEND_FEATURE = "ask-before-you-spend";
 
 function cleanText(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -18,14 +17,9 @@ function normalizeFeature(value = "") {
   return cleanText(value).toLowerCase();
 }
 
-function isDedicatedBuyCheckPrompt(prompt = "") {
-  return String(prompt || "").trim().startsWith(ASK_BEFORE_YOU_SPEND_PROMPT_PREFIX);
-}
-
-function resolveAllowedFeature({ feature = "", prompt = "" } = {}) {
+function resolveAllowedFeature({ feature = "" } = {}) {
   const requested = normalizeFeature(feature);
   if (requested === ASK_BEFORE_YOU_SPEND_FEATURE) return ASK_BEFORE_YOU_SPEND_FEATURE;
-  if (isDedicatedBuyCheckPrompt(prompt)) return ASK_BEFORE_YOU_SPEND_FEATURE;
   return "";
 }
 
@@ -92,7 +86,7 @@ export async function requestClaraGeminiProxyText({
     throw error;
   }
 
-  const allowedFeature = resolveAllowedFeature({ feature, prompt: cleanPrompt });
+  const allowedFeature = resolveAllowedFeature({ feature });
   if (!allowedFeature) throw featureDisabledError();
 
   const token = getStoredBackendToken();
