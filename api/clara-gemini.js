@@ -1,5 +1,6 @@
 const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const DEFAULT_MODEL = "gemini-2.5-flash";
+const APPROVED_MODELS = new Set([DEFAULT_MODEL]);
 const ALLOWED_FEATURE = "ask-before-you-spend";
 const DEFAULT_CLARA_BACKEND_API_URL = "https://api.clarapmc.com";
 const MAX_PROMPT_CHARS = 28000;
@@ -9,24 +10,6 @@ const AUTH_TIMEOUT_MS = 8000;
 const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
 const RATE_LIMIT_MAX_REQUESTS = 10;
 const DUPLICATE_WINDOW_MS = 2500;
-const BLOCKED_MODEL_KEYWORDS = [
-  "image",
-  "vision",
-  "tts",
-  "audio",
-  "speech",
-  "robotics",
-  "embedding",
-  "embed",
-  "aqa",
-  "deep-research",
-  "computer-use",
-  "imagen",
-  "veo",
-  "lyria",
-  "native-audio",
-  "thinking-exp",
-];
 
 const rateBuckets = globalThis.__CLARA_GEMINI_RATE_BUCKETS__ || new Map();
 globalThis.__CLARA_GEMINI_RATE_BUCKETS__ = rateBuckets;
@@ -145,20 +128,12 @@ async function authenticateClaraUser(req) {
   }
 }
 
-function isSafeGeminiModel(model = "") {
-  const value = normalizeModelName(model).toLowerCase();
-  if (!value || !value.includes("gemini")) return false;
-  if (!/^[a-z0-9._-]+$/.test(value)) return false;
-  if (BLOCKED_MODEL_KEYWORDS.some((keyword) => value.includes(keyword))) return false;
-  return value.includes("flash") || value.includes("pro");
-}
-
 function chooseModel(requestedModel = "") {
   const envModel = normalizeModelName(process.env.GEMINI_MODEL || "");
-  if (isSafeGeminiModel(envModel)) return envModel;
+  if (APPROVED_MODELS.has(envModel)) return envModel;
 
   const requested = normalizeModelName(requestedModel);
-  if (isSafeGeminiModel(requested)) return requested;
+  if (APPROVED_MODELS.has(requested)) return requested;
 
   return DEFAULT_MODEL;
 }
@@ -394,8 +369,13 @@ export default async function handler(req, res) {
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
+      console.warn("[CLARA Gemini] Upstream request failed.", {
+        status: response.status,
+        model,
+      });
       return sendJson(res, response.status || 502, {
         ok: false,
+        code: "CLARA_AI_UPSTREAM_FAILED",
         error: safeErrorMessage(response.status || 500),
         model,
       });
