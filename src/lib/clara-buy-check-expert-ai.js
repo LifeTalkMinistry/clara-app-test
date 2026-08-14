@@ -357,6 +357,7 @@ export async function runClaraBuyCheckExpertTurn({
 
   try {
     const { json, model } = await requestGeminiJson({
+      feature: "ask-before-you-spend",
       prompt: buildPrompt({ message, history, assistantContext }),
       temperature: 0.3,
       maxOutputTokens: 520,

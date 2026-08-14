@@ -113,6 +113,66 @@ test("Gemini cost controls use one model, bounded history, rate limit, timeout, 
   assert.match(expert, /history\.slice\(-12\)/);
 });
 
+test("Gemini JSON authorization is explicit feature ownership, not a human-readable label", async () => {
+  const json = await source("src/lib/clara-gemini-json-utils.js");
+  const proxy = await source("src/lib/clara-gemini-proxy-client.js");
+
+  assert.match(json, /feature = ""/);
+  assert.match(json, /hasGeminiJsonConfig\(normalizedFeature\)/);
+  assert.match(json, /feature: normalizedFeature/);
+  assert.match(json, /normalizeFeature\(feature\)/);
+  assert.doesNotMatch(json, /isBuyCheckLabel/);
+  assert.doesNotMatch(json, /\\bbuy check\\b/);
+
+  assert.match(proxy, /resolveAllowedFeature\(\{ feature = "" \} = \{\}\)/);
+  assert.match(proxy, /requested === ASK_BEFORE_YOU_SPEND_FEATURE/);
+  assert.doesNotMatch(proxy, /isDedicatedBuyCheckPrompt/);
+  assert.doesNotMatch(proxy, /ASK_BEFORE_YOU_SPEND_PROMPT_PREFIX/);
+});
+
+test("universal CLARA conversation explicitly belongs to Ask Before You Spend without renaming its label", async () => {
+  const expert = await source("src/lib/clara-buy-check-expert-ai.js");
+
+  assert.match(expert, /feature: "ask-before-you-spend"/);
+  assert.match(expert, /label: "CLARA universal spending conversation"/);
+  assert.doesNotMatch(expert, /label: "CLARA Buy Check universal spending conversation"/);
+});
+
+test("final verdict and natural purchase conversation use the same explicit feature authority", async () => {
+  const decision = await source("src/lib/clara-spending-decision-ai.js");
+  const natural = await source("src/lib/clara-buy-check-conversation-ai-natural.js");
+
+  assert.match(decision, /feature: "ask-before-you-spend"/);
+  assert.match(decision, /label: "CLARA Buy Check spending decision"/);
+  assert.match(natural, /async function askJson/);
+  assert.match(natural, /feature: "ask-before-you-spend"/);
+  assert.match(natural, /CLARA Buy Check natural reason/);
+  assert.match(natural, /CLARA Buy Check natural confirmation/);
+  assert.match(natural, /CLARA Buy Check live/);
+});
+
+test("unapproved and missing feature identities stay blocked while legacy memory AI stays disabled", async () => {
+  const json = await source("src/lib/clara-gemini-json-utils.js");
+  const memoryTab = await source("src/clara-assistant-memory-tab.js");
+  const memorySummary = await source("src/lib/clara-conversation-memory-summarizer.js");
+
+  assert.match(json, /return normalizeFeature\(feature\) === ASK_BEFORE_YOU_SPEND_FEATURE/);
+  assert.match(json, /if \(!hasGeminiJsonConfig\(normalizedFeature\)\)/);
+  assert.match(json, /CLARA_AI_FEATURE_DISABLED/);
+  assert.match(memoryTab, /if \(!hasGeminiJsonConfig\(\)\) return fallbackMemoryEditResult/);
+  assert.match(memorySummary, /if \(!hasGeminiJsonConfig\(\)\)/);
+});
+
+test("server remains the authoritative Ask Before You Spend gate", async () => {
+  const api = await source("api/clara-gemini.js");
+
+  assert.match(api, /const ALLOWED_FEATURE = "ask-before-you-spend"/);
+  assert.match(api, /if \(feature !== ALLOWED_FEATURE\)/);
+  assert.match(api, /CLARA_AI_FEATURE_DISABLED/);
+  assert.match(api, /isAllowedBuyCheckPrompt\(prompt\)/);
+  assert.match(api, /CLARA_AI_PROMPT_BLOCKED/);
+});
+
 test("conversation Gemini receives recent flow, latest message, user identity, and compact verified finance", async () => {
   const expert = await source("src/lib/clara-buy-check-expert-ai.js");
 
