@@ -63,6 +63,8 @@ const SPENDING_DECISION_SCHEMA = Object.freeze({
     saferAlternative: { type: "string" },
     factsUsed: {
       type: "array",
+      minItems: 1,
+      maxItems: 10,
       items: { type: "string" },
     },
     missingImportantInformation: {
@@ -220,14 +222,55 @@ function safeNumber(value, fallback, min, max) {
   return Math.min(max, Math.max(min, number));
 }
 
+function isSpendingDecisionPrompt(prompt = "") {
+  const source = String(prompt || "");
+  return source.includes("ALLOWED VERIFIED FACT IDS") ||
+    source.includes('"decision": "BUY | WAIT | PAUSE"');
+}
+
+function extractAllowedFactIds(prompt = "") {
+  const source = String(prompt || "");
+  const marker = "ALLOWED VERIFIED FACT IDS";
+  const markerIndex = source.indexOf(marker);
+  if (markerIndex < 0) return [];
+
+  const tail = source.slice(markerIndex + marker.length);
+  const outputRulesIndex = tail.indexOf("\n\nOutput rules:");
+  const factSection = (outputRulesIndex >= 0 ? tail.slice(0, outputRulesIndex) : tail.slice(0, 10000));
+  const ids = [];
+  const pattern = /"id"\s*:\s*"([a-z0-9_:-]+)"/gi;
+  let match;
+
+  while ((match = pattern.exec(factSection)) !== null) {
+    const id = cleanText(match[1]);
+    if (id && !ids.includes(id)) ids.push(id);
+    if (ids.length >= 40) break;
+  }
+
+  return ids;
+}
+
+function buildSpendingDecisionSchema(prompt = "") {
+  const allowedFactIds = extractAllowedFactIds(prompt);
+  return {
+    ...SPENDING_DECISION_SCHEMA,
+    properties: {
+      ...SPENDING_DECISION_SCHEMA.properties,
+      factsUsed: {
+        ...SPENDING_DECISION_SCHEMA.properties.factsUsed,
+        items: allowedFactIds.length
+          ? { type: "string", enum: allowedFactIds }
+          : { type: "string" },
+      },
+    },
+  };
+}
+
 function resolveStructuredOutputSchema(prompt = "") {
   const source = String(prompt || "");
 
-  if (
-    source.includes("ALLOWED VERIFIED FACT IDS") ||
-    source.includes('"decision": "BUY | WAIT | PAUSE"')
-  ) {
-    return SPENDING_DECISION_SCHEMA;
+  if (isSpendingDecisionPrompt(source)) {
+    return buildSpendingDecisionSchema(source);
   }
 
   if (
@@ -262,7 +305,7 @@ function buildGenerationConfig(input = {}, prompt = "") {
       },
     };
     config.thinkingConfig = {
-      thinkingLevel: schema === SPENDING_DECISION_SCHEMA ? "low" : "minimal",
+      thinkingLevel: isSpendingDecisionPrompt(prompt) ? "low" : "minimal",
     };
   }
 
