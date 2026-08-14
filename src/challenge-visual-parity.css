@@ -1,0 +1,559 @@
+/*
+ * Challenge Hub visual parity.
+ * Weekly Mini Streak is the specimen: compact personal card -> compact outcome
+ * card -> compact contender card. This file changes presentation only; existing
+ * Monthly tracking, 30-Day streak authority, draw-entry logic, and race-board
+ * data remain untouched.
+ */
+
+/* -------------------------------------------------------------------------- */
+/* Monthly Mission                                                            */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:has(.lucide-info) {
+  border-color: rgba(250, 204, 21, 0.16) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:has(.lucide-info)
+> div:first-child {
+  padding-top: 16px !important;
+  padding-bottom: 12px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:has(.lucide-info)
+h3 {
+  margin-top: 12px !important;
+  font-size: 18px !important;
+  line-height: 22px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:has(.lucide-info)
+.grid.grid-cols-3 {
+  margin-top: 12px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:has(.lucide-info)
+.grid.grid-cols-3 > div {
+  min-width: 0 !important;
+  padding: 10px 8px !important;
+  text-align: center !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:has(.lucide-info)
+.grid.grid-cols-3 > div > p:first-child {
+  font-size: 8px !important;
+  line-height: 12px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:has(.lucide-info)
+.grid.grid-cols-3 > div > p:last-child {
+  font-size: 11px !important;
+  line-height: 16px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:has(.lucide-info)
+> div:last-child {
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:has(.lucide-info)
+> div:last-child > button,
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:has(.lucide-info)
+> div:last-child > div {
+  min-height: 44px !important;
+  height: 44px !important;
+  font-size: 12px !important;
+}
+
+/* The first framework pass left Monthly with two large explanatory cards.
+ * Keep the same information, but reduce them to Weekly-style compact cards.
+ */
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-outcome"]:has(.lucide-target),
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="our-progress"]:has(.lucide-users):not([data-clara-challenge-race-board]) {
+  padding: 14px !important;
+  border-radius: 22px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-outcome"]:has(.lucide-target)
+> div > div:first-child,
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="our-progress"]:has(.lucide-users):not([data-clara-challenge-race-board])
+> div > div:first-child {
+  gap: 10px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-outcome"]:has(.lucide-target)
+> div > div:first-child > div:first-child,
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="our-progress"]:has(.lucide-users):not([data-clara-challenge-race-board])
+> div > div:first-child > div:first-child {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 13px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-outcome"]:has(.lucide-target)
+h3,
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="our-progress"]:has(.lucide-users):not([data-clara-challenge-race-board])
+h3 {
+  font-size: 14px !important;
+  line-height: 18px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-outcome"]:has(.lucide-target)
+h3 + p,
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="our-progress"]:has(.lucide-users):not([data-clara-challenge-race-board])
+h3 + p {
+  display: none !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-outcome"]:has(.lucide-target)
+.grid.grid-cols-3,
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="our-progress"]:has(.lucide-users):not([data-clara-challenge-race-board])
+.grid.grid-cols-3 {
+  margin-top: 12px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-outcome"]:has(.lucide-target)
+.grid.grid-cols-3 > div,
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="our-progress"]:has(.lucide-users):not([data-clara-challenge-race-board])
+.grid.grid-cols-3 > div {
+  padding: 10px 7px !important;
+}
+
+/* The Mission Pool and Next Mission Reveal are discovery/support content, not
+ * part of the live challenge. Remove them from the active Monthly flow so the
+ * tab ends with the contender card, exactly like Weekly.
+ */
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="our-progress"]:has(.lucide-users):not([data-clara-challenge-race-board])
+~ section {
+  display: none !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* 30-Day                                                                     */
+/* -------------------------------------------------------------------------- */
+
+/* Compact the pre-race notice. It should read like a status strip, not a hero. */
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(.lucide-calendar-days):has(~ section[data-challenge-framework-zone="my-progress"]:not(:has(.lucide-info))) {
+  padding: 12px 14px !important;
+  border-radius: 18px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(.lucide-calendar-days):has(~ section[data-challenge-framework-zone="my-progress"]:not(:has(.lucide-info)))
+> div > div:first-child {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 14px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(.lucide-calendar-days):has(~ section[data-challenge-framework-zone="my-progress"]:not(:has(.lucide-info)))
+h3 {
+  margin-top: 2px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(.lucide-calendar-days):has(~ section[data-challenge-framework-zone="my-progress"]:not(:has(.lucide-info)))
+h3 + p {
+  display: none !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section:has(.lucide-calendar-days):has(~ section[data-challenge-framework-zone="my-progress"]:not(:has(.lucide-info)))
+div[class*="inline-flex"] {
+  margin-top: 7px !important;
+  padding: 4px 9px !important;
+  font-size: 9px !important;
+}
+
+/* Main 30-Day card: same density and hierarchy as Weekly. */
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:not(:has(.lucide-info)) {
+  border-color: rgba(250, 204, 21, 0.16) !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:not(:has(.lucide-info))
+> div:first-child {
+  padding-top: 16px !important;
+  padding-bottom: 12px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:not(:has(.lucide-info))
+> div:first-child > div:first-child {
+  justify-content: center !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:not(:has(.lucide-info))
+> div:first-child > div:first-child > span:last-child {
+  display: none !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:not(:has(.lucide-info))
+h3 {
+  margin-top: 12px !important;
+  text-align: center !important;
+  font-size: 18px !important;
+  line-height: 22px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:not(:has(.lucide-info))
+h3 + p {
+  display: none !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+#clara-thirty-framework-metrics {
+  margin-top: 12px !important;
+  text-align: center !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+#clara-thirty-framework-metrics > div {
+  min-width: 0 !important;
+  padding: 10px 7px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+#clara-thirty-framework-metrics > div > p:first-child {
+  font-size: 8px !important;
+  line-height: 12px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+#clara-thirty-framework-metrics > div > p:last-child {
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+/* Remove duplicate finisher pills: Draw Entries already communicates the same state. */
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+#clara-thirty-framework-metrics + div.flex.flex-wrap {
+  display: none !important;
+}
+
+/* Keep one progress bar after the three metrics, not a second large numeric block. */
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:not(:has(.lucide-info))
+> div:first-child > div[class*="mt-5"] > div:first-child {
+  display: none !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:not(:has(.lucide-info))
+> div:first-child > div[class*="mt-5"] > div:last-child {
+  margin-top: 12px !important;
+  height: 6px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:not(:has(.lucide-info))
+> div:last-child {
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:not(:has(.lucide-info))
+> div:last-child > p,
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:not(:has(.lucide-info))
+> div:last-child > div[class*="mt-3"] {
+  display: none !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:not(:has(.lucide-info))
+> div:last-child > button,
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-progress"]:not(:has(.lucide-info))
+> div:last-child > div:first-child {
+  min-height: 44px !important;
+  height: 44px !important;
+  font-size: 12px !important;
+}
+
+/* Monthly Finisher Draw: retain the mechanics, remove the brochure-like lower
+ * half. The result is the same compact reward card rhythm as Weekly Draw.
+ */
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-outcome"]:has(.lucide-ticket) {
+  border-radius: 22px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-outcome"]:has(.lucide-ticket)
+> div:first-of-type {
+  padding: 14px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-outcome"]:has(.lucide-ticket)
+h3 {
+  margin-top: 5px !important;
+  font-size: 15px !important;
+  line-height: 19px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-outcome"]:has(.lucide-ticket)
+h3 + p {
+  margin-top: 4px !important;
+  font-size: 9px !important;
+  line-height: 14px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-outcome"]:has(.lucide-ticket)
+.grid.grid-cols-3 {
+  margin-top: 12px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-outcome"]:has(.lucide-ticket)
+.grid.grid-cols-3 > div {
+  padding: 10px 7px !important;
+  text-align: center !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-outcome"]:has(.lucide-ticket)
+div[class*="rounded-[19px]"] {
+  margin-top: 12px !important;
+  padding: 10px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-challenge-framework-zone="my-outcome"]:has(.lucide-ticket)
+> div:last-child:not(:first-child) {
+  display: none !important;
+}
+
+/* 30-Day contenders: mirror Weekly's simple aggregate board. Detailed filters
+ * and participant cards remain in the component for future use, but are not part
+ * of the default compact challenge flow.
+ */
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-clara-challenge-race-board="true"] {
+  padding: 14px !important;
+  border-radius: 22px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-clara-challenge-race-board="true"]
+> div > div:first-child > div:first-child > div:first-child {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 13px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-clara-challenge-race-board="true"]
+> div > div:first-child > div:first-child > div:last-child > div:first-child > p:first-child {
+  font-size: 0 !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-clara-challenge-race-board="true"]
+> div > div:first-child > div:first-child > div:last-child > div:first-child > p:first-child::after {
+  content: "30-DAY CONTENDERS";
+  font-size: 9px;
+  line-height: 12px;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-clara-challenge-race-board="true"]
+h3 {
+  font-size: 0 !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-clara-challenge-race-board="true"]
+h3::after {
+  content: "You're doing this together.";
+  font-size: 14px;
+  line-height: 18px;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-clara-challenge-race-board="true"]
+h3 ~ p {
+  display: none !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-clara-challenge-race-board="true"]
+> div > div[class*="grid-cols-4"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  margin-top: 12px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-clara-challenge-race-board="true"]
+> div > div[class*="grid-cols-4"] > div {
+  padding: 10px 7px !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-clara-challenge-race-board="true"]
+> div > div[class*="grid-cols-4"] > div:nth-child(4) {
+  display: none !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-clara-challenge-race-board="true"]
+> div > div[class*="grid-cols-4"] > div:first-child > p:first-child,
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-clara-challenge-race-board="true"]
+> div > div[class*="grid-cols-4"] > div:nth-child(3) > p:first-child {
+  font-size: 0 !important;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-clara-challenge-race-board="true"]
+> div > div[class*="grid-cols-4"] > div:first-child > p:first-child::after {
+  content: "CONTENDERS";
+  font-size: 8px;
+  line-height: 12px;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-clara-challenge-race-board="true"]
+> div > div[class*="grid-cols-4"] > div:nth-child(3) > p:first-child::after {
+  content: "QUALIFIED";
+  font-size: 8px;
+  line-height: 12px;
+}
+
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-clara-challenge-race-board="true"]
+> div > div[class*="grid-cols-4"] ~ div[class*="grid-cols-3"],
+.clara-community-root[data-community-view="challenges"]
+.clara-community-challenges-view
+section[data-clara-challenge-race-board="true"]
+> div > div[class*="grid-cols-4"] ~ div[class*="mt-3"] {
+  display: none !important;
+}
+
+@media (max-width: 380px) {
+  .clara-community-root[data-community-view="challenges"]
+  .clara-community-challenges-view
+  section[data-challenge-framework-zone="my-progress"]
+  .grid.grid-cols-3 > div,
+  .clara-community-root[data-community-view="challenges"]
+  .clara-community-challenges-view
+  section[data-challenge-framework-zone="my-outcome"]
+  .grid.grid-cols-3 > div,
+  .clara-community-root[data-community-view="challenges"]
+  .clara-community-challenges-view
+  section[data-clara-challenge-race-board="true"]
+  > div > div[class*="grid-cols-4"] > div {
+    padding-left: 5px !important;
+    padding-right: 5px !important;
+  }
+}

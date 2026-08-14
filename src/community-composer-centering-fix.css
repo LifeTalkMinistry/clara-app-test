@@ -3,6 +3,7 @@
 @import "./weekly-mini-streak-header-center.css";
 @import "./monthly-mission-cleanup.css";
 @import "./weekly-challenge-details-cleanup.css";
+@import "./challenge-visual-parity.css";
 
 /* Final mobile geometry correction for the Community composer.
  * The feed is intentionally full-bleed, while the hero/composer/filter utility
