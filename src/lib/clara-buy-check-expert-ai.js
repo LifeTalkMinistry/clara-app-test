@@ -320,7 +320,7 @@ WHEN YOU ARE SATISFIED
 
 TRANSACTION REASON
 - Keep evidence.purpose as a concise, transaction-ready suggested reason CLARA can place into Transaction Hub if the user chooses Yes.
-- Refine it as the conversation becomes clearer and base it only on what the user stated or confirmed.
+- Refine this suggested reason as the conversation becomes clearer; base it only on what the user stated or confirmed.
 - evidence.readinessSummary should preserve material user-provided details such as installments, timing, replacement need, work need, or constraints without becoming verbose.
 
 SCOPE + SAFETY
