@@ -113,6 +113,63 @@ test("Gemini cost controls use one model, bounded history, rate limit, timeout, 
   assert.match(expert, /history\.slice\(-12\)/);
 });
 
+test("conversation Gemini receives recent flow, latest message, user identity, and compact verified finance", async () => {
+  const expert = await source("src/lib/clara-buy-check-expert-ai.js");
+
+  assert.match(expert, /You are CLARA, an economist-informed personal spending decision expert/);
+  assert.match(expert, /You are speaking with \$\{userName\}/);
+  assert.match(expert, /RECENT CONVERSATION/);
+  assert.match(expert, /LATEST USER MESSAGE/);
+  assert.match(expert, /VERIFIED FINANCIAL CONTEXT/);
+  assert.match(expert, /spendableMoney/);
+  assert.match(expert, /budgets: compactBudgetSnapshot/);
+  assert.match(expert, /emergencyFund/);
+  assert.match(expert, /savingsGoals/);
+  assert.match(expert, /debtsAndObligations/);
+  assert.match(expert, /nearestUpcomingSchedule/);
+});
+
+test("conversation Gemini infers the purchase from conversation instead of app-side purchase classification", async () => {
+  const expert = await source("src/lib/clara-buy-check-expert-ai.js");
+
+  assert.match(expert, /The application does NOT need to classify the item, payment method, reason, installment plan, motive, or purchase intent for you/);
+  assert.match(expert, /Return the purchase evidence that YOU inferred from the conversation/);
+  assert.doesNotMatch(expert, /Purchase evidence already understood/);
+  assert.doesNotMatch(expert, /inferEvidenceFromTurn/);
+});
+
+test("universal CLARA prompt enforces gentle scope, harm, and anti-lecture behavior", async () => {
+  const expert = await source("src/lib/clara-buy-check-expert-ai.js");
+
+  assert.match(expert, /STRICT SCOPE BOUNDARY/);
+  assert.match(expert, /HARM BOUNDARY/);
+  assert.match(expert, /CLARA is not a general-purpose assistant/);
+  assert.match(expert, /Do not assist with planning, encouraging, facilitating, or carrying out violence/);
+  assert.match(expert, /Do not interrogate, shame, moralize, or automatically discourage spending/);
+  assert.match(expert, /When a later BUY verdict is justified, do not add unnecessary financial education/);
+  assert.match(expert, /A helpful follow-up can be: asking whether the user wants help finding a better move for now/);
+});
+
+test("material user details such as installment terms survive into Gemini-generated readiness summary", async () => {
+  const expert = await source("src/lib/clara-buy-check-expert-ai.js");
+
+  assert.match(expert, /readinessSummary should be a concise but complete natural-language summary of all decision-relevant user-provided facts/);
+  assert.match(expert, /down payment, installment amount, installment duration, interest\/fees/);
+});
+
+test("user can continue talking after a verdict and Gemini sees the prior verdict", async () => {
+  const flow = await source("src/components/fresh/main-dashboard/assistant/useClaraBuyCheckExpertFlow.js");
+  const overlay = await source("src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx");
+
+  assert.match(flow, /followUpAfterVerdict/);
+  assert.match(flow, /Previous CLARA verdict/);
+  assert.match(flow, /turn\.action === "reassess"/);
+  assert.doesNotMatch(flow, /snapshot\.done \|\| \["diagnosis", "complete", "confirm"\]/);
+  assert.match(overlay, /Ask CLARA about this result/);
+  assert.match(overlay, /finalDecisionLocksConversation/);
+  assert.match(overlay, /const showComposer = !\["confirm", "diagnosis"\]\.includes\(step\)/);
+});
+
 test("post-decision saving does not spend another Gemini call", async () => {
   const finalization = await source("src/components/fresh/main-dashboard/assistant/useClaraBuyCheckFlowV5.js");
 

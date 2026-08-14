@@ -63,6 +63,31 @@ function confirmationFromEvidence(evidence = {}) {
   };
 }
 
+function verdictHistoryMessage(diagnosis = null) {
+  if (!diagnosis || typeof diagnosis !== "object") return null;
+  const verdict = clean(diagnosis.userFacingDecision || diagnosis.decision);
+  const explanation = clean(diagnosis.explanation || diagnosis.summaryCard?.explanation);
+  const saferMove = clean(diagnosis.saferMove || diagnosis.saferAlternative);
+  if (!verdict && !explanation) return null;
+  return {
+    role: "clara",
+    text: [
+      verdict ? `Previous CLARA verdict: ${verdict}.` : "",
+      explanation,
+      saferMove ? `Better move: ${saferMove}` : "",
+    ].filter(Boolean).join(" "),
+  };
+}
+
+function historyForTurn(snapshot = {}) {
+  const history = Array.isArray(snapshot.messages) ? [...snapshot.messages] : [];
+  if (snapshot.done || snapshot.step === "complete") {
+    const verdictMessage = verdictHistoryMessage(snapshot.diagnosis);
+    if (verdictMessage) history.push(verdictMessage);
+  }
+  return history;
+}
+
 function diagnosisFailureState(current, checkingId) {
   const fallbackCard = {
     eyebrow: "FINAL DECISION",
@@ -121,9 +146,10 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
     if (!answer) return false;
 
     const snapshot = state;
-    if (snapshot.busy || snapshot.done || ["diagnosis", "complete", "confirm"].includes(snapshot.step)) return false;
+    if (snapshot.busy || ["diagnosis", "confirm"].includes(snapshot.step)) return false;
     if (activeGeminiRequestRef.current) return false;
 
+    const followUpAfterVerdict = snapshot.done || snapshot.step === "complete";
     const requestToken = `${snapshot.sessionId || "no-session"}:conversation:${Date.now()}`;
     activeGeminiRequestRef.current = requestToken;
     const userMessage = createMessage("user", answer);
@@ -131,7 +157,7 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
     const thinkingStartedAt = Date.now();
 
     setState((current) => {
-      if (current.sessionId !== snapshot.sessionId || current.busy || current.done) return current;
+      if (current.sessionId !== snapshot.sessionId || current.busy) return current;
       return {
         ...current,
         busy: true,
@@ -142,7 +168,7 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
     try {
       const turn = await runClaraBuyCheckExpertTurn({
         message: answer,
-        history: snapshot.messages,
+        history: historyForTurn(snapshot),
         evidence: snapshot.evidence,
         assistantContext,
       });
@@ -157,11 +183,13 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
         const price = Number(evidence.price || 0);
         const reason = reasonFromEvidence(evidence);
         const isReady = turn.action === "ready" && item && price > 0 && reason;
+        const shouldReassess = followUpAfterVerdict && turn.action === "reassess" && item && price > 0 && reason;
+        const needsDecisionRun = isReady || shouldReassess;
         let budgetAssessment = current.budgetAssessment;
         let budgetCoverage = current.budgetCoverage;
         let planningStatus = current.planningStatus;
 
-        if (isReady) {
+        if (needsDecisionRun) {
           try {
             budgetAssessment = analyzeBuyCheckBudgetCoverage(item, price, assistantContext, reason);
             budgetCoverage = budgetCoverageFromAssessment(budgetAssessment);
@@ -183,8 +211,9 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
           planningStatus,
           budgetCoverage,
           budgetAssessment,
-          confirmation: isReady ? confirmationFromEvidence(evidence) : null,
-          step: isReady ? "confirm" : "conversation",
+          confirmation: needsDecisionRun ? confirmationFromEvidence(evidence) : current.confirmation,
+          step: needsDecisionRun ? "confirm" : followUpAfterVerdict ? "complete" : "conversation",
+          done: needsDecisionRun ? false : followUpAfterVerdict ? true : current.done,
           busy: false,
           messages: replaceThinkingMessage(current.messages, thinkingMessage.id, turn.reply),
         };
@@ -198,11 +227,14 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
         : {
             ...current,
             busy: false,
-            step: "conversation",
+            step: followUpAfterVerdict ? "complete" : "conversation",
+            done: followUpAfterVerdict ? true : current.done,
             messages: replaceThinkingMessage(
               current.messages,
               thinkingMessage.id,
-              "I missed that. Tell me a little more about what you're considering, and I'll keep working through it with you.",
+              followUpAfterVerdict
+                ? "I couldn't process that follow-up cleanly. Your previous verdict is unchanged for now."
+                : "I missed that. Tell me a little more about what you're considering, and I'll keep working through it with you.",
             ),
           });
       return false;

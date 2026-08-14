@@ -3,7 +3,7 @@ import { ArrowUp, X } from "lucide-react";
 import useClaraBuyCheckFlow from "@/components/fresh/main-dashboard/assistant/useClaraBuyCheckFlow";
 import BuyCheckDecisionCard from "@/components/fresh/main-dashboard/assistant/buy-check/BuyCheckDecisionCard";
 
-const CLARA_AI_BRAIN_VERSION = "pause-react-owned-buy-check-v5-clara-money-tools";
+const CLARA_AI_BRAIN_VERSION = "pause-react-owned-buy-check-v6-universal-conversation";
 const BUY_CHECK_ACKNOWLEDGMENTS = [
   "Good move—you paused before buying. Let’s see if it fits your money.",
   "Nice. You stopped before spending. Let’s check this purchase together.",
@@ -209,7 +209,7 @@ function placeholderFor(step) {
   if (step === "clarification") return "Answer CLARA’s follow-up";
   if (step === "confirm") return "Choose Yes or No";
   if (step === "diagnosis") return "CLARA is checking your context";
-  if (step === "complete") return "Choose your final action";
+  if (step === "complete") return "Ask CLARA about this result";
   return "Type the item you want to buy";
 }
 
@@ -366,8 +366,9 @@ export default function ClaraAiEnvironmentOverlay({
   const sessionId = activeState?.sessionId || "preview-session";
   const step = activeState?.step || "item";
   const busy = Boolean(activeState?.busy || finalDecision?.busy);
-  const inputLocked = Boolean(activeState && ["confirm", "diagnosis", "complete"].includes(step));
-  const showComposer = !["confirm", "diagnosis", "complete"].includes(step);
+  const finalDecisionLocksConversation = Boolean(finalDecision && ["explain", "resolved"].includes(finalDecision.phase));
+  const inputLocked = Boolean(activeState && (["confirm", "diagnosis"].includes(step) || finalDecisionLocksConversation));
+  const showComposer = !["confirm", "diagnosis"].includes(step) && !finalDecisionLocksConversation;
   const resultMode = ["diagnosis", "complete"].includes(step);
 
   if (isActive && (!acknowledgmentSessionRef.current.active || acknowledgmentSessionRef.current.sessionId !== sessionId)) {
@@ -396,15 +397,17 @@ export default function ClaraAiEnvironmentOverlay({
   useEffect(() => {
     if (!isActive || !resultMode) return undefined;
 
-    const activeElement = document.activeElement;
-    if (activeElement instanceof HTMLElement) activeElement.blur();
+    if (!showComposer) {
+      const activeElement = document.activeElement;
+      if (activeElement instanceof HTMLElement) activeElement.blur();
+    }
 
     if (step !== "complete") return undefined;
     const frame = window.requestAnimationFrame(() => {
       resultFocusRef.current?.scrollIntoView?.({ behavior: "auto", block: "start" });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [finalDecision?.phase, isActive, resultMode, step]);
+  }, [finalDecision?.phase, isActive, resultMode, showComposer, step]);
 
   if (!isActive) return null;
 
