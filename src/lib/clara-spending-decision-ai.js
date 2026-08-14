@@ -512,6 +512,7 @@ export async function runClaraSpendingDecision(flow, context) {
   const factCatalog = buildVerifiedFactCatalog(decisionContext);
 
   const { json, model } = await requestGeminiJson({
+    feature: "ask-before-you-spend",
     prompt: buildDecisionPrompt({ decisionContext, factCatalog }),
     temperature: 0.2,
     maxOutputTokens: 650,
