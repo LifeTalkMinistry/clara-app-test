@@ -248,7 +248,7 @@ function buildGenerationConfig(input = {}, prompt = "") {
     const schema = resolveStructuredOutputSchema(prompt);
     config.responseFormat = {
       text: {
-        mimeType: "application/json",
+        mimeType: "APPLICATION_JSON",
         ...(schema ? { schema } : {}),
       },
     };
