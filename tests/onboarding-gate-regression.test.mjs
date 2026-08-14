@@ -142,9 +142,10 @@ test("memory fallback cannot complete onboarding for another vault", async () =>
   }
 });
 
-test("authenticated routes are no longer wrapped by a mandatory onboarding gate", () => {
+test("mission onboarding is direct-entry only and does not wrap all authenticated routes", () => {
   const mainSource = readRepositoryFile("src/main.jsx");
   const appSource = readRepositoryFile("src/App.jsx");
+  const loginSource = readRepositoryFile("src/pages/Login.jsx");
 
   assert.doesNotMatch(mainSource, /OnboardingRouteGate/);
   assert.doesNotMatch(mainSource, /isUniversalOnboardingLocation/);
@@ -154,11 +155,15 @@ test("authenticated routes are no longer wrapped by a mandatory onboarding gate"
   );
   assert.match(
     appSource,
-    /path="\/onboarding"\s+element=\{<Navigate to="\/dashboard" replace \/>\}/
+    /path="\/onboarding"\s+element=\{<UniversalOnboarding \/>\}/
+  );
+  assert.match(
+    loginSource,
+    /await signUp\([\s\S]*?navigate\("\/onboarding", \{ replace: true \}\)/
   );
 });
 
-test("access flow bypasses onboarding while keeping saved setup data intact", () => {
+test("access flow still bypasses mandatory onboarding while saved legacy setup data stays intact", () => {
   const accessSource = readRepositoryFile("src/lib/access-control.js");
   const profileSource = readRepositoryFile("src/lib/local-profile-repository.js");
   const resetSource = readRepositoryFile("src/lib/reset-local-clara-journey.js");
