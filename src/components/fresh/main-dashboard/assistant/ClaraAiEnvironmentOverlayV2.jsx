@@ -47,7 +47,7 @@ function BuyCheckHeader({ onClose }) {
       data-clara-buy-check-header="true"
       className="relative z-20 mx-1 shrink-0 overflow-hidden rounded-[24px] border border-blue-200/18 bg-[linear-gradient(115deg,rgba(5,26,62,0.98),rgba(7,22,48,0.98)_52%,rgba(35,10,28,0.96))] px-4 py-3.5 pr-14 shadow-[0_16px_38px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.05)]"
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,#1769ff_0%,#1769ff_42%,#ffd84a_42%,#ffd84a_56%,#e53945_56%,#e53945_100%)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,#1769ff_0%,#1769ff_42%,#ffd84a_42%,#ffd84a_56%,#e53945_56%,#e53945_56%,#e53945_100%)]" />
       <div className="pointer-events-none absolute -left-10 -top-12 h-28 w-28 rounded-full bg-blue-500/18 blur-3xl" />
       <div className="pointer-events-none absolute -right-8 -top-12 h-28 w-28 rounded-full bg-red-500/12 blur-3xl" />
       <p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#ffd84a]/88">CLARA MONEY TOOLS</p>
@@ -82,6 +82,8 @@ function PauseEntryBoard({ acknowledgmentMessage }) {
 }
 
 function FinalDecisionPanel({ finalDecision, walletOptions, item, onExplanationChange, onWalletChange, onSave, onCancel }) {
+  const [walletPickerOpen, setWalletPickerOpen] = useState(false);
+
   if (!finalDecision || !["explain", "resolved"].includes(finalDecision.phase)) return null;
 
   if (finalDecision.phase === "resolved") {
@@ -96,6 +98,10 @@ function FinalDecisionPanel({ finalDecision, walletOptions, item, onExplanationC
   }
 
   const isBuy = finalDecision.choice === "buy";
+  const safeWalletOptions = Array.isArray(walletOptions) ? walletOptions : [];
+  const selectedWallet = safeWalletOptions.find((wallet) => wallet.id === finalDecision.walletId) || null;
+  const hasWallets = safeWalletOptions.length > 0;
+
   return (
     <section
       data-clara-buy-check-final-decision-panel={finalDecision.choice}
@@ -120,19 +126,61 @@ function FinalDecisionPanel({ finalDecision, walletOptions, item, onExplanationC
       {isBuy ? (
         <div className="mt-3">
           <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.16em] text-[#ffd84a]/66">PAY FROM</label>
-          <select
-            value={finalDecision.walletId || ""}
-            onChange={(event) => onWalletChange?.(event.target.value)}
-            disabled={finalDecision.busy}
-            className="w-full rounded-[18px] border border-blue-200/14 bg-[#08142b]/96 px-4 py-3 text-[13px] font-bold text-white shadow-inner outline-none focus:border-blue-300/42"
+          <button
+            type="button"
+            data-clara-wallet-picker-trigger="true"
+            onClick={() => setWalletPickerOpen((open) => !open)}
+            disabled={finalDecision.busy || !hasWallets}
+            aria-expanded={walletPickerOpen}
+            className="flex min-h-12 w-full touch-manipulation items-center justify-between gap-3 rounded-[18px] border border-blue-200/14 bg-[#08142b]/96 px-4 py-3 text-left text-[13px] font-bold text-white shadow-inner outline-none transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-55"
           >
-            <option value="">Choose a wallet</option>
-            {(walletOptions || []).map((wallet) => (
-              <option key={wallet.id || wallet.name} value={wallet.id} disabled={!wallet.enough}>
-                {wallet.name} — {money(wallet.balance)}{wallet.enough ? "" : " (not enough)"}
-              </option>
-            ))}
-          </select>
+            <span className="min-w-0 truncate">
+              {selectedWallet ? `${selectedWallet.name} — ${money(selectedWallet.balance)}` : hasWallets ? "Choose a wallet" : "No spendable wallets available"}
+            </span>
+            <span className={`shrink-0 text-[13px] text-blue-100/72 transition-transform ${walletPickerOpen ? "rotate-180" : ""}`} aria-hidden="true">⌄</span>
+          </button>
+
+          {walletPickerOpen && hasWallets ? (
+            <div
+              data-clara-wallet-picker-options="true"
+              role="listbox"
+              aria-label="Choose a wallet"
+              className="mt-2 grid gap-2 rounded-[18px] border border-blue-200/12 bg-[#050d1f]/98 p-2 shadow-[0_16px_36px_rgba(0,0,0,0.34)]"
+            >
+              {safeWalletOptions.map((wallet) => {
+                const selected = wallet.id === finalDecision.walletId;
+                return (
+                  <button
+                    key={wallet.id || wallet.name}
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    disabled={finalDecision.busy || !wallet.enough}
+                    onClick={() => {
+                      if (!wallet.enough) return;
+                      onWalletChange?.(wallet.id);
+                      setWalletPickerOpen(false);
+                    }}
+                    className={`flex min-h-12 w-full touch-manipulation items-center justify-between gap-3 rounded-[15px] border px-3.5 py-3 text-left transition active:scale-[0.99] disabled:opacity-45 ${selected ? "border-blue-300/42 bg-blue-500/14" : "border-white/8 bg-white/[0.035]"}`}
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-[13px] font-black text-white">{wallet.name}</span>
+                      <span className="mt-0.5 block text-[10.5px] font-semibold text-slate-300/68">
+                        {wallet.enough ? "Available to spend" : "Not enough for this purchase"}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-[12px] font-black text-white/86">{money(wallet.balance)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {!hasWallets ? (
+            <p className="mt-2 text-[11px] font-semibold leading-5 text-amber-100/72">
+              Add or fund a spendable wallet before logging this expense.
+            </p>
+          ) : null}
         </div>
       ) : null}
       {finalDecision.error ? <p className="mt-3 text-[11px] font-black leading-5 text-red-200/90" aria-live="polite">{finalDecision.error}</p> : null}
@@ -140,7 +188,7 @@ function FinalDecisionPanel({ finalDecision, walletOptions, item, onExplanationC
         <button
           type="button"
           onClick={onSave}
-          disabled={finalDecision.busy}
+          disabled={finalDecision.busy || (isBuy && !selectedWallet)}
           className="min-h-11 rounded-full border border-blue-300/26 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] px-4 text-[12px] font-black text-white shadow-[0_12px_30px_rgba(23,105,255,0.25)] transition hover:brightness-110 disabled:opacity-50"
         >
           {finalDecision.busy ? "Saving..." : isBuy ? "Log expense" : "Save decision"}
