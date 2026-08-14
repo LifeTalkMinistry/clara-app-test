@@ -12,6 +12,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import ClaraLogo from "@/components/ClaraLogo";
+import ClaraBrandName from "@/components/ClaraBrandName";
 import { useAuth } from "@/context/AuthContext";
 
 const CLARA_ORB_PATH = "/community?view=orb";
@@ -170,7 +171,7 @@ function ScreenFrame({ children, align = "center", dense = false }) {
 function CountryScreen() {
   return (
     <ScreenFrame>
-      <Eyebrow>Why CLARA exists</Eyebrow>
+      <Eyebrow>Why <ClaraBrandName /> exists</Eyebrow>
       <h1 className="clara-onboarding-title">Filipinos work hard for every peso.</h1>
       <p className="clara-onboarding-body clara-onboarding-body--lead">
         But earning money and knowing how to protect it are two different skills.
@@ -214,7 +215,7 @@ function QuietSpendingScreen() {
 function BeforeScreen() {
   return (
     <ScreenFrame>
-      <Eyebrow>CLARA&apos;s difference</Eyebrow>
+      <Eyebrow><ClaraBrandName />&apos;s difference</Eyebrow>
       <div className="clara-onboarding-compare">
         <section className="clara-onboarding-compare-block clara-onboarding-compare-block--muted">
           <p className="clara-onboarding-kicker">Traditional tracking</p>
@@ -222,7 +223,7 @@ function BeforeScreen() {
         </section>
         <AccentRule />
         <section className="clara-onboarding-compare-block clara-onboarding-compare-block--clara">
-          <p className="clara-onboarding-kicker clara-onboarding-kicker--blue">CLARA</p>
+          <p className="clara-onboarding-kicker clara-onboarding-kicker--blue"><ClaraBrandName /></p>
           <p className="clara-onboarding-compare-copy clara-onboarding-compare-copy--hero">
             Helps you before the decision is made.
           </p>
@@ -294,7 +295,7 @@ function MissionScreen() {
         Better money decisions should become normal in the Philippines.
       </h1>
       <p className="clara-onboarding-body clara-onboarding-body--lead">
-        CLARA exists to help build a generation of Filipinos who are wiser, more intentional, more disciplined, and better prepared financially.
+        <ClaraBrandName /> exists to help build a generation of Filipinos who are wiser, more intentional, more disciplined, and better prepared financially.
       </p>
       <div className="clara-onboarding-mission-grid">
         {MISSION_STEPS.map((label, index) => (
@@ -315,10 +316,10 @@ function SupportScreen({ onExploreSupport }) {
     <ScreenFrame align="left" dense>
       <Eyebrow tone="gold">Support is a choice</Eyebrow>
       <h1 className="clara-onboarding-title clara-onboarding-title--support">
-        CLARA is free to start. You are never forced to pay to begin.
+        <ClaraBrandName /> is free to start. You are never forced to pay to begin.
       </h1>
       <p className="clara-onboarding-body clara-onboarding-body--left">
-        If CLARA becomes valuable to you, you can choose to support what we&apos;re building and receive additional supporter tools and experiences.
+        If <ClaraBrandName /> becomes valuable to you, you can choose to support what we&apos;re building and receive additional supporter tools and experiences.
       </p>
 
       <div className="clara-onboarding-support-stack">
@@ -328,7 +329,7 @@ function SupportScreen({ onExploreSupport }) {
           </span>
           <div>
             <p className="clara-onboarding-support-title">Support the mission</p>
-            <p className="clara-onboarding-support-copy">Help CLARA keep improving and reach more Filipinos.</p>
+            <p className="clara-onboarding-support-copy">Help <ClaraBrandName /> keep improving and reach more Filipinos.</p>
           </div>
         </div>
 
@@ -339,7 +340,7 @@ function SupportScreen({ onExploreSupport }) {
           <div>
             <p className="clara-onboarding-support-title">Make a commitment</p>
             <p className="clara-onboarding-support-copy">
-              Supporting CLARA doesn&apos;t buy discipline. It can be your deliberate commitment to practice it.
+              Supporting <ClaraBrandName /> doesn&apos;t buy discipline. It can be your deliberate commitment to practice it.
             </p>
           </div>
         </div>
@@ -351,7 +352,7 @@ function SupportScreen({ onExploreSupport }) {
           <div>
             <p className="clara-onboarding-support-title">Go deeper</p>
             <p className="clara-onboarding-support-copy">
-              Supporters receive extra benefits designed to deepen the CLARA experience.
+              Supporters receive extra benefits designed to deepen the <ClaraBrandName /> experience.
             </p>
           </div>
         </div>
@@ -379,7 +380,7 @@ function RuleScreen() {
       </div>
       <h1 className="clara-onboarding-title clara-onboarding-title--final">
         Before you spend,
-        <span>ask CLARA.</span>
+        <span className="clara-onboarding-final-line">ask <ClaraBrandName />.</span>
       </h1>
       <p className="clara-onboarding-body clara-onboarding-body--narrow">
         You don&apos;t need to be perfect with money. Start by creating a pause before the next decision.
@@ -718,7 +719,7 @@ export default function UniversalOnboarding() {
         .clara-onboarding-title--mission { max-width: 390px; font-size: clamp(2rem, 8.7vw, 2.62rem); }
         .clara-onboarding-title--support { max-width: 385px; font-size: clamp(1.88rem, 8vw, 2.42rem); }
         .clara-onboarding-title--final { margin-top: 34px; font-size: clamp(2.35rem, 10vw, 3rem); line-height: .99; }
-        .clara-onboarding-title--final span { display: block; margin-top: 6px; color: #8dbbff; }
+        .clara-onboarding-title--final > .clara-onboarding-final-line { display: block; margin-top: 6px; color: #8dbbff; }
 
         .clara-onboarding-body {
           margin: 21px 0 0;
@@ -1290,7 +1291,13 @@ export default function UniversalOnboarding() {
             className="clara-onboarding-continue"
           >
             <span>
-              {isLast ? "Start with CLARA" : activeScreen === "support" ? "Continue with free CLARA" : "Continue"}
+              {isLast ? (
+                <>Start with <ClaraBrandName /></>
+              ) : activeScreen === "support" ? (
+                <>Continue with free <ClaraBrandName /></>
+              ) : (
+                "Continue"
+              )}
             </span>
             <ArrowRight />
           </button>

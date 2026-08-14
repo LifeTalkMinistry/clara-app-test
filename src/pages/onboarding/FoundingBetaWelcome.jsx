@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import ClaraLogo from "@/components/ClaraLogo";
+import ClaraBrandName from "@/components/ClaraBrandName";
 import { useAuth } from "@/context/AuthContext";
 
 const BETA_WELCOME_COMPLETE_PREFIX = "clara_founding_beta_welcome_complete_v1";
@@ -17,17 +18,17 @@ const BETA_BEATS = [
     ),
     body: (
       <>
-        Before CLARA reaches more people, you&apos;re among the first real users invited to experience it.
+        Before <ClaraBrandName /> reaches more people, you&apos;re among the first real users invited to experience it.
       </>
     ),
     closing: "That means more to our team than you may realize.",
   },
   {
-    eyebrow: "From the CLARA team",
-    title: <>Thank you for giving CLARA a real chance.</>,
+    eyebrow: <>From the <ClaraBrandName /> team</>,
+    title: <>Thank you for giving <ClaraBrandName /> a real chance.</>,
     body: (
       <>
-        Until now, CLARA has been something we&apos;ve imagined, designed, rebuilt, tested, and believed in.
+        Until now, <ClaraBrandName /> has been something we&apos;ve imagined, designed, rebuilt, tested, and believed in.
       </>
     ),
     secondary: (
@@ -40,7 +41,7 @@ const BETA_BEATS = [
     eyebrow: "You're part of the beginning",
     title: (
       <>
-        You&apos;re helping shape what <span>CLARA becomes.</span>
+        You&apos;re helping shape what <span><ClaraBrandName /> becomes.</span>
       </>
     ),
     body: (
@@ -48,7 +49,7 @@ const BETA_BEATS = [
         Every moment that helps you, surprises you, feels confusing, or makes you think differently about money teaches us something no internal test can.
       </>
     ),
-    closing: "What you experience here may help shape the CLARA that thousands of Filipinos use someday.",
+    closing: <>What you experience here may help shape the <ClaraBrandName /> that thousands of Filipinos use someday.</>,
   },
 ];
 
