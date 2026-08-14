@@ -26,6 +26,11 @@ const DEFAULT_STABILITY = INCOME_SOURCE_STABILITY.includes("Stable")
   ? "Stable"
   : INCOME_SOURCE_STABILITY[0] || "Irregular";
 const todayKey = () => toLocalDateKey(new Date());
+const isStableIncome = (value) => String(value || "").trim().toLowerCase() === "stable";
+const cleanPositiveMoney = (value) => {
+  const number = Number(String(value ?? "").replace(/php/gi, "").replace(/[₱,\s]/g, ""));
+  return Number.isFinite(number) ? Math.max(0, number) : 0;
+};
 
 const recurrenceFromSource = (source) =>
   normalizeRecurrenceRule(source?.incomeRecurrence || source?.income_recurrence || {}, {
@@ -37,7 +42,8 @@ const createEmptyForm = () => ({
   name: "",
   category: DEFAULT_CATEGORY,
   stability: DEFAULT_STABILITY,
-  usualIncomeDateEnabled: false,
+  minimumStableIncome: "",
+  usualIncomeDateEnabled: isStableIncome(DEFAULT_STABILITY),
   recurrenceType: "monthly",
   dayOfWeek: String(new Date().getDay()),
   startDate: todayKey(),
@@ -45,18 +51,28 @@ const createEmptyForm = () => ({
   secondDay: "30",
   dayOfMonth: "30",
   customDates: "",
-  useForBudgetTiming: false,
+  useForBudgetTiming: isStableIncome(DEFAULT_STABILITY),
 });
 
 const createFormFromSource = (source) => {
   const recurrence = recurrenceFromSource(source);
+  const stable = isStableIncome(source?.stability);
   const enabled = source?.usualIncomeDateEnabled === true || source?.usual_income_date_enabled === true;
+  const minimumStableIncome = cleanPositiveMoney(
+    source?.minimumStableIncome ??
+      source?.minimum_stable_income ??
+      source?.minimumExpectedIncome ??
+      source?.minimum_expected_income ??
+      source?.expectedAmount ??
+      source?.expected_amount
+  );
 
   return {
     name: source?.name || "",
     category: INCOME_SOURCE_CATEGORIES.includes(source?.category) ? source.category : DEFAULT_CATEGORY,
     stability: INCOME_SOURCE_STABILITY.includes(source?.stability) ? source.stability : DEFAULT_STABILITY,
-    usualIncomeDateEnabled: enabled,
+    minimumStableIncome: minimumStableIncome > 0 ? String(minimumStableIncome) : "",
+    usualIncomeDateEnabled: stable || enabled,
     recurrenceType: recurrence.type || "monthly",
     dayOfWeek: String(recurrence.dayOfWeek ?? new Date().getDay()),
     startDate: recurrence.startDate || todayKey(),
@@ -65,7 +81,8 @@ const createFormFromSource = (source) => {
     dayOfMonth: String(recurrence.dayOfMonth || 30),
     customDates: (recurrence.customDates || []).join(", "),
     useForBudgetTiming:
-      enabled && (source?.useForBudgetTiming === true || source?.use_for_budget_timing === true),
+      stable ||
+      (enabled && (source?.useForBudgetTiming === true || source?.use_for_budget_timing === true)),
   };
 };
 
@@ -114,8 +131,10 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
   const [form, setForm] = useState(createEmptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [stableIncomeError, setStableIncomeError] = useState("");
   const timingTouchedRef = useRef(false);
   const isEditing = Boolean(source?.id);
+  const stable = isStableIncome(form.stability);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -123,6 +142,7 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
     timingTouchedRef.current = false;
     setForm(isEditing ? createFormFromSource(source) : createEmptyForm());
     setError("");
+    setStableIncomeError("");
 
     if (!isEditing) {
       getIncomeSources(localUserId)
@@ -133,7 +153,10 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
               (item?.usualIncomeDateEnabled === true || item?.usual_income_date_enabled === true) &&
               (item?.useForBudgetTiming === true || item?.use_for_budget_timing === true)
           );
-          setForm((current) => ({ ...current, useForBudgetTiming: !alreadyHasBudgetTiming }));
+          setForm((current) => ({
+            ...current,
+            useForBudgetTiming: isStableIncome(current.stability) ? true : !alreadyHasBudgetTiming,
+          }));
         })
         .catch(() => {});
     }
@@ -156,6 +179,7 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
     if (saving) return;
     setForm(createEmptyForm());
     setError("");
+    setStableIncomeError("");
     onClose?.();
   };
 
@@ -163,6 +187,17 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
     const sourceName = form.name.trim();
     if (!sourceName) {
       setError("Source name is required.");
+      return;
+    }
+
+    const minimumStableIncome = stable ? cleanPositiveMoney(form.minimumStableIncome) : 0;
+    if (stable && minimumStableIncome <= 0) {
+      setStableIncomeError("Enter the lowest amount you can reliably expect on each scheduled payday.");
+      return;
+    }
+
+    if (stable && !form.usualIncomeDateEnabled) {
+      setStableIncomeError("Stable income needs a usual income date so CLARA can schedule it.");
       return;
     }
 
@@ -177,6 +212,7 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
     try {
       setSaving(true);
       setError("");
+      setStableIncomeError("");
 
       const saved = await upsertIncomeSource(localUserId, {
         ...(source || {}),
@@ -184,18 +220,24 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
         name: sourceName,
         category: form.category || DEFAULT_CATEGORY,
         stability: form.stability || DEFAULT_STABILITY,
+        minimumStableIncome: stable ? minimumStableIncome : null,
+        minimum_stable_income: stable ? minimumStableIncome : null,
+        minimumExpectedIncome: stable ? minimumStableIncome : null,
+        minimum_expected_income: stable ? minimumStableIncome : null,
+        expectedAmount: stable ? minimumStableIncome : null,
+        expected_amount: stable ? minimumStableIncome : null,
         totalMoneyIn: source?.totalMoneyIn ?? source?.total_money_in ?? 0,
         total_money_in: source?.total_money_in ?? source?.totalMoneyIn ?? 0,
         totalMoneyOut: source?.totalMoneyOut ?? source?.total_money_out ?? 0,
         total_money_out: source?.total_money_out ?? source?.totalMoneyOut ?? 0,
         currentBalance: source?.currentBalance ?? source?.current_balance ?? 0,
         current_balance: source?.current_balance ?? source?.currentBalance ?? 0,
-        usualIncomeDateEnabled: form.usualIncomeDateEnabled,
-        usual_income_date_enabled: form.usualIncomeDateEnabled,
+        usualIncomeDateEnabled: stable || form.usualIncomeDateEnabled,
+        usual_income_date_enabled: stable || form.usualIncomeDateEnabled,
         incomeRecurrence: recurrence,
         income_recurrence: recurrence,
-        useForBudgetTiming: form.usualIncomeDateEnabled && form.useForBudgetTiming,
-        use_for_budget_timing: form.usualIncomeDateEnabled && form.useForBudgetTiming,
+        useForBudgetTiming: stable || (form.usualIncomeDateEnabled && form.useForBudgetTiming),
+        use_for_budget_timing: stable || (form.usualIncomeDateEnabled && form.useForBudgetTiming),
         incomeActivityLog: activityLog,
         income_activity_log: activityLog,
         lastActivityAt: isEditing ? source?.lastActivityAt || source?.last_activity_at || timestamp : timestamp,
@@ -290,7 +332,17 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
             <FinanceField label="Stability">
               <select
                 value={form.stability}
-                onChange={(event) => setForm((prev) => ({ ...prev, stability: event.target.value }))}
+                onChange={(event) => {
+                  const nextStability = event.target.value;
+                  timingTouchedRef.current = true;
+                  setForm((prev) => ({
+                    ...prev,
+                    stability: nextStability,
+                    usualIncomeDateEnabled: isStableIncome(nextStability) ? true : prev.usualIncomeDateEnabled,
+                    useForBudgetTiming: isStableIncome(nextStability) ? true : prev.useForBudgetTiming,
+                  }));
+                  if (!isStableIncome(nextStability)) setStableIncomeError("");
+                }}
                 className={financeInputClassName}
               >
                 {INCOME_SOURCE_STABILITY.map((stability) => (
@@ -299,15 +351,39 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
               </select>
             </FinanceField>
 
+            {stable ? (
+              <FinanceField
+                label="Lowest stable income"
+                helper={stableIncomeError || "Required. Enter the lowest amount you can reliably expect on each scheduled payday."}
+              >
+                <input
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={form.minimumStableIncome}
+                  onChange={(event) => {
+                    setForm((prev) => ({ ...prev, minimumStableIncome: event.target.value }));
+                    if (stableIncomeError) setStableIncomeError("");
+                  }}
+                  placeholder="12000"
+                  className={financeInputClassName}
+                />
+              </FinanceField>
+            ) : null}
+
             <TimingToggle
               checked={form.usualIncomeDateEnabled}
               onChange={(checked) => {
                 timingTouchedRef.current = true;
+                if (stable) return;
                 setForm((prev) => ({ ...prev, usualIncomeDateEnabled: checked }));
               }}
               title="Set usual income date"
-              helper="Optional. CLARA will remember when this source is normally expected."
-              disabled={saving}
+              helper={stable
+                ? "Required for Stable income. CLARA uses this as the expected payday schedule."
+                : "Optional. CLARA will remember when this source is normally expected."}
+              disabled={saving || stable}
             />
 
             {form.usualIncomeDateEnabled ? (
@@ -369,11 +445,14 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
                   checked={form.useForBudgetTiming}
                   onChange={(checked) => {
                     timingTouchedRef.current = true;
+                    if (stable) return;
                     setForm((prev) => ({ ...prev, useForBudgetTiming: checked }));
                   }}
                   title="Use this income for budget timing"
-                  helper="CLARA can measure the current cycle and days until the next expected income."
-                  disabled={saving}
+                  helper={stable
+                    ? "Required for Stable income so CLARA can measure days until this expected payday."
+                    : "CLARA can measure the current cycle and days until the next expected income."}
+                  disabled={saving || stable}
                 />
               </div>
             ) : null}
