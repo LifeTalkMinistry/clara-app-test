@@ -28,9 +28,9 @@ function BuyCheckAttitudeSelector({ value, onChange }) {
   return (
     <section
       data-clara-buy-check-attitude-selector="true"
-      className="absolute bottom-[72px] right-0 z-40 w-[min(336px,calc(100vw-28px))] rounded-[18px] border border-blue-200/16 bg-[#050d1f]/98 p-2 shadow-[0_20px_58px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-2xl"
+      className="absolute bottom-[72px] right-0 z-40 w-[164px] rounded-[18px] border border-blue-200/16 bg-[#050d1f]/98 p-2 shadow-[0_20px_58px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-2xl"
     >
-      <div className="flex items-center gap-1.5" role="radiogroup" aria-label="CLARA communication attitude">
+      <div className="grid gap-1.5" role="radiogroup" aria-label="CLARA communication attitude">
         {CLARA_ATTITUDE_OPTIONS.map((option) => {
           const active = option.id === selected.id;
           return (
@@ -40,9 +40,9 @@ function BuyCheckAttitudeSelector({ value, onChange }) {
               role="radio"
               aria-checked={active}
               onClick={() => onChange?.(option.id)}
-              className={`min-w-0 flex-1 rounded-[12px] px-1.5 py-2.5 text-center text-[10.5px] font-black tracking-[-0.02em] transition active:scale-[0.97] ${active
-                ? "bg-[#ffd84a]/12 text-[#ffe783] shadow-[inset_0_0_0_1px_rgba(255,216,74,0.32)]"
-                : "text-blue-50/68 hover:bg-white/[0.045] hover:text-white/90"}`}
+              className={`w-full rounded-full border px-4 py-2.5 text-center text-[11px] font-black tracking-[-0.02em] transition active:scale-[0.97] ${active
+                ? "border-[#ffd84a]/80 bg-[#ffd84a]/10 text-[#ffe783]"
+                : "border-blue-100/28 bg-white/[0.015] text-blue-50/80 hover:border-blue-100/44 hover:bg-white/[0.045] hover:text-white/95"}`}
             >
               {option.label}
             </button>
