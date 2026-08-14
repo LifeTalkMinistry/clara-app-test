@@ -157,6 +157,19 @@ test("material user details such as installment terms survive into Gemini-genera
   assert.match(expert, /down payment, installment amount, installment duration, interest\/fees/);
 });
 
+test("user can continue talking after a verdict and Gemini sees the prior verdict", async () => {
+  const flow = await source("src/components/fresh/main-dashboard/assistant/useClaraBuyCheckExpertFlow.js");
+  const overlay = await source("src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx");
+
+  assert.match(flow, /followUpAfterVerdict/);
+  assert.match(flow, /Previous CLARA verdict/);
+  assert.match(flow, /turn\.action === "reassess"/);
+  assert.doesNotMatch(flow, /snapshot\.done \|\| \["diagnosis", "complete", "confirm"\]/);
+  assert.match(overlay, /Ask CLARA about this result/);
+  assert.match(overlay, /finalDecisionLocksConversation/);
+  assert.match(overlay, /const showComposer = !\["confirm", "diagnosis"\]\.includes\(step\)/);
+});
+
 test("post-decision saving does not spend another Gemini call", async () => {
   const finalization = await source("src/components/fresh/main-dashboard/assistant/useClaraBuyCheckFlowV5.js");
 
