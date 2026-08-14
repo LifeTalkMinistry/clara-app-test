@@ -65,6 +65,9 @@ import "./installChallengeStreakTracking";
 // - clara-buy-check-not-buy-completion-flow
 // Their reusable budget, context, confirmation, and report behavior now lives
 // in the React-owned flow rather than side-effect patches.
+// This presentation-only bridge lets the React-owned textarea reveal long
+// user drafts without owning message state, submission, or conversation flow.
+import "./installBuyCheckAdaptiveComposer";
 
 // Forecast runtime controllers
 import "../clara-forecast-report-router";
