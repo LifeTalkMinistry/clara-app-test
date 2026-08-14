@@ -459,13 +459,24 @@ export const TIMELINE_GROUPS = [
 
 export const getBudgetCategory = (item) =>
   normalizeText(
-    item?.category || item?.budget_category || item?.name || item?.title
+    item?.budget_item_name ||
+      item?.budgetItemName ||
+      item?.budget_category ||
+      item?.budgetCategory ||
+      item?.label ||
+      item?.title ||
+      item?.name ||
+      item?.category
   );
 
 export const getBudgetAmount = (budget) =>
   cleanNumber(
     budget?.allocated_amount ||
       budget?.allocatedAmount ||
+      budget?.budget_amount ||
+      budget?.budgetAmount ||
+      budget?.total_budget ||
+      budget?.totalBudget ||
       budget?.amount ||
       budget?.limit ||
       budget?.budget ||
@@ -489,8 +500,13 @@ export const getBudgetMonthKey = (budget) => {
   }
 
   const date =
+    budget?.cycle_start ||
+    budget?.budget_cycle_start ||
+    budget?.period_start ||
     budget?.range_start ||
     budget?.rangeStart ||
+    budget?.tracking_start_date ||
+    budget?.tracking_started_at ||
     budget?.start_date ||
     budget?.startDate ||
     budget?.created_at ||
