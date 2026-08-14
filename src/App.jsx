@@ -45,6 +45,9 @@ const WelcomeSession = lazy(() => import("./pages/WelcomeSession"));
 const AdvertiserDashboard = lazy(() => import("./pages/AdvertiserDashboard"));
 const AdminPanel = lazy(() => import("./pages/AdminPanel"));
 const Activation = lazy(() => import("./pages/Activation"));
+const FoundingBetaWelcome = lazy(() =>
+  import("./pages/onboarding/FoundingBetaWelcome")
+);
 const UniversalOnboarding = lazy(() =>
   import("./pages/onboarding/UniversalOnboarding")
 );
@@ -302,6 +305,10 @@ function AppRoutes() {
                     <Route
                       path="/"
                       element={<Navigate to={homeRedirectPath} replace />}
+                    />
+                    <Route
+                      path="/beta-welcome"
+                      element={<FoundingBetaWelcome />}
                     />
                     <Route
                       path="/onboarding"
