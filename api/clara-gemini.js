@@ -11,6 +11,76 @@ const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
 const RATE_LIMIT_MAX_REQUESTS = 10;
 const DUPLICATE_WINDOW_MS = 2500;
 
+const CONVERSATION_TURN_SCHEMA = Object.freeze({
+  type: "object",
+  properties: {
+    action: {
+      type: "string",
+      enum: ["reply", "probe", "ready", "continue", "reassess", "redirect"],
+    },
+    reply: { type: "string" },
+    evidence: {
+      type: "object",
+      properties: {
+        item: { type: "string" },
+        price: { type: "number" },
+        purpose: { type: "string" },
+        currentSituation: { type: "string" },
+        urgency: { type: "string" },
+        alternatives: { type: "string" },
+        timing: { type: "string" },
+        constraints: { type: "string" },
+        readinessSummary: { type: "string" },
+      },
+      required: [
+        "item",
+        "price",
+        "purpose",
+        "currentSituation",
+        "urgency",
+        "alternatives",
+        "timing",
+        "constraints",
+        "readinessSummary",
+      ],
+    },
+    readinessConfidence: { type: "number" },
+  },
+  required: ["action", "reply", "evidence", "readinessConfidence"],
+});
+
+const SPENDING_DECISION_SCHEMA = Object.freeze({
+  type: "object",
+  properties: {
+    decision: { type: "string", enum: ["BUY", "WAIT", "PAUSE"] },
+    confidence: { type: "string", enum: ["high", "medium", "low"] },
+    headline: { type: "string" },
+    summary: { type: "string" },
+    reasoning: { type: "string" },
+    mainTradeoff: { type: "string" },
+    saferAlternative: { type: "string" },
+    factsUsed: {
+      type: "array",
+      items: { type: "string" },
+    },
+    missingImportantInformation: {
+      type: "array",
+      items: { type: "string" },
+    },
+  },
+  required: [
+    "decision",
+    "confidence",
+    "headline",
+    "summary",
+    "reasoning",
+    "mainTradeoff",
+    "saferAlternative",
+    "factsUsed",
+    "missingImportantInformation",
+  ],
+});
+
 const rateBuckets = globalThis.__CLARA_GEMINI_RATE_BUCKETS__ || new Map();
 globalThis.__CLARA_GEMINI_RATE_BUCKETS__ = rateBuckets;
 const recentRequests = globalThis.__CLARA_GEMINI_RECENT_REQUESTS__ || new Map();
@@ -148,14 +218,40 @@ function safeNumber(value, fallback, min, max) {
   return Math.min(max, Math.max(min, number));
 }
 
-function buildGenerationConfig(input = {}) {
+function resolveStructuredOutputSchema(prompt = "") {
+  const source = String(prompt || "");
+
+  if (
+    source.includes("ALLOWED VERIFIED FACT IDS") ||
+    source.includes('"decision": "BUY | WAIT | PAUSE"')
+  ) {
+    return SPENDING_DECISION_SCHEMA;
+  }
+
+  if (
+    source.includes("WHAT TO DO THIS TURN") ||
+    source.includes('"action": "reply" | "probe"')
+  ) {
+    return CONVERSATION_TURN_SCHEMA;
+  }
+
+  return null;
+}
+
+function buildGenerationConfig(input = {}, prompt = "") {
   const source = input && typeof input === "object" ? input : {};
   const config = {
     maxOutputTokens: Math.round(safeNumber(source.maxOutputTokens, 520, 1, MAX_OUTPUT_TOKENS)),
   };
 
-  if (source.responseMimeType === "application/json" || source.responseMimeType === "text/plain") {
-    config.responseMimeType = source.responseMimeType;
+  if (source.responseMimeType === "application/json") {
+    const schema = resolveStructuredOutputSchema(prompt);
+    config.responseFormat = {
+      text: {
+        mimeType: "application/json",
+        ...(schema ? { schema } : {}),
+      },
+    };
   }
 
   return config;
@@ -176,7 +272,6 @@ function extractGeminiText(payload = {}) {
     .map((part) => part?.text || "")
     .filter(Boolean)
     .join("\n")
-    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -340,7 +435,7 @@ export default async function handler(req, res) {
   }
 
   const model = chooseModel(body?.model);
-  const generationConfig = buildGenerationConfig(body?.generationConfig);
+  const generationConfig = buildGenerationConfig(body?.generationConfig, prompt);
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
