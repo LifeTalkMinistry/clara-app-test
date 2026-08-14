@@ -1,5 +1,5 @@
 const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-const DEFAULT_MODEL = "gemini-2.5-flash";
+const DEFAULT_MODEL = "gemini-3.6-flash";
 const APPROVED_MODELS = new Set([DEFAULT_MODEL]);
 const ALLOWED_FEATURE = "ask-before-you-spend";
 const DEFAULT_CLARA_BACKEND_API_URL = "https://api.clarapmc.com";
@@ -7,7 +7,6 @@ const MAX_PROMPT_CHARS = 28000;
 const MAX_OUTPUT_TOKENS = 700;
 const REQUEST_TIMEOUT_MS = 20000;
 const AUTH_TIMEOUT_MS = 8000;
-const MODEL_DIAGNOSTIC_TIMEOUT_MS = 8000;
 const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
 const RATE_LIMIT_MAX_REQUESTS = 10;
 const DUPLICATE_WINDOW_MS = 2500;
@@ -152,26 +151,11 @@ function safeNumber(value, fallback, min, max) {
 function buildGenerationConfig(input = {}) {
   const source = input && typeof input === "object" ? input : {};
   const config = {
-    temperature: safeNumber(source.temperature, 0.55, 0, 2),
-    topP: safeNumber(source.topP, 0.86, 0, 1),
     maxOutputTokens: Math.round(safeNumber(source.maxOutputTokens, 520, 1, MAX_OUTPUT_TOKENS)),
   };
 
-  if (source.topK !== undefined) {
-    config.topK = Math.round(safeNumber(source.topK, 40, 1, 100));
-  }
-
   if (source.responseMimeType === "application/json" || source.responseMimeType === "text/plain") {
     config.responseMimeType = source.responseMimeType;
-  }
-
-  if (source.thinkingConfig && typeof source.thinkingConfig === "object") {
-    const thinkingBudget = Number(source.thinkingConfig.thinkingBudget);
-    if (Number.isFinite(thinkingBudget)) {
-      config.thinkingConfig = {
-        thinkingBudget: Math.round(safeNumber(thinkingBudget, 0, 0, 1024)),
-      };
-    }
   }
 
   return config;
@@ -201,55 +185,6 @@ function safeErrorMessage(status) {
   if (status === 429) return "CLARA AI is temporarily rate limited. Please try again shortly.";
   if (status >= 500) return "CLARA AI is temporarily unavailable. Please try again shortly.";
   return "CLARA AI could not complete the request.";
-}
-
-async function logAvailableGenerateContentModels(apiKey) {
-  if (globalThis.__CLARA_GEMINI_MODEL_DIAGNOSTIC_REQUESTED__) return;
-  globalThis.__CLARA_GEMINI_MODEL_DIAGNOSTIC_REQUESTED__ = true;
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), MODEL_DIAGNOSTIC_TIMEOUT_MS);
-
-  try {
-    const response = await fetch(`${GEMINI_ENDPOINT_BASE}?pageSize=1000&key=${encodeURIComponent(apiKey)}`, {
-      method: "GET",
-      headers: { Accept: "application/json" },
-      signal: controller.signal,
-    });
-    const payload = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      console.warn("[CLARA Gemini] models.list diagnostic failed.", {
-        status: response.status,
-        upstreamCode: payload?.error?.code,
-        upstreamStatus: cleanText(payload?.error?.status),
-        upstreamMessage: sanitizeUpstreamMessage(payload?.error?.message),
-      });
-      return;
-    }
-
-    const models = (Array.isArray(payload?.models) ? payload.models : [])
-      .filter((candidate) => cleanText(candidate?.name).startsWith("models/gemini"))
-      .filter((candidate) => Array.isArray(candidate?.supportedGenerationMethods))
-      .filter((candidate) => candidate.supportedGenerationMethods.includes("generateContent"))
-      .map((candidate) => ({
-        name: cleanText(candidate?.name),
-        methods: candidate.supportedGenerationMethods.filter((method) => method === "generateContent"),
-      }));
-
-    console.warn("[CLARA Gemini] models.list diagnostic.", {
-      selectedModel: DEFAULT_MODEL,
-      selectedModelAvailable: models.some((candidate) => normalizeModelName(candidate.name) === DEFAULT_MODEL),
-      generateContentModels: models,
-    });
-  } catch (error) {
-    console.warn("[CLARA Gemini] models.list diagnostic failed.", {
-      name: cleanText(error?.name),
-      message: sanitizeUpstreamMessage(error?.message),
-    });
-  } finally {
-    clearTimeout(timeoutId);
-  }
 }
 
 function isAllowedBuyCheckPrompt(prompt = "") {
@@ -410,9 +345,12 @@ export default async function handler(req, res) {
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${GEMINI_ENDPOINT_BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+    const response = await fetch(`${GEMINI_ENDPOINT_BASE}/${encodeURIComponent(model)}:generateContent`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
       signal: controller.signal,
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -430,10 +368,6 @@ export default async function handler(req, res) {
         upstreamStatus: cleanText(payload?.error?.status),
         upstreamMessage: sanitizeUpstreamMessage(payload?.error?.message),
       });
-
-      if (response.status === 404) {
-        await logAvailableGenerateContentModels(apiKey);
-      }
 
       return sendJson(res, response.status || 502, {
         ok: false,
