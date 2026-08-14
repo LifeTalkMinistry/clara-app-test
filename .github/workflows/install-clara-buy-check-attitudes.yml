@@ -1,0 +1,246 @@
+name: Install CLARA Buy Check communication attitudes
+
+on:
+  push:
+    paths:
+      - ".github/workflows/install-clara-buy-check-attitudes.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Patch active Buy Check UI and intelligence
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          overlay_path = Path("src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx")
+          ai_path = Path("src/lib/clara-buy-check-expert-ai.js")
+
+          overlay = overlay_path.read_text()
+          ai = ai_path.read_text()
+
+          marker = '''const BUY_CHECK_ACKNOWLEDGMENTS = [
+  "Good move—you paused before buying. Let’s see if it fits your money.",
+  "Nice. You stopped before spending. Let’s check this purchase together.",
+  "That pause matters. Now let’s see if this purchase makes sense for you.",
+  "No judgment—just a clearer decision before your money leaves.",
+  "You brought the decision here before spending. That is real progress.",
+];
+'''
+          addition = marker + '''
+const CLARA_ATTITUDE_STORAGE_KEY = "clara_buy_check_attitude_v1";
+const CLARA_ATTITUDE_OPTIONS = [
+  { id: "gentle", label: "Gentle", description: "Patient, reassuring, and soft when correcting." },
+  { id: "supportive", label: "Supportive", description: "Encouraging and understanding, with clear accountability." },
+  { id: "balanced", label: "Balanced", description: "Calm, practical, objective, and straightforward." },
+  { id: "firm", label: "Firm", description: "Direct and disciplined; challenges weak spending reasons." },
+  { id: "strict", label: "Strict", description: "Maximum accountability; very direct without shaming." },
+];
+
+function readClaraAttitude() {
+  try {
+    const stored = window.localStorage.getItem(CLARA_ATTITUDE_STORAGE_KEY);
+    return CLARA_ATTITUDE_OPTIONS.some((option) => option.id === stored) ? stored : "balanced";
+  } catch {
+    return "balanced";
+  }
+}
+
+function BuyCheckAttitudeSelector({ value, onChange }) {
+  const selected = CLARA_ATTITUDE_OPTIONS.find((option) => option.id === value) || CLARA_ATTITUDE_OPTIONS[2];
+
+  return (
+    <section
+      data-clara-buy-check-attitude-selector="true"
+      className="mx-2 mt-5 rounded-[22px] border border-blue-200/14 bg-[#07152d]/72 px-3.5 py-3.5 shadow-[0_14px_36px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-xl"
+    >
+      <p className="text-center text-[13px] font-black tracking-[-0.01em] text-white/94">How should CLARA talk to you?</p>
+      <div className="mt-3 flex flex-wrap justify-center gap-2" role="radiogroup" aria-label="CLARA communication attitude">
+        {CLARA_ATTITUDE_OPTIONS.map((option) => {
+          const active = option.id === selected.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => onChange?.(option.id)}
+              className={`min-h-9 rounded-full border px-3 text-[11px] font-black transition active:scale-95 ${active
+                ? "border-[#ffd84a]/55 bg-[#ffd84a]/12 text-[#ffe783] shadow-[0_8px_22px_rgba(255,216,74,0.08)]"
+                : "border-blue-200/12 bg-white/[0.035] text-blue-50/70 hover:border-blue-200/26 hover:bg-white/[0.06]"}`}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-3 text-center text-[11.5px] font-semibold leading-5 text-slate-200/76">{selected.description}</p>
+      <p className="mt-1 text-center text-[10px] font-bold text-blue-100/42">Same financial judgment. Different delivery.</p>
+    </section>
+  );
+}
+'''
+          if "CLARA_ATTITUDE_STORAGE_KEY" not in overlay:
+              assert overlay.count(marker) == 1, "opening marker not found exactly once"
+              overlay = overlay.replace(marker, addition, 1)
+
+          old_state = '''  const resultFocusRef = useRef(null);
+  const isGuidePreview = layoutVariant === "guide-preview";
+  const ownedFlow = useClaraBuyCheckFlow({ assistantContext: claraAssistantContext });
+'''
+          new_state = '''  const resultFocusRef = useRef(null);
+  const isGuidePreview = layoutVariant === "guide-preview";
+  const [communicationAttitude, setCommunicationAttitude] = useState(readClaraAttitude);
+  const ownedFlow = useClaraBuyCheckFlow({ assistantContext: claraAssistantContext });
+
+  const selectCommunicationAttitude = (attitude) => {
+    const next = CLARA_ATTITUDE_OPTIONS.some((option) => option.id === attitude) ? attitude : "balanced";
+    setCommunicationAttitude(next);
+    try {
+      window.localStorage.setItem(CLARA_ATTITUDE_STORAGE_KEY, next);
+    } catch {
+      // Keep the in-session selection even when storage is unavailable.
+    }
+  };
+'''
+          if "selectCommunicationAttitude" not in overlay:
+              assert overlay.count(old_state) == 1, "overlay state marker not found exactly once"
+              overlay = overlay.replace(old_state, new_state, 1)
+
+          old_empty = '''          <div className="flex min-h-full flex-col justify-center px-1 pb-24 pt-3">
+            <PauseEntryBoard acknowledgmentMessage={acknowledgmentSessionRef.current.message || BUY_CHECK_ACKNOWLEDGMENTS[0]} />
+          </div>
+'''
+          new_empty = '''          <div className="flex min-h-full flex-col justify-center px-1 pb-24 pt-3">
+            <PauseEntryBoard acknowledgmentMessage={acknowledgmentSessionRef.current.message || BUY_CHECK_ACKNOWLEDGMENTS[0]} />
+            {!isGuidePreview ? (
+              <BuyCheckAttitudeSelector value={communicationAttitude} onChange={selectCommunicationAttitude} />
+            ) : null}
+          </div>
+'''
+          if "<BuyCheckAttitudeSelector" not in overlay:
+              assert overlay.count(old_empty) == 1, "empty-state marker not found exactly once"
+              overlay = overlay.replace(old_empty, new_empty, 1)
+
+          ai_anchor = '''const ACTIONS = new Set(["reply", "probe", "ready", "continue", "reassess", "redirect"]);
+'''
+          ai_addition = ai_anchor + '''const CLARA_ATTITUDE_STORAGE_KEY = "clara_buy_check_attitude_v1";
+const CLARA_COMMUNICATION_ATTITUDES = {
+  gentle: {
+    label: "Gentle",
+    instruction: "Be patient, reassuring, and soft when correcting a weak spending decision. Keep accountability clear without pressure or sharp phrasing.",
+  },
+  supportive: {
+    label: "Supportive",
+    instruction: "Be encouraging and understanding while maintaining clear accountability. Acknowledge the user's goal, then guide them toward the financially stronger move.",
+  },
+  balanced: {
+    label: "Balanced",
+    instruction: "Use CLARA's standard style: calm, practical, objective, straightforward, and naturally warm without being overly soft or strict.",
+  },
+  firm: {
+    label: "Firm",
+    instruction: "Be direct and disciplined. Clearly challenge weak spending justifications and poor timing, with less cushioning, while remaining respectful and non-shaming.",
+  },
+  strict: {
+    label: "Strict",
+    instruction: "Use maximum financial accountability. Be very direct, challenge excuses and impulse reasoning clearly, and do not sugarcoat financially poor choices. Never shame, insult, threaten, or take away the user's final choice.",
+  },
+};
+
+function selectedCommunicationAttitude() {
+  let key = "balanced";
+  try {
+    if (typeof window !== "undefined") {
+      const stored = clean(window.localStorage?.getItem(CLARA_ATTITUDE_STORAGE_KEY));
+      if (stored && CLARA_COMMUNICATION_ATTITUDES[stored]) key = stored;
+    }
+  } catch {
+    key = "balanced";
+  }
+  return CLARA_COMMUNICATION_ATTITUDES[key] || CLARA_COMMUNICATION_ATTITUDES.balanced;
+}
+'''
+          if "CLARA_COMMUNICATION_ATTITUDES" not in ai:
+              assert ai.count(ai_anchor) == 1, "AI constants marker not found exactly once"
+              ai = ai.replace(ai_anchor, ai_addition, 1)
+
+          old_prompt_vars = '''  const userName = userNameFromContext(assistantContext) || "the user";
+  const understoodEvidence = sanitizeEvidence(evidence);
+  const financialContext = buildConversationFinancialContext(assistantContext, understoodEvidence);
+
+  return `You are CLARA, an economist-informed personal spending decision expert.
+'''
+          new_prompt_vars = '''  const userName = userNameFromContext(assistantContext) || "the user";
+  const understoodEvidence = sanitizeEvidence(evidence);
+  const financialContext = buildConversationFinancialContext(assistantContext, understoodEvidence);
+  const communicationAttitude = selectedCommunicationAttitude();
+
+  return `You are CLARA, an economist-informed personal spending decision expert.
+'''
+          if "const communicationAttitude = selectedCommunicationAttitude();" not in ai:
+              assert ai.count(old_prompt_vars) == 1, "AI prompt vars marker not found exactly once"
+              ai = ai.replace(old_prompt_vars, new_prompt_vars, 1)
+
+          old_primary = '''PRIMARY JOB
+Help the user make financially wise spending decisions through one continuous conversation.
+
+CRITICAL ARCHITECTURE RULE
+'''
+          new_primary = '''PRIMARY JOB
+Help the user make financially wise spending decisions through one continuous conversation.
+
+COMMUNICATION ATTITUDE
+- Selected: ${communicationAttitude.label}
+- ${communicationAttitude.instruction}
+- The selected attitude changes HOW you communicate: tone, directness, warmth, and accountability.
+- It must NEVER change verified financial facts, economic reasoning, affordability assessment, recommendation quality, evidence extraction, safety boundaries, or the user's final decision authority.
+- In every attitude remain practical, concise, financially mature, respectful, and non-shaming.
+
+CRITICAL ARCHITECTURE RULE
+'''
+          if "COMMUNICATION ATTITUDE\n- Selected:" not in ai:
+              assert ai.count(old_primary) == 1, "AI primary marker not found exactly once"
+              ai = ai.replace(old_primary, new_primary, 1)
+
+          replacements = {
+              '- Be warm, calm, practical, gentle, concise, and financially mature.': '- Follow the selected communication attitude while staying practical, concise, financially mature, respectful, and non-shaming.',
+              '- If waiting or not buying appears wiser, explain the main reason gently and without lecturing.': '- If waiting or not buying appears wiser, explain the main reason in the selected communication attitude and without lecturing.',
+              '- Even when the purchase itself looks reasonable, if you can see ONE genuinely practical alternative that could save the user money while still meeting the same main need, gently ask permission before giving it.': '- Even when the purchase itself looks reasonable, if you can see ONE genuinely practical alternative that could save the user money while still meeting the same main need, ask permission naturally in the selected communication attitude before giving it.',
+              '- Briefly reintroduce yourself as CLARA and explain that your job is focused on financial and spending decisions.\n- Do not end abruptly. Redirect back to a relevant money topic and finish with a gentle financial question.': '- Briefly reintroduce yourself as CLARA and explain that your job is focused on financial and spending decisions.\n- Do not end abruptly. Redirect back to a relevant money topic and finish with a financial question in the selected communication attitude.',
+              '- probe: ask one decision-relevant follow-up question, including gentle permission to share one genuinely useful money-saving alternative.': '- probe: ask one decision-relevant follow-up question, including natural permission in the selected communication attitude to share one genuinely useful money-saving alternative.',
+          }
+          for old, new in replacements.items():
+              if old in ai:
+                  ai = ai.replace(old, new, 1)
+
+          overlay_path.write_text(overlay)
+          ai_path.write_text(ai)
+          PY
+
+      - name: Verify personality wiring
+        shell: bash
+        run: |
+          grep -q 'data-clara-buy-check-attitude-selector="true"' src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx
+          grep -q 'CLARA_COMMUNICATION_ATTITUDES' src/lib/clara-buy-check-expert-ai.js
+          grep -q 'Same financial judgment. Different delivery.' src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx
+
+      - name: Commit implementation and remove installer
+        shell: bash
+        run: |
+          rm -f .github/workflows/install-clara-buy-check-attitudes.yml
+          git config user.name "LifeTalk Ministry"
+          git config user.email "96472293+LifeTalkMinistry@users.noreply.github.com"
+          git add src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx src/lib/clara-buy-check-expert-ai.js .github/workflows/install-clara-buy-check-attitudes.yml
+          git commit -m "Add selectable CLARA Buy Check attitudes"
+          git push origin main
