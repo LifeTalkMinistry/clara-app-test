@@ -13,12 +13,12 @@ const BETA_BEATS = [
     eyebrow: "A note before we begin",
     title: (
       <>
-        You&apos;re one of the <span>very first.</span>
+        You&apos;re one of our <span>very first beta users.</span>
       </>
     ),
     body: (
       <>
-        Before <ClaraBrandName /> reaches more people, you&apos;re among the first real users invited to experience it.
+        Before <ClaraBrandName /> reaches more people, you&apos;re among the first people invited to experience it during our Beta Season.
       </>
     ),
     closing: "That means more to our team than you may realize.",
@@ -33,12 +33,12 @@ const BETA_BEATS = [
     ),
     secondary: (
       <>
-        But nothing replaces a real person using it in real life. You may never know how much it means to our team to finally have people experiencing what we&apos;ve spent so long building.
+        But Beta Season is different. Nothing replaces a real person using it in real life. You may never know how much it means to our team to finally have beta users experiencing what we&apos;ve spent so long building.
       </>
     ),
   },
   {
-    eyebrow: "You're part of the beginning",
+    eyebrow: "You're part of the beta",
     title: (
       <>
         You&apos;re helping shape what <span><ClaraBrandName /> becomes.</span>
@@ -49,7 +49,7 @@ const BETA_BEATS = [
         Every moment that helps you, surprises you, feels confusing, or makes you think differently about money teaches us something no internal test can.
       </>
     ),
-    closing: <>What you experience here may help shape the <ClaraBrandName /> that thousands of Filipinos use someday.</>,
+    closing: <>What you experience during this Beta Season may help shape the <ClaraBrandName /> that thousands of Filipinos use someday.</>,
   },
 ];
 
