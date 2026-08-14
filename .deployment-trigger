@@ -1,5 +1,5 @@
 CLARA deployment trigger
-Reason: deploy compact better-value reasoning and verified recent-spending signal.
-Version: clara-better-value-reasoning-v1
-Source-commit: 9f3a77dc0c24dd5928ecea8d8bea5e0fc4100c43
+Reason: deploy live Weekly Contenders with server-authoritative participant counts and identities.
+Version: clara-weekly-contenders-live-v1
+Source-commit: c1610f9c322fa08edf5851458fffe0f2fa0e3e21
 Timestamp: 2026-08-14
