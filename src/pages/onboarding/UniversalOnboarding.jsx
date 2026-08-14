@@ -23,6 +23,7 @@ const MISSION_ONBOARDING_COMPLETE_PREFIX = "clara_mission_onboarding_complete_v1
 const SCREEN_IDS = [
   "country",
   "quiet-spending",
+  "spending-impact",
   "before",
   "personal",
   "clara",
@@ -208,6 +209,30 @@ function QuietSpendingScreen() {
       </div>
       <AccentRule tone="red" />
       <p className="clara-onboarding-payday">Then payday comes again.</p>
+    </ScreenFrame>
+  );
+}
+
+function SpendingImpactScreen() {
+  return (
+    <ScreenFrame>
+      <Eyebrow tone="gold">Did you know?</Eyebrow>
+      <div className="clara-onboarding-compare">
+        <section className="clara-onboarding-compare-block clara-onboarding-compare-block--muted">
+          <p className="clara-onboarding-kicker">Small unplanned spending</p>
+          <p className="clara-onboarding-compare-copy">₱100–₱165 a day</p>
+        </section>
+        <AccentRule />
+        <section className="clara-onboarding-compare-block clara-onboarding-compare-block--clara">
+          <p className="clara-onboarding-kicker clara-onboarding-kicker--blue">Over 30 days</p>
+          <p className="clara-onboarding-compare-copy clara-onboarding-compare-copy--hero">
+            ≈ ₱3,000–₱5,000
+          </p>
+        </section>
+      </div>
+      <p className="clara-onboarding-body clara-onboarding-body--narrow">
+        Imagine if that money became savings, an emergency fund, or progress toward a goal instead.
+      </p>
     </ScreenFrame>
   );
 }
@@ -430,6 +455,7 @@ export default function UniversalOnboarding() {
   const content = (() => {
     if (activeScreen === "country") return <CountryScreen />;
     if (activeScreen === "quiet-spending") return <QuietSpendingScreen />;
+    if (activeScreen === "spending-impact") return <SpendingImpactScreen />;
     if (activeScreen === "before") return <BeforeScreen />;
     if (activeScreen === "personal") return <PersonalScreen firstName={firstName} />;
     if (activeScreen === "clara") return <ClaraRevealScreen reduceMotion={reduceMotion} />;
@@ -586,7 +612,7 @@ export default function UniversalOnboarding() {
 
         .clara-onboarding-progress {
           display: grid;
-          grid-template-columns: repeat(8, 1fr);
+          grid-template-columns: repeat(${SCREEN_IDS.length}, 1fr);
           gap: 7px;
           margin-top: 17px;
         }
