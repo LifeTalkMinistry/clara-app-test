@@ -39,6 +39,15 @@ function mergeEvidence(previous = {}, incoming = {}) {
   return { ...sanitizeEvidence(previous), ...sanitizeEvidence(incoming) };
 }
 
+function transactionReasonFromEvidence(evidence = {}) {
+  return clean(
+    evidence.purpose ||
+      evidence.currentSituation ||
+      evidence.readinessSummary ||
+      "",
+  );
+}
+
 function transcript(history = []) {
   const lines = (Array.isArray(history) ? history.slice(-12) : [])
     .map((message) => {
@@ -116,13 +125,35 @@ function compactScheduleEvent(event = {}) {
   };
 }
 
-function buildConversationFinancialContext(assistantContext = {}) {
+function compactRelevantBudget(pkg = {}) {
+  const budget = safeRecord(pkg.budget);
+  const selected = safeRecord(budget.selectedBudget || budget.matchingBudget || pkg.finance?.matchingBudget);
+  if (!selected.title && !budget.status) return null;
+  return {
+    title: clean(selected.title),
+    status: clean(budget.status),
+    remainingBefore: toNumber(budget.remainingBefore ?? selected.remaining),
+    remainingAfter: Number.isFinite(Number(budget.remainingAfter ?? selected.remainingAfter))
+      ? Number(budget.remainingAfter ?? selected.remainingAfter)
+      : null,
+    shortfall: toNumber(budget.shortfall),
+    walletShortfall: toNumber(budget.walletShortfall),
+    walletFundingStatus: clean(budget.walletFundingStatus),
+  };
+}
+
+function buildConversationFinancialContext(assistantContext = {}, evidence = {}) {
+  const understood = sanitizeEvidence(evidence);
+  const purchase = {
+    item: clean(understood.item),
+    price: toNumber(understood.price),
+    reason: transactionReasonFromEvidence(understood),
+    planningStatus: "unplanned",
+  };
+
   let pkg = {};
   try {
-    pkg = buildContextPackage(
-      { item: "", price: 0, reason: "", planningStatus: "unplanned" },
-      assistantContext,
-    );
+    pkg = buildContextPackage(purchase, assistantContext);
   } catch (error) {
     console.warn("[CLARA Buy Check] Universal conversation context degraded safely.", error);
   }
@@ -137,8 +168,15 @@ function buildConversationFinancialContext(assistantContext = {}) {
   const upcomingSchedule = safeList(calendar.upcomingEvents).slice(0, 4).map(compactScheduleEvent);
   const dueObligations = safeList(obligations.dueBeforeNextIncome).slice(0, 6).map(compactObligation);
   const goals = safeList(savingsGoals.records).slice(0, 6).map(compactGoal);
+  const price = toNumber(purchase.price);
+  const spendable = toNumber(wallet.spendableTotal);
 
   return {
+    purchaseAlreadyUnderstood: {
+      item: purchase.item,
+      price,
+      suggestedTransactionReason: purchase.reason,
+    },
     income: {
       latestRecordedAmount: toNumber(income.latestIncomeAmount),
       sourceName: clean(income.sourceName),
@@ -147,25 +185,32 @@ function buildConversationFinancialContext(assistantContext = {}) {
       timingConfidence: clean(income.confidence || "none"),
     },
     wallets: {
-      spendableMoney: toNumber(wallet.spendableTotal),
+      spendableMoney: spendable,
       protectedMoney: toNumber(wallet.protectedTotal),
       reservedMoney: toNumber(wallet.reservedAmount),
       spendableWalletCount: safeList(wallet.selectedEligibleWallets).length,
+      moneyAfterPurchase: price > 0 ? spendable - price : null,
     },
     budgets: compactBudgetSnapshot(assistantContext),
+    relevantPurchaseBudget: compactRelevantBudget(pkg),
     emergencyFund: emergencyFund.configured ? {
       savedAmount: toNumber(emergencyFund.savedAmount),
       targetAmount: toNumber(emergencyFund.targetAmount),
       stillRequiredThisCycle: toNumber(emergencyFund.stillRequiredThisCycle),
       targetComplete: Boolean(emergencyFund.targetComplete),
+      wouldBeAffected: Boolean(emergencyFund.wouldBeAffected),
+      wouldRequireWithdrawal: Boolean(emergencyFund.wouldRequireWithdrawal),
     } : null,
     savingsGoals: {
       activeGoalCount: goals.length,
       stillRequiredThisCycle: toNumber(savingsGoals.stillRequiredThisCycle),
+      wouldBeAffected: Boolean(savingsGoals.wouldBeAffected),
+      wouldRequireWithdrawal: Boolean(savingsGoals.wouldRequireWithdrawal),
       goals,
     },
     debtsAndObligations: {
       totalDueBeforeNextIncome: toNumber(obligations.totalDueBeforeNextIncome),
+      conflictAfterPurchase: Boolean(obligations.conflictAfterPurchase),
       nearestDue: dueObligations[0] || null,
       dueBeforeNextIncome: dueObligations,
     },
@@ -174,55 +219,69 @@ function buildConversationFinancialContext(assistantContext = {}) {
     safety: {
       commitmentsBeforeNextIncome: toNumber(safety.commitmentsBeforeNextIncome),
       safeToSpendBeforePurchase: toNumber(safety.safeToSpendBeforePurchase),
+      safeToSpendAfterPurchase: price > 0 && Number.isFinite(Number(safety.safeToSpendAfterPurchase))
+        ? Number(safety.safeToSpendAfterPurchase)
+        : null,
+      survivalReserve: toNumber(safety.survivalReserve),
       dataConfidence: clean(safety.dataConfidence || "low"),
     },
   };
 }
 
-function reasonFromEvidence(evidence = {}) {
-  return clean(
-    evidence.readinessSummary ||
-      evidence.currentSituation ||
-      evidence.purpose ||
-      "",
-  );
-}
-
-function buildPrompt({ message, history = [], assistantContext = {} } = {}) {
+function buildPrompt({ message, history = [], evidence = {}, assistantContext = {} } = {}) {
   const userName = userNameFromContext(assistantContext) || "the user";
-  const financialContext = buildConversationFinancialContext(assistantContext);
+  const understoodEvidence = sanitizeEvidence(evidence);
+  const financialContext = buildConversationFinancialContext(assistantContext, understoodEvidence);
 
   return `You are CLARA, an economist-informed personal spending decision expert.
-You are speaking with ${userName}.
+You are speaking with ${userName} inside Ask Before You Spend.
 
 PRIMARY JOB
-Help the user make financially wise spending decisions using verified CLARA financial context.
+Help the user make financially wise spending decisions through one continuous conversation.
+
+CRITICAL ARCHITECTURE RULE
+- VERIFIED FINANCIAL CONTEXT is active context for EVERY turn. Use it while deciding what to ask, what to point out, and what guidance to give.
+- Do NOT save the user's wallet, budget, income timing, obligations, emergency fund, savings goals, or purchase amount for a separate final-analysis stage.
+- There is NO separate final BUY / WAIT / PAUSE verdict process after this conversation.
+- Your financial guidance is part of the conversation itself.
+- When the purchase and price are known, actively consider how that amount fits the verified money situation. Be selective: mention only the financial facts that actually help the user decide.
+- CLARA application data owns what is financially true. You own the economic interpretation of those verified facts.
 
 CONVERSATION BEHAVIOR
 - Treat this as one continuous natural conversation, not a form or questionnaire.
-- Read the recent conversation together with the latest message before deciding what to say.
+- Read the recent conversation, the purchase evidence already understood, the latest message, and verified financial context together before responding.
 - Be warm, calm, practical, gentle, concise, and financially mature.
 - Use the user's name naturally when appropriate, but do not repeat it mechanically.
-- Do not force every message into a financial verdict.
 - If the user is simply greeting or casually starting the conversation, reply naturally first.
-- If the user is considering a purchase, understand what matters before moving toward a verdict.
-- Ask only questions whose answers could materially change the eventual recommendation.
+- If the user is considering a purchase, understand what matters and give useful financial guidance as soon as the verified facts support it.
+- Ask only questions whose answers could materially improve the guidance or the user's own decision.
 - Ask one useful question at a time when possible.
 - Do not interrogate, shame, moralize, or automatically discourage spending.
-- Do not repeat questions the user already answered anywhere in the recent conversation.
-- If the user corrects or adds information, trust the new information and continue from it instead of restarting.
+- Do not repeat questions the user already answered anywhere in the recent conversation or PURCHASE EVIDENCE ALREADY UNDERSTOOD.
+- If the user corrects or adds information, trust the newest information and continue instead of restarting.
 - The application does NOT need to classify the item, payment method, reason, installment plan, motive, or purchase intent for you. Understand those from the conversation yourself.
+- If the user explicitly chooses "Ask more" or says they need more help before deciding, actively continue the discussion. Do not immediately repeat the final choice question without first helping with what remains uncertain.
 
-BUY BEHAVIOR
-- A financially responsible purchase is allowed to be a positive decision.
-- When a later BUY verdict is justified, do not add unnecessary financial education or warnings merely to sound cautious.
-- When useful, emphasize the practical benefit or value the user may gain from the purchase.
-
-WAIT / PAUSE BEHAVIOR
-- When waiting or pausing is wiser, explain the main reason gently and without lecturing.
+BUY / NOT-BUY GUIDANCE
+- Do not be permanently anti-spending. A strong financial position or a genuinely useful purchase can justify encouraging the purchase.
+- If buying appears reasonable, say so naturally and emphasize the practical benefit when useful. Do not add unnecessary warnings merely to sound cautious.
+- If waiting or not buying appears wiser, explain the main reason gently and without lecturing.
 - Do not declare an assumed emotion or motive as fact.
-- You may gently identify a possible underlying benefit or need and offer a financially healthier way to achieve it.
-- A helpful follow-up can be: asking whether the user wants help finding a better move for now.
+- You may suggest a cheaper, safer, better-timed, or more useful alternative when that genuinely helps.
+- The USER makes the final decision. You guide; you do not take control away from them.
+
+WHEN YOU ARE SATISFIED
+- Stay engaged. Do not announce that another analysis is about to run.
+- When you have enough context to be genuinely useful and the user has received your guidance, set action to "ready" and end the visible reply with a natural version of: "Will you still buy it?"
+- "ready" means READY FOR THE USER'S YES / NO / ASK MORE CHOICE. It does NOT mean run another AI verdict.
+- Do not use "ready" merely because item + price exist; use it when the conversation has enough context for the user's decision.
+
+TRANSACTION REASON
+- Keep evidence.purpose as a concise, transaction-ready suggested reason that CLARA can place into Transaction Hub if the user chooses Yes.
+- Example: "Replacing damaged work shoes" rather than a long paragraph.
+- Refine this suggested reason as the conversation becomes clearer.
+- Base it only on what the user stated or clearly confirmed. Do not invent a purpose.
+- evidence.readinessSummary may be longer and should preserve the important user-provided context behind the decision.
 
 STRICT SCOPE BOUNDARY
 - CLARA is not a general-purpose assistant.
@@ -236,14 +295,16 @@ HARM BOUNDARY
 - You may still help with legitimate financial consequences such as emergency expenses, damaged property, medical costs, transportation, or another safe spending decision.
 
 FINANCIAL INTEGRITY
-- CLARA application data owns what is financially true.
-- You own what those verified facts mean for the conversation.
 - Use only financial facts supplied in VERIFIED FINANCIAL CONTEXT and facts explicitly stated by the user.
 - Never invent balances, income, budgets, debts, obligations, savings, dates, schedule costs, or other financial facts.
 - Do not treat missing data as zero unless the supplied context explicitly says zero.
+- Do not invent calculated peso amounts. If a useful calculated amount is already supplied in VERIFIED FINANCIAL CONTEXT, you may use it.
 
 RECENT CONVERSATION
 ${transcript(history)}
+
+PURCHASE EVIDENCE ALREADY UNDERSTOOD
+${JSON.stringify(understoodEvidence, null, 2)}
 
 LATEST USER MESSAGE
 ${clean(message)}
@@ -253,24 +314,19 @@ ${JSON.stringify(financialContext, null, 2)}
 
 WHAT TO DO THIS TURN
 Choose the conversational action that best fits the latest message.
-- reply: a natural conversational response when no probe or readiness step is needed.
+- reply: a natural response when no probe or final user-choice moment is needed.
 - probe: ask one decision-relevant follow-up question.
-- ready: enough purchase information exists to assemble the purchase-specific verified context and run the final money verdict.
-- continue: continue discussing or clarifying something already in progress without restarting.
-- reassess: the user has supplied new information that materially changes a previously understood position.
+- ready: the conversation is mature enough to ask whether the user will still buy; include your useful guidance and ask that question in the reply.
+- continue: keep discussing or clarifying something already in progress without restarting.
+- reassess: the user supplied new information that materially changes your earlier guidance; update it naturally.
 - redirect: the request is outside CLARA's scope or crosses the harm boundary, so redirect safely.
 
-Before action "ready", Gemini itself should understand from the conversation at minimum:
-- the actual purchase or spending decision,
-- a usable price or estimate,
-- enough concrete context about why, timing, payment method, or constraints to responsibly run the money check.
-Do not demand every field when it would not change the decision.
-
 EVIDENCE OUTPUT RULE
-Return the purchase evidence that YOU inferred from the conversation. Do not expect the application to pre-classify it for you.
+Return purchase evidence that YOU inferred from the conversation. Do not expect the application to pre-classify it for you.
 - Include only facts the user actually stated or clearly confirmed.
 - Preserve payment/installment details, timing, constraints, alternatives, and other decision-relevant facts when they appear.
-- readinessSummary should be a concise but complete natural-language summary of all decision-relevant user-provided facts needed by the final verdict. Do not omit details such as down payment, installment amount, installment duration, interest/fees, replacement need, work need, or other material constraints when the user mentioned them.
+- purpose must be the concise transaction-ready suggested reason when one is supported.
+- readinessSummary should be a concise but complete natural-language summary of decision-relevant user-provided facts. Do not omit details such as down payment, installment amount, installment duration, interest/fees, replacement need, work need, or other material constraints when the user mentioned them.
 - Do not invent missing evidence.
 
 Return valid JSON only:
@@ -327,7 +383,7 @@ function fallbackTurn(message = "", evidence = {}, assistantContext = {}) {
     };
   }
 
-  if (!reasonFromEvidence(current)) {
+  if (!transactionReasonFromEvidence(current)) {
     return {
       action: "probe",
       reply: "What makes this purchase worth considering right now?",
@@ -339,7 +395,7 @@ function fallbackTurn(message = "", evidence = {}, assistantContext = {}) {
 
   return {
     action: "ready",
-    reply: "I have enough context to run the money check now. Want me to give you the verdict?",
+    reply: "I have enough context to help you decide. Will you still buy it?",
     evidence: current,
     readinessConfidence: 0.85,
     source: "fallback",
@@ -358,7 +414,7 @@ export async function runClaraBuyCheckExpertTurn({
   try {
     const { json, model } = await requestGeminiJson({
       feature: "ask-before-you-spend",
-      prompt: buildPrompt({ message, history, assistantContext }),
+      prompt: buildPrompt({ message, history, evidence: previousEvidence, assistantContext }),
       temperature: 0.3,
       maxOutputTokens: 520,
       timeoutMs: 12000,
@@ -368,12 +424,12 @@ export async function runClaraBuyCheckExpertTurn({
     const mergedEvidence = mergeEvidence(previousEvidence, json?.evidence);
     const requestedAction = clean(json?.action).toLowerCase();
     const action = ACTIONS.has(requestedAction) ? requestedAction : fallback.action;
-    const reply = clean(json?.reply).slice(0, 620);
+    const reply = clean(json?.reply).slice(0, 720);
     const readinessConfidence = Math.max(0, Math.min(1, Number(json?.readinessConfidence || 0)));
     const readyEnough = Boolean(
       mergedEvidence.item &&
         Number(mergedEvidence.price) > 0 &&
-        reasonFromEvidence(mergedEvidence),
+        transactionReasonFromEvidence(mergedEvidence),
     );
 
     if (action === "ready" && !readyEnough) {
@@ -403,4 +459,5 @@ export {
   buildPrompt,
   mergeEvidence,
   sanitizeEvidence,
+  transactionReasonFromEvidence,
 };

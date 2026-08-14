@@ -13,44 +13,38 @@ import {
   toNumber,
 } from "@/lib/clara-buy-check-budget-intelligence";
 
-function formatMoney(value = 0) {
-  return `₱${toNumber(value).toLocaleString("en-PH", { maximumFractionDigits: 0 })}`;
+function preparedReason(state = {}) {
+  return clean(
+    state.reason ||
+      state.evidence?.purpose ||
+      state.evidence?.currentSituation ||
+      state.evidence?.readinessSummary ||
+      "",
+  );
 }
 
-function buildFinalBuyExplanationFallback({ item, price, summarizedReason, recommendation, budget, budgetAssessment }) {
-  const purchaseItem = clean(item || "this item");
-  const reason = clean(summarizedReason || "I have decided that this purchase is still necessary")
-    .replace(/^because\s+/i, "")
-    .replace(/[?.!]+$/, "");
-  const decision = clean(recommendation || "").toUpperCase();
-  const status = clean(budgetAssessment?.status || "");
-  const sentences = [`I’m proceeding with this ${formatMoney(price)} ${purchaseItem} purchase because ${reason}.`];
+function decisionPanelState({ choice, snapshot, amount, walletOptions }) {
+  const item = clean(snapshot?.item || "this purchase");
+  const reason = preparedReason(snapshot) || (choice === "buy"
+    ? `Buying ${item}`
+    : `Decided not to buy ${item}`);
+  const eligibleWallets = (walletOptions || []).filter((wallet) => wallet.enough);
+  const defaultWallet = choice === "buy" && eligibleWallets.length === 1 ? eligibleWallets[0].id : "";
 
-  if (status === "full" && budget) {
-    sentences.push(`It is covered by my ${clean(budget.title || "available")} budget${Number.isFinite(Number(budget.remainingAfter)) ? `, with ${formatMoney(budget.remainingAfter)} remaining afterward` : ""}.`);
-  } else if (status === "partial" && budget) {
-    sentences.push(`I understand it is ${formatMoney(budgetAssessment?.shortfall)} over my ${clean(budget.title || "matched")} budget.`);
-  } else if (status === "wallet_shortfall") {
-    sentences.push(`I understand my selected spendable wallet is short by ${formatMoney(budgetAssessment?.walletShortfall)}.`);
-  } else if (["exhausted", "no_match"].includes(status)) {
-    sentences.push("I understand this purchase is not currently covered by an available budget.");
-  }
-
-  if (decision && decision !== "BUY") {
-    sentences.push(`I understand CLARA recommended ${decision}, but I have decided to continue.`);
-  }
-
-  return sentences.join(" ");
-}
-
-function automaticDecisionNote({ choice, diagnosis, item, amount, budgetName }) {
-  const verdict = clean(diagnosis?.userFacingDecision || diagnosis?.decision || "Buy Check result");
-  const reasonCode = clean(diagnosis?.reasonCode || "UNSPECIFIED");
-  if (choice === "not_buy") {
-    return `I decided to wait based on CLARA's ${verdict} result. Reason: ${reasonCode}.`;
-  }
-  const budgetText = budgetName ? ` Covered by ${budgetName}.` : " No budget was linked.";
-  return `${item} — User continued after CLARA's ${verdict} result for ₱${Number(amount || 0).toLocaleString("en-PH", { maximumFractionDigits: 0 })}.${budgetText} Reason: ${reasonCode}.`;
+  return {
+    ...createDecisionState(),
+    phase: "explain",
+    choice,
+    explanation: reason,
+    autoExplanation: reason,
+    explanationSource: "clara_conversation",
+    generatingExplanation: false,
+    userEdited: false,
+    walletId: defaultWallet,
+    sessionId: clean(snapshot?.sessionId),
+    item,
+    amount,
+  };
 }
 
 export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
@@ -76,102 +70,77 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
     base.checkAnother();
   }, [base.checkAnother]);
 
+  const confirm = useCallback(async () => {
+    if (base.state?.step !== "confirm" || base.state?.busy) return false;
+    const snapshot = base.state;
+    const ok = await base.confirm("buy");
+    if (!ok) return false;
+    setDecision(decisionPanelState({ choice: "buy", snapshot, amount, walletOptions }));
+    return true;
+  }, [amount, base, walletOptions]);
+
+  const decline = useCallback(async () => {
+    if (base.state?.step !== "confirm" || base.state?.busy) return false;
+    const snapshot = base.state;
+    const ok = await base.confirm("not_buy");
+    if (!ok) return false;
+    setDecision(decisionPanelState({ choice: "not_buy", snapshot, amount, walletOptions }));
+    return true;
+  }, [amount, base, walletOptions]);
+
+  const askMore = useCallback(() => {
+    setDecision(createDecisionState());
+    return base.askMore?.() || false;
+  }, [base]);
+
   const chooseFinalDecision = useCallback((choice) => {
-    if (base.state?.step !== "complete" || !["buy", "not_buy"].includes(choice)) return;
-    const eligibleWallets = walletOptions.filter((wallet) => wallet.enough);
-    const defaultWallet = choice === "buy" && eligibleWallets.length === 1 ? eligibleWallets[0].id : "";
-    const sessionId = clean(base.state?.sessionId);
-    const item = clean(base.state?.item);
-    const pkg = base.state?.diagnosis?.contextPackage || {};
-    const matchedBudget = pkg.finance?.matchingBudget || pkg.budget?.selectedBudget || null;
-    const diagnosis = base.state?.diagnosis || {};
-    const automaticNote = automaticDecisionNote({
-      choice,
-      diagnosis,
-      item,
-      amount,
-      budgetName: matchedBudget?.title || "",
-    });
+    if (choice === "buy") return confirm();
+    if (choice === "not_buy") return decline();
+    return false;
+  }, [confirm, decline]);
 
-    if (choice === "not_buy") {
-      setDecision({
-        ...createDecisionState(),
-        phase: "explain",
-        choice,
-        sessionId,
-        item,
-        amount,
-        explanation: automaticNote,
-        autoExplanation: automaticNote,
-        explanationSource: "local",
-        userEdited: false,
-      });
-      return;
-    }
+  const cancelFinalDecision = useCallback(() => {
+    setDecision(createDecisionState());
+    base.returnToChoice?.();
+  }, [base]);
 
-    const budgetAssessment = pkg.finance?.budgetAssessment || pkg.budget || base.state?.budgetAssessment || {};
-    const fallback = clean(buildFinalBuyExplanationFallback({
-      item,
-      price: amount,
-      summarizedReason: clean(base.state?.reason),
-      recommendation: clean(diagnosis?.decision || "PAUSE"),
-      budget: matchedBudget,
-      budgetAssessment,
-    })) || automaticNote;
-
-    setDecision({
-      ...createDecisionState(),
-      phase: "explain",
-      choice,
-      explanation: fallback,
-      autoExplanation: fallback,
-      explanationSource: "local",
-      generatingExplanation: false,
-      userEdited: false,
-      walletId: defaultWallet,
-      sessionId,
-      item,
-      amount,
-    });
-  }, [amount, base.state, walletOptions]);
-
-  const cancelFinalDecision = useCallback(() => setDecision(createDecisionState()), []);
   const setDecisionExplanation = useCallback((explanation) => {
     setDecision((current) => ({ ...current, explanation, userEdited: true, generatingExplanation: false, error: "" }));
   }, []);
+
   const setDecisionWallet = useCallback((walletId) => {
     setDecision((current) => ({ ...current, walletId, error: "" }));
   }, []);
 
   const submitFinalDecision = useCallback(async () => {
     if (base.state?.step !== "complete" || decision.phase !== "explain" || decision.busy) return false;
-    if (decision.sessionId !== clean(base.state?.sessionId) || decision.item !== clean(base.state?.item) || toNumber(decision.amount) !== amount) {
-      setDecision((current) => ({ ...current, error: "This Buy Check changed before it was saved. Please return to the result and try again." }));
+    if (
+      decision.sessionId !== clean(base.state?.sessionId) ||
+      decision.item !== clean(base.state?.item) ||
+      toNumber(decision.amount) !== amount
+    ) {
+      setDecision((current) => ({
+        ...current,
+        error: "This conversation changed before it was saved. Please go back and confirm your choice again.",
+      }));
       return false;
     }
 
-    const pkg = base.state?.diagnosis?.contextPackage || {};
-    const matchedBudget = pkg.finance?.matchingBudget || pkg.budget?.selectedBudget || null;
+    const selectedBudget = base.state?.budgetAssessment?.selectedBudget || null;
+    const conversationReason = clean(decision.explanation) || preparedReason(base.state);
     const purchase = {
       item: clean(base.state?.item),
       price: amount,
-      reason: clean(base.state?.reason),
-      planningStatus: pkg.purchase?.planningStatus || base.state?.planningStatus || "unplanned",
-      category: pkg.purchase?.categoryKey || normalizeExpenseCategory(base.state?.item, base.state?.reason),
-      budgetId: matchedBudget?.id || "",
-      budgetName: matchedBudget?.title || "",
+      reason: conversationReason,
+      planningStatus: base.state?.planningStatus || "unplanned",
+      category: normalizeExpenseCategory(`${base.state?.item || ""} ${conversationReason}`),
+      budgetId: selectedBudget?.id || "",
+      budgetName: selectedBudget?.title || "",
     };
-    const recommendation = clean(base.state?.diagnosis?.decision || "PAUSE");
-    const explanation = clean(decision.explanation) || automaticDecisionNote({
-      choice: decision.choice,
-      diagnosis: base.state?.diagnosis,
-      item: purchase.item,
-      amount,
-      budgetName: purchase.budgetName,
-    });
     const createdAt = new Date().toISOString();
 
     setDecision((current) => ({ ...current, busy: true, error: "" }));
+
     try {
       if (decision.choice === "buy") {
         const wallet = walletOptions.find((option) => option.id === decision.walletId);
@@ -187,28 +156,26 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
           category: purchase.category,
           wallet_id: wallet.id,
           date: getPHDateString(),
-          notes: explanation,
-          need_type: normalizeNeedType(`${purchase.reason} ${explanation}`, purchase.category),
+          notes: purchase.reason,
+          need_type: normalizeNeedType(purchase.reason, purchase.category),
           planning_status: planningStatus,
-          unplanned_reason: planningStatus === "unplanned" ? `Buy Check decision — ${explanation}` : null,
+          unplanned_reason: planningStatus === "unplanned" ? `Ask Before You Spend — ${purchase.reason}` : null,
           budget_id: purchase.budgetId || null,
           budget_name: purchase.budgetName || null,
           budget_category: purchase.category,
           source: "local",
           syncStatus: "local_only",
         }, {
-          recommendation,
           budgetId: purchase.budgetId,
-          budgetRemaining: matchedBudget?.remaining,
+          budgetRemaining: selectedBudget?.remaining,
         });
 
         const memoryPayload = {
           source: "buy_check_buy",
-          clara_recommendation: recommendation,
           user_action: "buy",
-          override: recommendation !== "BUY",
-          explanation,
-          explanation_source: decision.explanationSource || "local",
+          suggested_reason: preparedReason(base.state),
+          saved_reason: purchase.reason,
+          explanation_source: decision.userEdited ? "user_edited" : "clara_conversation",
           wallet_id: wallet.id,
           wallet_name: wallet.name,
           purchase,
@@ -217,6 +184,7 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
         saveLocalList("clara_buy_check_buy_explanations", memoryPayload);
         window.dispatchEvent(new CustomEvent("clara:buy-check-decision-memory", { detail: memoryPayload }));
         dispatchFinanceUpdates();
+
         setDecision((current) => ({
           ...current,
           phase: "resolved",
@@ -235,9 +203,9 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
 
       const memoryPayload = {
         source: "buy_check_not_buy",
-        clara_recommendation: recommendation,
         user_action: "not_buy",
-        reflection: explanation,
+        suggested_reason: preparedReason(base.state),
+        reflection: purchase.reason,
         purchase,
         created_at: createdAt,
       };
@@ -251,14 +219,14 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
         result: {
           choice: "not_buy",
           title: "Decision saved",
-          message: "Your decision to wait was saved so CLARA can remember this pattern.",
+          message: "Your decision not to buy was saved so CLARA can remember the reason and the pattern.",
         },
       }));
       return true;
     } catch (error) {
       const message = error?.code === "BUY_CHECK_CONTEXT_CHANGED"
-        ? clean(error?.message || "Your wallet or budget changed after this Buy Check. Run the check again before logging the expense.")
-        : clean(error?.message || "Could not save your final decision.");
+        ? clean(error?.message || "Your wallet or budget changed. Talk with CLARA again before logging the expense.")
+        : clean(error?.message || "Could not save your decision.");
       setDecision((current) => ({ ...current, busy: false, error: message }));
       return false;
     }
@@ -270,18 +238,24 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
     startSession,
     clearSession,
     checkAnother,
+    confirm,
+    decline,
+    askMore,
     chooseFinalDecision,
     cancelFinalDecision,
     setDecisionExplanation,
     setDecisionWallet,
     submitFinalDecision,
   }), [
+    askMore,
     base,
     cancelFinalDecision,
     checkAnother,
     chooseFinalDecision,
     clearSession,
+    confirm,
     decision,
+    decline,
     setDecisionExplanation,
     setDecisionWallet,
     startSession,
