@@ -86,21 +86,21 @@ function ClaraWordmark({ className = "", animateLetters = false, reduceMotion = 
   return (
     <div className={rootClassName} aria-label="CLARA">
       {CLARA_WORDMARK_LETTERS.map(({ char, tone }, index) => {
-        const revealDelay = 0.2 + index * 0.065;
-        const floatDelay = 1.05 + index * 0.16;
+        const revealDelay = 0.22 + index * 0.08;
+        const floatDelay = 1.28 + index * 0.14;
 
         return (
           <motion.span
             key={`${char}-${index}`}
             className={`clara-onboarding-wordmark-letter clara-onboarding-wordmark-${tone}`}
             aria-hidden="true"
-            initial={reduceMotion ? false : { opacity: 0, y: 8, scale: 0.985 }}
+            initial={reduceMotion ? false : { opacity: 0, y: 10, scale: 0.965 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={
               reduceMotion
                 ? { duration: 0 }
                 : {
-                    duration: 0.52,
+                    duration: 0.58,
                     delay: revealDelay,
                     ease: [0.16, 1, 0.3, 1],
                   }
@@ -108,12 +108,12 @@ function ClaraWordmark({ className = "", animateLetters = false, reduceMotion = 
           >
             <motion.span
               className="clara-onboarding-wordmark-letter-inner"
-              animate={reduceMotion ? undefined : { y: [0, -1.4, 0, 0.8, 0] }}
+              animate={reduceMotion ? undefined : { y: [0, -2, 0, 1.5, 0] }}
               transition={
                 reduceMotion
                   ? undefined
                   : {
-                      duration: 4.6,
+                      duration: 3.2,
                       delay: floatDelay,
                       times: [0, 0.22, 0.52, 0.76, 1],
                       ease: "easeInOut",
