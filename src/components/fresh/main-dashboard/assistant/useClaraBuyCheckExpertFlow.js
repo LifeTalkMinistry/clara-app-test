@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from "react";
-import { diagnoseBuyCheck } from "@/lib/clara-buy-check-diagnosis-v5";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { runClaraSpendingDecision } from "@/lib/clara-spending-decision-ai";
 import {
   analyzeBuyCheckBudgetCoverage,
   budgetCoverageFromAssessment,
@@ -66,10 +66,10 @@ function confirmationFromEvidence(evidence = {}) {
 function diagnosisFailureState(current, checkingId) {
   const fallbackCard = {
     eyebrow: "FINAL DECISION",
-    title: "NOT ENOUGH INFORMATION YET",
-    stat: "Risk: High",
-    body: "CLARA could not complete the full financial context check right now.",
-    note: "Safer move: Do not rush the purchase.",
+    title: "NO VERDICT ISSUED",
+    stat: "Technical check incomplete",
+    body: "CLARA couldn't complete the money check right now. Your financial data was not interpreted, so no purchase recommendation was issued.",
+    note: "Safer move: Wait until CLARA can complete the check or review your verified numbers manually.",
     final: true,
     decision: "PAUSE",
   };
@@ -81,30 +81,31 @@ function diagnosisFailureState(current, checkingId) {
     done: true,
     diagnosis: {
       decision: "PAUSE",
-      userFacingDecision: "NOT ENOUGH INFORMATION YET",
+      userFacingDecision: "NO VERDICT ISSUED",
       risk: "High",
       reasonCode: "SCAN_FAILED",
-      explanation: "CLARA could not complete the full financial context check right now.",
-      saferMove: "Check your wallet and budget manually before buying.",
+      explanation: "CLARA couldn't complete the money check right now. Your financial data was not interpreted, so no purchase recommendation was issued.",
+      saferMove: "Wait until CLARA can complete the check or review your verified numbers manually.",
       summaryCard: {
         eyebrow: "BUY CHECK",
-        verdict: "NOT ENOUGH INFORMATION YET",
-        explanation: "CLARA could not complete the full financial context check right now.",
-        impactValue: "Scan incomplete",
-        impactLabel: "No financial approval was issued",
+        verdict: "NO VERDICT ISSUED",
+        explanation: "CLARA couldn't complete the money check right now. Your financial data was not interpreted, so no purchase recommendation was issued.",
+        impactValue: "Check incomplete",
+        impactLabel: "No financial recommendation was issued",
         informationLabel: "Why this result?",
       },
       detailCards: [fallbackCard],
       cards: [fallbackCard],
     },
     messages: current.messages.map((entry) => entry.id === checkingId
-      ? { ...entry, text: "I couldn’t complete the financial scan, so I’m not going to pretend I have a verdict. The safer move is to pause for now." }
+      ? { ...entry, text: "I couldn't complete the money check, so I'm not going to pretend I have a verdict. No purchase recommendation was issued." }
       : entry),
   };
 }
 
 export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {}) {
   const [state, setState] = useState(() => createExpertInitialState());
+  const activeGeminiRequestRef = useRef(null);
 
   const startSession = useCallback((sessionId = "") => {
     setState(createExpertInitialState(sessionId || `buy-check-${Date.now()}`));
@@ -121,7 +122,10 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
 
     const snapshot = state;
     if (snapshot.busy || snapshot.done || ["diagnosis", "complete", "confirm"].includes(snapshot.step)) return false;
+    if (activeGeminiRequestRef.current) return false;
 
+    const requestToken = `${snapshot.sessionId || "no-session"}:conversation:${Date.now()}`;
+    activeGeminiRequestRef.current = requestToken;
     const userMessage = createMessage("user", answer);
     const thinkingMessage = createMessage("clara", "");
     const thinkingStartedAt = Date.now();
@@ -163,7 +167,7 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
             budgetCoverage = budgetCoverageFromAssessment(budgetAssessment);
             planningStatus = budgetCoverage ? "planned" : "unplanned";
           } catch (error) {
-            console.warn("[CLARA Buy Check] Pre-verdict budget ownership scan failed safely.", error);
+            console.warn("[CLARA Buy Check] Pre-decision budget ownership scan failed safely.", error);
           }
         }
 
@@ -198,17 +202,22 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
             messages: replaceThinkingMessage(
               current.messages,
               thinkingMessage.id,
-              "I missed that. Tell me a little more about what you’re considering, and I’ll keep working through it with you.",
+              "I missed that. Tell me a little more about what you're considering, and I'll keep working through it with you.",
             ),
           });
       return false;
+    } finally {
+      if (activeGeminiRequestRef.current === requestToken) activeGeminiRequestRef.current = null;
     }
   }, [assistantContext, state]);
 
   const confirm = useCallback(async () => {
     if (state.step !== "confirm" || state.busy || !state.confirmation) return false;
+    if (activeGeminiRequestRef.current) return false;
 
     const snapshot = state;
+    const requestToken = `${snapshot.sessionId || "no-session"}:decision:${Date.now()}`;
+    activeGeminiRequestRef.current = requestToken;
     const thinkingMessage = createMessage("clara", "");
     const thinkingStartedAt = Date.now();
 
@@ -220,7 +229,7 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
     });
 
     try {
-      const result = await diagnoseBuyCheck(snapshot, assistantContext);
+      const result = await runClaraSpendingDecision(snapshot, assistantContext);
       await holdThinkingUntil(thinkingStartedAt);
       setState((current) => current.sessionId !== snapshot.sessionId
         ? current
@@ -234,17 +243,19 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
             messages: replaceThinkingMessage(
               current.messages,
               thinkingMessage.id,
-              "I’ve finished the money check. Here’s what the numbers say.",
+              "I've finished the money check. Here's what the verified numbers mean for this purchase.",
             ),
           });
       return true;
     } catch (error) {
-      console.warn("[CLARA Buy Check] Diagnosis failed safely.", error);
+      console.warn("[CLARA Buy Check] Gemini spending decision failed safely.", error);
       await holdThinkingUntil(thinkingStartedAt);
       setState((current) => current.sessionId !== snapshot.sessionId
         ? current
         : diagnosisFailureState(current, thinkingMessage.id));
       return false;
+    } finally {
+      if (activeGeminiRequestRef.current === requestToken) activeGeminiRequestRef.current = null;
     }
   }, [assistantContext, state]);
 
@@ -275,7 +286,7 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
             messages: replaceThinkingMessage(
               current.messages,
               thinkingMessage.id,
-              "Got it — I don’t have it quite right yet. What should I correct or understand better?",
+              "Got it — I don't have it quite right yet. What should I correct or understand better?",
             ),
           });
     }, MIN_THINKING_MS);
@@ -348,7 +359,7 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
             messages: replaceThinkingMessage(
               current.messages,
               thinkingMessage.id,
-              "Okay. Tell me what changed, and I’ll reassess the purchase from there.",
+              "Okay. Tell me what changed, and I'll reassess the purchase from there.",
             ),
           });
     }, MIN_THINKING_MS);
