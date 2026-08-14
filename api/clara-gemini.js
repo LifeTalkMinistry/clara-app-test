@@ -7,6 +7,7 @@ const MAX_PROMPT_CHARS = 28000;
 const MAX_OUTPUT_TOKENS = 700;
 const REQUEST_TIMEOUT_MS = 20000;
 const AUTH_TIMEOUT_MS = 8000;
+const MODEL_DIAGNOSTIC_TIMEOUT_MS = 8000;
 const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
 const RATE_LIMIT_MAX_REQUESTS = 10;
 const DUPLICATE_WINDOW_MS = 2500;
@@ -33,6 +34,10 @@ function sendJson(res, statusCode, payload) {
 
 function cleanText(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function sanitizeUpstreamMessage(value = "") {
+  return cleanText(value).slice(0, 500);
 }
 
 function normalizeModelName(model = "") {
@@ -196,6 +201,55 @@ function safeErrorMessage(status) {
   if (status === 429) return "CLARA AI is temporarily rate limited. Please try again shortly.";
   if (status >= 500) return "CLARA AI is temporarily unavailable. Please try again shortly.";
   return "CLARA AI could not complete the request.";
+}
+
+async function logAvailableGenerateContentModels(apiKey) {
+  if (globalThis.__CLARA_GEMINI_MODEL_DIAGNOSTIC_REQUESTED__) return;
+  globalThis.__CLARA_GEMINI_MODEL_DIAGNOSTIC_REQUESTED__ = true;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), MODEL_DIAGNOSTIC_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${GEMINI_ENDPOINT_BASE}?pageSize=1000&key=${encodeURIComponent(apiKey)}`, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      console.warn("[CLARA Gemini] models.list diagnostic failed.", {
+        status: response.status,
+        upstreamCode: payload?.error?.code,
+        upstreamStatus: cleanText(payload?.error?.status),
+        upstreamMessage: sanitizeUpstreamMessage(payload?.error?.message),
+      });
+      return;
+    }
+
+    const models = (Array.isArray(payload?.models) ? payload.models : [])
+      .filter((candidate) => cleanText(candidate?.name).startsWith("models/gemini"))
+      .filter((candidate) => Array.isArray(candidate?.supportedGenerationMethods))
+      .filter((candidate) => candidate.supportedGenerationMethods.includes("generateContent"))
+      .map((candidate) => ({
+        name: cleanText(candidate?.name),
+        methods: candidate.supportedGenerationMethods.filter((method) => method === "generateContent"),
+      }));
+
+    console.warn("[CLARA Gemini] models.list diagnostic.", {
+      selectedModel: DEFAULT_MODEL,
+      selectedModelAvailable: models.some((candidate) => normalizeModelName(candidate.name) === DEFAULT_MODEL),
+      generateContentModels: models,
+    });
+  } catch (error) {
+    console.warn("[CLARA Gemini] models.list diagnostic failed.", {
+      name: cleanText(error?.name),
+      message: sanitizeUpstreamMessage(error?.message),
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 function isAllowedBuyCheckPrompt(prompt = "") {
@@ -372,7 +426,15 @@ export default async function handler(req, res) {
       console.warn("[CLARA Gemini] Upstream request failed.", {
         status: response.status,
         model,
+        upstreamCode: payload?.error?.code,
+        upstreamStatus: cleanText(payload?.error?.status),
+        upstreamMessage: sanitizeUpstreamMessage(payload?.error?.message),
       });
+
+      if (response.status === 404) {
+        await logAvailableGenerateContentModels(apiKey);
+      }
+
       return sendJson(res, response.status || 502, {
         ok: false,
         code: "CLARA_AI_UPSTREAM_FAILED",
