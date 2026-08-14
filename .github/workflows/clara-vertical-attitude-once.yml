@@ -20,25 +20,48 @@ jobs:
       - name: Sync main
         run: git pull --ff-only origin main
       - name: Patch Buy Check attitude selector
-        env:
-          REPLACEMENT_B64: ZnVuY3Rpb24gQnV5Q2hlY2tBdHRpdHVkZVNlbGVjdG9yKHsgdmFsdWUsIG9uQ2hhbmdlIH0pIHsKICBjb25zdCBzZWxlY3RlZCA9IENMQVJBX0FUVElUVURFX09QVElPTlMuZmluZCgob3B0aW9uKSA9PiBvcHRpb24uaWQgPT09IHZhbHVlKSB8fCBDTEFSQV9BVFRJVFVERV9PUFRJT05TWzJdOwoKICByZXR1cm4gKAogICAgPHNlY3Rpb24KICAgICAgZGF0YS1jbGFyYS1idXktY2hlY2stYXR0aXR1ZGUtc2VsZWN0b3I9InRydWUiCiAgICAgIGNsYXNzTmFtZT0iYWJzb2x1dGUgYm90dG9tLVs3MnB4XSByaWdodC0wIHotNDAgdy1bMTY0cHhdIHJvdW5kZWQtWzE4cHhdIGJvcmRlciBib3JkZXItYmx1ZS0yMDAvMTYgYmdbIzA1MGQxZl0vOTggcC0yIHNoYWRvdy1bMF8yMHB4XzU4cHhfcmdiYSgwLDAsMCwwLjUpLGluc2V0XzBfMXB4XzBfcmdiYSgyNTUsMjU1LDI1NSwwLjA0KV0gYmFja2Ryb3AtYmx1ci0yeGwiCiAgICA+CiAgICAgIDxkaXYgY2xhc3NOYW1lPSJncmlkIGdhcC0xLjUiIHJvbGU9InJhZGlvZ3JvdXAiIGFyaWEtbGFiZWw9IkNMQVJBIGNvbW11bmljYXRpb24gYXR0aXR1ZGUiPgogICAgICAgIHtDTEFSQV9BVFRJVFVERV9PUFRJT05TLm1hcCgob3B0aW9uKSA9PiB7CiAgICAgICAgICBjb25zdCBhY3RpdmUgPSBvcHRpb24uaWQgPT09IHNlbGVjdGVkLmlkOwogICAgICAgICAgcmV0dXJuICgKICAgICAgICAgICAgPGJ1dHRvbgogICAgICAgICAgICAgIGtleT17b3B0aW9uLmlkfQogICAgICAgICAgICAgIHR5cGU9ImJ1dHRvbiIKICAgICAgICAgICAgICByb2xlPSJyYWRpbyIKICAgICAgICAgICAgICBhcmlhLWNoZWNrZWQ9e2FjdGl2ZX0KICAgICAgICAgICAgICBvbkNsaWNrPXsoKSA9PiBvbkNoYW5nZT8uKG9wdGlvbi5pZCl9CiAgICAgICAgICAgICAgY2xhc3NOYW1lPXtgd2Z1bGwgcm91bmRlZC1mdWxsIGJvcmRlciBweC00IHB5LTIuNSB0ZXh0LWNlbnRlciB0ZXh0LVsxMXB4XSBmb250LWJsYWNrIHRyYWNraW5nLVstMC4wMmVtXSB0cmFuc2l0aW9uIGFjdGl2ZTpzY2FsZS1bMC45N10gJHthY3RpdmUKICAgICAgICAgICAgICAgID8gImJvcmRlci1bI2ZmZDg0YV0vODAgYmdbI2ZmZDg0YV0vMTAgdGV4dC1bI2ZmZTc4M10iCiAgICAgICAgICAgICAgICA6ICJib3JkZXItYmx1ZS0xMDAvMjggYmctd2hpdGUvWzAuMDE1XSB0ZXh0LWJsdWUtNTAvODAgb3Zlcjpib3JkZXItYmx1ZS0xMDAvNDQgaG92ZXI6Ymctd2hpdGUvWzAuMDQ1XSBob3Zlcjp0ZXh0LXdoaXRlLzk1In1gfQogICAgICAgICAgICA+CiAgICAgICAgICAgICAge29wdGlvbi5sYWJlbH0KICAgICAgICAgICAgPC9idXR0b24+CiAgICAgICAgICApOwogICAgICAgIH0pfQogICAgICA8L2Rpdj4KICAgIDwvc2VjdGlvbj4KICApOwp9CgK
         run: |
           python - <<'PY'
           from pathlib import Path
-          import base64, os
 
           path = Path('src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx')
           source = path.read_text(encoding='utf-8')
-          start_marker = 'function BuyCheckAttitudeSelector({ value, onChange }) {'
-          end_marker = 'const BUY_CHECK_ACKNOWLEDGMENTS = ['
-          start = source.index(start_marker)
-          end = source.index(end_marker, start)
-          replacement = base64.b64decode(os.environ['REPLACEMENT_B64']).decode('utf-8')
-          updated = source[:start] + replacement + source[end:]
-          path.write_text(updated, encoding='utf-8')
+
+          replacements = [
+              (
+                  'absolute bottom-[72px] right-0 z-40 w-[min(336px,calc(100vw-28px))] rounded-[18px] border border-blue-200/16 bg-[#050d1f]/98 p-2 shadow-[0_20px_58px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-2xl',
+                  'absolute bottom-[72px] right-0 z-40 w-[164px] rounded-[18px] border border-blue-200/16 bg-[#050d1f]/98 p-2 shadow-[0_20px_58px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-2xl',
+              ),
+              (
+                  'flex items-center gap-1.5',
+                  'grid gap-1.5',
+              ),
+              (
+                  'min-w-0 flex-1 rounded-[12px] px-1.5 py-2.5 text-center text-[10.5px] font-black tracking-[-0.02em] transition active:scale-[0.97]',
+                  'w-full rounded-full border px-4 py-2.5 text-center text-[11px] font-black tracking-[-0.02em] transition active:scale-[0.97]',
+              ),
+              (
+                  'bg-[#ffd84a]/12 text-[#ffe783] shadow-[inset_0_0_0_1px_rgba(255,216,74,0.32)]',
+                  'border-[#ffd84a]/80 bg-[#ffd84a]/10 text-[#ffe783]',
+              ),
+              (
+                  'text-blue-50/68 hover:bg-white/[0.045] hover:text-white/90',
+                  'border-blue-100/28 bg-white/[0.015] text-blue-50/80 hover:border-blue-100/44 hover:bg-white/[0.045] hover:text-white/95',
+              ),
+          ]
+
+          for old, new in replacements:
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f'Expected exactly one match, found {count}: {old[:80]}')
+              source = source.replace(old, new, 1)
+
+          path.write_text(source, encoding='utf-8')
           PY
-      - name: Validate patch syntax whitespace
-        run: git diff --check
+      - name: Validate patch
+        run: |
+          git diff --check
+          npx eslint src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx
       - name: Commit patch and remove one-off workflow
         run: |
           git config user.name "CLARA App Automation"
