@@ -1,6 +1,8 @@
 import { dispatchClaraEvent } from "@/components/fresh/main-dashboard/dashboard-events/dashboardEvents";
 import {
   getBillOccurrencesForRange,
+  getIncomeTimingRecords,
+  getRecurrenceOccurrences,
   getRecurringBills,
   toLocalDateKey,
   upsertRecurringBill,
@@ -35,14 +37,19 @@ function installScheduleAgendaBreathingRoomStyles() {
 
 installScheduleAgendaBreathingRoomStyles();
 
+function getScheduleProjectionRange() {
+  const now = new Date();
+  return {
+    start: toLocalDateKey(now),
+    end: toLocalDateKey(new Date(now.getFullYear() + 2, now.getMonth(), now.getDate())),
+  };
+}
+
 export function dispatchRecurringBillOccurrences(ownerId, bill) {
   if (!bill?.id) return;
-  const now = new Date();
-  const rangeEnd = toLocalDateKey(
-    new Date(now.getFullYear() + 2, now.getMonth(), now.getDate())
-  );
+  const { start, end } = getScheduleProjectionRange();
 
-  getBillOccurrencesForRange(ownerId, toLocalDateKey(now), rangeEnd)
+  getBillOccurrencesForRange(ownerId, start, end)
     .filter((occurrence) => String(occurrence.id) === String(bill.id))
     .filter(
       (occurrence) =>
@@ -63,10 +70,38 @@ export function dispatchRecurringBillOccurrences(ownerId, bill) {
     );
 }
 
+export function dispatchIncomeTimingOccurrences(ownerId) {
+  const { start, end } = getScheduleProjectionRange();
+
+  getIncomeTimingRecords(ownerId).forEach((timing) => {
+    const sourceId = String(timing.incomeSourceId || timing.income_source_id || timing.id || "income");
+    const sourceName = String(timing.sourceName || timing.source_name || "Expected income").trim() || "Expected income";
+
+    getRecurrenceOccurrences(
+      timing.recurrence || timing.recurrence_rule,
+      start,
+      end,
+      { kind: "income" }
+    ).forEach((date) =>
+      dispatchClaraEvent(SCHEDULE_CREATE_EVENT, {
+        id: `income-schedule-${sourceId}-${date}`,
+        title: sourceName,
+        date,
+        time: "",
+        type: "Payday",
+        amount: "",
+        note: `Expected income from ${sourceName}. CLARA uses this schedule for payday timing; actual received money remains owned by Income Hub.`,
+        impactBreakdown: [],
+      })
+    );
+  });
+}
+
 export function syncRecurringBillsIntoSchedule(ownerId) {
   getRecurringBills(ownerId).forEach((bill) =>
     dispatchRecurringBillOccurrences(ownerId, bill)
   );
+  dispatchIncomeTimingOccurrences(ownerId);
 }
 
 export function saveRecurringScheduleBill(ownerId, draft, amountOverride = 0) {
