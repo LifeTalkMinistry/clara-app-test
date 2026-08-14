@@ -51,7 +51,7 @@ jobs:
       - name: Build GitHub Pages app
         run: npm run build:web
         env:
-          VITE_GEMINI_MODEL: gemini-2.5-flash
+          VITE_GEMINI_MODEL: gemini-3.6-flash
           VITE_CLARA_RUNTIME_MODE: local_only
           VITE_CLARA_AUTH_ENABLED: "false"
           VITE_CLARA_LOCAL_MODE_ENABLED: "true"
