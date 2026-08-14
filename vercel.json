@@ -1,7 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": {
-    "deploymentEnabled": false
+    "deploymentEnabled": {
+      "*": false,
+      "main": true
+    }
   },
   "installCommand": "npm ci --ignore-scripts --no-audit --no-fund",
   "buildCommand": "npx vite build --base=./",
