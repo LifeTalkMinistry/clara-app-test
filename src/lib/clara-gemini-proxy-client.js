@@ -1,6 +1,6 @@
 import { getStoredBackendToken } from "./clara-backend-client.js";
 
-const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+const DEFAULT_GEMINI_MODEL = "gemini-3.6-flash";
 const GEMINI_PROXY_ENDPOINT = "/api/clara-gemini";
 const CLARA_GEMINI_PROXY_PRODUCTION_URL = "https://clara-app-test.vercel.app/api/clara-gemini";
 export const ASK_BEFORE_YOU_SPEND_FEATURE = "ask-before-you-spend";
