@@ -314,58 +314,59 @@ function MissionScreen() {
 function SupportScreen({ onExploreSupport }) {
   return (
     <ScreenFrame align="left" dense>
-      <Eyebrow tone="gold">Support is a choice</Eyebrow>
-      <h1 className="clara-onboarding-title clara-onboarding-title--support">
-        <ClaraBrandName /> is free to start. You are never forced to pay to begin.
+      <h1 className="clara-onboarding-title clara-onboarding-title--support clara-onboarding-title--support-clean">
+        Your support matters to us.
       </h1>
-      <p className="clara-onboarding-body clara-onboarding-body--left">
-        If <ClaraBrandName /> becomes valuable to you, you can choose to support what we&apos;re building and receive additional supporter tools and experiences.
+      <p className="clara-onboarding-body clara-onboarding-body--left clara-onboarding-support-intro">
+        It helps us make <ClaraBrandName /> better and bring it to more Filipinos.
       </p>
 
-      <div className="clara-onboarding-support-stack">
-        <div className="clara-onboarding-support-card clara-onboarding-support-card--blue">
+      <div className="clara-onboarding-support-panel">
+        <div className="clara-onboarding-support-row">
           <span className="clara-onboarding-support-icon clara-onboarding-support-icon--blue">
             <HeartHandshake strokeWidth={1.7} />
           </span>
           <div>
-            <p className="clara-onboarding-support-title">Support the mission</p>
-            <p className="clara-onboarding-support-copy">Help <ClaraBrandName /> keep improving and reach more Filipinos.</p>
-          </div>
-        </div>
-
-        <div className="clara-onboarding-support-card clara-onboarding-support-card--gold">
-          <span className="clara-onboarding-support-icon clara-onboarding-support-icon--gold">
-            <ShieldCheck strokeWidth={1.7} />
-          </span>
-          <div>
-            <p className="clara-onboarding-support-title">Make a commitment</p>
+            <p className="clara-onboarding-support-title">Help the mission grow</p>
             <p className="clara-onboarding-support-copy">
-              Supporting <ClaraBrandName /> doesn&apos;t buy discipline. It can be your deliberate commitment to practice it.
+              Your support helps us keep improving <ClaraBrandName /> and reach more people.
             </p>
           </div>
         </div>
 
-        <div className="clara-onboarding-support-card">
-          <span className="clara-onboarding-support-icon">
-            <Sparkles strokeWidth={1.7} />
+        <span className="clara-onboarding-support-divider" aria-hidden="true" />
+
+        <div className="clara-onboarding-support-row">
+          <span className="clara-onboarding-support-icon clara-onboarding-support-icon--gold">
+            <ShieldCheck strokeWidth={1.7} />
           </span>
           <div>
-            <p className="clara-onboarding-support-title">Go deeper</p>
+            <p className="clara-onboarding-support-title">Make it your commitment</p>
             <p className="clara-onboarding-support-copy">
-              Supporters receive extra benefits designed to deepen the <ClaraBrandName /> experience.
+              It can also be your personal way of saying: I&apos;m serious about building better money habits.
             </p>
           </div>
         </div>
       </div>
 
+      <div className="clara-onboarding-support-benefit">
+        <span className="clara-onboarding-support-benefit-icon">
+          <Sparkles strokeWidth={1.7} />
+        </span>
+        <div className="clara-onboarding-support-benefit-copy">
+          <p className="clara-onboarding-support-benefit-title">A little more for supporters.</p>
+          <p className="clara-onboarding-support-benefit-text">
+            Supporters also receive thoughtful extras that make the <ClaraBrandName /> experience more personal and rewarding.
+          </p>
+        </div>
+      </div>
+
       <button type="button" onClick={onExploreSupport} className="clara-onboarding-support-link">
-        <span>Explore supporter benefits</span>
+        <span>See supporter benefits</span>
         <ArrowRight />
       </button>
 
-      <p className="clara-onboarding-footnote">
-        No pressure. Your habits — not a payment — are what build financial stability.
-      </p>
+      <p className="clara-onboarding-footnote">CLARA stays free to use.</p>
     </ScreenFrame>
   );
 }
@@ -718,6 +719,7 @@ export default function UniversalOnboarding() {
         .clara-onboarding-title--personal { max-width: 375px; }
         .clara-onboarding-title--mission { max-width: 390px; font-size: clamp(2rem, 8.7vw, 2.62rem); }
         .clara-onboarding-title--support { max-width: 385px; font-size: clamp(1.88rem, 8vw, 2.42rem); }
+        .clara-onboarding-title--support-clean { margin-top: 0; max-width: 345px; }
         .clara-onboarding-title--final { margin-top: 34px; font-size: clamp(2.35rem, 10vw, 3rem); line-height: .99; }
         .clara-onboarding-title--final > .clara-onboarding-final-line { display: block; margin-top: 6px; color: #8dbbff; }
 
@@ -1015,34 +1017,38 @@ export default function UniversalOnboarding() {
           letter-spacing: -.012em;
         }
 
-        .clara-onboarding-support-stack {
-          width: 100%;
-          max-width: 390px;
-          display: grid;
-          gap: 9px;
-          margin-top: 23px;
+        .clara-onboarding-support-intro {
+          margin-top: 15px;
+          max-width: 345px;
+          font-size: 14.5px;
+          line-height: 1.58;
+          color: rgba(238, 245, 255, .62);
         }
 
-        .clara-onboarding-support-card {
+        .clara-onboarding-support-panel {
+          width: 100%;
+          max-width: 390px;
+          margin-top: 27px;
+          padding: 6px 15px;
+          border: 1px solid rgba(83, 145, 255, .14) !important;
+          border-radius: 22px;
+          background: linear-gradient(180deg, rgba(24, 56, 115, .075), rgba(6, 18, 43, .035)) !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 18px 46px rgba(0, 0, 0, .10) !important;
+        }
+
+        .clara-onboarding-support-row {
           display: grid;
           grid-template-columns: 38px minmax(0, 1fr);
           gap: 12px;
           align-items: start;
-          padding: 13px 14px;
-          border: 1px solid rgba(255, 255, 255, .075) !important;
-          border-radius: 19px;
-          background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.012)) !important;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,.028) !important;
+          padding: 14px 0;
         }
 
-        .clara-onboarding-support-card--blue {
-          border-color: rgba(69, 132, 255, .17) !important;
-          background: linear-gradient(180deg, rgba(33, 85, 183, .065), rgba(11, 35, 78, .025)) !important;
-        }
-
-        .clara-onboarding-support-card--gold {
-          border-color: rgba(255, 204, 52, .15) !important;
-          background: linear-gradient(180deg, rgba(116, 87, 10, .055), rgba(44, 31, 4, .02)) !important;
+        .clara-onboarding-support-divider {
+          display: block;
+          height: 1px;
+          margin-left: 50px;
+          background: linear-gradient(90deg, rgba(120, 166, 239, .17), rgba(255, 213, 78, .12), transparent);
         }
 
         .clara-onboarding-support-icon {
@@ -1057,13 +1063,13 @@ export default function UniversalOnboarding() {
         }
 
         .clara-onboarding-support-icon svg { width: 16px; height: 16px; }
-        .clara-onboarding-support-icon--blue { color: #8bbcff; border-color: rgba(79, 143, 255, .16); }
-        .clara-onboarding-support-icon--gold { color: #ffe084; border-color: rgba(255, 210, 68, .15); }
+        .clara-onboarding-support-icon--blue { color: #8bbcff; border-color: rgba(79, 143, 255, .16); background: rgba(43, 117, 255, .035); }
+        .clara-onboarding-support-icon--gold { color: #ffe084; border-color: rgba(255, 210, 68, .15); background: rgba(255, 211, 78, .025); }
 
         .clara-onboarding-support-title {
           margin: 1px 0 0;
           color: rgba(250, 252, 255, .91);
-          font-size: 12.5px;
+          font-size: 12.8px;
           line-height: 1.25;
           font-weight: 650;
           letter-spacing: -.012em;
@@ -1071,9 +1077,53 @@ export default function UniversalOnboarding() {
 
         .clara-onboarding-support-copy {
           margin: 4px 0 0;
-          color: rgba(237, 244, 255, .45);
+          color: rgba(237, 244, 255, .46);
           font-size: 11px;
-          line-height: 1.48;
+          line-height: 1.5;
+          font-weight: 430;
+        }
+
+        .clara-onboarding-support-benefit {
+          width: 100%;
+          max-width: 390px;
+          display: grid;
+          grid-template-columns: 30px minmax(0, 1fr);
+          gap: 11px;
+          align-items: start;
+          margin-top: 17px;
+          padding: 12px 13px;
+          border: 1px solid rgba(255, 210, 68, .13) !important;
+          border-radius: 17px;
+          background: linear-gradient(180deg, rgba(93, 70, 8, .05), rgba(31, 23, 3, .018)) !important;
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, .022) !important;
+        }
+
+        .clara-onboarding-support-benefit-icon {
+          width: 28px;
+          height: 28px;
+          display: grid;
+          place-items: center;
+          border-radius: 10px;
+          color: #ffdf73;
+          background: rgba(255, 211, 78, .035);
+        }
+
+        .clara-onboarding-support-benefit-icon svg { width: 14px; height: 14px; }
+
+        .clara-onboarding-support-benefit-title {
+          margin: 0;
+          color: rgba(255, 245, 209, .90);
+          font-size: 11.8px;
+          line-height: 1.3;
+          font-weight: 650;
+          letter-spacing: -.01em;
+        }
+
+        .clara-onboarding-support-benefit-text {
+          margin: 3px 0 0;
+          color: rgba(239, 243, 251, .42);
+          font-size: 10.5px;
+          line-height: 1.45;
           font-weight: 430;
         }
 
@@ -1081,7 +1131,7 @@ export default function UniversalOnboarding() {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          margin-top: 17px;
+          margin-top: 13px;
           padding: 5px 0;
           border: 0 !important;
           background: none !important;
@@ -1098,7 +1148,7 @@ export default function UniversalOnboarding() {
 
         .clara-onboarding-footnote {
           max-width: 370px;
-          margin: 7px 0 0;
+          margin: 6px 0 0;
           color: rgba(235, 241, 252, .30);
           font-size: 9.8px;
           line-height: 1.5;
@@ -1219,10 +1269,15 @@ export default function UniversalOnboarding() {
           .clara-onboarding-screen { padding-top: 105px; padding-bottom: 96px; }
           .clara-onboarding-screen--dense { justify-content: flex-start; padding-top: 103px; }
           .clara-onboarding-title { margin-top: 21px; font-size: clamp(1.9rem, 8.4vw, 2.35rem); }
+          .clara-onboarding-title--support-clean { margin-top: 0; }
           .clara-onboarding-body { margin-top: 16px; }
+          .clara-onboarding-support-intro { margin-top: 13px; }
           .clara-onboarding-chip-grid,
           .clara-onboarding-mission-grid { margin-top: 21px; }
           .clara-onboarding-personal-list { margin-top: 28px; }
+          .clara-onboarding-support-panel { margin-top: 20px; }
+          .clara-onboarding-support-row { padding: 11px 0; }
+          .clara-onboarding-support-benefit { margin-top: 12px; padding-top: 10px; padding-bottom: 10px; }
           .clara-onboarding-footer { padding-top: 28px; }
         }
 
@@ -1293,8 +1348,6 @@ export default function UniversalOnboarding() {
             <span>
               {isLast ? (
                 <>Start with <ClaraBrandName /></>
-              ) : activeScreen === "support" ? (
-                <>Continue with free <ClaraBrandName /></>
               ) : (
                 "Continue"
               )}
