@@ -1,36 +1,9 @@
 import {
-  getClaraGeminiProxyModelCandidates,
+  getClaraProxyModel,
   requestClaraGeminiProxyJson,
 } from "./clara-gemini-proxy-client";
 
-const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 const ASK_BEFORE_YOU_SPEND_FEATURE = "ask-before-you-spend";
-const FALLBACK_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-2.5-flash-lite",
-  "gemini-2.0-flash",
-  "gemini-1.5-flash",
-];
-
-function normalizeModelName(model = "") {
-  return String(model || "").trim().replace(/^models\//, "");
-}
-
-function getConfiguredGeminiModel() {
-  return normalizeModelName(
-    import.meta.env.VITE_GEMINI_MODEL ||
-      import.meta.env.VITE_CLARA_GEMINI_MODEL ||
-      DEFAULT_GEMINI_MODEL
-  );
-}
-
-function unique(values = []) {
-  return values.filter(Boolean).filter((value, index, list) => list.indexOf(value) === index);
-}
-
-function getModelCandidates() {
-  return getClaraGeminiProxyModelCandidates(unique([getConfiguredGeminiModel(), ...FALLBACK_MODELS].map(normalizeModelName)));
-}
 
 function safeJsonParse(value) {
   try {
@@ -94,17 +67,6 @@ function withTimeout(ms = 14000) {
   };
 }
 
-function shouldStopModelFallback(error) {
-  const status = Number(error?.status || 0);
-  if ([401, 403, 413, 429].includes(status)) return true;
-  if (error?.code === "CLARA_AI_FEATURE_DISABLED") return true;
-
-  const message = String(error?.message || "").toLowerCase();
-  return message.includes("not configured on the server") ||
-    message.includes("not configured correctly on the server") ||
-    message.includes("reserved for ask before you spend");
-}
-
 export function hasGeminiJsonConfig(label = "") {
   return isBuyCheckLabel(label);
 }
@@ -112,7 +74,7 @@ export function hasGeminiJsonConfig(label = "") {
 export async function requestGeminiJson({
   prompt,
   temperature = 0.18,
-  maxOutputTokens = 900,
+  maxOutputTokens = 650,
   timeoutMs = 14000,
   label = "CLARA Gemini JSON",
 } = {}) {
@@ -126,43 +88,37 @@ export async function requestGeminiJson({
     throw featureDisabledError(label);
   }
 
-  let lastError = null;
+  const model = getClaraProxyModel();
+  const timeout = withTimeout(timeoutMs);
 
-  for (const model of getModelCandidates()) {
-    const timeout = withTimeout(timeoutMs);
+  try {
+    const text = await requestClaraGeminiProxyJson({
+      feature: ASK_BEFORE_YOU_SPEND_FEATURE,
+      prompt: cleanPrompt,
+      model,
+      signal: timeout.signal,
+      generationConfig: {
+        temperature,
+        topP: 0.86,
+        maxOutputTokens,
+        responseMimeType: "application/json",
+      },
+    });
 
-    try {
-      const text = await requestClaraGeminiProxyJson({
-        feature: ASK_BEFORE_YOU_SPEND_FEATURE,
-        prompt: cleanPrompt,
+    return {
+      json: extractGeminiJson(text),
+      model,
+      rawText: text,
+    };
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw Object.assign(new Error(`${label} timed out.`), {
+        code: "GEMINI_JSON_TIMEOUT",
         model,
-        signal: timeout.signal,
-        generationConfig: {
-          temperature,
-          topP: 0.86,
-          maxOutputTokens,
-          responseMimeType: "application/json",
-        },
       });
-
-      return {
-        json: extractGeminiJson(text),
-        model,
-        rawText: text,
-      };
-    } catch (error) {
-      lastError = error?.name === "AbortError"
-        ? Object.assign(new Error(`${label} timed out.`), {
-            code: "GEMINI_JSON_TIMEOUT",
-            model,
-          })
-        : error;
-
-      if (shouldStopModelFallback(lastError)) break;
-    } finally {
-      timeout.clear();
     }
+    throw error;
+  } finally {
+    timeout.clear();
   }
-
-  throw lastError || new Error(`${label} failed.`);
 }

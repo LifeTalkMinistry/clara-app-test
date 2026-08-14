@@ -9,6 +9,7 @@ const BUY_CHECK_PROMPT_PREFIXES = [
   "You are CLARA interpreting one user's reason before a Buy Check confirmation.",
   "You are CLARA naturally confirming the user's answers before running a Buy Check.",
   "You are CLARA preparing an editable expense note after a user chooses Will buy.",
+  "You are CLARA, an economist-informed personal spending decision expert.",
 ];
 
 function cleanText(value = "") {
@@ -67,7 +68,6 @@ function getClaraGeminiProxyEndpoint() {
 export function getClaraProxyModel(fallback = DEFAULT_GEMINI_MODEL) {
   return normalizeModelName(
     import.meta.env.VITE_GEMINI_MODEL ||
-      import.meta.env.VITE_CLARA_GEMINI_MODEL ||
       fallback ||
       DEFAULT_GEMINI_MODEL
   );
@@ -78,19 +78,8 @@ export function hasClaraGeminiProxyConfig(feature = "") {
 }
 
 export function getClaraGeminiProxyModelCandidates(fallbacks = []) {
-  const candidates = [
-    getClaraProxyModel(),
-    ...(Array.isArray(fallbacks) ? fallbacks : []),
-    DEFAULT_GEMINI_MODEL,
-    "gemini-2.5-flash-lite",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
-  ];
-
-  return candidates
-    .map(normalizeModelName)
-    .filter(Boolean)
-    .filter((model, index, list) => list.indexOf(model) === index);
+  const fallback = Array.isArray(fallbacks) ? fallbacks.find(Boolean) : "";
+  return [getClaraProxyModel(fallback || DEFAULT_GEMINI_MODEL)].filter(Boolean);
 }
 
 export async function requestClaraGeminiProxyText({
