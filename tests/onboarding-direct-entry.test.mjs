@@ -4,6 +4,10 @@ import { readFileSync } from "node:fs";
 
 const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
 const loginSource = readFileSync(new URL("../src/pages/Login.jsx", import.meta.url), "utf8");
+const betaWelcomeSource = readFileSync(
+  new URL("../src/pages/onboarding/FoundingBetaWelcome.jsx", import.meta.url),
+  "utf8"
+);
 const onboardingSource = readFileSync(
   new URL("../src/pages/onboarding/UniversalOnboarding.jsx", import.meta.url),
   "utf8"
@@ -21,11 +25,30 @@ test("mission onboarding is available as an authenticated app route", () => {
   assert.doesNotMatch(appSource, /if \(isUniversalOnboardingRoute\)/);
 });
 
-test("new account creation enters mission onboarding while normal login does not", () => {
+test("new account creation enters the founding beta welcome before mission onboarding", () => {
+  assert.match(
+    appSource,
+    /const FoundingBetaWelcome = lazy\(\(\) =>[\s\S]*?import\("\.\/pages\/onboarding\/FoundingBetaWelcome"\)/
+  );
+  assert.match(
+    appSource,
+    /path="\/beta-welcome"\s+element=\{<FoundingBetaWelcome \/>\}/
+  );
   assert.match(
     loginSource,
-    /if \(mode === "signup"\)[\s\S]*?await signUp\([\s\S]*?navigate\("\/onboarding", \{ replace: true \}\)/
+    /if \(mode === "signup"\)[\s\S]*?await signUp\([\s\S]*?navigate\("\/beta-welcome", \{ replace: true \}\)/
   );
+  assert.match(
+    betaWelcomeSource,
+    /navigate\("\/onboarding", \{ replace: true \}\)/
+  );
+  assert.match(betaWelcomeSource, /00 \/ 08/);
+  assert.match(betaWelcomeSource, /You&apos;re one of the/);
+  assert.match(betaWelcomeSource, /Thank you for giving CLARA a real chance\./);
+  assert.match(betaWelcomeSource, /helping shape what/);
+});
+
+test("normal login does not enter the beta welcome or mission onboarding", () => {
   assert.match(
     loginSource,
     /else \{[\s\S]*?await signIn\([\s\S]*?navigate\(destination, \{ replace: true \}\)/
