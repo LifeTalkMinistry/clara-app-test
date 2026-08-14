@@ -30,6 +30,14 @@ const SCREEN_IDS = [
   "rule",
 ];
 
+const CLARA_WORDMARK_LETTERS = [
+  { char: "C", tone: "blue" },
+  { char: "L", tone: "blue" },
+  { char: "A", tone: "gold" },
+  { char: "R", tone: "red" },
+  { char: "A", tone: "red" },
+];
+
 function firstNameFrom(profile, user) {
   const rawName =
     profile?.full_name ||
@@ -60,12 +68,65 @@ function rememberCompletion(user) {
   }
 }
 
-function ClaraWordmark({ className = "" }) {
+function ClaraWordmark({ className = "", animateLetters = false, reduceMotion = false }) {
+  const rootClassName = `clara-onboarding-wordmark ${
+    animateLetters ? "clara-onboarding-wordmark--animated " : ""
+  }${className}`;
+
+  if (!animateLetters) {
+    return (
+      <div className={rootClassName} aria-label="CLARA">
+        <span className="clara-onboarding-wordmark-blue">CL</span>
+        <span className="clara-onboarding-wordmark-gold">A</span>
+        <span className="clara-onboarding-wordmark-red">RA</span>
+      </div>
+    );
+  }
+
   return (
-    <div className={`clara-onboarding-wordmark ${className}`} aria-label="CLARA">
-      <span className="clara-onboarding-wordmark-blue">CL</span>
-      <span className="clara-onboarding-wordmark-gold">A</span>
-      <span className="clara-onboarding-wordmark-red">RA</span>
+    <div className={rootClassName} aria-label="CLARA">
+      {CLARA_WORDMARK_LETTERS.map(({ char, tone }, index) => {
+        const revealDelay = 0.2 + index * 0.065;
+        const floatDelay = 1.05 + index * 0.16;
+
+        return (
+          <motion.span
+            key={`${char}-${index}`}
+            className={`clara-onboarding-wordmark-letter clara-onboarding-wordmark-${tone}`}
+            aria-hidden="true"
+            initial={reduceMotion ? false : { opacity: 0, y: 8, scale: 0.985 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={
+              reduceMotion
+                ? { duration: 0 }
+                : {
+                    duration: 0.52,
+                    delay: revealDelay,
+                    ease: [0.16, 1, 0.3, 1],
+                  }
+            }
+          >
+            <motion.span
+              className="clara-onboarding-wordmark-letter-inner"
+              animate={reduceMotion ? undefined : { y: [0, -1.4, 0, 0.8, 0] }}
+              transition={
+                reduceMotion
+                  ? undefined
+                  : {
+                      duration: 4.6,
+                      delay: floatDelay,
+                      times: [0, 0.22, 0.52, 0.76, 1],
+                      ease: "easeInOut",
+                      repeat: Infinity,
+                      repeatType: "loop",
+                    }
+              }
+            >
+              {char}
+            </motion.span>
+          </motion.span>
+        );
+      })}
     </div>
   );
 }
@@ -196,7 +257,7 @@ function PersonalScreen({ firstName }) {
   );
 }
 
-function ClaraRevealScreen() {
+function ClaraRevealScreen({ reduceMotion }) {
   return (
     <ScreenFrame>
       <motion.div
@@ -210,7 +271,11 @@ function ClaraRevealScreen() {
           <ClaraLogo variant="icon" theme="dark" />
         </div>
       </motion.div>
-      <ClaraWordmark className="clara-onboarding-wordmark--hero" />
+      <ClaraWordmark
+        className="clara-onboarding-wordmark--hero"
+        animateLetters
+        reduceMotion={reduceMotion}
+      />
       <p className="clara-onboarding-tagline">Ask before you spend.</p>
       <p className="clara-onboarding-body clara-onboarding-body--narrow">
         Your financial accountability companion for the moment between wanting something and deciding what is wise.
@@ -367,7 +432,7 @@ export default function UniversalOnboarding() {
     if (activeScreen === "quiet-spending") return <QuietSpendingScreen />;
     if (activeScreen === "before") return <BeforeScreen />;
     if (activeScreen === "personal") return <PersonalScreen firstName={firstName} />;
-    if (activeScreen === "clara") return <ClaraRevealScreen />;
+    if (activeScreen === "clara") return <ClaraRevealScreen reduceMotion={reduceMotion} />;
     if (activeScreen === "mission") return <MissionScreen />;
     if (activeScreen === "support") return <SupportScreen onExploreSupport={exploreSupport} />;
     return <RuleScreen />;
@@ -496,6 +561,20 @@ export default function UniversalOnboarding() {
         .clara-onboarding-wordmark-gold { color: #ffd42f; }
         .clara-onboarding-wordmark-red { color: #ff4d55; }
 
+        .clara-onboarding-wordmark-letter,
+        .clara-onboarding-wordmark-letter-inner {
+          display: inline-block;
+        }
+
+        .clara-onboarding-wordmark-letter {
+          transform-origin: center 72%;
+          will-change: transform, opacity;
+        }
+
+        .clara-onboarding-wordmark-letter-inner {
+          will-change: transform;
+        }
+
         .clara-onboarding-counter {
           font-size: 10px;
           line-height: 1;
@@ -575,6 +654,10 @@ export default function UniversalOnboarding() {
 
         .clara-onboarding-screen > * {
           animation: clara-onboarding-item-in .56s cubic-bezier(.16, 1, .3, 1) both;
+        }
+
+        .clara-onboarding-screen > .clara-onboarding-wordmark--animated {
+          animation: none;
         }
 
         .clara-onboarding-screen > *:nth-child(2) { animation-delay: 35ms; }
