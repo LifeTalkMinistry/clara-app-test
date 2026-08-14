@@ -1,5 +1,5 @@
 CLARA deployment trigger
-Reason: force Vercel production to rebuild main after PR #265 local journey reset fix.
-Version: local-journey-reset-v1
-Source-commit: 11b36eb595a8ccd65c883db0c1da06d43f823bd7
-Timestamp: 2026-07-21
+Reason: one-time Vercel production build for current main with refreshed Gemini API key.
+Version: universal-gemini-production-v1
+Source-commit: 622074b11f827ed68168eceb4e244d38fcecc0cd
+Timestamp: 2026-08-14
