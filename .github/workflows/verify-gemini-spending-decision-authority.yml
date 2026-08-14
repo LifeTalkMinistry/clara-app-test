@@ -10,7 +10,10 @@ on:
       - "src/lib/clara-buy-check-expert-ai.js"
       - "src/components/fresh/main-dashboard/assistant/useClaraBuyCheckExpertFlow.js"
       - "src/components/fresh/main-dashboard/assistant/useClaraBuyCheckBudgetFlow.js"
+      - "src/components/fresh/main-dashboard/assistant/useClaraBuyCheckFlowV5.js"
+      - "tests/buy-check-context-facts.test.mjs"
       - "tests/buy-check-gemini-authority.test.mjs"
+      - "package.json"
       - ".github/workflows/verify-gemini-spending-decision-authority.yml"
 
 permissions:
