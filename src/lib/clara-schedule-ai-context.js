@@ -17,28 +17,51 @@ function readJsonArray(key) {
   }
 }
 
-function readLatestScheduleArray() {
-  if (typeof window === "undefined" || !window.localStorage) return [];
-  try {
-    const keys = Object.keys(window.localStorage).filter((key) => key.startsWith(`${SCHEDULE_STORAGE_PREFIX}_`)).sort();
-    for (let index = keys.length - 1; index >= 0; index -= 1) {
-      const parsed = readJsonArray(keys[index]);
-      if (parsed.length) return parsed;
-    }
-  } catch {
-    return [];
-  }
-  return [];
+function extractScheduleArray(value) {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== "object") return [];
+
+  const combined = [
+    ...(Array.isArray(value.upcomingEvents) ? value.upcomingEvents : []),
+    ...(Array.isArray(value.events) ? value.events : []),
+    ...(Array.isArray(value.moneyImpactEvents) ? value.moneyImpactEvents : []),
+  ];
+
+  const seen = new Set();
+  return combined.filter((event, index) => {
+    if (!event || typeof event !== "object") return false;
+    const key = String(event.id || `${event.date || ""}:${event.title || event.name || ""}:${index}`);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function isSyntheticScheduleEvent(event = {}) {
+  if (event?.userConfirmed === true || event?.user_confirmed === true || event?.confirmed === true) return false;
+  const id = String(event?.id || "").toLowerCase();
+  const source = String(event?.source || "").toLowerCase();
+  return ["sample-bill", "sample-payday", "sample-reset", "sample-checkin"].includes(id) || /seeded|demo|sample/.test(source);
+}
+
+function cleanScheduleEvents(events = []) {
+  return extractScheduleArray(events).filter((event) => !isSyntheticScheduleEvent(event));
 }
 
 export function readScheduleEventsForAI({ user = null, scheduleEvents = null } = {}) {
-  if (Array.isArray(scheduleEvents)) return scheduleEvents;
-  const userId = String(user?.id || user?.email || "guest").trim() || "guest";
-  const exactUserEvents = user ? readJsonArray(`${SCHEDULE_STORAGE_PREFIX}_${userId}`) : [];
-  if (exactUserEvents.length) return exactUserEvents;
-  const latestEvents = readLatestScheduleArray();
-  if (latestEvents.length) return latestEvents;
-  return [];
+  const suppliedEvents = cleanScheduleEvents(scheduleEvents);
+  const userId = String(user?.id || user?.email || "").trim();
+
+  // In the live browser, an authenticated user's exact storage key is the
+  // schedule source of truth. Never scan another user's schedule key as a
+  // fallback just because the active user has no saved events.
+  if (userId && typeof window !== "undefined" && window.localStorage) {
+    return cleanScheduleEvents(readJsonArray(`${SCHEDULE_STORAGE_PREFIX}_${userId}`));
+  }
+
+  // Tests, non-browser callers, and explicit callers may provide a verified
+  // schedule array/object directly. Do not guess from unrelated storage keys.
+  return suppliedEvents;
 }
 
 function parseScheduleDate(value) {
@@ -69,10 +92,33 @@ function money(value) {
   return number === null ? "" : `₱${number.toLocaleString("en-PH", { maximumFractionDigits: 0 })}`;
 }
 
+function impactRows(event = {}) {
+  return Array.isArray(event.impactBreakdown)
+    ? event.impactBreakdown.filter((row) => row && typeof row === "object")
+    : Array.isArray(event.impact_breakdown)
+      ? event.impact_breakdown.filter((row) => row && typeof row === "object")
+      : [];
+}
+
+function scheduleDirection(event = {}) {
+  const rows = impactRows(event);
+  const type = cleanText(event.type);
+  return cleanText(event.direction || rows[0]?.direction || (type === "payday" ? "in" : "out")) || "out";
+}
+
 function hasMoneyImpact(event = {}) {
   const type = cleanText(event.type);
   const titleAndNote = cleanText(`${event.title || event.name || ""} ${event.note || event.description || ""}`);
-  return toNumber(event.amount) !== null || ["bill", "payday", "money"].includes(type) || /bill|rent|due|salary|tuition|transport|cost|fee/.test(titleAndNote);
+  const rows = impactRows(event);
+  const amount = toNumber(event.amount ?? event.estimatedImpact ?? event.impactAmount ?? event.cost);
+  return Boolean(
+    event.affectsMoney === true ||
+      event.affects_money === true ||
+      rows.length ||
+      amount !== null ||
+      ["bill", "payday", "money"].includes(type) ||
+      /bill|rent|due|salary|tuition|transport|cost|fee/.test(titleAndNote)
+  );
 }
 
 function normalizeScheduleEvent(event = {}, today = new Date()) {
@@ -81,6 +127,8 @@ function normalizeScheduleEvent(event = {}, today = new Date()) {
   const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const eventStart = new Date(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate());
   const amount = toNumber(event.amount ?? event.estimatedImpact ?? event.impactAmount ?? event.cost);
+  const rows = impactRows(event);
+  const direction = scheduleDirection(event);
   return {
     id: event.id || `${event.date || dateKey(parsedDate)}-${event.title || event.name || "schedule"}`,
     title: String(event.title || event.name || "Schedule item").trim(),
@@ -92,14 +140,17 @@ function normalizeScheduleEvent(event = {}, today = new Date()) {
     amountText: amount === null ? "" : money(amount),
     note: String(event.note || event.description || "").trim(),
     daysUntil: Math.round((eventStart.getTime() - todayStart.getTime()) / 86400000),
-    hasMoneyImpact: hasMoneyImpact({ ...event, amount }),
+    hasMoneyImpact: hasMoneyImpact(event),
+    direction,
+    pendingAmount: Boolean(event.pendingAmount || event.pending_amount || rows.some((row) => row.pendingAmount === true || row.pending_amount === true)),
     raw: event,
   };
 }
 
 function formatScheduleItem(event, index) {
   const lines = [`${index + 1}. ${event.title}`, `   Date: ${event.date} (${event.dateLabel}${event.time ? ` • ${event.time}` : ""})`, `   Type: ${event.type}`];
-  if (event.amountText) lines.push(`   Estimated impact: ${event.amountText}`);
+  if (event.amountText) lines.push(`   Estimated impact: ${event.direction === "in" ? "+" : "-"}${event.amountText}`);
+  if (event.pendingAmount) lines.push("   Estimated impact: amount pending");
   if (event.note) lines.push(`   Note: ${event.note}`);
   return lines.join("\n");
 }
@@ -110,6 +161,7 @@ export function getScheduleContextForAI(context = {}) {
   const today = new Date();
   const upcomingItems = rawEvents.map((event) => normalizeScheduleEvent(event, today)).filter(Boolean).filter((event) => event.daysUntil >= 0).sort((a, b) => `${a.date} ${a.time || "99:99"}`.localeCompare(`${b.date} ${b.time || "99:99"}`));
   const upcomingMoneyItems = upcomingItems.filter((event) => event.hasMoneyImpact);
+  const upcomingMoneyOutItems = upcomingMoneyItems.filter((event) => event.direction !== "in");
   return {
     upcomingItems,
     upcomingMoneyItems,
@@ -117,7 +169,7 @@ export function getScheduleContextForAI(context = {}) {
     nextMoneyItem: upcomingMoneyItems[0] || null,
     hasUpcomingItems: upcomingItems.length > 0,
     hasMoneyImpact: upcomingMoneyItems.length > 0,
-    totalEstimatedImpact: upcomingMoneyItems.reduce((sum, event) => sum + (event.amount || 0), 0),
+    totalEstimatedImpact: upcomingMoneyOutItems.reduce((sum, event) => sum + (event.amount || 0), 0),
     promptText: upcomingItems.length ? `SCHEDULE CONTEXT:\nUpcoming CLARA Schedule page items:\n${upcomingItems.slice(0, 8).map(formatScheduleItem).join("\n")}` : `SCHEDULE CONTEXT:\n${NO_UPCOMING_CONTEXT}`,
   };
 }
