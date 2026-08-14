@@ -45,6 +45,9 @@ const WelcomeSession = lazy(() => import("./pages/WelcomeSession"));
 const AdvertiserDashboard = lazy(() => import("./pages/AdvertiserDashboard"));
 const AdminPanel = lazy(() => import("./pages/AdminPanel"));
 const Activation = lazy(() => import("./pages/Activation"));
+const UniversalOnboarding = lazy(() =>
+  import("./pages/onboarding/UniversalOnboarding")
+);
 const ProgramOnboarding = lazy(() =>
   import("./pages/onboarding/ProgramOnboarding")
 );
@@ -53,6 +56,7 @@ const PageNotFound = lazy(() => import("./lib/PageNotFound"));
 const CLARA_ORB_PATH = "/community?view=orb";
 const CLARA_HOME_PATH = "/community?view=home";
 const LEGACY_DASHBOARD_PATH = "/legacy-dashboard";
+const OPEN_SUPPORT_AFTER_ONBOARDING_KEY = "clara_open_support_after_onboarding_v1";
 
 function FullScreenLoader({ message = "Loading CLARA..." }) {
   return (
@@ -145,6 +149,45 @@ function AppRoutes() {
       getAccessSnapshot(user?.id || user?.email || null)
     );
   }, [user?.email, user?.id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || location.pathname !== "/community") {
+      return undefined;
+    }
+
+    let shouldOpenSupport = false;
+    try {
+      shouldOpenSupport =
+        window.sessionStorage.getItem(OPEN_SUPPORT_AFTER_ONBOARDING_KEY) === "1";
+      if (shouldOpenSupport) {
+        window.sessionStorage.removeItem(OPEN_SUPPORT_AFTER_ONBOARDING_KEY);
+      }
+    } catch {
+      shouldOpenSupport = false;
+    }
+
+    if (!shouldOpenSupport) return undefined;
+
+    let attempts = 0;
+    let timer = null;
+    const openSupport = () => {
+      const supportButton = document.querySelector("[data-clara-support-bubble]");
+      if (supportButton instanceof HTMLElement) {
+        supportButton.click();
+        if (timer) window.clearInterval(timer);
+        return;
+      }
+
+      attempts += 1;
+      if (attempts >= 18 && timer) window.clearInterval(timer);
+    };
+
+    window.setTimeout(openSupport, 80);
+    timer = window.setInterval(openSupport, 120);
+    return () => {
+      if (timer) window.clearInterval(timer);
+    };
+  }, [location.pathname, location.search]);
 
   const offlineFallback = useMemo(
     () =>
@@ -262,7 +305,7 @@ function AppRoutes() {
                     />
                     <Route
                       path="/onboarding"
-                      element={<Navigate to={CLARA_ORB_PATH} replace />}
+                      element={<UniversalOnboarding />}
                     />
                     <Route
                       path="/program-onboarding"
