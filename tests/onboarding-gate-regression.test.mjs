@@ -142,10 +142,13 @@ test("memory fallback cannot complete onboarding for another vault", async () =>
   }
 });
 
-test("mission onboarding is direct-entry only and does not wrap all authenticated routes", () => {
+test("mission onboarding is direct-entry only and the beta welcome precedes it for new accounts", () => {
   const mainSource = readRepositoryFile("src/main.jsx");
   const appSource = readRepositoryFile("src/App.jsx");
   const loginSource = readRepositoryFile("src/pages/Login.jsx");
+  const betaWelcomeSource = readRepositoryFile(
+    "src/pages/onboarding/FoundingBetaWelcome.jsx"
+  );
 
   assert.doesNotMatch(mainSource, /OnboardingRouteGate/);
   assert.doesNotMatch(mainSource, /isUniversalOnboardingLocation/);
@@ -155,11 +158,19 @@ test("mission onboarding is direct-entry only and does not wrap all authenticate
   );
   assert.match(
     appSource,
+    /path="\/beta-welcome"\s+element=\{<FoundingBetaWelcome \/>\}/
+  );
+  assert.match(
+    appSource,
     /path="\/onboarding"\s+element=\{<UniversalOnboarding \/>\}/
   );
   assert.match(
     loginSource,
-    /await signUp\([\s\S]*?navigate\("\/onboarding", \{ replace: true \}\)/
+    /await signUp\([\s\S]*?navigate\("\/beta-welcome", \{ replace: true \}\)/
+  );
+  assert.match(
+    betaWelcomeSource,
+    /navigate\("\/onboarding", \{ replace: true \}\)/
   );
 });
 
