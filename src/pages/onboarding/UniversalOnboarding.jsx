@@ -374,21 +374,24 @@ function SupportScreen({ onExploreSupport }) {
         </div>
       </div>
 
-      <div className="clara-onboarding-support-benefit">
+      <button
+        type="button"
+        onClick={onExploreSupport}
+        className="clara-onboarding-support-benefit"
+        aria-label="See what supporters receive"
+      >
         <span className="clara-onboarding-support-benefit-icon">
           <Sparkles strokeWidth={1.7} />
         </span>
-        <div className="clara-onboarding-support-benefit-copy">
-          <p className="clara-onboarding-support-benefit-title">A little more for supporters.</p>
-          <p className="clara-onboarding-support-benefit-text">
-            Supporters also receive thoughtful extras that make the <ClaraBrandName /> experience more personal and rewarding.
-          </p>
-        </div>
-      </div>
-
-      <button type="button" onClick={onExploreSupport} className="clara-onboarding-support-link">
-        <span>See supporter benefits</span>
-        <ArrowRight />
+        <span className="clara-onboarding-support-benefit-copy">
+          <span className="clara-onboarding-support-benefit-title">See what supporters receive</span>
+          <span className="clara-onboarding-support-benefit-text">
+            Interested in the extras? Tap here to view everything included for CLARA supporters.
+          </span>
+        </span>
+        <span className="clara-onboarding-support-benefit-arrow" aria-hidden="true">
+          <ArrowRight />
+        </span>
       </button>
     </ScreenFrame>
   );
@@ -1111,16 +1114,28 @@ export default function UniversalOnboarding() {
           width: 100%;
           max-width: 390px;
           display: grid;
-          grid-template-columns: 30px minmax(0, 1fr);
+          grid-template-columns: 30px minmax(0, 1fr) 18px;
           gap: 11px;
-          align-items: start;
+          align-items: center;
           margin-top: 17px;
           padding: 12px 13px;
           border: 1px solid rgba(255, 210, 68, .13) !important;
           border-radius: 17px;
           background: linear-gradient(180deg, rgba(93, 70, 8, .05), rgba(31, 23, 3, .018)) !important;
           box-shadow: inset 0 1px 0 rgba(255, 255, 255, .022) !important;
+          color: inherit;
+          text-align: left;
+          cursor: pointer;
+          outline: none;
+          transition: border-color .18s ease, background .18s ease, transform .18s ease;
         }
+
+        .clara-onboarding-support-benefit:hover {
+          border-color: rgba(255, 210, 68, .23) !important;
+          background: linear-gradient(180deg, rgba(113, 84, 10, .075), rgba(40, 29, 4, .025)) !important;
+        }
+
+        .clara-onboarding-support-benefit:active { transform: scale(.992); }
 
         .clara-onboarding-support-benefit-icon {
           width: 28px;
@@ -1133,6 +1148,12 @@ export default function UniversalOnboarding() {
         }
 
         .clara-onboarding-support-benefit-icon svg { width: 14px; height: 14px; }
+
+        .clara-onboarding-support-benefit-copy {
+          display: flex;
+          min-width: 0;
+          flex-direction: column;
+        }
 
         .clara-onboarding-support-benefit-title {
           margin: 0;
@@ -1151,33 +1172,17 @@ export default function UniversalOnboarding() {
           font-weight: 430;
         }
 
-        .clara-onboarding-support-link {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          margin-top: 13px;
-          padding: 5px 0;
-          border: 0 !important;
-          background: none !important;
-          box-shadow: none !important;
-          color: #9ec6ff;
-          font-size: 11.5px;
-          line-height: 1.2;
-          font-weight: 620;
-          letter-spacing: -.008em;
+        .clara-onboarding-support-benefit-arrow {
+          width: 18px;
+          height: 18px;
+          display: grid;
+          place-items: center;
+          color: #ffe38a;
+          transition: transform .18s ease;
         }
 
-        .clara-onboarding-support-link svg { width: 13px; height: 13px; transition: transform .18s ease; }
-        .clara-onboarding-support-link:hover svg { transform: translateX(2px); }
-
-        .clara-onboarding-footnote {
-          max-width: 370px;
-          margin: 6px 0 0;
-          color: rgba(235, 241, 252, .30);
-          font-size: 9.8px;
-          line-height: 1.5;
-          font-weight: 430;
-        }
+        .clara-onboarding-support-benefit-arrow svg { width: 13px; height: 13px; }
+        .clara-onboarding-support-benefit:hover .clara-onboarding-support-benefit-arrow { transform: translateX(2px); }
 
         .clara-onboarding-final-mark {
           width: 104px;
@@ -1285,7 +1290,7 @@ export default function UniversalOnboarding() {
 
         .clara-onboarding-back:focus-visible,
         .clara-onboarding-continue:focus-visible,
-        .clara-onboarding-support-link:focus-visible {
+        .clara-onboarding-support-benefit:focus-visible {
           box-shadow: 0 0 0 3px rgba(88, 153, 255, .22) !important;
         }
 
@@ -1315,7 +1320,8 @@ export default function UniversalOnboarding() {
           .clara-onboarding-screen > *,
           .clara-onboarding-progress-segment,
           .clara-onboarding-continue svg,
-          .clara-onboarding-support-link svg {
+          .clara-onboarding-support-benefit,
+          .clara-onboarding-support-benefit-arrow {
             animation: none !important;
             transition: none !important;
           }
