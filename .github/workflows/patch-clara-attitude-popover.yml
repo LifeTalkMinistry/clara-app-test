@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - .github/workflows/patch-clara-attitude-popover.yml
+      - scripts/patch_clara_attitude_popover.py
 
 permissions:
   contents: write
@@ -38,5 +39,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx
-          git commit -m "Move CLARA attitude selector into composer control"
+          git commit -m "Simplify CLARA attitude selector"
           git push origin main
