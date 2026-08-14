@@ -13,7 +13,7 @@
  * - make the Community root own the viewport without relying on dvh;
  * - make the Orb page fill that root with absolute inset geometry;
  * - use that page as the single content stage for the usable vertical region;
- * - reserve the real responsive TopNav height even while the nav is hidden;
+ * - keep the fixed TopNav outside the Orb centering calculation in every state;
  * - neutralize the legacy visual translate so the composition centers by flex;
  * - restore every touched inline style when leaving the Orb route.
  */
@@ -21,7 +21,6 @@
 const RUNTIME_KEY = "__claraOrbViewportOwnershipGuard__";
 const ROOT_SELECTOR = '.clara-community-root[data-community-view="orb"]';
 const PAGE_SELECTOR = '.clara-community-orb-view[data-clara-orb-page="true"]';
-const HEADER_SELECTOR = ".clara-community-shell-header";
 const COMPOSITION_SELECTOR = '[data-clara-orb-visual-offset]';
 const ORB_BACKGROUND = "#010217";
 
@@ -70,16 +69,11 @@ function installClaraOrbViewportOwnershipGuard() {
 
   let activeRoot = null;
   let activePage = null;
-  let activeHeader = null;
   let activeComposition = null;
   let snapshots = [];
   let syncQueued = false;
-  let headerResizeObserver = null;
 
   const release = () => {
-    headerResizeObserver?.disconnect();
-    headerResizeObserver = null;
-
     for (let index = snapshots.length - 1; index >= 0; index -= 1) {
       restoreInlineStyle(snapshots[index]);
     }
@@ -91,31 +85,13 @@ function installClaraOrbViewportOwnershipGuard() {
     activeComposition?.removeAttribute("data-clara-orb-centered-composition");
     activeRoot = null;
     activePage = null;
-    activeHeader = null;
     activeComposition = null;
   };
 
-  const refreshStageLayout = () => {
-    if (!activePage) return;
-
-    const headerHeight = activeHeader
-      ? Math.max(0, Math.ceil(activeHeader.getBoundingClientRect().height))
-      : 0;
-
-    // The Orb nav is a fixed overlay. Reserve its actual responsive height in
-    // every nav state so reveal/hide transitions never move the composition.
-    activePage.style.setProperty(
-      "padding-top",
-      headerHeight > 0 ? `${headerHeight}px` : "env(safe-area-inset-top, 0px)",
-      "important"
-    );
-  };
-
-  const apply = (root, page, header, composition) => {
+  const apply = (root, page, composition) => {
     release();
     activeRoot = root;
     activePage = page;
-    activeHeader = header;
     activeComposition = composition;
 
     // Walk the complete rendered hierarchy instead of assuming which Layout
@@ -150,10 +126,10 @@ function installClaraOrbViewportOwnershipGuard() {
     setImportant(root, "background-color", ORB_BACKGROUND, snapshots);
     setImportant(root, "background-image", "none", snapshots);
 
-    // The shared Community nav is already a fixed overlay on the Orb route. The
-    // Orb page therefore owns the whole viewport and becomes the one centering
-    // stage. Padding reserves the nav/safe-area exclusion while flex centers the
-    // greeting -> divider -> Orb -> tagline -> CTA as one composition.
+    // The shared Community nav is a fixed overlay on the Orb route. The Orb
+    // page therefore owns the whole viewport and is the single centering stage.
+    // Only platform safe areas participate in the stage; TopNav height never
+    // participates, whether the nav is hidden, revealing, visible, or hiding.
     setImportant(page, "position", "absolute", snapshots);
     setImportant(page, "top", "0", snapshots);
     setImportant(page, "right", "0", snapshots);
@@ -181,18 +157,9 @@ function installClaraOrbViewportOwnershipGuard() {
       composition.dataset.claraOrbCenteredComposition = "true";
     }
 
-    root.dataset.claraOrbViewportOwner = "runtime-v2";
-    page.dataset.claraOrbViewportFill = "runtime-v2";
-    page.dataset.claraOrbContentStage = "runtime-v2";
-
-    refreshStageLayout();
-
-    if (typeof ResizeObserver !== "undefined" && activeHeader) {
-      headerResizeObserver = new ResizeObserver(() => {
-        refreshStageLayout();
-      });
-      headerResizeObserver.observe(activeHeader);
-    }
+    root.dataset.claraOrbViewportOwner = "runtime-v3";
+    page.dataset.claraOrbViewportFill = "runtime-v3";
+    page.dataset.claraOrbContentStage = "runtime-v3";
   };
 
   const sync = () => {
@@ -200,7 +167,6 @@ function installClaraOrbViewportOwnershipGuard() {
 
     const root = document.querySelector(ROOT_SELECTOR);
     const page = root?.querySelector(PAGE_SELECTOR) || null;
-    const header = root?.querySelector(HEADER_SELECTOR) || null;
     const composition = page?.querySelector(COMPOSITION_SELECTOR) || null;
 
     if (!root || !page) {
@@ -211,14 +177,12 @@ function installClaraOrbViewportOwnershipGuard() {
     if (
       root === activeRoot &&
       page === activePage &&
-      header === activeHeader &&
       composition === activeComposition
     ) {
-      refreshStageLayout();
       return;
     }
 
-    apply(root, page, header, composition);
+    apply(root, page, composition);
   };
 
   const queueSync = () => {
