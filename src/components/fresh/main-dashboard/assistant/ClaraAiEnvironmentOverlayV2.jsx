@@ -302,6 +302,9 @@ const BuyCheckMessageRow = memo(function BuyCheckMessageRow({ role, text, isGuid
   );
 });
 
+const COMPOSER_MIN_HEIGHT = 44;
+const COMPOSER_MAX_HEIGHT = 144;
+
 const BuyCheckComposer = memo(function BuyCheckComposer({ isActive, inputLocked, busy, step, submitAnswer }) {
   const [draft, setDraft] = useState("");
   const inputRef = useRef(null);
@@ -309,6 +312,15 @@ const BuyCheckComposer = memo(function BuyCheckComposer({ isActive, inputLocked,
   useEffect(() => {
     if (!isActive) setDraft("");
   }, [isActive]);
+
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    input.style.height = "0px";
+    const nextHeight = Math.min(Math.max(input.scrollHeight, COMPOSER_MIN_HEIGHT), COMPOSER_MAX_HEIGHT);
+    input.style.height = `${nextHeight}px`;
+    input.style.overflowY = input.scrollHeight > COMPOSER_MAX_HEIGHT ? "auto" : "hidden";
+  }, [draft]);
 
   useEffect(() => {
     if (!isActive || inputLocked) return undefined;
@@ -319,8 +331,8 @@ const BuyCheckComposer = memo(function BuyCheckComposer({ isActive, inputLocked,
   }, [busy, inputLocked, isActive, step]);
 
   const submitDraft = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
     const answer = draft.trim();
     if (!answer || inputLocked || busy) return;
     submitAnswer?.(answer);
@@ -332,6 +344,12 @@ const BuyCheckComposer = memo(function BuyCheckComposer({ isActive, inputLocked,
     if (composerLocked) event.preventDefault();
   };
 
+  const handleKeyDown = (event) => {
+    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent?.isComposing) return;
+    event.preventDefault();
+    submitDraft(event);
+  };
+
   return (
     <form
       onSubmit={submitDraft}
@@ -340,20 +358,23 @@ const BuyCheckComposer = memo(function BuyCheckComposer({ isActive, inputLocked,
       className="relative z-10 shrink-0 overflow-hidden rounded-[28px] border border-blue-200/16 bg-[#040b1a]/96 p-2.5 shadow-[0_-18px_52px_rgba(0,0,0,0.48),inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-2xl"
     >
       <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-[linear-gradient(90deg,#1769ff_0%,#1769ff_42%,#ffd84a_42%,#ffd84a_56%,#e53945_56%,#e53945_100%)] opacity-80" />
-      <div className="flex items-center gap-2 rounded-[22px] border border-blue-200/14 bg-[#08142b]/94 px-3 py-2 shadow-inner focus-within:border-blue-300/36">
-        <input
+      <div className="flex items-end gap-2 rounded-[22px] border border-blue-200/14 bg-[#08142b]/94 px-3 py-2 shadow-inner focus-within:border-blue-300/36">
+        <textarea
           ref={inputRef}
+          rows={1}
           value={draft}
           onBeforeInput={blockLockedInput}
           onPaste={blockLockedInput}
           onDrop={blockLockedInput}
+          onKeyDown={handleKeyDown}
           onChange={(event) => {
             if (!composerLocked) setDraft(event.target.value);
           }}
           aria-disabled={composerLocked ? "true" : undefined}
-          className={`min-w-0 flex-1 bg-transparent py-2 text-[14px] font-medium text-white outline-none placeholder:text-slate-400/72 ${composerLocked ? "opacity-55" : ""}`}
+          className={`min-h-[44px] max-h-36 min-w-0 flex-1 resize-none bg-transparent py-[11px] text-[14px] font-medium leading-5 text-white outline-none placeholder:text-slate-400/72 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${composerLocked ? "opacity-55" : ""}`}
           placeholder={placeholderFor(step)}
           inputMode="text"
+          enterKeyHint="send"
           aria-label={placeholderFor(step)}
         />
         <button
