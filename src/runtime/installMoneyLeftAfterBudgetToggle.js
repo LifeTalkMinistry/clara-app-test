@@ -5,6 +5,8 @@ const HOME_MONEY_LEFT_SELECTOR =
 const PROJECTION_SELECTOR = '[data-clara-after-budget-total="true"]';
 const MONEY_AMOUNT_SELECTOR = '[data-clara-summary-card="money-left"] h2';
 const STYLE_ID = 'clara-money-left-after-budget-toggle-style';
+const PROJECTED_AMOUNT_LABEL =
+  /^(?:Projected money left after the monthly budget is fully spent|Projected spendable money after protected funds, remaining budget, and unpaid obligations):/i;
 
 let afterBudgetActive = false;
 let lastProjectedText = '';
@@ -29,7 +31,7 @@ function captureProjectedAmount(toggle) {
   if (!toggle) return '';
 
   const sourceLabel = normalize(toggle.getAttribute('aria-label'));
-  if (/^Projected money left after the monthly budget is fully spent:/i.test(sourceLabel)) {
+  if (PROJECTED_AMOUNT_LABEL.test(sourceLabel)) {
     const projected = normalize(sourceLabel.replace(/^.*?:\s*/i, ''));
     if (projected) toggle.dataset.claraAfterBudgetProjectedAmount = projected;
   }
@@ -201,12 +203,12 @@ export function applyAfterBudgetToggle() {
       'aria-label',
       afterBudgetActive
         ? 'Show current Money Left'
-        : 'Show Money Left after the full budget is deducted',
+        : 'Show spendable Money Left after protected funds, budget, and unpaid obligations',
     );
     setAttrIfChanged(
       toggle,
       'title',
-      afterBudgetActive ? 'Current Money Left' : 'Money Left after budget',
+      afterBudgetActive ? 'Current Money Left' : 'Spendable after commitments',
     );
 
     if (!toggle.querySelector('[data-clara-after-budget-icon="true"]')) {
