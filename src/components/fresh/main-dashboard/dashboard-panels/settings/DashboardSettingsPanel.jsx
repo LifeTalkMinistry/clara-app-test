@@ -437,7 +437,6 @@ export default function DashboardSettingsPanelOfficial({
         },
         { key: "support", title: "Help & support", description: "Message support or report an issue", icon: MessageCircle, badge: "Help", tone: "red", action: () => openSetting("support") },
         { key: "about", title: "About CLARA", description: "Mission, vision, app info, and legal links", icon: FileText, badge: "Info", tone: "blue", action: () => openSetting("about") },
-        ...(isAdmin ? [{ key: "admin", title: "Admin Panel", description: "Manage users, access, and CLARA controls", icon: ShieldCheck, badge: "Admin", tone: "gold", action: () => navigate("/admin") }] : []),
       ],
     },
   ];

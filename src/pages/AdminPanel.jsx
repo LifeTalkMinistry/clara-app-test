@@ -10,7 +10,6 @@ import {
   Users,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import AdminCommunityBoardSection from "@/components/admin/AdminCommunityBoardSection";
 import useUserRole from "@/hooks/useUserRole";
 import {
   createAdminAccessCode,
@@ -290,10 +289,6 @@ export default function AdminPanel() {
           <StatCard label="Open support" value={openSupportCount} />
           <StatCard label="Subscription value" value={subscriptionValue} />
         </section>
-
-        <div className="mt-5">
-          <AdminCommunityBoardSection />
-        </div>
 
         <section className="mt-5 rounded-[28px] border border-emerald-300/15 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.10),transparent_38%),rgba(255,255,255,0.035)] p-4">
           <div className="flex items-center gap-3">
