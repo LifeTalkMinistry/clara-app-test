@@ -4,6 +4,7 @@ import {
   Check,
   Copy,
   Download,
+  Info,
   LoaderCircle,
   Send,
   ShieldCheck,
@@ -101,6 +102,7 @@ export default function DeviceTransferPanel({ user, profile }) {
   const [now, setNow] = useState(Date.now());
   const [copied, setCopied] = useState(false);
   const [result, setResult] = useState(null);
+  const [showTransferInfo, setShowTransferInfo] = useState(false);
   const [hasRecovery, setHasRecovery] = useState(() =>
     hasLastDeviceTransferRecovery()
   );
@@ -123,6 +125,7 @@ export default function DeviceTransferPanel({ user, profile }) {
     setError("");
     setResult(null);
     setCopied(false);
+    setShowTransferInfo(false);
   }, []);
 
   const refreshStatus = useCallback(async () => {
@@ -293,14 +296,33 @@ export default function DeviceTransferPanel({ user, profile }) {
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/20 bg-cyan-200/10 text-cyan-100">
           <ArrowLeftRight size={20} />
         </div>
-        <div>
-          <h2 className="font-black text-cyan-50">Transfer CLARA Data</h2>
-          <p className="mt-1 text-xs leading-5 text-cyan-50/58">
-            A deliberate one-time copy. The sending device is never erased, and
-            the receiving device imports into a new vault before switching.
-          </p>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h2 className="font-black text-cyan-50">Transfer CLARA Data</h2>
+            <button
+              type="button"
+              onClick={() => setShowTransferInfo((visible) => !visible)}
+              aria-label="About CLARA data transfer"
+              aria-expanded={showTransferInfo}
+              aria-controls="clara-device-transfer-info"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-cyan-200/15 bg-cyan-200/[0.07] text-cyan-100/70 transition hover:bg-cyan-200/10 hover:text-cyan-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50"
+            >
+              <Info size={15} />
+            </button>
+          </div>
         </div>
       </div>
+
+      {showTransferInfo ? (
+        <div
+          id="clara-device-transfer-info"
+          role="note"
+          className="mt-3 rounded-2xl border border-cyan-200/12 bg-black/15 px-3 py-2.5 text-xs leading-5 text-cyan-50/60"
+        >
+          A deliberate one-time copy. The sending device is never erased, and
+          the receiving device imports into a new vault before switching.
+        </div>
+      ) : null}
 
       {!side ? (
         <div className="mt-4 grid gap-3">
