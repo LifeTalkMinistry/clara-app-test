@@ -38,52 +38,57 @@ jobs:
           python <<'PY'
           from pathlib import Path
 
-          dashboard_test = Path('tests/dashboard-top-nav-ownership.test.mjs')
-          source = dashboard_test.read_text()
-          old = '''test("Settings owns its detail history, logout, memory, and scroll behavior in React", () => {\n  assert.match(settingsSource, /SETTINGS_DETAIL_HISTORY_KEY/);\n  assert.match(settingsSource, /openSetting/);\n  assert.match(settingsSource, /closeActiveSetting/);\n  assert.match(settingsSource, /signOutFromClaraBackend/);\n  assert.match(settingsSource, /clara:open-assistant-memory-board/);\n  assert.match(settingsSource, /settingsRootRef/);\n  assert.doesNotMatch(settingsSource, /MutationObserver/);\n\n  retiredRuntimePaths.forEach((relativePath) => {\n    assert.equal(existsSync(new URL(`../${relativePath}`, import.meta.url)), false);\n  });\n  assert.doesNotMatch(mainSource, /installSettingsAccessLogout/);\n  assert.doesNotMatch(mainSource, /installClaraGuideSchedulePhaseRedirect/);\n  assert.doesNotMatch(mainSource, /CloudVaultSyncBridge/);\n  assert.doesNotMatch(runtimeRegistrySource, /installSettingsScrollReset/);\n  assert.doesNotMatch(runtimeRegistrySource, /clara-settings-memory-entry/);\n});\n'''
-          new = '''test("Settings owns its detail history, logout, and scroll behavior without retired Memory", () => {\n  assert.match(settingsSource, /SETTINGS_DETAIL_HISTORY_KEY/);\n  assert.match(settingsSource, /openSetting/);\n  assert.match(settingsSource, /closeActiveSetting/);\n  assert.match(settingsSource, /signOutFromClaraBackend/);\n  assert.doesNotMatch(settingsSource, /clara:open-assistant-memory-board/);\n  assert.doesNotMatch(settingsSource, /title: "Memory"/);\n  assert.match(settingsSource, /settingsRootRef/);\n  assert.doesNotMatch(settingsSource, /MutationObserver/);\n\n  retiredRuntimePaths.forEach((relativePath) => {\n    assert.equal(existsSync(new URL(`../${relativePath}`, import.meta.url)), false);\n  });\n  assert.doesNotMatch(mainSource, /installSettingsAccessLogout/);\n  assert.doesNotMatch(mainSource, /installClaraGuideSchedulePhaseRedirect/);\n  assert.doesNotMatch(mainSource, /CloudVaultSyncBridge/);\n  assert.doesNotMatch(runtimeRegistrySource, /installSettingsScrollReset/);\n  assert.doesNotMatch(runtimeRegistrySource, /clara-settings-memory-entry/);\n  assert.doesNotMatch(runtimeRegistrySource, /clara-assistant-memory-tab/);\n});\n'''
-          if old not in source:
-              raise SystemExit('Dashboard Settings Memory ownership test anchor not found.')
-          dashboard_test.write_text(source.replace(old, new, 1))
+          path = Path('tests/dashboard-top-nav-ownership.test.mjs')
+          source = path.read_text()
+          source = source.replace(
+            'test("Settings owns its detail history, logout, memory, and scroll behavior in React", () => {',
+            'test("Settings owns its detail history, logout, and scroll behavior without retired Memory", () => {',
+            1,
+          )
+          source = source.replace(
+            '  assert.match(settingsSource, /clara:open-assistant-memory-board/);',
+            '  assert.doesNotMatch(settingsSource, /clara:open-assistant-memory-board/);\n  assert.doesNotMatch(settingsSource, /title: "Memory"/);',
+            1,
+          )
+          source = source.replace(
+            '  assert.doesNotMatch(runtimeRegistrySource, /clara-settings-memory-entry/);',
+            '  assert.doesNotMatch(runtimeRegistrySource, /clara-settings-memory-entry/);\n  assert.doesNotMatch(runtimeRegistrySource, /clara-assistant-memory-tab/);',
+            1,
+          )
+          path.write_text(source)
 
-          onboarding_test = Path('tests/onboarding-gate-regression.test.mjs')
-          source = onboarding_test.read_text()
+          path = Path('tests/onboarding-gate-regression.test.mjs')
+          source = path.read_text()
           source = source.replace(
-              'test("memory fallback cannot complete onboarding for another vault", async () => {',
-              'test("retired Memory records cannot complete onboarding for any vault", async () => {',
-              1,
+            'test("memory fallback cannot complete onboarding for another vault", async () => {',
+            'test("retired Memory records cannot complete onboarding for any vault", async () => {',
+            1,
           )
           source = source.replace(
-              '    assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-a" }), true);\n    assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-b" }), false);',
-              '    assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-a" }), false);\n    assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-b" }), false);',
-              1,
+            '    assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-a" }), true);\n    assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-b" }), false);',
+            '    assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-a" }), false);\n    assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-b" }), false);',
+            1,
           )
-          onboarding_test.write_text(source)
+          path.write_text(source)
           PY
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Memory retirement focused regression tests
+      - name: Verify retirement-specific regressions individually
         run: |
-          set -euo pipefail
-          for test_file in \
-            tests/retired-context-system.test.mjs \
-            tests/dashboard-top-nav-ownership.test.mjs \
-            tests/onboarding-gate-regression.test.mjs \
-            tests/settings-local-only-regression.test.mjs \
-            tests/local-data-export.test.mjs \
-            tests/buy-check-gemini-authority.test.mjs \
-            tests/device-transfer-safety.test.mjs
-          do
-            node --test "$test_file"
-          done
+          node --test tests/retired-context-system.test.mjs
+          node --test tests/dashboard-top-nav-ownership.test.mjs
+          node --test tests/onboarding-gate-regression.test.mjs
+          node --test tests/settings-local-only-regression.test.mjs
+          node --test tests/local-data-export.test.mjs
+          node --test tests/buy-check-gemini-authority.test.mjs
+          node --test tests/device-transfer-safety.test.mjs
 
       - name: Run full suite against pre-existing baseline
         run: |
           set +e
           npm test > /tmp/current-retirement-tests.txt 2>&1
-          test_status=$?
           set -e
           cat /tmp/current-retirement-tests.txt
           python <<'PY'
