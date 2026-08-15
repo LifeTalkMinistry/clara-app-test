@@ -1,8 +1,9 @@
+export const CLARA_SUPPORT_CONVERSATION_TARGET = "clara-support";
+
 let pendingSupportConversationUserId = "";
 
-export function rememberSupportConversationTarget(userId) {
-  const normalized = String(userId || "").trim();
-  pendingSupportConversationUserId = normalized;
+export function rememberSupportConversationTarget() {
+  pendingSupportConversationUserId = CLARA_SUPPORT_CONVERSATION_TARGET;
 }
 
 export function consumeSupportConversationTarget() {
