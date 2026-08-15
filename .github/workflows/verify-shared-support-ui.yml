@@ -1,0 +1,28 @@
+name: Verify Shared CLARA Support UI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate-support-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint support messaging files
+        run: npx eslint src/pages/MessagesBackend.jsx src/lib/support-conversation-navigation.js
+
+      - name: Build production bundle
+        run: npx vite build --base=./
