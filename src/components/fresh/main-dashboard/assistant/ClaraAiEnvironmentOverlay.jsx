@@ -32,11 +32,8 @@ export default function ClaraAiEnvironmentOverlay(props) {
       <ClaraLifeProfilePortal
         isActive={Boolean(props?.isActive)}
         disabled={guidePreview}
-        profile={lifeContext.profile}
-        updateField={lifeContext.updateField}
-        supportTier={lifeContext.supportTier}
-        saveState={lifeContext.saveState}
         filledCount={lifeContext.filledCount}
+        onBeforeOpen={props?.onClose}
       />
       <ClaraBuyCheckImpactPortal
         isActive={Boolean(props?.isActive)}
