@@ -5,7 +5,6 @@ import {
   Bell,
   BrainCircuit,
   Check,
-  CheckCircle2,
   ChevronRight,
   Database,
   Edit,
@@ -15,7 +14,6 @@ import {
   Rocket,
   ShieldCheck,
   WalletCards,
-  X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { signOutFromClaraBackend } from "@/lib/clara-backend-client";
@@ -131,7 +129,6 @@ export default function DashboardSettingsPanelOfficial({
   const [supportSending, setSupportSending] = useState(false);
   const [billingRecord, setBillingRecord] = useState(null);
   const [billingLoading, setBillingLoading] = useState(false);
-  const [isAiPrivacyModalOpen, setIsAiPrivacyModalOpen] = useState(false);
   const [isDataDetailsOpen, setIsDataDetailsOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const membershipState = useCommittedMembershipState({ billingRecord });
@@ -259,7 +256,6 @@ export default function DashboardSettingsPanelOfficial({
 
     setSettingsNotice(null);
     setActiveAboutInfo(null);
-    setIsAiPrivacyModalOpen(false);
     setIsDataDetailsOpen(false);
 
     if (typeof window !== "undefined") {
@@ -283,7 +279,6 @@ export default function DashboardSettingsPanelOfficial({
   const closeActiveSetting = useCallback(() => {
     setSettingsNotice(null);
     setActiveAboutInfo(null);
-    setIsAiPrivacyModalOpen(false);
     setIsDataDetailsOpen(false);
 
     if (
@@ -308,7 +303,6 @@ export default function DashboardSettingsPanelOfficial({
       setActiveSetting(SETTINGS_DETAIL_KEYS.has(detailKey) ? detailKey : null);
       setActiveAboutInfo(null);
       setSettingsNotice(null);
-      setIsAiPrivacyModalOpen(false);
       setIsDataDetailsOpen(false);
     };
 
@@ -537,10 +531,9 @@ export default function DashboardSettingsPanelOfficial({
 
   const renderSecurityPage = () => {
     const protectedDataItems = ["Wallets", "Expenses", "Budgets", "Savings", "Emergency fund", "Transfers", "Transaction history", "AI context"];
-    const aiPrivacyItems = ["CLARA checks available device data first.", "Only the context needed for guidance is used.", "Your decision history stays personal.", "Your spending activity is not published to a public feed."];
     return (
       <div className="space-y-4 pb-6">
-        <DetailHeader title="Security & privacy" subtitle="Your financial records stay under your control." />
+        <DetailHeader title="Security & privacy" />
         {renderNotice()}
         <section className={`${surfaceClass} p-5`}>
           <div className="flex items-start gap-3"><div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#367ec5]/45 bg-[#0867ff]/10 text-[#bddcff]"><ShieldCheck className="h-5 w-5" /></div><div className="min-w-0 flex-1"><h3 className="text-base font-black text-white">Your CLARA data stays private</h3><p className="mt-3 text-sm font-semibold leading-6 text-[#a9bbcf]">This device has its own CLARA data. Signing in on another device will not automatically bring your financial records with it.</p></div></div>
@@ -550,8 +543,6 @@ export default function DashboardSettingsPanelOfficial({
           {isDataDetailsOpen ? <div className="mt-1 border-t border-[#1a466f]/45 pt-4"><ul className="space-y-2">{protectedDataItems.map((item) => <li key={item} className="flex items-center gap-2 text-xs font-semibold text-[#8ba0b8]"><Check className="h-3.5 w-3.5 shrink-0 text-[#58bfff]" />{item}</li>)}</ul></div> : null}
         </section>
         <button type="button" onClick={() => navigate("/data-export")} className={`${quietSurfaceClass} group flex min-h-[72px] w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-[#0a1c33]`}><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#367ec5]/40 bg-[#0867ff]/9 text-[#b8d8ff]"><Database className="h-4 w-4" /></div><div className="min-w-0 flex-1"><p className="text-sm font-black text-white">Move & Restore Data</p><p className="mt-1 text-xs leading-5 text-[#8198b2]">Move your CLARA data to another device or restore a previous backup.</p></div><div className="flex shrink-0 items-center gap-1 text-[11px] font-bold text-[#6e88a5]"><span>Open</span><ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:text-[#9cc9ff]" /></div></button>
-        <button type="button" onClick={() => setIsAiPrivacyModalOpen(true)} aria-haspopup="dialog" className={`${quietSurfaceClass} group flex min-h-[72px] w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-[#0a1c33]`}><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#2f8dbd]/40 bg-[#19b5ff]/8 text-[#bdeaff]"><MessageCircle className="h-4 w-4" /></div><div className="min-w-0 flex-1"><p className="text-sm font-black text-white">AI privacy</p><p className="mt-1 text-xs leading-5 text-[#8198b2]">CLARA uses only the financial context needed to guide you.</p></div><div className="flex shrink-0 items-center gap-1 text-[11px] font-bold text-[#6e88a5]"><span className="hidden sm:inline">Learn more</span><ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:text-[#9cc9ff]" /></div></button>
-        {isAiPrivacyModalOpen ? <div className="fixed inset-0 z-[100] flex items-end justify-center bg-[#010612]/85 p-0 sm:items-center sm:p-4" onClick={() => setIsAiPrivacyModalOpen(false)} role="presentation"><div role="dialog" aria-modal="true" aria-labelledby="ai-privacy-title" onClick={(event) => event.stopPropagation()} className="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-[28px] border border-[#1f568c]/50 bg-[#06142a] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.56)] sm:rounded-[28px]"><div className="flex items-start justify-between gap-4"><h3 id="ai-privacy-title" className="text-lg font-black text-white">How CLARA uses your information</h3><button type="button" onClick={() => setIsAiPrivacyModalOpen(false)} aria-label="Close AI privacy information" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#245c94]/45 bg-[#091b31] text-[#9db6d1] transition hover:text-white"><X className="h-4 w-4" /></button></div><div className="mt-5 space-y-3">{aiPrivacyItems.map((item) => <div key={item} className="flex items-start gap-3"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#58bfff]" /><p className="text-sm leading-6 text-[#a8bbcf]">{item}</p></div>)}</div></div></div> : null}
       </div>
     );
   };
