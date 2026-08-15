@@ -111,3 +111,31 @@ test("income projection uses the current calendar year without shrinking recurri
     /dispatchIncomeTimingOccurrences[\s\S]*getIncomeScheduleProjectionRange\(\)/
   );
 });
+
+test("Stable Income Schedule projection is owned by returned Income Hub sources, not only the timing cache", () => {
+  const source = readFileSync(
+    new URL(
+      "../src/components/fresh/main-dashboard/dashboard-panels/schedule/recurringScheduleIntegration.js",
+      import.meta.url
+    ),
+    "utf8"
+  );
+
+  assert.equal(source.includes("buildCanonicalStableIncomeTimingSource"), true);
+  assert.equal(source.includes("stableTimingFromIncomeSource"), true);
+  assert.equal(source.includes("canonicalStableTimings"), true);
+  assert.equal(source.includes("compatibilityTimings"), true);
+  assert.equal(source.includes("projectionTimings"), true);
+  assert.match(
+    source,
+    /safeIncomeSources\s*\.map\(stableTimingFromIncomeSource\)\s*\.filter\(Boolean\)/
+  );
+  assert.match(
+    source,
+    /compatibilityTimings\s*=\s*getIncomeTimingRecords\(ownerId\)\.filter/
+  );
+  assert.match(
+    source,
+    /projectionTimings\s*=\s*\[\s*\.\.\.canonicalStableTimings,\s*\.\.\.compatibilityTimings/
+  );
+});
