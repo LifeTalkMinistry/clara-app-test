@@ -92,8 +92,9 @@ export function buildCanonicalStableIncomeTimingSource(source = {}) {
   }
 
   const recurrence = canonicalRecurrence(source);
-  const useForBudgetTiming =
-    source.useForBudgetTiming === true || source.use_for_budget_timing === true;
+  const explicitBudgetTiming =
+    source.useForBudgetTiming ?? source.use_for_budget_timing;
+  const useForBudgetTiming = explicitBudgetTiming !== false;
 
   return {
     ...source,
