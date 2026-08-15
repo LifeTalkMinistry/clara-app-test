@@ -1,0 +1,107 @@
+name: Remove notification diagnostics UI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/remove-notification-diagnostics-ui.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Remove the extra notification diagnostics surface
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          panel_path = Path("src/components/notifications/NotificationSettingsPanel.jsx")
+          panel = panel_path.read_text()
+
+          panel = panel.replace(
+              'import {\n  sendRealPushTestNotification,\n  showTestDeviceNotification,\n} from "@/lib/notifications/deviceNotifications";\n',
+              ''
+          )
+          panel = panel.replace('  const [localTestSending, setLocalTestSending] = useState(false);\n', '')
+          panel = panel.replace('  const [realPushTestSending, setRealPushTestSending] = useState(false);\n', '')
+
+          panel, local_count = re.subn(
+              r'\n  const sendLocalDeviceTest = useCallback\(async \(\) => \{[\s\S]*?\n  \}, \[\]\);\n',
+              '\n',
+              panel,
+              count=1,
+          )
+          panel, push_count = re.subn(
+              r'\n  const sendRealPushTest = useCallback\(async \(\) => \{[\s\S]*?\n  \}, \[taskReminderSettings\]\);\n',
+              '\n',
+              panel,
+              count=1,
+          )
+          if local_count != 1 or push_count != 1:
+              raise SystemExit(
+                  f"Expected one local and one push test callback; got local={local_count}, push={push_count}"
+              )
+
+          start_marker = '''      {notificationOwnerId ? (\n        <details className="group overflow-hidden rounded-[22px] border border-[#1d4b7b]/45 bg-[#061225]">'''
+          end_marker = '''      ) : null}\n\n      {!embedded ? ('''
+          start = panel.find(start_marker)
+          end = panel.find(end_marker, start)
+          if start == -1 or end == -1:
+              raise SystemExit("Could not locate Delivery diagnostics block")
+          panel = panel[:start] + '      {!embedded ? (' + panel[end + len(end_marker):]
+          panel_path.write_text(panel)
+
+          runtime_test_path = Path("tests/notification-runtime-contracts.test.mjs")
+          runtime_test = runtime_test_path.read_text()
+          old_guard = '''test("notification Settings exposes one user-facing notification system", () => {\n  assert.match(notificationPanelSource, /Delivery diagnostics/);\n  assert.match(notificationPanelSource, /Technical delivery status only/);\n  assert.doesNotMatch(notificationPanelSource, /TaskReminderSettingsCard/);\n  assert.doesNotMatch(notificationPanelSource, /Advanced delivery & task reminder tools/);\n  assert.doesNotMatch(notificationPanelSource, /Save advanced task schedule/);\n});'''
+          new_guard = '''test("notification Settings exposes one user-facing notification system", () => {\n  assert.doesNotMatch(notificationPanelSource, /Delivery diagnostics/);\n  assert.doesNotMatch(notificationPanelSource, /Technical delivery status only/);\n  assert.doesNotMatch(notificationPanelSource, /TaskReminderSettingsCard/);\n  assert.doesNotMatch(notificationPanelSource, /Advanced delivery & task reminder tools/);\n  assert.doesNotMatch(notificationPanelSource, /Save advanced task schedule/);\n  assert.doesNotMatch(notificationPanelSource, /Test local notification/);\n  assert.doesNotMatch(notificationPanelSource, /Test phone push/);\n  assert.match(notificationPanelSource, /Notification delivery/);\n});'''
+          if old_guard not in runtime_test:
+              raise SystemExit("Could not locate notification single-system regression guard")
+          runtime_test_path.write_text(runtime_test.replace(old_guard, new_guard))
+
+          settings_test_path = Path("tests/settings-integrity-regression.test.mjs")
+          settings_test = settings_test_path.read_text()
+          settings_test = settings_test.replace(
+              '  assert.match(notificationPanelSource, /Delivery diagnostics/);\n  assert.doesNotMatch(notificationPanelSource, /TaskReminderSettingsCard/);',
+              '  assert.doesNotMatch(notificationPanelSource, /Delivery diagnostics/);\n  assert.doesNotMatch(notificationPanelSource, /TaskReminderSettingsCard/);'
+          )
+          settings_test = settings_test.replace(
+              '''test("Weekly Money Review visible setting is the authoritative runtime gate", () => {\n  assert.match(\n    notificationRegistrySource,\n    /eventType === "weekly_review_ready"[\\s\\S]*weeklyMoneyReview !== false/\n  );\n});''',
+              '''test("Weekly Money Review visible setting is the authoritative runtime gate", () => {\n  assert.match(\n    notificationRegistrySource,\n    /weekly_review_ready: event\\(\\{ category: NOTIFICATION_CATEGORIES\\.WEEKLY_REVIEW, active: true \\}\\)/\n  );\n  assert.match(\n    notificationRegistrySource,\n    /\\[NOTIFICATION_CATEGORIES\\.WEEKLY_REVIEW\\]: "weeklyMoneyReview"/\n  );\n});'''
+          )
+          settings_test_path.write_text(settings_test)
+          PY
+
+      - name: Verify the Notifications surface has no nested diagnostics UI
+        run: |
+          node --test tests/notification-runtime-contracts.test.mjs
+          node --test tests/settings-integrity-regression.test.mjs
+          if grep -Eq 'Delivery diagnostics|TaskReminderSettingsCard|Advanced delivery & task reminder tools|Test local notification|Test phone push' src/components/notifications/NotificationSettingsPanel.jsx; then
+            echo "Extra notification diagnostics/task-reminder UI is still present" >&2
+            exit 1
+          fi
+          grep -q 'Notification delivery' src/components/notifications/NotificationSettingsPanel.jsx
+          grep -q 'Quiet Hours' src/components/notifications/NotificationSettingsPanel.jsx
+
+      - name: Build
+        run: |
+          npm ci --ignore-scripts
+          npm run build
+
+      - name: Commit the verified repair and remove this one-time verifier
+        run: |
+          git config user.name "CLARA Engineering"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/remove-notification-diagnostics-ui.yml
+          git add src/components/notifications/NotificationSettingsPanel.jsx tests/notification-runtime-contracts.test.mjs tests/settings-integrity-regression.test.mjs
+          git commit -m "Remove extra notification diagnostics UI"
+          git pull --rebase origin main
+          git push origin HEAD:main
