@@ -1,0 +1,42 @@
+name: Rebase Memory retirement onto current main
+
+on:
+  push:
+    branches:
+      - eradicate-memory-system-current
+    paths:
+      - ".github/workflows/rebase-memory-retirement-current.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  rebase:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+      - name: Attempt verified retirement cherry-pick
+        run: |
+          set +e
+          git fetch origin eradicate-memory-system
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git cherry-pick 05bbe85daf4d3c4225317a9aabb3754c6d08284b
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            git diff --name-only --diff-filter=U > memory-rebase-conflicts.txt
+            git diff > memory-rebase-conflict-diff.txt
+            git cherry-pick --abort
+            git add memory-rebase-conflicts.txt memory-rebase-conflict-diff.txt
+            git commit -m "Capture Memory retirement rebase conflicts"
+            git push origin eradicate-memory-system-current
+            exit 0
+          fi
+          rm -f .github/workflows/rebase-memory-retirement-current.yml
+          git add -A
+          git commit --amend --no-edit
+          git push origin eradicate-memory-system-current
