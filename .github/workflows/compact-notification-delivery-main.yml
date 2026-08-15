@@ -27,6 +27,9 @@ jobs:
           git diff --check
           node --test tests/notification-runtime-contracts.test.mjs
 
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
       - name: Verify production compilation
         run: npx vite build --base=./
 
