@@ -1,0 +1,52 @@
+name: Compact Notification Delivery Main
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/compact-notification-delivery-main.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply compact delivery patch
+        run: node .github/scripts/compact-notification-delivery.mjs
+
+      - name: Verify notification contracts
+        run: |
+          git diff --check
+          node --test tests/notification-runtime-contracts.test.mjs
+
+      - name: Verify production build
+        run: npm run build
+
+      - name: Commit verified repair and self-clean
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/compact-notification-delivery-main.yml .github/scripts/compact-notification-delivery.mjs
+          git add src/components/notifications/NotificationSettingsPanel.jsx tests/notification-runtime-contracts.test.mjs
+          git commit -m "Compact phone notification delivery controls"
+
+          for attempt in 1 2 3 4 5 6 7 8; do
+            echo "Push attempt ${attempt}"
+            git fetch origin main
+            git rebase origin/main
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "Could not fast-forward main after repeated retries." >&2
+          exit 1
