@@ -110,7 +110,7 @@ test("income timing is React-owned and saved with the source", () => {
   assert.equal(createModalBase.includes("MutationObserver"), false);
   assert.equal(createModalBase.includes("document.createElement"), false);
   assert.equal(createModalBase.includes("incomeRecurrence: recurrence"), true);
-  assert.equal(createModalBase.includes("syncIncomeTimingFromSource"), true);
+  assert.equal(createModalBase.includes("syncStableIncomeTimingSource"), true);
 });
 
 test("stable income requires a conservative minimum and forces payday timing authority", () => {
