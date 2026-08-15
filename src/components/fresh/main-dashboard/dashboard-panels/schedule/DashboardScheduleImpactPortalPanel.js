@@ -15,6 +15,7 @@ import {
 import OriginalScheduleImpactPortalPanel from "./DashboardScheduleImpactPortalPanel.jsx";
 
 const SCHEDULE_SYNC_INCOME_EVENT = "clara:schedule:sync-income-events";
+const INCOME_HUB_UPDATED_EVENT = "clara-income-hub-updated";
 
 function cleanLabel(value) {
   return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
@@ -265,6 +266,10 @@ export default function DashboardScheduleImpactPortalPanel(props) {
       setScheduleRevision((current) => current + 1);
     };
 
+    const resyncSchedule = () => {
+      window.setTimeout(() => syncRecurringBillsIntoSchedule(ownerId), 0);
+    };
+
     let scheduled = false;
     const observer = new MutationObserver((mutations) => {
       if (!mutations.some(mutationNeedsEnhancement) || scheduled) return;
@@ -277,8 +282,9 @@ export default function DashboardScheduleImpactPortalPanel(props) {
     observer.observe(document.body, { childList: true, subtree: true });
     document.addEventListener("pointerdown", onPointerDown, true);
     window.addEventListener(SCHEDULE_SYNC_INCOME_EVENT, onIncomeScheduleSync);
+    window.addEventListener(INCOME_HUB_UPDATED_EVENT, resyncSchedule);
     enhance();
-    window.setTimeout(() => syncRecurringBillsIntoSchedule(ownerId), 0);
+    resyncSchedule();
 
     const onRecurringUpdate = (event) => {
       if (
@@ -287,7 +293,7 @@ export default function DashboardScheduleImpactPortalPanel(props) {
       ) {
         return;
       }
-      window.setTimeout(() => syncRecurringBillsIntoSchedule(ownerId), 0);
+      resyncSchedule();
     };
     window.addEventListener(
       RECURRING_CASH_FLOW_UPDATED_EVENT,
@@ -298,6 +304,7 @@ export default function DashboardScheduleImpactPortalPanel(props) {
       observer.disconnect();
       document.removeEventListener("pointerdown", onPointerDown, true);
       window.removeEventListener(SCHEDULE_SYNC_INCOME_EVENT, onIncomeScheduleSync);
+      window.removeEventListener(INCOME_HUB_UPDATED_EVENT, resyncSchedule);
       window.removeEventListener(
         RECURRING_CASH_FLOW_UPDATED_EVENT,
         onRecurringUpdate
