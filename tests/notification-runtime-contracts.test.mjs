@@ -104,7 +104,8 @@ test("phone delivery status requires live capability, permission, and configurat
     /taskReminderSettings\.permissionState === "granted"/
   );
   assert.match(notificationPanelSource, /taskReminderSettings\.pushConfigured/);
-  assert.match(notificationPanelSource, /Phone notifications need attention/);
+  assert.match(notificationPanelSource, /phoneDeliveryIssue/);
+  assert.match(notificationPanelSource, /Needs attention/);
   assert.match(notificationPanelSource, /In-app notifications remain active/);
 });
 
@@ -119,9 +120,14 @@ test("device capability refreshes after returning from OS or browser settings", 
 });
 
 
-test("notification Settings exposes one user-facing notification system", () => {
-  assert.match(notificationPanelSource, /Delivery diagnostics/);
-  assert.match(notificationPanelSource, /Technical delivery status only/);
+test("notification Settings exposes one compact delivery control and one notification system", () => {
+  assert.match(notificationPanelSource, /Phone notifications/);
+  assert.match(notificationPanelSource, /checked=\{phoneDeliveryReady\}/);
+  assert.match(notificationPanelSource, /aria-label="Phone notifications"/);
+  assert.doesNotMatch(notificationPanelSource, /Notification delivery/);
+  assert.doesNotMatch(notificationPanelSource, /Refresh phone notifications/);
+  assert.doesNotMatch(notificationPanelSource, /Use in-app only/);
+  assert.doesNotMatch(notificationPanelSource, /Delivery diagnostics/);
   assert.doesNotMatch(notificationPanelSource, /TaskReminderSettingsCard/);
   assert.doesNotMatch(notificationPanelSource, /Advanced delivery & task reminder tools/);
   assert.doesNotMatch(notificationPanelSource, /Save advanced task schedule/);

@@ -519,20 +519,18 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
       taskReminderSettings.permissionState === "granted" &&
       taskReminderSettings.pushConfigured
   );
-  const deliveryStatusTitle = phoneDeliveryReady
-    ? "Phone + in-app"
+  const phoneDeliveryStatusLabel = phoneDeliveryReady
+    ? "On"
     : deliveryWantsDevice
-      ? "Phone notifications need attention"
-      : "In-app only";
-  const deliveryStatusDescription = phoneDeliveryReady
-    ? "Phone delivery is ready on this device. In-app notifications remain active."
-    : deliveryWantsDevice && taskReminderSettings.permissionState === "denied"
+      ? "Needs attention"
+      : "Off";
+  const phoneDeliveryIssue = !deliveryWantsDevice || phoneDeliveryReady
+    ? ""
+    : taskReminderSettings.permissionState === "denied"
       ? "Phone permission is blocked. In-app notifications remain active."
-      : deliveryWantsDevice && !taskReminderSettings.pushSupported
-        ? "Phone notifications are unavailable in this environment. In-app notifications remain active."
-        : deliveryWantsDevice
-          ? "Phone delivery is requested, but permission or device configuration is not currently ready. In-app notifications remain active."
-          : "Enable phone notifications if you want CLARA reminders to appear outside the app when supported.";
+      : !taskReminderSettings.pushSupported
+        ? "Phone notifications are unavailable here. In-app notifications remain active."
+        : "Phone delivery needs to be reconnected. In-app notifications remain active.";
 
   return (
     <div className="space-y-5">
@@ -547,44 +545,60 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
         </div>
       ) : null}
 
-      <section className="rounded-[24px] border border-[#22588f]/45 bg-[linear-gradient(145deg,#071a35_0%,#06142a_72%,#061225_100%)] p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#82bfff]/70">
-              Notification delivery
-            </p>
-            <p className="mt-1 text-sm font-black text-white">
-              {deliveryStatusTitle}
-            </p>
+      <section className="rounded-[20px] border border-[#1d4b7b]/45 bg-[#06142a] px-4 py-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#2f73bb]/40 bg-[#0867ff]/8 text-[#8ed0ff]">
+            <Bell className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-black text-white">Phone notifications</p>
+              <span
+                className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] ${
+                  phoneDeliveryReady
+                    ? "border-[#2f73bb]/45 bg-[#0867ff]/10 text-[#b8d8ff]"
+                    : deliveryWantsDevice
+                      ? "border-[#9c8330]/45 bg-[#ffd84a]/8 text-[#ffe681]"
+                      : "border-white/10 bg-white/[0.03] text-white/40"
+                }`}
+              >
+                {phoneDeliveryStatusLabel}
+              </span>
+            </div>
             <p className="mt-1 text-xs leading-5 text-white/45">
-              {deliveryStatusDescription}
+              Receive CLARA reminders outside the app. In-app notifications remain active.
             </p>
           </div>
-          <Bell className="mt-1 h-5 w-5 shrink-0 text-[#8ed0ff]" />
+          <Switch
+            checked={phoneDeliveryReady}
+            disabled={taskReminderSettings.pushEnabling}
+            onCheckedChange={(checked) => {
+              if (checked) {
+                void enableDeviceNotifications();
+              } else {
+                void useInAppOnly();
+              }
+            }}
+            aria-label="Phone notifications"
+            className="shrink-0 data-[state=checked]:bg-[#0867ff] data-[state=unchecked]:bg-white/15"
+          />
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <button
-            type="button"
-            onClick={enableDeviceNotifications}
-            disabled={taskReminderSettings.pushEnabling}
-            className="rounded-2xl border border-[#4f96ff]/35 bg-[#0867ff] px-4 py-3 text-xs font-black text-white transition hover:bg-[#1473ff] disabled:opacity-45"
-          >
-            {taskReminderSettings.pushEnabling
-              ? "Enabling..."
-              : deliveryWantsDevice
-                ? "Refresh phone notifications"
-                : "Enable phone notifications"}
-          </button>
-          <button
-            type="button"
-            onClick={useInAppOnly}
-            disabled={!deliveryWantsDevice}
-            className="rounded-2xl border border-[#1d4b7b]/45 bg-[#07162b] px-4 py-3 text-xs font-black text-white/70 transition disabled:opacity-35"
-          >
-            Use in-app only
-          </button>
-        </div>
+        {phoneDeliveryIssue ? (
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-[#9c8330]/30 bg-[#ffd84a]/[0.05] px-3 py-2.5">
+            <p className="min-w-0 text-[11px] leading-4 text-white/50">
+              {phoneDeliveryIssue}
+            </p>
+            <button
+              type="button"
+              onClick={enableDeviceNotifications}
+              disabled={taskReminderSettings.pushEnabling}
+              className="shrink-0 rounded-lg border border-[#9c8330]/40 bg-[#ffd84a]/8 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#ffe681] disabled:opacity-45"
+            >
+              {taskReminderSettings.pushEnabling ? "Fixing..." : "Fix"}
+            </button>
+          </div>
+        ) : null}
       </section>
 
       <section>
