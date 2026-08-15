@@ -22,18 +22,10 @@ jobs:
         run: npm ci
 
       - name: Run complete test suite
-        continue-on-error: true
         run: npm test > membership-tests.log 2>&1
 
-      - name: Run budget lifecycle regression
-        run: node --test tests/budget-card-truth-regression.test.mjs
-
       - name: Run complete lint suite
-        continue-on-error: true
         run: npm run lint > membership-lint.log 2>&1
-
-      - name: Lint budget lifecycle changes
-        run: npx eslint src/components/BudgetCard.jsx src/components/financial-carousel/cards/budget/ui/BudgetCardView.jsx src/components/financial-carousel/ui/CarouselItemCard.jsx src/lib/clara-budget-cycle-reset.js tests/budget-card-truth-regression.test.mjs
 
       - name: Build production bundle
         run: npx vite build --base=./ > membership-build.log 2>&1
