@@ -129,10 +129,10 @@ test("screen changes reset the active shell scroll container", () => {
 
 test("Community scroll ownership does not depend on :has support in Android WebView", () => {
   const sectionStart = communityScrollCss.indexOf(
-    "* Community owns its page scrolling directly."
+    "Community owns its page scrolling directly"
   );
   const sectionEnd = communityScrollCss.indexOf(
-    "* Keep the default Messages inbox focused on existing conversations.",
+    "Keep the default Messages inbox focused on existing conversations.",
     sectionStart
   );
 
@@ -144,7 +144,7 @@ test("Community scroll ownership does not depend on :has support in Android WebV
   assert.doesNotMatch(communityRulesOnly, /:has\(/);
   assert.match(
     communitySection,
-    /div\[class~="z-\[80\]"\]\[class~="h-\[100dvh\]"\]\s*\{/
+    /div\[class~="z-\[80\]"\]\[class~="h-\[100dvh\]"\](?::not\([^\n{]+\))?\s*\{/
   );
   assert.match(communitySection, /overflow-y:\s*auto !important;/);
   assert.match(communitySection, /touch-action:\s*pan-y;/);
