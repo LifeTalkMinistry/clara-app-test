@@ -27,6 +27,50 @@ function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+function isSupportedActiveDemoState(state = {}) {
+  return Boolean(
+    state?.mode === "current_state" &&
+      state?.dataMode === "sample_data" &&
+      state?.demoModeActive === true &&
+      clean(state?.activeDemoProfile) &&
+      clean(state?.demoLocalUserId)
+  );
+}
+
+/**
+ * Retire pre-demo current-state flags that can outlive the old dashboard and
+ * silently redirect Income Hub reads to the sample-data owner.
+ *
+ * The only supported current-state finance owner today is an explicitly active
+ * demo profile with its own demoLocalUserId. Real users must remain on their
+ * authenticated local-vault owner.
+ */
+export function sanitizeActiveCurrentStateFlag() {
+  if (typeof window === "undefined" || !window.localStorage) return false;
+
+  try {
+    const raw = window.localStorage.getItem(ACTIVE_CURRENT_STATE_KEY);
+    if (!raw) return false;
+
+    const parsed = JSON.parse(raw);
+    if (isSupportedActiveDemoState(parsed)) return false;
+
+    window.localStorage.removeItem(ACTIVE_CURRENT_STATE_KEY);
+    return true;
+  } catch {
+    try {
+      window.localStorage.removeItem(ACTIVE_CURRENT_STATE_KEY);
+    } catch {
+      // Storage can be unavailable in restricted browser modes.
+    }
+    return true;
+  }
+}
+
+// Run before repositories resolve finance ownership so an obsolete dashboard
+// flag cannot split Income Hub reads from the authenticated user's writes.
+sanitizeActiveCurrentStateFlag();
+
 function getRealLocalUserId(user) {
   return clean(user?.id || user?.email || FALLBACK_LOCAL_USER_ID) || FALLBACK_LOCAL_USER_ID;
 }
