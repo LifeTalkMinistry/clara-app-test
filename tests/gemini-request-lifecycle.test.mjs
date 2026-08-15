@@ -69,5 +69,5 @@ test("successful reservation is trusted auth, failure refunds, and timing is obs
   assert.match(api, /geminiMs/);
   assert.match(api, /parseMs/);
   assert.match(api, /totalMs/);
-  assert.doesNotMatch(api, /GEMINI_API_KEY/);
+  assert.match(core, /process\.env\.GEMINI_API_KEY/);
 });
