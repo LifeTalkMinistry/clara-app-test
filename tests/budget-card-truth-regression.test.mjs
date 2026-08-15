@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { resetMonthlyBudgetCycle } from "../src/lib/clara-budget-cycle-reset.js";
+import {
+  closeMonthlyBudgetCycle,
+  resetMonthlyBudgetCycle,
+} from "../src/lib/clara-budget-cycle-reset.js";
 import { normalizeCarouselBudgetPlan } from "../src/components/financial-carousel/logic/financeCarouselDataHelpersCore.js";
 
 const readSource = (relativePath) =>
@@ -13,6 +16,9 @@ const budgetLogic = readSource("src/components/financial-carousel/cards/budget/l
 const budgetEngine = readSource("src/components/fresh/main-dashboard/budget/useDashboardMonthlyBudgetPlanEngine.js");
 const carouselCore = readSource("src/components/financial-carousel/logic/financeCarouselDataHelpersCore.js");
 const formProgress = readSource("src/components/fresh/main-dashboard/budget/useDashboardBudgetFormProgress.js");
+const budgetCard = readSource("src/components/BudgetCard.jsx");
+const budgetCardView = readSource("src/components/financial-carousel/cards/budget/ui/BudgetCardView.jsx");
+const carouselItemCard = readSource("src/components/financial-carousel/ui/CarouselItemCard.jsx");
 
 test("protected Manual Log selections use explicit selected-budget ownership", () => {
   assert.doesNotMatch(listItems, /installProtectedFindBridge|Object\.defineProperty\(options, "find"/);
@@ -145,6 +151,82 @@ test("reset archives every live header and category so no legacy total survives"
   assert.deepEqual(result.archivedCategoryIds.sort(), ["food-category", "legacy-orphan-category"].sort());
   assert.equal(createdRows[0].declared_budget, 0);
   assert.deepEqual(createdRows[0].reset_from_budget_ids.sort(), ["legacy-active", "newer-draft"].sort());
+});
+
+test("manual close preserves history and original cycle dates while closing the live plan", async () => {
+  const updates = [];
+  const budgets = [
+    {
+      id: "aug-header",
+      is_plan_header: true,
+      plan_type: "monthly_budget",
+      status: "active",
+      is_active: true,
+      month: "2026-08",
+      cycle_start: "2026-08-01",
+      cycle_end: "2026-08-31",
+      declared_budget: 10500,
+    },
+    {
+      id: "food",
+      plan_type: "budget_category",
+      status: "active",
+      is_active: true,
+      month: "2026-08",
+      cycle_start: "2026-08-01",
+      allocated_amount: 6000,
+    },
+    {
+      id: "transport",
+      plan_type: "budget_category",
+      status: "active",
+      is_active: true,
+      month: "2026-08",
+      cycle_start: "2026-08-01",
+      allocated_amount: 4500,
+    },
+    {
+      id: "july-history",
+      plan_type: "budget_category",
+      status: "closed",
+      is_active: false,
+      month: "2026-07",
+      cycle_start: "2026-07-01",
+      cycle_end: "2026-07-31",
+    },
+  ];
+
+  const result = await closeMonthlyBudgetCycle({
+    budgets,
+    headerHint: {
+      month: "2026-08",
+      cycle_start: "2026-08-01",
+      cycle_end: "2026-08-31",
+    },
+    updateBudget: async (id, patch) => {
+      updates.push({ id, patch });
+      return { id, ...patch };
+    },
+  });
+
+  assert.deepEqual(updates.map((entry) => entry.id), ["food", "transport", "aug-header"]);
+  assert.ok(updates.every((entry) => entry.patch.status === "closed"));
+  assert.ok(updates.every((entry) => entry.patch.is_active === false));
+  assert.ok(updates.every((entry) => entry.patch.active === false));
+  assert.ok(updates.every((entry) => entry.patch.closed_at));
+  assert.ok(updates.every((entry) => !("cycle_start" in entry.patch)));
+  assert.ok(updates.every((entry) => !("cycle_end" in entry.patch)));
+  assert.equal(result.closedHeaderId, "aug-header");
+  assert.deepEqual(result.closedCategoryIds, ["food", "transport"]);
+});
+
+test("budget card exposes the manual close action through the live finance controller", () => {
+  assert.match(carouselItemCard, /financeCardController=\{financeCardController\}/);
+  assert.match(budgetCardView, /financeCardController=\{financeCardController\}/);
+  assert.match(budgetCard, /closeMonthlyBudgetCycle/);
+  assert.match(budgetCard, /End budget/);
+  assert.match(budgetCard, /End this budget\?/);
+  assert.match(budgetCard, /Budget ended early\. Your history is still saved\./);
 });
 
 test("an inactive reset plan cannot leak old watch-zone totals into the budget card", () => {
