@@ -14,8 +14,21 @@ const CANONICAL_ACCOUNT_PLANS = new Set([
   "champion",
 ]);
 
+function normalizeAccountPlan(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return CANONICAL_ACCOUNT_PLANS.has(normalized) ? normalized : null;
+}
+
+function normalizeAccountStatus(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return ["active", "pending", "inactive"].includes(normalized)
+    ? normalized
+    : "inactive";
+}
+
 export default function useClaraSupport(user) {
   const [backendRecord, setBackendRecord] = useState(null);
+  const [liveAccount, setLiveAccount] = useState(null);
   const [championCapacity, setChampionCapacity] = useState(null);
   const [loading, setLoading] = useState(false);
   const [purchaseTier, setPurchaseTier] = useState(null);
@@ -26,6 +39,7 @@ export default function useClaraSupport(user) {
   const refresh = useCallback(async () => {
     if (!user?.id) {
       setBackendRecord(null);
+      setLiveAccount(null);
       setChampionCapacity(null);
       return null;
     }
@@ -33,6 +47,7 @@ export default function useClaraSupport(user) {
     const token = getStoredBackendToken();
     if (!token) {
       setBackendRecord(null);
+      setLiveAccount(null);
       setChampionCapacity(null);
       return null;
     }
@@ -41,12 +56,22 @@ export default function useClaraSupport(user) {
     try {
       const result = await backendRequest("/api/support/status", { token });
       const membership = result?.membership || null;
+      const accountPlan = normalizeAccountPlan(result?.accountPlan);
       setBackendRecord(membership);
+      setLiveAccount(
+        accountPlan
+          ? {
+              plan: accountPlan,
+              status: normalizeAccountStatus(result?.accountStatus),
+            }
+          : null
+      );
       setChampionCapacity(null);
       return membership;
     } catch (supportError) {
       console.warn("CLARA support state unavailable:", supportError?.message || supportError);
       setBackendRecord(null);
+      setLiveAccount(null);
       setChampionCapacity(null);
       return null;
     } finally {
@@ -71,20 +96,22 @@ export default function useClaraSupport(user) {
     };
   }, [refresh]);
 
-  const accountPlan = String(
-    user?.plan || user?.plan_key || user?.subscription_plan || ""
-  )
-    .trim()
-    .toLowerCase();
-  const accountPlanIsCanonical = CANONICAL_ACCOUNT_PLANS.has(accountPlan);
+  const snapshotPlan = normalizeAccountPlan(
+    user?.plan || user?.plan_key || user?.subscription_plan
+  );
+  const snapshotStatus = normalizeAccountStatus(
+    user?.status || user?.account_status || "active"
+  );
+
+  // The support-status response is the freshest account-plan authority because
+  // the backend reconciles support expiry before returning it. The user snapshot
+  // remains a startup/offline fallback only.
+  const accountPlan = liveAccount?.plan || snapshotPlan;
+  const accountStatus = liveAccount?.status || snapshotStatus;
   const accountTier = normalizeSupportTier(accountPlan);
-  const accountStatus = String(user?.status || user?.account_status || "active")
-    .trim()
-    .toLowerCase();
 
   const record = useMemo(() => {
-    if (!accountPlanIsCanonical) return backendRecord;
-    if (!accountTier) return null;
+    if (!accountPlan || accountPlan === "free" || !accountTier) return null;
 
     const backendTier = normalizeSupportTier(
       backendRecord?.tier || backendRecord?.tierKey
@@ -95,11 +122,11 @@ export default function useClaraSupport(user) {
       ...(matchingBackendRecord || {}),
       tier: accountTier,
       tierKey: accountTier,
-      status: accountStatus === "active" ? "active" : accountStatus,
+      status: accountStatus,
       active: accountStatus === "active",
       source: "account_plan",
     };
-  }, [accountPlanIsCanonical, accountStatus, accountTier, backendRecord]);
+  }, [accountPlan, accountStatus, accountTier, backendRecord]);
 
   const support = useMemo(() => getSupportDisplayState(record), [record]);
   const isActive = useMemo(() => isSupportRecordActive(record), [record]);
