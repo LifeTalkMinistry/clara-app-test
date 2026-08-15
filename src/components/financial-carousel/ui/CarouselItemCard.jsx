@@ -156,6 +156,7 @@ function CarouselItemCard(props) {
         onEditBudgetCategory={onEditBudgetCategory}
         onDeleteBudgetCategory={onDeleteBudgetCategory}
         onResetBudget={onResetBudget}
+        financeCardController={financeCardController}
       />
     );
   } else if (item.type === "savingsGoals") {
