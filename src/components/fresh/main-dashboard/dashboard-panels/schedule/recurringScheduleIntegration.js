@@ -43,11 +43,12 @@ installScheduleAgendaBreathingRoomStyles();
 
 function getScheduleProjectionRange() {
   const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
   const end = new Date(now);
   end.setMonth(end.getMonth() + RECURRING_SCHEDULE_WINDOW_MONTHS);
 
   return {
-    start: toLocalDateKey(now),
+    start: toLocalDateKey(start),
     end: toLocalDateKey(end),
   };
 }
@@ -125,6 +126,8 @@ export async function dispatchIncomeTimingOccurrences(ownerId) {
   let incomeSources = [];
 
   try {
+    // getIncomeSources is also the canonical reconciliation boundary. By the
+    // time this resolves, incomeTimings[] is a derived cache of Income Hub.
     incomeSources = await getIncomeSources(ownerId);
   } catch (error) {
     console.warn("CLARA income source amounts could not be loaded for Schedule projection:", error);
@@ -166,15 +169,17 @@ export async function dispatchIncomeTimingOccurrences(ownerId) {
     }));
   });
 
-  // Persist the exact rolling 12-month projection so Schedule remains correct
-  // even when Income Hub and Schedule are not mounted at the same time.
-  // Replacing all managed income projections also removes stale dates after an edit.
+  // Replace only CLARA-managed income projections. User-created schedule items,
+  // bills, holidays, and other event types remain untouched.
   persistIncomeScheduleProjection(ownerId, projectedEvents);
 
-  // Refresh an already-mounted Schedule with the same deterministic events.
-  // Existing create-event handling deduplicates by id.
-  projectedEvents.forEach((event) => dispatchClaraEvent(SCHEDULE_CREATE_EVENT, event));
-  dispatchClaraEvent(SCHEDULE_SYNC_INCOME_EVENT, { events: projectedEvents });
+  // Income projection uses one replacement signal instead of appending through
+  // create-event. This makes payday edits remove stale managed dates in-memory
+  // as well as in localStorage.
+  dispatchClaraEvent(SCHEDULE_SYNC_INCOME_EVENT, {
+    ownerId,
+    events: projectedEvents,
+  });
 
   return projectedEvents;
 }
