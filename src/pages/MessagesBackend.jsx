@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   MessageSquare,
-  MoreHorizontal,
   Search,
   Send,
 } from "lucide-react";
@@ -18,10 +17,13 @@ import {
   getStoredBackendUser,
 } from "@/lib/clara-backend-client";
 import {
-  formatBubbleTime,
   formatChatTime,
   getMessageInitials,
 } from "@/components/fresh/messages/messagesUtils";
+import {
+  ConversationActionsMenu,
+  InteractiveMessageBubble,
+} from "@/components/fresh/messages/MessageConversationActions";
 import SupportTierBadge from "@/components/support/SupportTierBadge";
 import { ClaraOrbMark } from "@/components/community/ClaraOrbPage";
 import { CLARA_SUPPORT_CONVERSATION_TARGET } from "@/lib/support-conversation-navigation";
@@ -97,7 +99,7 @@ export default function MessagesBackend() {
   const fetchMessages = useCallback(async () => {
     if (!token || !currentUserId) return setMessages([]);
     try {
-      const data = await backendRequest("/api/messages", { token });
+      const data = await backendRequest("/api/messages/view", { token });
       setMessages(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("[Messages] messages fetch failed:", error);
@@ -447,6 +449,38 @@ export default function MessagesBackend() {
     [activeConvo, currentUserId, isAdmin]
   );
 
+  const handleMessageDeleted = useCallback((messageId) => {
+    setMessages((current) =>
+      current.filter((message) => String(message.id) !== String(messageId))
+    );
+  }, []);
+
+  const handleConversationCleared = useCallback((messageIds) => {
+    const deletedIds = new Set(
+      (Array.isArray(messageIds) ? messageIds : []).map((id) => String(id))
+    );
+    if (!deletedIds.size) return;
+    setMessages((current) =>
+      current.filter((message) => !deletedIds.has(String(message.id)))
+    );
+  }, []);
+
+  const handleInteractionChanged = useCallback((interaction) => {
+    const messageId = interaction?.message_id;
+    if (!messageId) return;
+    setMessages((current) =>
+      current.map((message) =>
+        String(message.id) === String(messageId)
+          ? {
+              ...message,
+              my_reaction: interaction.my_reaction || null,
+              reaction_summary: interaction.reaction_summary || {},
+            }
+          : message
+      )
+    );
+  }, []);
+
   const handleSend = async () => {
     const content = newMsg.trim();
     if (!content || !activeConvo?.id || sending || !token) return;
@@ -471,6 +505,8 @@ export default function MessagesBackend() {
           created_at: new Date().toISOString(),
           message_type: "support",
           support_user_id: supportUserId,
+          my_reaction: null,
+          reaction_summary: {},
         }
       : {
           id: optimisticId,
@@ -484,6 +520,8 @@ export default function MessagesBackend() {
           content,
           is_read: false,
           created_at: new Date().toISOString(),
+          my_reaction: null,
+          reaction_summary: {},
         };
 
     setMessages((current) => [optimistic, ...current]);
@@ -508,7 +546,7 @@ export default function MessagesBackend() {
           });
 
       setMessages((current) => [
-        saved,
+        { ...saved, my_reaction: null, reaction_summary: {} },
         ...current.filter((message) => message.id !== optimisticId),
       ]);
     } catch (error) {
@@ -594,12 +632,10 @@ export default function MessagesBackend() {
               </p>
             </div>
 
-            <button
-              type="button"
-              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/60"
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </button>
+            <ConversationActionsMenu
+              messageIds={activeConvo.messages.map((message) => message.id)}
+              onCleared={handleConversationCleared}
+            />
           </div>
         </header>
 
@@ -627,29 +663,13 @@ export default function MessagesBackend() {
               activeConvo.messages.map((message) => {
                 const isMine = messageIsOutgoing(message, activeConvo);
                 return (
-                  <div
+                  <InteractiveMessageBubble
                     key={message.id}
-                    className={`flex ${isMine ? "justify-end" : "justify-start"}`}
-                  >
-                    <div
-                      className={`max-w-[82%] rounded-[22px] px-4 py-3 ${
-                        isMine
-                          ? "rounded-br-md bg-[#22c7b8] text-[#042f2e]"
-                          : "rounded-bl-md border border-white/10 bg-white/[0.06] text-white"
-                      }`}
-                    >
-                      <p className="whitespace-pre-wrap break-words text-[14px] leading-relaxed">
-                        {message.content}
-                      </p>
-                      <div
-                        className={`mt-1.5 text-[10px] ${
-                          isMine ? "text-[#042f2e]/65" : "text-white/35"
-                        }`}
-                      >
-                        {formatBubbleTime(message.created_at)}
-                      </div>
-                    </div>
-                  </div>
+                    message={message}
+                    isMine={isMine}
+                    onDeleted={handleMessageDeleted}
+                    onInteractionChanged={handleInteractionChanged}
+                  />
                 );
               })
             )}
