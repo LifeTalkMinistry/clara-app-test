@@ -9,6 +9,11 @@ import {
   ACTIVE_CURRENT_STATE_KEY,
   SAMPLE_DATA_LOCAL_USER_ID,
 } from "./clara-young-professional-current-state.js";
+import {
+  reconcileStableIncomeTimingCache,
+  removeStableIncomeTimingSource,
+  syncStableIncomeTimingSource,
+} from "./stableIncomeTimingAuthority.js";
 
 const STORE_NAME = LOCAL_FINANCE_STORES?.privatePreferences || "private_preferences";
 const WALLET_STORE = LOCAL_FINANCE_STORES?.wallets || "wallets";
@@ -177,6 +182,21 @@ export function normalizeIncomeSource(source = {}) {
   const stability = INCOME_SOURCE_STABILITY.includes(source.stability) ? source.stability : "Irregular";
   const isArchived = Boolean(source.isArchived ?? source.is_archived ?? false);
   const archivedAt = source.archivedAt || source.archived_at || null;
+  const hasIncomeRecurrence = Boolean(
+    source.incomeRecurrence ||
+      source.income_recurrence ||
+      source.recurrenceRule ||
+      source.recurrence_rule
+  );
+  const stableTimingEnabled =
+    stability === "Stable" &&
+    !isArchived &&
+    (source.usualIncomeDateEnabled === true ||
+      source.usual_income_date_enabled === true ||
+      hasIncomeRecurrence);
+  const stableBudgetTiming =
+    stableTimingEnabled &&
+    (source.useForBudgetTiming === true || source.use_for_budget_timing === true);
 
   return {
     ...source,
@@ -199,6 +219,10 @@ export function normalizeIncomeSource(source = {}) {
     is_archived: isArchived,
     archivedAt,
     archived_at: archivedAt,
+    usualIncomeDateEnabled: stableTimingEnabled,
+    usual_income_date_enabled: stableTimingEnabled,
+    useForBudgetTiming: stableBudgetTiming,
+    use_for_budget_timing: stableBudgetTiming,
     createdAt: source.createdAt || source.created_at || timestamp,
     created_at: source.created_at || source.createdAt || timestamp,
     updatedAt: timestamp,
@@ -220,7 +244,7 @@ const sortNewest = (sources) =>
 export async function getIncomeSources(localUserId) {
   const readLocalUserId = getIncomeHubReadUserId(localUserId);
   const records = await getLocalRecords(STORE_NAME, readLocalUserId);
-  return sortNewest(
+  const activeSources = sortNewest(
     (records || []).filter(
       (record) =>
         !record?.deletedAt &&
@@ -230,10 +254,16 @@ export async function getIncomeSources(localUserId) {
         (record?.kind === RECORD_KIND || record?.recordType === RECORD_KIND)
     )
   );
+
+  // Income Hub is the canonical owner. Every read repairs the synchronous
+  // recurring timing cache so older users never need to recreate Salary.
+  reconcileStableIncomeTimingCache(readLocalUserId, activeSources);
+  return activeSources;
 }
 
 export async function upsertIncomeSource(localUserId, source) {
   const savedSource = await upsertLocalRecord(STORE_NAME, normalizeIncomeSource(source), localUserId);
+  syncStableIncomeTimingSource(localUserId, savedSource);
   emitIncomeHubUpdated();
   return savedSource;
 }
@@ -437,6 +467,7 @@ export async function archiveIncomeSource(localUserId, id) {
     localUserId
   );
 
+  syncStableIncomeTimingSource(localUserId, archivedSource);
   emitIncomeHubUpdated();
   return archivedSource;
 }
@@ -462,6 +493,7 @@ export async function deleteIncomeSource(localUserId, id) {
   }
 
   const deletedSource = await softDeleteLocalRecord(STORE_NAME, id, localUserId);
+  removeStableIncomeTimingSource(localUserId, id);
   emitIncomeHubUpdated();
   return deletedSource;
 }
