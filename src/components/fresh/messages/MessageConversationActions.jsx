@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { MoreHorizontal, Trash2 } from "lucide-react";
 import { backendRequest, getStoredBackendToken } from "@/lib/clara-backend-client";
 import { formatBubbleTime } from "@/components/fresh/messages/messagesUtils";
@@ -25,62 +26,62 @@ function MessageConfirmDialog({
   title,
   description,
   confirmLabel,
+  busyLabel = "Working...",
   busy,
   error,
   onCancel,
   onConfirm,
 }) {
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-[150] flex items-end justify-center bg-black/70 px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-16 backdrop-blur-sm sm:items-center sm:pb-4"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !busy) onCancel();
+    <DialogPrimitive.Root
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen && !busy) onCancel();
       }}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="message-confirm-title"
-        aria-describedby="message-confirm-description"
-        className="w-full max-w-sm rounded-[26px] border border-white/10 bg-[#0a1728] p-5 shadow-2xl shadow-black/50"
-      >
-        <h2 id="message-confirm-title" className="text-base font-black text-white">
-          {title}
-        </h2>
-        <p
-          id="message-confirm-description"
-          className="mt-2 text-sm font-semibold leading-relaxed text-white/52"
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[150] bg-black/70 backdrop-blur-sm" />
+        <DialogPrimitive.Content
+          onEscapeKeyDown={(event) => {
+            if (busy) event.preventDefault();
+          }}
+          onInteractOutside={(event) => {
+            if (busy) event.preventDefault();
+          }}
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+16px)] left-1/2 z-[160] w-[calc(100%-32px)] max-w-sm -translate-x-1/2 rounded-[26px] border border-white/10 bg-[#0a1728] p-5 text-white shadow-2xl shadow-black/50 outline-none sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2"
         >
-          {description}
-        </p>
-        {error ? (
-          <p className="mt-3 rounded-xl border border-red-400/15 bg-red-400/[0.08] px-3 py-2 text-xs font-bold text-red-200/85">
-            {error}
-          </p>
-        ) : null}
-        <div className="mt-5 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={busy}
-            className="h-11 rounded-2xl border border-white/10 bg-white/[0.05] text-sm font-black text-white/75 disabled:opacity-40"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={busy}
-            className="h-11 rounded-2xl bg-red-500/90 text-sm font-black text-white shadow-lg shadow-red-950/20 disabled:opacity-50"
-          >
-            {busy ? "Deleting..." : confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
+          <DialogPrimitive.Title className="text-base font-black text-white">
+            {title}
+          </DialogPrimitive.Title>
+          <DialogPrimitive.Description className="mt-2 text-sm font-semibold leading-relaxed text-white/52">
+            {description}
+          </DialogPrimitive.Description>
+          {error ? (
+            <p className="mt-3 rounded-xl border border-red-400/15 bg-red-400/[0.08] px-3 py-2 text-xs font-bold text-red-200/85">
+              {error}
+            </p>
+          ) : null}
+          <div className="mt-5 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={busy}
+              className="h-11 rounded-2xl border border-white/10 bg-white/[0.05] text-sm font-black text-white/75 disabled:opacity-40"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={busy}
+              className="h-11 rounded-2xl bg-red-500/90 text-sm font-black text-white shadow-lg shadow-red-950/20 disabled:opacity-50"
+            >
+              {busy ? busyLabel : confirmLabel}
+            </button>
+          </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
 
@@ -147,7 +148,12 @@ export function InteractiveMessageBubble({
   };
 
   const handlePointerDown = (event) => {
-    if (isTemporary || event.pointerType === "mouse" && event.button !== 0) return;
+    if (
+      isTemporary ||
+      (event.pointerType === "mouse" && event.button !== 0)
+    ) {
+      return;
+    }
     cancelLongPress();
     pointerStartRef.current = { x: event.clientX, y: event.clientY };
     setPressing(true);
@@ -233,6 +239,8 @@ export function InteractiveMessageBubble({
                 className="fixed inset-0 z-[115] cursor-default bg-transparent"
               />
               <div
+                role="menu"
+                aria-label="Message actions"
                 className={`absolute bottom-[calc(100%+10px)] z-[120] w-max max-w-[calc(100vw-32px)] rounded-[22px] border border-white/10 bg-[#0a1728]/98 p-2 shadow-2xl shadow-black/50 backdrop-blur-xl ${
                   isMine ? "right-0" : "left-0"
                 }`}
@@ -243,9 +251,10 @@ export function InteractiveMessageBubble({
                     return (
                       <button
                         type="button"
+                        role="menuitemradio"
                         key={reaction.type}
                         aria-label={reaction.label}
-                        aria-pressed={selected}
+                        aria-checked={selected}
                         disabled={busy}
                         onClick={() => handleReaction(reaction.type)}
                         className={`flex h-9 w-9 items-center justify-center rounded-full text-[20px] transition-transform active:scale-90 disabled:opacity-45 ${
@@ -262,6 +271,7 @@ export function InteractiveMessageBubble({
                 <div className="my-2 h-px bg-white/[0.08]" />
                 <button
                   type="button"
+                  role="menuitem"
                   disabled={busy}
                   onClick={() => {
                     setError("");
@@ -318,6 +328,7 @@ export function InteractiveMessageBubble({
         title="Delete message?"
         description="This removes the message from your CLARA chat only. The other person keeps their copy."
         confirmLabel="Delete"
+        busyLabel="Deleting..."
         busy={busy}
         error={error}
         onCancel={() => {
@@ -366,6 +377,7 @@ export function ConversationActionsMenu({ messageIds = [], onCleared }) {
       <button
         type="button"
         aria-label="Conversation options"
+        aria-haspopup="menu"
         aria-expanded={menuOpen}
         onClick={() => {
           setError("");
@@ -384,9 +396,14 @@ export function ConversationActionsMenu({ messageIds = [], onCleared }) {
             onClick={() => setMenuOpen(false)}
             className="fixed inset-0 z-[115] cursor-default bg-transparent"
           />
-          <div className="absolute right-0 top-12 z-[120] w-52 overflow-hidden rounded-[18px] border border-white/10 bg-[#0a1728]/98 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
+          <div
+            role="menu"
+            aria-label="Conversation actions"
+            className="absolute right-0 top-12 z-[120] w-52 overflow-hidden rounded-[18px] border border-white/10 bg-[#0a1728]/98 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl"
+          >
             <button
               type="button"
+              role="menuitem"
               disabled={!canClear}
               onClick={() => {
                 setError("");
@@ -407,6 +424,7 @@ export function ConversationActionsMenu({ messageIds = [], onCleared }) {
         title="Clear conversation?"
         description="This removes every message in this conversation from your CLARA view only. The other person keeps their copy."
         confirmLabel="Clear chat"
+        busyLabel="Clearing..."
         busy={busy}
         error={error}
         onCancel={() => {
