@@ -1,57 +1,8 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, SlidersHorizontal, X } from "lucide-react";
+import { ArrowUp, X } from "lucide-react";
 import useClaraBuyCheckFlow from "@/components/fresh/main-dashboard/assistant/useClaraBuyCheckFlow";
 
 const CLARA_AI_BRAIN_VERSION = "pause-react-owned-buy-check-v7-continuous-financial-conversation";
-const CLARA_ATTITUDE_STORAGE_KEY = "clara_buy_check_attitude_v1";
-const CLARA_ATTITUDE_OPTIONS = [
-  { id: "gentle", label: "Gentle", description: "Patient, reassuring, and soft when correcting." },
-  { id: "supportive", label: "Supportive", description: "Encouraging and understanding, with clear accountability." },
-  { id: "balanced", label: "Balanced", description: "Calm, practical, objective, and straightforward." },
-  { id: "firm", label: "Firm", description: "Direct and disciplined; challenges weak spending reasons." },
-  { id: "strict", label: "Strict", description: "Maximum accountability; very direct without shaming." },
-];
-
-function readClaraAttitude() {
-  if (typeof window === "undefined") return "balanced";
-  try {
-    const stored = window.localStorage.getItem(CLARA_ATTITUDE_STORAGE_KEY);
-    return CLARA_ATTITUDE_OPTIONS.some((option) => option.id === stored) ? stored : "balanced";
-  } catch {
-    return "balanced";
-  }
-}
-
-function BuyCheckAttitudeSelector({ value, onChange }) {
-  const selected = CLARA_ATTITUDE_OPTIONS.find((option) => option.id === value) || CLARA_ATTITUDE_OPTIONS[2];
-
-  return (
-    <section
-      data-clara-buy-check-attitude-selector="true"
-      className="absolute bottom-[72px] right-0 z-40 w-[164px] rounded-[18px] border border-blue-200/16 bg-[#050d1f]/98 p-2 shadow-[0_20px_58px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-2xl"
-    >
-      <div className="grid gap-1.5" role="radiogroup" aria-label="CLARA communication attitude">
-        {CLARA_ATTITUDE_OPTIONS.map((option) => {
-          const active = option.id === selected.id;
-          return (
-            <button
-              key={option.id}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              onClick={() => onChange?.(option.id)}
-              className={`w-full rounded-full border px-4 py-2.5 text-center text-[11px] font-black tracking-[-0.02em] transition active:scale-[0.97] ${active
-                ? "border-[#ffd84a]/80 bg-[#ffd84a]/10 text-[#ffe783]"
-                : "border-blue-100/28 bg-white/[0.015] text-blue-50/80 hover:border-blue-100/44 hover:bg-white/[0.045] hover:text-white/95"}`}
-            >
-              {option.label}
-            </button>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
 
 const BUY_CHECK_ACKNOWLEDGMENTS = [
   "Good move—you paused before buying. Let’s see if it fits your money.",
@@ -358,41 +309,28 @@ const BuyCheckComposer = memo(function BuyCheckComposer({
   busy,
   step,
   submitAnswer,
-  communicationAttitude,
-  onCommunicationAttitudeChange,
 }) {
   const [draft, setDraft] = useState("");
-  const [attitudeOpen, setAttitudeOpen] = useState(false);
   const inputRef = useRef(null);
   const hasDraft = Boolean(draft.trim());
-  const selectedAttitude = CLARA_ATTITUDE_OPTIONS.find((option) => option.id === communicationAttitude) || CLARA_ATTITUDE_OPTIONS[2];
 
   useEffect(() => {
-    if (!isActive) {
-      setDraft("");
-      setAttitudeOpen(false);
-    }
+    if (!isActive) setDraft("");
   }, [isActive]);
 
   useEffect(() => {
-    if (!isActive || inputLocked || attitudeOpen) return undefined;
+    if (!isActive || inputLocked) return undefined;
     const frame = window.requestAnimationFrame(() => {
       if (document.activeElement !== inputRef.current) inputRef.current?.focus?.({ preventScroll: true });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [attitudeOpen, busy, inputLocked, isActive, step]);
-
-  useEffect(() => {
-    if (!inputLocked && !busy) return;
-    setAttitudeOpen(false);
-  }, [busy, inputLocked]);
+  }, [busy, inputLocked, isActive, step]);
 
   const submitDraft = (event) => {
     event.preventDefault();
     event.stopPropagation();
     const answer = draft.trim();
     if (!answer || inputLocked || busy) return;
-    setAttitudeOpen(false);
     submitAnswer?.(answer);
     setDraft("");
   };
@@ -402,26 +340,13 @@ const BuyCheckComposer = memo(function BuyCheckComposer({
     if (composerLocked) event.preventDefault();
   };
 
-  const chooseAttitude = (attitude) => {
-    onCommunicationAttitudeChange?.(attitude);
-    setAttitudeOpen(false);
-  };
-
   return (
     <form
       onSubmit={submitDraft}
       data-clara-buy-check-react-form="true"
       data-clara-buy-check-composer-locked={composerLocked ? "true" : "false"}
-      className="relative z-30 shrink-0 overflow-visible rounded-[28px] border border-blue-200/16 bg-[#040b1a]/96 p-2.5 shadow-[0_-18px_52px_rgba(0,0,0,0.48),inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-2xl"
+      className="relative z-30 shrink-0 overflow-hidden rounded-[28px] border border-blue-200/16 bg-[#040b1a]/96 p-2.5 shadow-[0_-18px_52px_rgba(0,0,0,0.48),inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-2xl"
     >
-      {attitudeOpen ? (
-        <BuyCheckAttitudeSelector
-          value={communicationAttitude}
-          onChange={chooseAttitude}
-          onClose={() => setAttitudeOpen(false)}
-        />
-      ) : null}
-
       <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-[linear-gradient(90deg,#1769ff_0%,#1769ff_42%,#ffd84a_42%,#ffd84a_56%,#e53945_56%,#e53945_100%)] opacity-80" />
       <div className="flex items-center gap-2 rounded-[22px] border border-blue-200/14 bg-[#08142b]/94 px-3 py-2 shadow-inner focus-within:border-blue-300/36">
         <input
@@ -433,9 +358,6 @@ const BuyCheckComposer = memo(function BuyCheckComposer({
           onChange={(event) => {
             if (!composerLocked) setDraft(event.target.value);
           }}
-          onFocus={() => {
-            if (attitudeOpen) setAttitudeOpen(false);
-          }}
           aria-disabled={composerLocked ? "true" : undefined}
           className={`min-w-0 flex-1 bg-transparent py-2 text-[14px] font-medium text-white outline-none placeholder:text-slate-400/72 ${composerLocked ? "opacity-55" : ""}`}
           placeholder={placeholderFor(step)}
@@ -443,22 +365,13 @@ const BuyCheckComposer = memo(function BuyCheckComposer({
           aria-label={placeholderFor(step)}
         />
         <button
-          type={hasDraft ? "submit" : "button"}
+          type="submit"
           onMouseDown={(event) => event.preventDefault()}
-          onClick={() => {
-            if (!hasDraft && !composerLocked) setAttitudeOpen((open) => !open);
-          }}
-          disabled={composerLocked}
-          className={`grid h-11 w-11 shrink-0 place-items-center rounded-full border text-white transition active:scale-95 disabled:opacity-40 ${hasDraft
-            ? "border-blue-300/24 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] shadow-[0_10px_28px_rgba(23,105,255,0.28)] hover:brightness-110"
-            : attitudeOpen
-              ? "border-[#ffd84a]/48 bg-[#ffd84a]/12 text-[#ffe783] shadow-[0_10px_28px_rgba(255,216,74,0.12)]"
-              : "border-blue-300/22 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] shadow-[0_10px_28px_rgba(23,105,255,0.24)] hover:brightness-110"}`}
-          aria-label={hasDraft ? "Send Ask Before You Spend answer" : `Choose how CLARA talks to you. Current style: ${selectedAttitude.label}`}
-          aria-expanded={!hasDraft ? attitudeOpen : undefined}
-          data-clara-attitude-trigger={!hasDraft ? "true" : undefined}
+          disabled={composerLocked || !hasDraft}
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-blue-300/24 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] text-white shadow-[0_10px_28px_rgba(23,105,255,0.28)] transition hover:brightness-110 active:scale-95 disabled:opacity-40"
+          aria-label="Send Ask Before You Spend answer"
         >
-          {hasDraft ? <ArrowUp className="h-5 w-5" /> : <SlidersHorizontal className="h-[18px] w-[18px]" />}
+          <ArrowUp className="h-5 w-5" />
         </button>
       </div>
     </form>
@@ -484,18 +397,7 @@ export default function ClaraAiEnvironmentOverlay({
   const previousActiveRef = useRef(false);
   const resultFocusRef = useRef(null);
   const isGuidePreview = layoutVariant === "guide-preview";
-  const [communicationAttitude, setCommunicationAttitude] = useState(readClaraAttitude);
   const ownedFlow = useClaraBuyCheckFlow({ assistantContext: claraAssistantContext });
-
-  const selectCommunicationAttitude = (attitude) => {
-    const next = CLARA_ATTITUDE_OPTIONS.some((option) => option.id === attitude) ? attitude : "balanced";
-    setCommunicationAttitude(next);
-    try {
-      window.localStorage.setItem(CLARA_ATTITUDE_STORAGE_KEY, next);
-    } catch {
-      // Keep the in-session selection even if storage is unavailable.
-    }
-  };
 
   useEffect(() => {
     if (isGuidePreview) return;
@@ -633,8 +535,6 @@ export default function ClaraAiEnvironmentOverlay({
           busy={busy}
           step={step}
           submitAnswer={submitAnswer}
-          communicationAttitude={communicationAttitude}
-          onCommunicationAttitudeChange={selectCommunicationAttitude}
         />
       ) : null}
     </div>
