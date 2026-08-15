@@ -1,8 +1,6 @@
 const LEGACY_LOCAL_SETUP_PROFILE_KEY = "clara_local_setup_profile_v1";
 export const LOCAL_SETUP_PROFILE_KEY_PREFIX = "clara_local_setup_profile_v2:";
 const LOCAL_VAULT_ID_KEY = "clara_local_vault_id_v1";
-const ACTIVE_MEMORY_USER_ID_KEY = "clara_active_memory_user_id";
-const MEMORY_STORAGE_PREFIX = "clara_memory_";
 
 export const REQUIRED_LOCAL_SETUP_FIELDS = [
   "commitment_level",
@@ -30,15 +28,6 @@ export const LOCAL_ONLY_PROFILE_FIELDS = new Set([
   "has_seen_universal_onboarding",
   "onboarding_step",
 ]);
-
-const REQUIRED_MEMORY_CATEGORIES = [
-  "onboarding_commitment",
-  "onboarding_lifestyle_clarity",
-  "onboarding_money_pressure",
-  "onboarding_spending_trigger",
-  "onboarding_guidance_style",
-  "onboarding_guidance_intensity",
-];
 
 function isBrowser() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
@@ -89,8 +78,7 @@ export function resolveLocalSetupOwnerId(ownerLike = null) {
 
   if (!isBrowser()) return "";
   return clean(
-    window.localStorage.getItem(LOCAL_VAULT_ID_KEY) ||
-      window.localStorage.getItem(ACTIVE_MEMORY_USER_ID_KEY)
+    window.localStorage.getItem(LOCAL_VAULT_ID_KEY)
   );
 }
 
@@ -120,29 +108,6 @@ function migrateLegacySetupProfile(ownerLike = null) {
   window.localStorage.setItem(scopedKey, JSON.stringify(migrated));
   window.localStorage.removeItem(LEGACY_LOCAL_SETUP_PROFILE_KEY);
   return migrated;
-}
-
-function getMemoryKeys(ownerLike = null) {
-  if (!isBrowser()) return [];
-  const ownerId = resolveLocalSetupOwnerId(ownerLike);
-  return ownerId ? [`${MEMORY_STORAGE_PREFIX}${ownerId}`] : [];
-}
-
-function hasCompletedLocalMemorySetup(ownerLike = null) {
-  const seenCategories = new Set();
-
-  getMemoryKeys(ownerLike).forEach((key) => {
-    const memories = readJson(key);
-    if (!Array.isArray(memories)) return;
-
-    memories.forEach((memory) => {
-      const category = clean(memory?.category);
-      const content = clean(memory?.content);
-      if (category.startsWith("onboarding_") && content) seenCategories.add(category);
-    });
-  });
-
-  return REQUIRED_MEMORY_CATEGORIES.every((category) => seenCategories.has(category));
 }
 
 function extractAnswers(payload = {}) {
@@ -247,10 +212,7 @@ export function stripLocalSetupProfileFields(value) {
 export function hasCompletedLocalSetup(ownerLike = null) {
   const setup = getLocalSetupProfile(ownerLike);
   const answers = isPlainObject(setup?.answers) ? setup.answers : {};
-  return (
-    (Boolean(setup?.completed) && hasAllRequiredAnswers(answers)) ||
-    hasCompletedLocalMemorySetup(ownerLike)
-  );
+  return Boolean(setup?.completed) && hasAllRequiredAnswers(answers);
 }
 
 export function clearLocalSetupProfile(ownerLike = null) {

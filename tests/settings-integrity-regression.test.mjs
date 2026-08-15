@@ -24,9 +24,6 @@ const notificationRegistrySource = readSource(
 const runtimePatchRegistrySource = readSource(
   "src/runtime/installClaraRuntimePatches.js"
 );
-const scopedMemoryStorageSource = readSource(
-  "src/runtime/installScopedClaraMemoryStorage.js"
-);
 const dashboardPanelNavigationSource = readSource(
   "src/components/fresh/main-dashboard/shell/useDashboardPanelNavigation.js"
 );
@@ -82,31 +79,14 @@ test("legacy compatibility identity reflects backend role without changing vault
   assert.match(localFacadeSource, /account_id: accountId/);
 });
 
-test("CLARA story and behavioral memory are isolated by the active vault", () => {
-  assert.match(
-    scopedMemoryStorageSource,
-    /SCOPED_MEMORY_PREFIX = "CLARA_USER_CONTEXT_STORY_V2:"/
-  );
-  assert.match(
-    scopedMemoryStorageSource,
-    /SCOPED_BEHAVIORAL_MEMORY_PREFIX = "clara_behavioral_memory_v2:"/
-  );
-  assert.match(scopedMemoryStorageSource, /ensureActiveLocalVaultId/);
-  assert.match(scopedMemoryStorageSource, /archiveActiveStoryAlias/);
-  assert.match(scopedMemoryStorageSource, /archiveActiveBehavioralAlias/);
-  assert.match(scopedMemoryStorageSource, /switchMemoryOwner/);
-  assert.match(scopedMemoryStorageSource, /clara:active-local-vault-updated/);
-  assert.match(scopedMemoryStorageSource, /clara:account-vault-switched/);
-  assert.match(
-    scopedMemoryStorageSource,
-    /prevents another account's old active_profile/
-  );
-  assert.match(scopedMemoryStorageSource, /clearLiveSessionMemory/);
-  assert.match(runtimePatchRegistrySource, /installScopedClaraMemoryStorage/);
-  assert.ok(
-    runtimePatchRegistrySource.indexOf("installScopedClaraMemoryStorage") <
-      runtimePatchRegistrySource.indexOf("clara-memory-bridge")
-  );
+test("retired CLARA Memory runtime stays uninstalled", () => {
+  assert.doesNotMatch(runtimePatchRegistrySource, /installScopedClaraMemoryStorage/);
+  assert.doesNotMatch(runtimePatchRegistrySource, /clara-memory-bridge/);
+  assert.doesNotMatch(runtimePatchRegistrySource, /clara-assistant-memory-tab/);
+  assert.doesNotMatch(runtimePatchRegistrySource, /clara-onboarding-memory-review-bridge/);
+  assert.match(runtimePatchRegistrySource, /installRetiredContextDataCleanup/);
+  assert.doesNotMatch(activeSettingsSource, /title: "Memory"/);
+  assert.doesNotMatch(activeSettingsSource, /clara:open-assistant-memory-board/);
 });
 
 test("notification preferences are scoped to the active local vault and react to account switching", () => {

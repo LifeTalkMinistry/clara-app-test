@@ -21,7 +21,6 @@ const dashboardPanelRendererSource = readSource(
   "src/components/fresh/main-dashboard/shell/DashboardPanelRenderer.jsx"
 );
 const localVaultIdentityStartup = readSource("src/lib/start-local-vault-identity.js");
-const assistantMemorySource = readSource("src/clara-assistant-memory-tab.js");
 const runtimeRegistrySource = readSource("src/runtime/installClaraRuntimePatches.js");
 
 const retiredThemePatchUrl = new URL(
@@ -42,11 +41,11 @@ test("active Settings explains device ownership and exposes Move & Restore Data"
   assert.match(activeSettingsSource, /Your CLARA data stays private/);
   assert.match(
     activeSettingsSource,
-    /Signing in on another device will not automatically bring your financial records with it/
+    /Signing in somewhere else will not automatically copy it/
   );
-  assert.match(activeSettingsSource, /Each device starts with its own data/);
-  assert.match(activeSettingsSource, /No automatic device-to-device sync/);
-  assert.match(activeSettingsSource, /You choose when to transfer your data/);
+  assert.match(activeSettingsSource, /Stays on this device/);
+  assert.match(activeSettingsSource, /No automatic device sync/);
+  assert.match(activeSettingsSource, /You control backup & transfer/);
   assert.match(activeSettingsSource, /Move & Restore Data/);
   assert.match(
     activeSettingsSource,
@@ -55,15 +54,14 @@ test("active Settings explains device ownership and exposes Move & Restore Data"
   assert.match(activeSettingsSource, /navigate\("\/data-export"\)/);
 });
 
-test("Settings directly owns detail history, logout, and Memory", () => {
+test("Settings owns detail history and logout without the retired Memory entry", () => {
   assert.match(activeSettingsSource, /SETTINGS_DETAIL_HISTORY_KEY/);
   assert.match(activeSettingsSource, /window\.history\.pushState/);
   assert.match(activeSettingsSource, /window\.addEventListener\("popstate"/);
   assert.match(activeSettingsSource, /signOutFromClaraBackend/);
   assert.match(activeSettingsSource, /"Log out"/);
-  assert.match(activeSettingsSource, /title: "Memory"/);
-  assert.match(activeSettingsSource, /clara:open-assistant-memory-board/);
-  assert.match(assistantMemorySource, /clara:open-assistant-memory-board/);
+  assert.doesNotMatch(activeSettingsSource, /title: "Memory"/);
+  assert.doesNotMatch(activeSettingsSource, /clara:open-assistant-memory-board/);
   assert.doesNotMatch(activeSettingsSource, /MutationObserver/);
 });
 

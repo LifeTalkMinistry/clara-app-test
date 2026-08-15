@@ -159,12 +159,13 @@ test("UI state no longer calculates navigation or exposes dead locked flags", ()
   assert.match(panelNavigationSource, /DASHBOARD_NAVIGATE_EVENT/);
 });
 
-test("Settings owns its detail history, logout, memory, and scroll behavior in React", () => {
+test("Settings owns its detail history, logout, and scroll behavior without retired Memory", () => {
   assert.match(settingsSource, /SETTINGS_DETAIL_HISTORY_KEY/);
   assert.match(settingsSource, /openSetting/);
   assert.match(settingsSource, /closeActiveSetting/);
   assert.match(settingsSource, /signOutFromClaraBackend/);
-  assert.match(settingsSource, /clara:open-assistant-memory-board/);
+  assert.doesNotMatch(settingsSource, /clara:open-assistant-memory-board/);
+  assert.doesNotMatch(settingsSource, /title: "Memory"/);
   assert.match(settingsSource, /settingsRootRef/);
   assert.doesNotMatch(settingsSource, /MutationObserver/);
 
@@ -176,6 +177,7 @@ test("Settings owns its detail history, logout, memory, and scroll behavior in R
   assert.doesNotMatch(mainSource, /CloudVaultSyncBridge/);
   assert.doesNotMatch(runtimeRegistrySource, /installSettingsScrollReset/);
   assert.doesNotMatch(runtimeRegistrySource, /clara-settings-memory-entry/);
+  assert.doesNotMatch(runtimeRegistrySource, /clara-assistant-memory-tab/);
 });
 
 test("schedule guide runtime cannot click or block the top navigation", () => {

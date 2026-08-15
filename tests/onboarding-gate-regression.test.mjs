@@ -106,7 +106,7 @@ test("legacy onboarding migrates once to the active vault", async () => {
   }
 });
 
-test("memory fallback cannot complete onboarding for another vault", async () => {
+test("retired Memory records cannot complete onboarding for any vault", async () => {
   const storage = createStorage();
   globalThis.window = {
     localStorage: storage,
@@ -134,7 +134,7 @@ test("memory fallback cannot complete onboarding for another vault", async () =>
     moduleUrl.searchParams.set("memory", String(Date.now()));
     const onboarding = await import(moduleUrl.href);
 
-    assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-a" }), true);
+    assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-a" }), false);
     assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-b" }), false);
   } finally {
     delete globalThis.window;

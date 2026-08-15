@@ -1,4 +1,3 @@
-import { clearMemories } from "@/lib/ai/clara-memory";
 import {
   clearLocalSetupProfile,
   LOCAL_SETUP_PROFILE_KEY_PREFIX,
@@ -21,10 +20,7 @@ const RESETTABLE_PREFIXES = [
   "clara_dashboard_runtime",
   "clara_finance_cache",
   "clara_life_profile",
-  "clara_ai_financial_memory",
   "clara_private_preferences",
-  "clara_user_context",
-  "clara_live_user_message",
   "clara_buy_check_session",
   "clara_forecast_session",
   LOCAL_SETUP_PROFILE_KEY_PREFIX,
@@ -80,7 +76,6 @@ function clearScopedLocalStorage(localUserId) {
 
   clearDailyCheckInState(localUserId);
   clearLocalSetupProfile({ id: localUserId });
-  removeKey(storage, `clara_memory_${localUserId}`);
   removeKey(storage, `clara_me_life_setup:${localUserId}`);
   removeKey(storage, `${PROFILE_PREFIX}${localUserId}`);
   clearScopedAccessSnapshot(storage, localUserId);
@@ -114,7 +109,6 @@ export async function resetLocalClaraJourney({
     });
   }
 
-  clearMemories(canonicalId);
   clearLocalSetupProfile({ id: canonicalId });
   clearDailyCheckInState(canonicalId);
 

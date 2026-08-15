@@ -59,24 +59,6 @@ function firstProfileValue(effectiveContext = {}, fallbackContext = {}, keys = [
   return null;
 }
 
-function flattenMemoryRecords(memoryContext = {}) {
-  const cabinets = asArray(memoryContext?.memoryCabinets).flatMap((cabinet) =>
-    asArray(cabinet.records).map((record) => ({ ...record, cabinet: cabinet.cabinet }))
-  );
-  const profileNotes = asArray(memoryContext?.profileMemoryNotes);
-  const history = asArray(memoryContext?.userMessageHistory);
-  return [...cabinets, ...profileNotes, ...history].filter(Boolean);
-}
-
-function findMemorySignal(memoryContext = {}, patterns = []) {
-  const records = flattenMemoryRecords(memoryContext);
-  const match = records.find((record) => {
-    const text = clean(`${record.summary || ""} ${record.text || ""} ${record.content || ""} ${asArray(record.signals).join(" ")}`).toLowerCase();
-    return patterns.some((pattern) => text.includes(pattern));
-  });
-  return clean(match?.summary || match?.text || match?.content || asArray(match?.signals).join(", ")) || null;
-}
-
 function getWalletBalance(wallet = {}) {
   return toNumber(wallet.balance ?? wallet.currentBalance ?? wallet.current_balance ?? wallet.derived_balance ?? 0);
 }
@@ -187,8 +169,6 @@ export function buildClaraForecastPhaseOneSnapshot(effectiveContext = {}, fallba
   const savingsGoals = asArray(effectiveContext.savingsGoals);
   const debtObligations = asArray(effectiveContext.debtObligations);
   const emergencyFund = effectiveContext.emergencyFund || null;
-  const memoryContext = effectiveContext.memoryContext || null;
-
   const totalWalletBalance = sumValues(wallets, getWalletBalance);
   const emergencySaved = getEmergencySaved(emergencyFund || {});
   const protectedWalletBalance = sumValues(wallets, getProtectedWalletAmount);
@@ -203,14 +183,11 @@ export function buildClaraForecastPhaseOneSnapshot(effectiveContext = {}, fallba
   const burnoutIndicators = firstProfileValue(effectiveContext, fallbackContext, ["burnoutIndicators", "workExhaustion"]);
 
   const stressSpendingHabit =
-    firstProfileValue(effectiveContext, fallbackContext, ["stressSpendingHabits", "stressSpendingHabit"]) ||
-    findMemorySignal(memoryContext, ["stress", "pressure"]);
+    firstProfileValue(effectiveContext, fallbackContext, ["stressSpendingHabits", "stressSpendingHabit"]);
   const commonImpulsePurchases =
-    firstProfileValue(effectiveContext, fallbackContext, ["commonImpulsivePurchases", "commonImpulsePurchases"]) ||
-    findMemorySignal(memoryContext, ["impulse", "shopee", "lazada", "coffee", "food"]);
+    firstProfileValue(effectiveContext, fallbackContext, ["commonImpulsivePurchases", "commonImpulsePurchases"]);
   const biggestSpendingWeakness =
-    firstProfileValue(effectiveContext, fallbackContext, ["biggestSpendingWeakness", "spendingWeakness"]) ||
-    findMemorySignal(memoryContext, ["weakness", "leak", "overspend"]);
+    firstProfileValue(effectiveContext, fallbackContext, ["biggestSpendingWeakness", "spendingWeakness"]);
 
   const recurringExpensesCount = expenses.filter((expense) => labelContains(expense, ["recurring", "monthly", "subscription", "bill", "rent"])).length;
   const subscriptionsCount = expenses.filter((expense) => labelContains(expense, ["subscription", "netflix", "spotify", "app", "tool"])).length;

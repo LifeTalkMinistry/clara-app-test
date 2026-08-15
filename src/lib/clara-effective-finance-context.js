@@ -10,7 +10,6 @@ import {
 import { buildClaraBridgeReadableContext } from "@/lib/clara-bridge-context-readers";
 import { getIncomeSources } from "@/lib/incomeHubRepository";
 import { getDebtObligations } from "@/lib/debtObligationStore";
-import { MEMORY_CABINET_DEFINITIONS, readMemoryCabinet } from "@/lib/memory-cabinets";
 
 const RETIRED_DEMO_SOURCES = new Set([
   "clara_demo_account",
@@ -298,40 +297,6 @@ function normalizeScheduleEvents(scheduleContext = null) {
   });
 }
 
-function summarizeMemoryCabinets() {
-  try {
-    return MEMORY_CABINET_DEFINITIONS.map((definition) => ({
-      cabinet: definition.name,
-      records: readMemoryCabinet(definition.name)
-        .slice(-20)
-        .map((entry) => ({
-          id: entry.id,
-          summary: clean(entry.summary || entry.text || entry.content || entry.value || ""),
-          signals: Array.isArray(entry.signals) ? entry.signals.slice(0, 6) : [],
-          patternStrength: entry.patternStrength || "",
-          occurrenceCount: entry.occurrenceCount || 1,
-        }))
-        .filter((entry) => entry.summary || entry.signals.length),
-    })).filter((cabinet) => cabinet.records.length);
-  } catch {
-    return [];
-  }
-}
-
-function countMemoryRecords(memoryContext = null) {
-  if (!memoryContext) return 0;
-
-  const cabinetCount = safeArray(memoryContext.memoryCabinets).reduce(
-    (total, cabinet) => total + safeArray(cabinet.records).length,
-    0
-  );
-  const storedMemoryCount = toNumber(memoryContext.previousConversationMemory?.storedMemoryCount || 0);
-  const userHistoryCount = safeArray(memoryContext.userMessageHistory).length;
-  const profileNotesCount = safeArray(memoryContext.profileMemoryNotes).length;
-
-  return cabinetCount + storedMemoryCount + userHistoryCount + profileNotesCount;
-}
-
 async function safeRead(readFn, fallback) {
   try {
     return await readFn();
@@ -390,15 +355,6 @@ function hasFinanceData(raw = {}) {
   );
 }
 
-function buildMemoryContext(bridgeContext = {}, meProfileContext = null) {
-  return {
-    memoryCabinets: summarizeMemoryCabinets(),
-    previousConversationMemory: bridgeContext.previousConversationMemory || null,
-    userMessageHistory: bridgeContext.userMessageHistory || [],
-    profileMemoryNotes: safeArray(meProfileContext?.memoryNotes),
-  };
-}
-
 export async function getClaraEffectiveFinanceContext(userId, options = {}) {
   const localUserId = clean(userId) || "local-user";
   const messages = safeArray(options.messages);
@@ -426,8 +382,6 @@ export async function getClaraEffectiveFinanceContext(userId, options = {}) {
         : bridgeContext.lifeStageContext?.hasProfile
           ? bridgeContext.lifeStageContext
           : bridgeContext.Me_summary_profile || null;
-  const memoryContext = buildMemoryContext(bridgeContext, meProfileContext);
-  const memoryLoaded = countMemoryRecords(memoryContext);
 
   const dataReadStatus = {
     source,
@@ -439,7 +393,6 @@ export async function getClaraEffectiveFinanceContext(userId, options = {}) {
     emergencyFundLoaded: emergencyFund ? 1 : 0,
     scheduleLoaded: scheduleContext.length,
     meProfileLoaded: meProfileContext?.hasProfile || meProfileContext?.profile || meProfileContext?.profileAnswers ? 1 : 0,
-    memoryLoaded,
     repositoryHadData: repoHasData,
     sampleActive: false,
     sampleRecordsFound: false,
@@ -460,7 +413,6 @@ export async function getClaraEffectiveFinanceContext(userId, options = {}) {
     emergencyFund,
     scheduleContext,
     meProfileContext,
-    memoryContext: memoryLoaded ? memoryContext : null,
     timeContext: bridgeContext.currentTime,
     dataReadStatus,
     walletTransactions,
