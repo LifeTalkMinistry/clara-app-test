@@ -1,0 +1,268 @@
+name: Sync CLARA App Icons
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - public/icons/clara-icon-512.png
+      - .github/workflows/sync-app-icons.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-clara-app-icons
+  cancel-in-progress: false
+
+jobs:
+  sync-icons:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Install image tooling
+        run: python -m pip install --disable-pip-version-check pillow
+
+      - name: Normalize canonical icon and generate web/store assets
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import json
+          import re
+
+          ROOT = Path('.')
+          SOURCE = ROOT / 'public/icons/clara-icon-512.png'
+          BG = (2, 6, 23, 255)
+
+          if not SOURCE.exists():
+              raise SystemExit(f'Canonical CLARA icon is missing: {SOURCE}')
+
+          image = Image.open(SOURCE).convert('RGBA')
+          if image.width <= 0 or image.height <= 0:
+              raise SystemExit('Canonical CLARA icon has invalid dimensions.')
+
+          # Preserve the full artwork. We normalize it onto a square canvas instead
+          # of cropping it, then let Android apply its launcher/adaptive masks.
+          target = 1024
+          scale = min(target / image.width, target / image.height)
+          resized = image.resize(
+              (max(1, round(image.width * scale)), max(1, round(image.height * scale))),
+              Image.Resampling.LANCZOS,
+          )
+          normalized = Image.new('RGBA', (target, target), (0, 0, 0, 0))
+          normalized.alpha_composite(
+              resized,
+              ((target - resized.width) // 2, (target - resized.height) // 2),
+          )
+
+          resources = ROOT / 'resources'
+          resources.mkdir(parents=True, exist_ok=True)
+          normalized.save(resources / 'icon-only.png', optimize=True)
+          normalized.save(resources / 'icon-foreground.png', optimize=True)
+          Image.new('RGBA', (target, target), BG).save(
+              resources / 'icon-background.png', optimize=True
+          )
+
+          public_icons = ROOT / 'public/icons'
+          public_icons.mkdir(parents=True, exist_ok=True)
+
+          def save_png(path, size, source=normalized):
+              out = source.resize((size, size), Image.Resampling.LANCZOS)
+              out.save(path, format='PNG', optimize=True)
+
+          save_png(public_icons / 'icon-192.png', 192)
+          save_png(public_icons / 'icon-512.png', 512)
+          save_png(public_icons / 'maskable-icon-192.png', 192)
+          save_png(public_icons / 'maskable-icon-512.png', 512)
+          save_png(public_icons / 'apple-touch-icon-180.png', 180)
+
+          # Keep the older root /icons family synchronized too, so any legacy
+          # manifest or install path cannot fall back to a different logo.
+          legacy_icons = ROOT / 'icons'
+          legacy_icons.mkdir(parents=True, exist_ok=True)
+          for size in (48, 72, 96, 128, 192, 256, 512):
+              out = normalized.resize((size, size), Image.Resampling.LANCZOS)
+              out.save(
+                  legacy_icons / f'icon-{size}.webp',
+                  format='WEBP',
+                  quality=95,
+                  method=6,
+              )
+
+          # Native Play icon packaged with the Android project plus a clearly
+          # named release asset for manual Play Console store-listing updates.
+          play_store = normalized.resize((512, 512), Image.Resampling.LANCZOS)
+          android_play = ROOT / 'android/app/src/main/ic_launcher-playstore.png'
+          android_play.parent.mkdir(parents=True, exist_ok=True)
+          play_store.save(android_play, format='PNG', optimize=True)
+
+          release_dir = ROOT / 'release-assets/google-play'
+          release_dir.mkdir(parents=True, exist_ok=True)
+          release_icon = release_dir / 'clara-app-icon-512.png'
+          play_store.save(release_icon, format='PNG', optimize=True)
+
+          if release_icon.stat().st_size > 1024 * 1024:
+              # Google Play's store icon has a 1 MB ceiling. Fall back to an
+              # optimized indexed PNG only when necessary.
+              indexed = play_store.convert('P', palette=Image.Palette.ADAPTIVE, colors=256)
+              indexed.save(release_icon, format='PNG', optimize=True)
+
+          # Make the browser tab icon use the same generated family rather than
+          # an independent favicon asset.
+          index_path = ROOT / 'index.html'
+          index = index_path.read_text(encoding='utf-8')
+          icon_tag = '    <link rel="icon" type="image/png" href="./icons/icon-192.png" />'
+          index = re.sub(
+              r'\s*<link\s+rel="icon"[^>]*>\s*',
+              '\n' + icon_tag + '\n',
+              index,
+              count=1,
+              flags=re.IGNORECASE,
+          )
+          if 'rel="apple-touch-icon"' not in index:
+              index = index.replace(
+                  icon_tag,
+                  icon_tag + '\n    <link rel="apple-touch-icon" href="./icons/apple-touch-icon-180.png" />',
+                  1,
+              )
+          index_path.write_text(index, encoding='utf-8')
+
+          manifest = {
+              'name': 'CLARA',
+              'short_name': 'CLARA',
+              'description': 'CLARA is a personal money coach for budgeting, spending awareness, and financial discipline.',
+              'start_url': './#/dashboard',
+              'scope': './',
+              'display': 'standalone',
+              'background_color': '#020617',
+              'theme_color': '#020617',
+              'icons': [
+                  {
+                      'src': './icons/icon-192.png',
+                      'sizes': '192x192',
+                      'type': 'image/png',
+                      'purpose': 'any',
+                  },
+                  {
+                      'src': './icons/icon-512.png',
+                      'sizes': '512x512',
+                      'type': 'image/png',
+                      'purpose': 'any',
+                  },
+                  {
+                      'src': './icons/maskable-icon-192.png',
+                      'sizes': '192x192',
+                      'type': 'image/png',
+                      'purpose': 'maskable',
+                  },
+                  {
+                      'src': './icons/maskable-icon-512.png',
+                      'sizes': '512x512',
+                      'type': 'image/png',
+                      'purpose': 'maskable',
+                  },
+              ],
+          }
+
+          for manifest_path in (
+              ROOT / 'manifest.json',
+              ROOT / 'public/manifest.json',
+              ROOT / 'public/manifest.webmanifest',
+          ):
+              manifest_path.write_text(
+                  json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
+                  encoding='utf-8',
+              )
+
+          print(f'Canonical source: {SOURCE} ({image.width}x{image.height})')
+          print(f'Play release asset: {release_icon} ({release_icon.stat().st_size} bytes)')
+          PY
+
+      - name: Remove legacy Android launcher resources
+        shell: bash
+        run: |
+          find android/app/src/main/res -type f \
+            \( -name 'ic_launcher.png' \
+            -o -name 'ic_launcher_round.png' \
+            -o -name 'ic_launcher_foreground.png' \
+            -o -name 'ic_launcher_background.png' \
+            -o -name 'ic_launcher_monochrome.png' \
+            -o -name 'ic_launcher.webp' \
+            -o -name 'ic_launcher_round.webp' \
+            -o -name 'ic_launcher_foreground.webp' \
+            -o -name 'ic_launcher_background.webp' \
+            -o -name 'ic_launcher_monochrome.webp' \) \
+            -delete
+          rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+
+      - name: Generate Android launcher and adaptive icons
+        run: npx @capacitor/assets generate --android --assetPath resources
+
+      - name: Verify Android icon references
+        shell: bash
+        run: |
+          grep -q 'android:icon="@mipmap/ic_launcher"' android/app/src/main/AndroidManifest.xml
+          grep -q 'android:roundIcon="@mipmap/ic_launcher_round"' android/app/src/main/AndroidManifest.xml
+          test -f android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+          test -f android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png
+          test -f android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_background.png
+          test -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          test -f release-assets/google-play/clara-app-icon-512.png
+
+      - name: Verify Android resources compile
+        shell: bash
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Commit synchronized icon assets
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            index.html \
+            manifest.json \
+            public/manifest.json \
+            public/manifest.webmanifest \
+            public/icons \
+            icons \
+            resources \
+            android/app/src/main/AndroidManifest.xml \
+            android/app/src/main/ic_launcher-playstore.png \
+            android/app/src/main/res \
+            release-assets/google-play/clara-app-icon-512.png
+
+          if git diff --cached --quiet; then
+            echo 'CLARA icon assets are already synchronized.'
+            exit 0
+          fi
+
+          git commit -m 'Sync CLARA icon across web Android and Play assets'
+          git pull --rebase origin main
+          git push origin HEAD:main
