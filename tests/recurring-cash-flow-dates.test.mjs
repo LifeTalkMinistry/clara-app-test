@@ -9,6 +9,7 @@ import {
   syncIncomeTimingFromSource,
   __recurringCashFlowTestUtils,
 } from "../src/lib/recurringCashFlowRepository.js";
+import { reconcileStableIncomeTimingCache } from "../src/lib/stableIncomeTimingAuthority.js";
 
 class MemoryStorage {
   constructor() {
@@ -137,6 +138,30 @@ test("income timing saves, reloads, and resolves the next expected income", () =
     daysUntilNextIncome: 10,
     source: "income_timing",
   });
+});
+
+test("legacy Stable Income without the budget-timing flag still backfills runway timing", () => {
+  const ownerId = "legacy-stable-income-window";
+  reset(ownerId);
+
+  reconcileStableIncomeTimingCache(ownerId, [
+    {
+      id: "legacy-salary",
+      name: "Salary",
+      stability: "Stable",
+      usualIncomeDateEnabled: true,
+      incomeRecurrence: {
+        type: "twice_monthly",
+        startDate: "2026-08-15",
+        days: [15, 30],
+      },
+    },
+  ]);
+
+  const window = getExpectedIncomeWindow(ownerId, "2026-08-20");
+  assert.equal(window.previousExpectedDate, "2026-08-15");
+  assert.equal(window.nextExpectedDate, "2026-08-30");
+  assert.equal(window.daysUntilNextIncome, 10);
 });
 
 test("missing income timing safely returns no income-based period", () => {
