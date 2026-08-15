@@ -1,10 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { backendRequest, getStoredBackendToken } from "@/lib/clara-backend-client";
-import { getSupportDisplayState, isSupportRecordActive } from "@/lib/clara-support";
+import {
+  getSupportDisplayState,
+  isSupportRecordActive,
+  normalizeSupportTier,
+} from "@/lib/clara-support";
 import { purchaseClaraSupport } from "@/lib/clara-support-billing";
 
+const CANONICAL_ACCOUNT_PLANS = new Set([
+  "free",
+  "supporter",
+  "builder",
+  "champion",
+]);
+
 export default function useClaraSupport(user) {
-  const [record, setRecord] = useState(null);
+  const [backendRecord, setBackendRecord] = useState(null);
   const [championCapacity, setChampionCapacity] = useState(null);
   const [loading, setLoading] = useState(false);
   const [purchaseTier, setPurchaseTier] = useState(null);
@@ -14,14 +25,14 @@ export default function useClaraSupport(user) {
 
   const refresh = useCallback(async () => {
     if (!user?.id) {
-      setRecord(null);
+      setBackendRecord(null);
       setChampionCapacity(null);
       return null;
     }
 
     const token = getStoredBackendToken();
     if (!token) {
-      setRecord(null);
+      setBackendRecord(null);
       setChampionCapacity(null);
       return null;
     }
@@ -30,12 +41,12 @@ export default function useClaraSupport(user) {
     try {
       const result = await backendRequest("/api/support/status", { token });
       const membership = result?.membership || null;
-      setRecord(membership);
+      setBackendRecord(membership);
       setChampionCapacity(null);
       return membership;
     } catch (supportError) {
       console.warn("CLARA support state unavailable:", supportError?.message || supportError);
-      setRecord(null);
+      setBackendRecord(null);
       setChampionCapacity(null);
       return null;
     } finally {
@@ -60,6 +71,36 @@ export default function useClaraSupport(user) {
     };
   }, [refresh]);
 
+  const accountPlan = String(
+    user?.plan || user?.plan_key || user?.subscription_plan || ""
+  )
+    .trim()
+    .toLowerCase();
+  const accountPlanIsCanonical = CANONICAL_ACCOUNT_PLANS.has(accountPlan);
+  const accountTier = normalizeSupportTier(accountPlan);
+  const accountStatus = String(user?.status || user?.account_status || "active")
+    .trim()
+    .toLowerCase();
+
+  const record = useMemo(() => {
+    if (!accountPlanIsCanonical) return backendRecord;
+    if (!accountTier) return null;
+
+    const backendTier = normalizeSupportTier(
+      backendRecord?.tier || backendRecord?.tierKey
+    );
+    const matchingBackendRecord = backendTier === accountTier ? backendRecord : null;
+
+    return {
+      ...(matchingBackendRecord || {}),
+      tier: accountTier,
+      tierKey: accountTier,
+      status: accountStatus === "active" ? "active" : accountStatus,
+      active: accountStatus === "active",
+      source: "account_plan",
+    };
+  }, [accountPlanIsCanonical, accountStatus, accountTier, backendRecord]);
+
   const support = useMemo(() => getSupportDisplayState(record), [record]);
   const isActive = useMemo(() => isSupportRecordActive(record), [record]);
 
@@ -81,6 +122,7 @@ export default function useClaraSupport(user) {
 
   return {
     record,
+    backendRecord,
     support,
     isActive,
     championCapacity,
