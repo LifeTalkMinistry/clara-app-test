@@ -1,5 +1,9 @@
 import { fetchCurrentBackendBilling } from "@/lib/billing-backend-client";
 import {
+  backendRequest,
+  getStoredBackendToken,
+} from "@/lib/clara-backend-client";
+import {
   fetchBackendLegalInformation,
   updateBackendLegalInformation,
 } from "@/lib/legal-information-backend-client";
@@ -7,6 +11,7 @@ import {
   fetchBackendSupportMessages,
   sendBackendSupportMessage,
 } from "@/lib/support-backend-client";
+import { rememberSupportConversationTarget } from "@/lib/support-conversation-navigation";
 
 const SUPPORT_ADMIN = Object.freeze({
   id: "clara-support",
@@ -14,6 +19,25 @@ const SUPPORT_ADMIN = Object.freeze({
   full_name: "CLARA Support",
   role: "admin",
 });
+
+function requireBackendToken() {
+  const token = getStoredBackendToken();
+  if (!token) {
+    const error = new Error("Your CLARA account session is not available. Log in again.");
+    error.code = "ACCOUNT_SESSION_REQUIRED";
+    throw error;
+  }
+  return token;
+}
+
+async function fetchBackendAdminProfiles() {
+  const profiles = await backendRequest("/api/community/profiles", {
+    token: requireBackendToken(),
+  });
+  return (Array.isArray(profiles) ? profiles : []).filter(
+    (profile) => String(profile?.role || "").trim().toLowerCase() === "admin"
+  );
+}
 
 function parseSupportContent(value) {
   const raw = String(value || "").trim();
@@ -142,9 +166,14 @@ function createProfilesQuery(localFacade) {
 
   const execute = async () => {
     if (isAdminLookup()) {
-      return terminal === "maybeSingle" || terminal === "single"
-        ? { data: SUPPORT_ADMIN, error: null }
-        : { data: [SUPPORT_ADMIN], error: null };
+      try {
+        const admins = await fetchBackendAdminProfiles();
+        return terminal === "maybeSingle" || terminal === "single"
+          ? { data: admins[0] || null, error: null }
+          : { data: admins, error: null };
+      } catch (error) {
+        return { data: null, error };
+      }
     }
 
     let delegated = base;
@@ -382,6 +411,35 @@ function createSupportInsertInterceptor(localFacade) {
     const rawContent = String(first.content || "").trim();
     const isSettingsSupportMessage = /^\[CLARA Support\s*•/i.test(rawContent);
     const isSupportRecipient = String(first.recipient_id || "") === SUPPORT_ADMIN.id;
+
+    if (isSettingsSupportMessage && !isSupportRecipient) {
+      try {
+        const token = requireBackendToken();
+        const savedMessages = await Promise.all(
+          payloads.map((item) => {
+            const recipientId = Number(item?.recipient_id);
+            const content = String(item?.content || "").trim();
+            if (!Number.isInteger(recipientId) || recipientId <= 0) {
+              throw new Error("A valid CLARA admin account is required for support messages.");
+            }
+            if (!content) {
+              throw new Error("Support message content is required.");
+            }
+            return backendRequest("/api/messages", {
+              method: "POST",
+              token,
+              body: { recipient_id: recipientId, content },
+            });
+          })
+        );
+        const delivered = savedMessages.filter(Boolean);
+        const firstRecipientId = delivered[0]?.recipient_id || first.recipient_id;
+        rememberSupportConversationTarget(firstRecipientId);
+        return { data: delivered, error: null };
+      } catch (error) {
+        return { data: null, error };
+      }
+    }
 
     if (!isSettingsSupportMessage && !isSupportRecipient) {
       return {
