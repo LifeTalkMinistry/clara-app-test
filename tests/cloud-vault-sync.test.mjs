@@ -91,6 +91,13 @@ test("the production app has no background server finance synchronization", asyn
     new URL("../src/pages/DataExport.jsx", import.meta.url),
     "utf8"
   );
+  const settingsSource = await fs.readFile(
+    new URL(
+      "../src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx",
+      import.meta.url
+    ),
+    "utf8"
+  );
 
   assert.doesNotMatch(mainSource, /CloudVaultSyncBridge/);
   assert.doesNotMatch(mainSource, /installFastAccountSync/);
@@ -102,9 +109,11 @@ test("the production app has no background server finance synchronization", asyn
   assert.doesNotMatch(repositorySource, /prepareServerVersionBeforeMutation/);
   assert.doesNotMatch(repositorySource, /__claraPrepareServerFinanceMutation/);
 
-  assert.match(storageScreen, /Backup & Transfer/);
-  assert.match(storageScreen, /No automatic replacement/);
-  assert.match(storageScreen, /DeviceTransferPanel/);
+  assert.match(settingsSource, /DeviceTransferPanel/);
+  assert.match(settingsSource, /Backup & Restore File/);
+  assert.match(storageScreen, /Backup & Restore/);
+  assert.match(storageScreen, /Personal backup file/);
+  assert.doesNotMatch(storageScreen, /DeviceTransferPanel/);
   assert.doesNotMatch(storageScreen, /syncServerFinance/);
   assert.doesNotMatch(storageScreen, /\/api\/finance\/sync/);
 });
