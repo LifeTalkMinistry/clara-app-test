@@ -9,9 +9,12 @@ on:
       - "src/lib/clara-gemini-*.js"
       - "src/lib/clara-spending-decision-ai.js"
       - "src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay*.jsx"
+      - "src/components/fresh/main-dashboard/assistant/ClaraLifeProfilePortal.jsx"
       - "src/components/fresh/main-dashboard/assistant/buy-check/*.jsx"
       - "src/components/fresh/main-dashboard/assistant/useClaraBuyCheck*.js"
+      - "src/pages/Profile.jsx"
       - "tests/buy-check-*.test.mjs"
+      - "tests/life-profile-navigation-layout.test.mjs"
       - "package.json"
       - ".github/workflows/verify-buy-check-reconstruction.yml"
 
@@ -35,8 +38,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify Buy Check facts and Gemini authority
-        run: node --test tests/buy-check-context-facts.test.mjs tests/buy-check-gemini-authority.test.mjs
+      - name: Verify Buy Check facts, Gemini authority, and Life Profile layout
+        run: node --test tests/buy-check-context-facts.test.mjs tests/buy-check-gemini-authority.test.mjs tests/life-profile-navigation-layout.test.mjs
 
       - name: Lint Buy Check architecture
         run: npm run lint:buy-check
