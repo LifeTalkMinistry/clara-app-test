@@ -77,6 +77,15 @@ export function getSupportTierByProductId(productId) {
 
 export function isSupportRecordActive(record, now = Date.now()) {
   if (!record || String(record.status || "").toLowerCase() !== "active") return false;
+  if (!normalizeSupportTier(record.tier || record.tierKey)) return false;
+
+  // The canonical users.plan authority may represent an administrator-assigned
+  // supporter tier with no billing expiration. Billing-backed records continue
+  // to require a future support_expires_at timestamp.
+  if (String(record.source || "").toLowerCase() === "account_plan") {
+    return record.active !== false;
+  }
+
   const expiresAt = Date.parse(record.support_expires_at || record.support_expiration_date || "");
   if (!Number.isFinite(expiresAt)) return false;
   return expiresAt > Number(now);
@@ -91,7 +100,7 @@ export function getSupportDisplayState(record, now = Date.now()) {
     active: true,
     label: "Thank you",
     compactLabel: "💙",
-    tier: normalizeSupportTier(record.tier),
+    tier: normalizeSupportTier(record.tier || record.tierKey),
   };
 }
 
