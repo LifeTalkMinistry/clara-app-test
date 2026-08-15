@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import useUserRole from "@/hooks/useUserRole";
 import {
   getRecurringCashFlowOwnerId,
@@ -13,6 +13,8 @@ import {
   syncRecurringBillsIntoSchedule,
 } from "./recurringScheduleIntegration";
 import OriginalScheduleImpactPortalPanel from "./DashboardScheduleImpactPortalPanel.jsx";
+
+const SCHEDULE_SYNC_INCOME_EVENT = "clara:schedule:sync-income-events";
 
 function cleanLabel(value) {
   return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
@@ -172,6 +174,7 @@ export default function DashboardScheduleImpactPortalPanel(props) {
   const { user } = useUserRole() || {};
   const ownerId = useMemo(() => getRecurringCashFlowOwnerId(user), [user]);
   const pendingBillRef = useRef(null);
+  const [scheduleRevision, setScheduleRevision] = useState(0);
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
@@ -248,6 +251,20 @@ export default function DashboardScheduleImpactPortalPanel(props) {
       }
     };
 
+    const onIncomeScheduleSync = (event) => {
+      if (
+        event?.detail?.ownerId &&
+        String(event.detail.ownerId) !== String(ownerId)
+      ) {
+        return;
+      }
+
+      // recurringScheduleIntegration has already performed deterministic
+      // localStorage replacement. Remount the legacy Schedule state owner so
+      // its in-memory event list exactly matches that stored projection.
+      setScheduleRevision((current) => current + 1);
+    };
+
     let scheduled = false;
     const observer = new MutationObserver((mutations) => {
       if (!mutations.some(mutationNeedsEnhancement) || scheduled) return;
@@ -259,6 +276,7 @@ export default function DashboardScheduleImpactPortalPanel(props) {
     });
     observer.observe(document.body, { childList: true, subtree: true });
     document.addEventListener("pointerdown", onPointerDown, true);
+    window.addEventListener(SCHEDULE_SYNC_INCOME_EVENT, onIncomeScheduleSync);
     enhance();
     window.setTimeout(() => syncRecurringBillsIntoSchedule(ownerId), 0);
 
@@ -279,6 +297,7 @@ export default function DashboardScheduleImpactPortalPanel(props) {
     return () => {
       observer.disconnect();
       document.removeEventListener("pointerdown", onPointerDown, true);
+      window.removeEventListener(SCHEDULE_SYNC_INCOME_EVENT, onIncomeScheduleSync);
       window.removeEventListener(
         RECURRING_CASH_FLOW_UPDATED_EVENT,
         onRecurringUpdate
@@ -286,5 +305,8 @@ export default function DashboardScheduleImpactPortalPanel(props) {
     };
   }, [ownerId, props.guidePreviewMode]);
 
-  return React.createElement(OriginalScheduleImpactPortalPanel, props);
+  return React.createElement(OriginalScheduleImpactPortalPanel, {
+    ...props,
+    key: `schedule-${ownerId}-${scheduleRevision}`,
+  });
 }
