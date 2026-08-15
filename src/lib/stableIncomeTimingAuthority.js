@@ -48,9 +48,9 @@ function hasValidRecurrence(source = {}) {
   return Array.isArray(dates) && dates.some(Boolean);
 }
 
-function firstDayOfMonth(dateKey = "") {
-  const match = clean(dateKey).match(/^(\d{4})-(\d{2})-/);
-  return match ? `${match[1]}-${match[2]}-01` : dateKey;
+function firstDayOfCalendarYear(dateKey = "") {
+  const match = clean(dateKey).match(/^(\d{4})-/);
+  return match ? `${match[1]}-01-01` : dateKey;
 }
 
 function canonicalRecurrence(source = {}) {
@@ -60,11 +60,12 @@ function canonicalRecurrence(source = {}) {
       source.expectedStartDate || source.expected_start_date || new Date(),
   });
 
-  // A monthly salary is a calendar-month expectation, not a transaction that
-  // starts only on the day the user happened to configure it. This preserves
-  // earlier payday markers in the currently visible month.
+  // Monthly stable income describes a calendar recurrence, not a transaction
+  // that starts only on the day the user configured it. Anchor the recurring
+  // rule to the start of that calendar year so Schedule can deterministically
+  // reconstruct every legitimate payday in the currently navigable year.
   if (recurrence.type === "monthly" || recurrence.type === "twice_monthly") {
-    const startDate = firstDayOfMonth(recurrence.startDate);
+    const startDate = firstDayOfCalendarYear(recurrence.startDate);
     return { ...recurrence, startDate, start_date: startDate };
   }
 
