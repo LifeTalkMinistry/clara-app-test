@@ -469,20 +469,6 @@ export default function DashboardSettingsPanelOfficial({
   const membershipPriceLabel = selectedMembershipTier
     ? `₱${selectedMembershipTier.price}/month`
     : "₱0";
-  const membershipStatusLabel = membershipStatus === "loading"
-    ? "SYNCING"
-    : membershipStatus === "active"
-      ? "ACTIVE"
-      : membershipStatus === "pending"
-        ? "PENDING"
-        : ["inactive", "expired", "cancelled"].includes(membershipStatus)
-          ? "INACTIVE"
-          : "FREE";
-  const membershipStatusBadgeClass = membershipStatus === "active"
-    ? "border-[#b89934]/45 bg-[#ffd84a]/8 text-[#ffe681]"
-    : membershipStatus === "pending"
-      ? "border-[#b89934]/40 bg-[#ffd84a]/7 text-[#ffe681]"
-      : "border-[#315c8c]/45 bg-[#0a1a30] text-[#9fb9d8]";
   const membershipDescription = membershipStatus === "loading"
     ? "Syncing your CLARA membership."
     : membershipStatus === "active"
@@ -575,7 +561,7 @@ export default function DashboardSettingsPanelOfficial({
       <section className={`${surfaceClass} relative overflow-hidden p-5`}>
         <div aria-hidden="true" className="absolute inset-x-0 top-0 h-0.5 bg-[linear-gradient(90deg,#0867ff_0%,#19b5ff_35%,#ffd84a_67%,#f32645_100%)]" />
         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#e5c95e]">Current membership</p>
-        <div className="mt-3 flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><h3 className="text-2xl font-black tracking-tight text-white">{membershipTierLabel}</h3><p className="mt-1 text-lg font-black text-[#ffe477]">{membershipPriceLabel}</p></div><span className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${membershipStatusBadgeClass}`}>{membershipStatusLabel}</span></div>
+        <div className="mt-3 flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><h3 className="text-2xl font-black tracking-tight text-white">{membershipTierLabel}</h3><p className="mt-1 text-lg font-black text-[#ffe477]">{membershipPriceLabel}</p></div>{selectedMembershipTierKey ? <SupportTierBadge tier={selectedMembershipTierKey} compact tone="settings" /> : null}</div>
         <p className="mt-3 text-sm font-semibold leading-6 text-[#b8c8da]">{membershipDescription}</p>
         <p className="mt-1 text-xs font-semibold leading-5 text-[#849ab4]">{membershipBenefitsDescription}</p>
         {shouldShowMembershipDates ? <div className={`mt-5 grid gap-3 border-t border-[#1c466f]/45 pt-4 ${hasMemberSince && hasNextRenewal ? "grid-cols-2" : "grid-cols-1"}`}>{hasMemberSince ? <div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#6f8aa8]">Member since</p><p className="mt-1 break-words text-sm font-bold text-[#dce9f7]">{memberSinceLabel}</p></div> : null}{hasNextRenewal ? <div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#6f8aa8]">Next renewal</p><p className="mt-1 break-words text-sm font-bold text-[#dce9f7]">{nextRenewalLabel}</p></div> : null}</div> : membershipDetailsMessage ? <p className="mt-5 rounded-2xl border border-[#1b466f]/40 bg-[#040d1a] px-4 py-3 text-xs leading-5 text-[#8199b5]">{membershipDetailsMessage}</p> : null}
