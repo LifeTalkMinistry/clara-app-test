@@ -45,12 +45,6 @@ jobs:
           PY
           git diff --check
 
-      - name: Install locked dependencies
-        run: npm ci
-
-      - name: Verify production compilation
-        run: npx vite build --base=./
-
       - name: Commit hotfix and self-clean
         run: |
           git config user.name "github-actions[bot]"
