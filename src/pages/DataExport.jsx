@@ -2,14 +2,12 @@ import { useRef, useState } from "react";
 import {
   ArrowLeft,
   Download,
-  HardDrive,
   Info,
   ShieldCheck,
   Upload,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import DeviceTransferPanel from "@/components/device-transfer/DeviceTransferPanel";
 import {
   countCloudSnapshotItems,
   downloadClaraPrivateBackup,
@@ -89,32 +87,14 @@ export default function DataExport() {
           </button>
           <div className="text-center">
             <p className="text-xs tracking-[0.28em] text-emerald-300/70">
-              DATA & DEVICES
+              PERSONAL BACKUP
             </p>
-            <h1 className="text-lg font-black">Backup & Transfer</h1>
+            <h1 className="text-lg font-black">Backup & Restore</h1>
           </div>
           <div className="h-11 w-11" />
         </div>
 
-        <section className="rounded-[30px] border border-amber-300/20 bg-amber-300/[0.07] p-4">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-amber-200/20 bg-amber-200/10 text-amber-100">
-              <HardDrive size={19} />
-            </div>
-            <div>
-              <h2 className="font-black text-amber-50">No automatic replacement</h2>
-              <p className="mt-1 text-xs leading-5 text-amber-50/65">
-                CLARA will never replace this device&apos;s financial data simply
-                because you signed in somewhere else. A transfer only begins when
-                you intentionally start it below.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <DeviceTransferPanel user={user} profile={profile} />
-
-        <section className="mt-5 rounded-[28px] border border-white/12 bg-white/[0.035] p-4">
+        <section className="rounded-[28px] border border-white/12 bg-white/[0.035] p-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.05] text-emerald-100">
               <ShieldCheck size={18} />
@@ -122,8 +102,8 @@ export default function DataExport() {
             <div>
               <h2 className="font-black">Personal backup file</h2>
               <p className="mt-1 text-xs leading-5 text-white/48">
-                Keep your own offline copy before resetting the app or making a
-                major change. This remains separate from device transfer.
+                Keep your own offline copy before resetting CLARA or making a
+                major change. You can restore this file on a device you control.
               </p>
             </div>
           </div>
