@@ -78,7 +78,6 @@ export default function ClaraBuyCheckUsagePortal({ isActive = false, disabled = 
 
   const showUsage = validUsage(usage);
   const remaining = showUsage ? Math.max(0, Number(usage.remaining)) : 0;
-  const limit = showUsage ? Math.max(0, Number(usage.limit)) : 0;
 
   return createPortal(
     <>
@@ -98,13 +97,11 @@ export default function ClaraBuyCheckUsagePortal({ isActive = false, disabled = 
       >
         {showUsage ? (
           <span
-            className="pointer-events-none absolute -left-1 top-[calc(50%+17px)] inline-flex h-7 -translate-y-1/2 items-center justify-center rounded-full border border-blue-200/20 bg-[#07162f]/88 px-2 text-[10px] font-black tabular-nums tracking-[-0.02em] text-blue-50/92 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_8px_20px_rgba(0,0,0,0.22)]"
-            aria-label={`${remaining} of ${limit} CLARA replies remaining today`}
-            title={`${remaining} of ${limit} CLARA replies remaining today`}
+            className="pointer-events-none absolute -left-1 top-[calc(50%+17px)] inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-blue-300/32 bg-[#07152d]/92 text-[11px] font-black tabular-nums tracking-[-0.02em] text-blue-100 shadow-[0_12px_30px_rgba(23,105,255,0.20),inset_0_1px_0_rgba(255,255,255,0.06)]"
+            aria-label={`${remaining} CLARA replies remaining today`}
+            title={`${remaining} CLARA replies remaining today`}
           >
-            <span>{remaining}</span>
-            <span className="mx-0.5 text-blue-100/42">/</span>
-            <span className="text-blue-100/62">{limit}</span>
+            {remaining}
           </span>
         ) : null}
         <strong className="text-[21px] font-black leading-[1.2] tracking-[-0.035em] text-white/[0.98]">
