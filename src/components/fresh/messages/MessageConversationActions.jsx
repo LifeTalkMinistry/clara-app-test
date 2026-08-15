@@ -1,10 +1,10 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { MoreHorizontal, Trash2 } from "lucide-react";
 import { backendRequest, getStoredBackendToken } from "@/lib/clara-backend-client";
 import { formatBubbleTime } from "@/components/fresh/messages/messagesUtils";
 
-const LONG_PRESS_MS = 440;
+const LONG_PRESS_MS = 420;
 const LONG_PRESS_MOVE_TOLERANCE = 10;
 
 const MESSAGE_REACTIONS = [
@@ -19,6 +19,21 @@ const MESSAGE_REACTIONS = [
 
 function messageIdIsTemporary(messageId) {
   return String(messageId || "").startsWith("temp-");
+}
+
+function bubbleShape(isMine, groupPosition) {
+  if (groupPosition === "middle") {
+    return isMine ? "rounded-r-lg" : "rounded-l-lg";
+  }
+  if (groupPosition === "first") {
+    return isMine ? "rounded-br-lg" : "rounded-bl-lg";
+  }
+  if (groupPosition === "last") {
+    return isMine
+      ? "rounded-tr-lg rounded-br-md"
+      : "rounded-tl-lg rounded-bl-md";
+  }
+  return isMine ? "rounded-br-md" : "rounded-bl-md";
 }
 
 function MessageConfirmDialog({
@@ -66,7 +81,7 @@ function MessageConfirmDialog({
               type="button"
               onClick={onCancel}
               disabled={busy}
-              className="h-11 rounded-2xl border border-white/10 bg-white/[0.05] text-sm font-black text-white/75 disabled:opacity-40"
+              className="h-11 rounded-2xl border border-white/10 bg-white/[0.05] text-sm font-black text-white/75 transition hover:bg-white/[0.08] disabled:opacity-40"
             >
               Cancel
             </button>
@@ -74,7 +89,7 @@ function MessageConfirmDialog({
               type="button"
               onClick={onConfirm}
               disabled={busy}
-              className="h-11 rounded-2xl bg-red-500/90 text-sm font-black text-white shadow-lg shadow-red-950/20 disabled:opacity-50"
+              className="h-11 rounded-2xl bg-red-500/90 text-sm font-black text-white shadow-lg shadow-red-950/20 transition hover:bg-red-500 disabled:opacity-50"
             >
               {busy ? busyLabel : confirmLabel}
             </button>
@@ -98,7 +113,7 @@ function ReactionSummary({ summary = {}, isMine }) {
 
   return (
     <div className={`-mt-1.5 flex ${isMine ? "justify-end pr-3" : "justify-start pl-3"}`}>
-      <div className="flex h-6 items-center gap-0.5 rounded-full border border-white/10 bg-[#0a1728] px-2 shadow-lg shadow-black/25">
+      <div className="flex h-6 items-center gap-0.5 rounded-full border border-white/10 bg-[#0a1728]/95 px-2 shadow-lg shadow-black/25 backdrop-blur-xl">
         {active.slice(0, 3).map((reaction) => (
           <span key={reaction.type} className="text-[12px] leading-none">
             {reaction.emoji}
@@ -115,18 +130,28 @@ function ReactionSummary({ summary = {}, isMine }) {
 export function InteractiveMessageBubble({
   message,
   isMine,
+  groupPosition = "single",
+  showReceipt = false,
   onDeleted,
   onInteractionChanged,
 }) {
   const token = getStoredBackendToken();
   const longPressTimerRef = useRef(null);
   const pointerStartRef = useRef(null);
+  const firstActionRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [pressing, setPressing] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const isTemporary = messageIdIsTemporary(message?.id);
+  const messageTime = formatBubbleTime(message.created_at);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const timer = window.setTimeout(() => firstActionRef.current?.focus(), 0);
+    return () => window.clearTimeout(timer);
+  }, [menuOpen]);
 
   const cancelLongPress = () => {
     if (longPressTimerRef.current) {
@@ -137,12 +162,16 @@ export function InteractiveMessageBubble({
     setPressing(false);
   };
 
-  const openActions = () => {
+  const openActions = ({ haptic = true } = {}) => {
     if (isTemporary) return;
     setError("");
     setMenuOpen(true);
     setPressing(false);
-    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+    if (
+      haptic &&
+      typeof navigator !== "undefined" &&
+      typeof navigator.vibrate === "function"
+    ) {
       navigator.vibrate(8);
     }
   };
@@ -157,7 +186,10 @@ export function InteractiveMessageBubble({
     cancelLongPress();
     pointerStartRef.current = { x: event.clientX, y: event.clientY };
     setPressing(true);
-    longPressTimerRef.current = window.setTimeout(openActions, LONG_PRESS_MS);
+    longPressTimerRef.current = window.setTimeout(
+      () => openActions({ haptic: true }),
+      LONG_PRESS_MS
+    );
   };
 
   const handlePointerMove = (event) => {
@@ -175,7 +207,20 @@ export function InteractiveMessageBubble({
     if (isTemporary) return;
     event.preventDefault();
     cancelLongPress();
-    openActions();
+    openActions({ haptic: event.pointerType !== "mouse" });
+  };
+
+  const handleBubbleKeyDown = (event) => {
+    if (isTemporary) return;
+    const opensMenu =
+      event.key === "Enter" ||
+      event.key === " " ||
+      event.key === "ContextMenu" ||
+      (event.shiftKey && event.key === "F10");
+    if (!opensMenu) return;
+    event.preventDefault();
+    cancelLongPress();
+    openActions({ haptic: false });
   };
 
   const handleReaction = async (reactionType) => {
@@ -224,14 +269,21 @@ export function InteractiveMessageBubble({
     }
   };
 
+  const receiptText = isTemporary
+    ? "Sending…"
+    : message.is_read
+      ? "Seen"
+      : "Sent";
+
   return (
     <>
       <div className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-        <div className="relative max-w-[82%]">
+        <div className="relative max-w-[84%] sm:max-w-[72%]">
           {menuOpen ? (
             <>
               <button
                 type="button"
+                tabIndex={-1}
                 aria-label="Close message actions"
                 onClick={() => {
                   if (!busy) setMenuOpen(false);
@@ -241,23 +293,33 @@ export function InteractiveMessageBubble({
               <div
                 role="menu"
                 aria-label="Message actions"
-                className={`absolute bottom-[calc(100%+10px)] z-[120] w-max max-w-[calc(100vw-32px)] rounded-[22px] border border-white/10 bg-[#0a1728]/98 p-2 shadow-2xl shadow-black/50 backdrop-blur-xl ${
+                onKeyDown={(event) => {
+                  if (event.key === "Escape" && !busy) {
+                    event.preventDefault();
+                    setMenuOpen(false);
+                  }
+                }}
+                className={`absolute bottom-[calc(100%+10px)] z-[120] w-max max-w-[calc(100vw-24px)] rounded-[24px] border border-white/10 bg-[#0a1728]/98 p-2.5 shadow-2xl shadow-black/55 backdrop-blur-2xl ${
                   isMine ? "right-0" : "left-0"
                 }`}
               >
+                <p className="px-1 pb-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-white/32">
+                  React
+                </p>
                 <div className="flex items-center gap-0.5">
-                  {MESSAGE_REACTIONS.map((reaction) => {
+                  {MESSAGE_REACTIONS.map((reaction, index) => {
                     const selected = message.my_reaction === reaction.type;
                     return (
                       <button
                         type="button"
                         role="menuitemradio"
+                        ref={index === 0 ? firstActionRef : undefined}
                         key={reaction.type}
                         aria-label={reaction.label}
                         aria-checked={selected}
                         disabled={busy}
                         onClick={() => handleReaction(reaction.type)}
-                        className={`flex h-9 w-9 items-center justify-center rounded-full text-[20px] transition-transform active:scale-90 disabled:opacity-45 ${
+                        className={`flex h-10 w-10 items-center justify-center rounded-full text-[21px] outline-none transition duration-150 hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-[#5eead4]/70 active:scale-90 disabled:opacity-45 ${
                           selected
                             ? "bg-[#22c7b8]/18 ring-1 ring-[#5eead4]/50"
                             : "hover:bg-white/[0.07]"
@@ -278,10 +340,10 @@ export function InteractiveMessageBubble({
                     setMenuOpen(false);
                     setConfirmOpen(true);
                   }}
-                  className="flex h-10 w-full items-center gap-2 rounded-xl px-2.5 text-left text-xs font-black text-red-200/90 hover:bg-red-400/[0.08] disabled:opacity-45"
+                  className="flex h-10 w-full items-center gap-2 rounded-xl px-2.5 text-left text-xs font-black text-red-200/90 outline-none transition hover:bg-red-400/[0.08] focus-visible:bg-red-400/[0.08] disabled:opacity-45"
                 >
                   <Trash2 className="h-4 w-4" />
-                  Delete message
+                  Delete for you
                 </button>
                 {error ? (
                   <p className="px-2.5 pb-1 pt-1 text-[10px] font-bold text-red-200/80">
@@ -293,39 +355,54 @@ export function InteractiveMessageBubble({
           ) : null}
 
           <div
+            role={isTemporary ? undefined : "button"}
+            tabIndex={isTemporary ? -1 : 0}
+            aria-label={
+              isTemporary
+                ? undefined
+                : `${isMine ? "Your" : "Received"} message at ${messageTime}. Press Enter for message actions.`
+            }
+            aria-haspopup={isTemporary ? undefined : "menu"}
+            aria-expanded={isTemporary ? undefined : menuOpen}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={cancelLongPress}
             onPointerCancel={cancelLongPress}
             onPointerLeave={cancelLongPress}
             onContextMenu={handleContextMenu}
-            className={`touch-pan-y select-none rounded-[22px] px-4 py-3 transition-transform duration-150 ${
+            onKeyDown={handleBubbleKeyDown}
+            className={`touch-pan-y select-none rounded-[22px] px-4 py-2.5 outline-none transition duration-150 focus-visible:ring-2 focus-visible:ring-[#5eead4]/55 ${
               pressing ? "scale-[0.985]" : "scale-100"
-            } ${
+            } ${bubbleShape(isMine, groupPosition)} ${
               isMine
-                ? "rounded-br-md bg-[#22c7b8] text-[#042f2e]"
-                : "rounded-bl-md border border-white/10 bg-white/[0.06] text-white"
+                ? "bg-gradient-to-br from-[#23c9ba] to-[#13b8ad] text-[#032f2c] shadow-[0_10px_28px_rgba(20,184,166,0.10)]"
+                : "border border-white/[0.08] bg-white/[0.065] text-white shadow-[0_10px_28px_rgba(0,0,0,0.10)] backdrop-blur-sm"
             }`}
           >
-            <p className="whitespace-pre-wrap break-words text-[14px] leading-relaxed">
+            <p className="whitespace-pre-wrap break-words text-[14px] font-medium leading-relaxed">
               {message.content}
             </p>
             <div
-              className={`mt-1.5 text-[10px] ${
-                isMine ? "text-[#042f2e]/65" : "text-white/35"
+              className={`mt-1 flex items-center justify-end gap-1.5 text-[9px] font-semibold ${
+                isMine ? "text-[#042f2e]/58" : "text-white/32"
               }`}
             >
-              {formatBubbleTime(message.created_at)}
+              {messageTime}
             </div>
           </div>
 
           <ReactionSummary summary={message.reaction_summary} isMine={isMine} />
+          {showReceipt && isMine ? (
+            <p className="mt-1 pr-1 text-right text-[9px] font-bold tracking-[0.02em] text-white/34">
+              {receiptText}
+            </p>
+          ) : null}
         </div>
       </div>
 
       <MessageConfirmDialog
         open={confirmOpen}
-        title="Delete message?"
+        title="Delete for you?"
         description="This removes the message from your CLARA chat only. The other person keeps their copy."
         confirmLabel="Delete"
         busyLabel="Deleting..."
@@ -383,7 +460,7 @@ export function ConversationActionsMenu({ messageIds = [], onCleared }) {
           setError("");
           setMenuOpen((current) => !current);
         }}
-        className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/60"
+        className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.055] text-white/60 outline-none transition hover:bg-white/[0.08] focus-visible:ring-2 focus-visible:ring-[#5eead4]/55"
       >
         <MoreHorizontal className="h-4 w-4" />
       </button>
@@ -392,6 +469,7 @@ export function ConversationActionsMenu({ messageIds = [], onCleared }) {
         <>
           <button
             type="button"
+            tabIndex={-1}
             aria-label="Close conversation options"
             onClick={() => setMenuOpen(false)}
             className="fixed inset-0 z-[115] cursor-default bg-transparent"
@@ -399,8 +477,11 @@ export function ConversationActionsMenu({ messageIds = [], onCleared }) {
           <div
             role="menu"
             aria-label="Conversation actions"
-            className="absolute right-0 top-12 z-[120] w-52 overflow-hidden rounded-[18px] border border-white/10 bg-[#0a1728]/98 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl"
+            className="absolute right-0 top-12 z-[120] w-56 overflow-hidden rounded-[20px] border border-white/10 bg-[#0a1728]/98 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-2xl"
           >
+            <div className="px-3 pb-1.5 pt-2 text-[9px] font-black uppercase tracking-[0.16em] text-white/30">
+              Conversation
+            </div>
             <button
               type="button"
               role="menuitem"
@@ -410,7 +491,7 @@ export function ConversationActionsMenu({ messageIds = [], onCleared }) {
                 setMenuOpen(false);
                 setConfirmOpen(true);
               }}
-              className="flex h-11 w-full items-center gap-2.5 rounded-[13px] px-3 text-left text-xs font-black text-red-200/90 hover:bg-red-400/[0.08] disabled:cursor-not-allowed disabled:text-white/25"
+              className="flex h-11 w-full items-center gap-2.5 rounded-[13px] px-3 text-left text-xs font-black text-red-200/90 outline-none transition hover:bg-red-400/[0.08] focus-visible:bg-red-400/[0.08] disabled:cursor-not-allowed disabled:text-white/25"
             >
               <Trash2 className="h-4 w-4" />
               Clear conversation
