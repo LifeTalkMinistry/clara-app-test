@@ -380,7 +380,7 @@ async function refreshMessageUnreadBadge() {
 
   unreadRefreshInFlight = true;
   try {
-    const messages = await backendRequest("/api/messages", { token });
+    const messages = await backendRequest("/api/messages/view", { token });
     const unreadCount = (Array.isArray(messages) ? messages : []).filter(
       (message) =>
         String(message?.recipient_id || "") === String(currentUserId) &&
