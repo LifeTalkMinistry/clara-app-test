@@ -85,6 +85,7 @@ export default function ClaraBuyCheckUsagePortal({ isActive = false, disabled = 
       <style>{`
         [data-clara-buy-check-active-question="true"] {
           margin-top: 22px !important;
+          position: relative !important;
         }
         [data-clara-buy-check-active-question="true"] > strong,
         [data-clara-buy-check-active-question="true"] > span {
@@ -93,11 +94,11 @@ export default function ClaraBuyCheckUsagePortal({ isActive = false, disabled = 
       `}</style>
       <div
         data-clara-buy-check-daily-usage="true"
-        className="flex items-center justify-center gap-2.5"
+        className="relative flex min-h-8 items-center justify-center"
       >
         {showUsage ? (
           <span
-            className="inline-flex h-8 shrink-0 items-center justify-center rounded-full border border-blue-200/20 bg-[#07162f]/88 px-2.5 text-[11px] font-black tabular-nums tracking-[-0.02em] text-blue-50/92 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_8px_20px_rgba(0,0,0,0.22)]"
+            className="pointer-events-none absolute -left-1 top-1/2 inline-flex h-7 -translate-y-1/2 items-center justify-center rounded-full border border-blue-200/20 bg-[#07162f]/88 px-2 text-[10px] font-black tabular-nums tracking-[-0.02em] text-blue-50/92 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_8px_20px_rgba(0,0,0,0.22)]"
             aria-label={`${remaining} of ${limit} CLARA replies remaining today`}
             title={`${remaining} of ${limit} CLARA replies remaining today`}
           >
