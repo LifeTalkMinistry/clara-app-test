@@ -6,6 +6,7 @@ import {
 } from "@/lib/clara-gemini-proxy-client";
 
 const TARGET_SELECTOR = '[data-clara-buy-check-active-question="true"]';
+const BOARD_SELECTOR = '[data-clara-pause-entry-board="true"]';
 
 function validUsage(value) {
   return Boolean(
@@ -17,32 +18,33 @@ function validUsage(value) {
 }
 
 export default function ClaraBuyCheckUsagePortal({ isActive = false, disabled = false }) {
-  const [target, setTarget] = useState(null);
+  const [targets, setTargets] = useState({ question: null, board: null });
   const [usage, setUsage] = useState(null);
 
   useEffect(() => {
     if (!isActive || disabled || typeof document === "undefined") {
-      setTarget(null);
+      setTargets({ question: null, board: null });
       return undefined;
     }
+
+    const syncTargets = () => {
+      const question = document.querySelector(TARGET_SELECTOR);
+      const board = question?.closest(BOARD_SELECTOR) || document.querySelector(BOARD_SELECTOR);
+      setTargets({ question, board });
+      return Boolean(question);
+    };
 
     let firstFrame = 0;
     let secondFrame = 0;
     firstFrame = window.requestAnimationFrame(() => {
-      const found = document.querySelector(TARGET_SELECTOR);
-      if (found) {
-        setTarget(found);
-        return;
-      }
-      secondFrame = window.requestAnimationFrame(() => {
-        setTarget(document.querySelector(TARGET_SELECTOR));
-      });
+      if (syncTargets()) return;
+      secondFrame = window.requestAnimationFrame(syncTargets);
     });
 
     return () => {
       window.cancelAnimationFrame(firstFrame);
       if (secondFrame) window.cancelAnimationFrame(secondFrame);
-      setTarget(null);
+      setTargets({ question: null, board: null });
     };
   }, [disabled, isActive]);
 
@@ -74,41 +76,48 @@ export default function ClaraBuyCheckUsagePortal({ isActive = false, disabled = 
     };
   }, [disabled, isActive]);
 
-  if (!target) return null;
+  if (!targets.question) return null;
 
   const showUsage = validUsage(usage);
   const remaining = showUsage ? Math.max(0, Number(usage.remaining)) : 0;
 
-  return createPortal(
+  return (
     <>
-      <style>{`
-        [data-clara-buy-check-active-question="true"] {
-          margin-top: 22px !important;
-          position: relative !important;
-        }
-        [data-clara-buy-check-active-question="true"] > strong,
-        [data-clara-buy-check-active-question="true"] > span {
-          display: none !important;
-        }
-      `}</style>
-      <div
-        data-clara-buy-check-daily-usage="true"
-        className="relative flex min-h-8 items-center justify-center"
-      >
-        {showUsage ? (
-          <span
-            className="pointer-events-none absolute -left-1 top-[calc(50%+17px)] inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-blue-300/32 bg-[#07152d]/92 text-[11px] font-black tabular-nums tracking-[-0.02em] text-blue-100 shadow-[0_12px_30px_rgba(23,105,255,0.20),inset_0_1px_0_rgba(255,255,255,0.06)]"
-            aria-label={`${remaining} CLARA replies remaining today`}
-            title={`${remaining} CLARA replies remaining today`}
+      {createPortal(
+        <>
+          <style>{`
+            [data-clara-buy-check-active-question="true"] {
+              margin-top: 22px !important;
+              position: relative !important;
+            }
+            [data-clara-buy-check-active-question="true"] > strong,
+            [data-clara-buy-check-active-question="true"] > span {
+              display: none !important;
+            }
+          `}</style>
+          <div
+            data-clara-buy-check-daily-usage="true"
+            className="relative flex min-h-8 items-center justify-center"
           >
-            {remaining}
-          </span>
-        ) : null}
-        <strong className="text-[21px] font-black leading-[1.2] tracking-[-0.035em] text-white/[0.98]">
-          Ask before you spend.
-        </strong>
-      </div>
-    </>,
-    target
+            <strong className="text-[21px] font-black leading-[1.2] tracking-[-0.035em] text-white/[0.98]">
+              Ask before you spend.
+            </strong>
+          </div>
+        </>,
+        targets.question,
+      )}
+      {showUsage && targets.board
+        ? createPortal(
+            <span
+              className="pointer-events-none absolute bottom-3 left-3 z-30 inline-flex h-11 w-11 items-center justify-center rounded-full border border-blue-300/32 bg-[#07152d]/92 text-[11px] font-black tabular-nums tracking-[-0.02em] text-blue-100 shadow-[0_12px_30px_rgba(23,105,255,0.20),inset_0_1px_0_rgba(255,255,255,0.06)]"
+              aria-label={`${remaining} CLARA replies remaining today`}
+              title={`${remaining} CLARA replies remaining today`}
+            >
+              {remaining}
+            </span>,
+            targets.board,
+          )
+        : null}
+    </>
   );
 }
