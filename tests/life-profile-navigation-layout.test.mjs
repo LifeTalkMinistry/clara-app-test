@@ -15,6 +15,14 @@ test("Life Profile trigger is owned by the Buy Check opening card when available
   assert.match(source, /navigate\("\/profile\?view=life-context"/);
 });
 
+test("Life Profile trigger stays visually clean without completion badge or mini brand rail", () => {
+  const source = read("../src/components/fresh/main-dashboard/assistant/ClaraLifeProfilePortal.jsx");
+
+  assert.doesNotMatch(source, /filledCount/);
+  assert.doesNotMatch(source, /-bottom-\[2px\]/);
+  assert.match(source, /<ProfileTrigger onOpen=\{openLifeProfile\} \/>/);
+});
+
 test("Buy Check opening card owns a mirrored contained exit control", () => {
   const source = read("../src/components/fresh/main-dashboard/assistant/ClaraLifeProfilePortal.jsx");
   const wrapper = read("../src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay.jsx");
