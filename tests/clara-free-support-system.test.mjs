@@ -17,7 +17,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8");
 
-test("CLARA support tiers are voluntary recognition tiers, not feature plans", () => {
+test("CLARA support tiers preserve free core access while carrying supporter benefits", () => {
   assert.deepEqual(SUPPORT_TIER_KEYS, ["supporter", "builder", "champion"]);
   assert.equal(SUPPORT_TIERS.supporter.price, 99);
   assert.equal(SUPPORT_TIERS.builder.price, 249);
@@ -30,7 +30,7 @@ test("CLARA support tiers are voluntary recognition tiers, not feature plans", (
   assert.match(SUPPORT_TIERS.champion.positioning, /personally work with Max/i);
 });
 
-test("support gratitude state lasts only through the active support cycle", () => {
+test("support gratitude state lasts only through the active support cycle or a canonical admin plan", () => {
   const now = Date.parse("2026-08-09T00:00:00+08:00");
   const active = {
     tier: "builder",
@@ -45,6 +45,12 @@ test("support gratitude state lasts only through the active support cycle", () =
     ...active,
     status: "inactive",
   };
+  const adminAssigned = {
+    tier: "champion",
+    status: "active",
+    active: true,
+    source: "account_plan",
+  };
 
   assert.equal(isSupportRecordActive(active, now), true);
   assert.equal(getSupportDisplayState(active, now).label, "Thank you");
@@ -54,6 +60,8 @@ test("support gratitude state lasts only through the active support cycle", () =
   assert.equal(getSupportDisplayState(expired, now).tier, null);
   assert.equal(isSupportRecordActive(inactive, now), false);
   assert.equal(getSupportDisplayState(inactive, now).tier, null);
+  assert.equal(isSupportRecordActive(adminAssigned, now), true);
+  assert.equal(getSupportDisplayState(adminAssigned, now).tier, "champion");
 });
 
 test("Champion availability is displayed only when a real cap is configured", () => {
