@@ -552,7 +552,7 @@ export default function DashboardSettingsPanelOfficial({
     </div>
   );
 
-  const renderNotificationsPage = () => <div className="space-y-4"><DetailHeader title="Notifications" subtitle="Control how and when CLARA gets your attention." /><NotificationSettingsPanel userId={user?.id} embedded /></div>;
+  const renderNotificationsPage = () => <div className="space-y-4"><DetailHeader title="Notifications" /><NotificationSettingsPanel userId={user?.id} embedded /></div>;
 
   const renderPlanPage = () => (
     <div className="space-y-4">

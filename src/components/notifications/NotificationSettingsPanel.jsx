@@ -563,9 +563,6 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
           <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/35">
             Notification families
           </p>
-          <p className="mt-1 text-xs leading-5 text-white/40">
-            CLARA only notifies you about meaningful actions—not simply because you have not opened the app.
-          </p>
         </div>
 
         <div className="space-y-3">
