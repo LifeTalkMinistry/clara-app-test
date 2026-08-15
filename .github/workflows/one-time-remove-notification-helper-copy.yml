@@ -38,7 +38,7 @@ jobs:
           old_family_copy = '''          <p className="mt-1 text-xs leading-5 text-white/40">
             CLARA only notifies you about meaningful actions—not simply because you have not opened the app.
           </p>
-'''
+          '''
           assert panel.count(old_family_copy) == 1, "Notification Families helper authority changed; refusing broad edit"
           panel = panel.replace(old_family_copy, "", 1)
           panel_path.write_text(panel, encoding="utf-8")
@@ -56,5 +56,3 @@ jobs:
           git commit -m "Remove redundant Notifications helper copy"
           git pull --rebase origin main
           git push origin HEAD:main
-
-# Trigger after workflow registration.
