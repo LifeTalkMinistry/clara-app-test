@@ -24,6 +24,7 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
+          import re
 
           dashboard_path = Path("src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx")
           dashboard = dashboard_path.read_text(encoding="utf-8")
@@ -35,12 +36,14 @@ jobs:
 
           panel_path = Path("src/components/notifications/NotificationSettingsPanel.jsx")
           panel = panel_path.read_text(encoding="utf-8")
-          old_family_copy = '''          <p className="mt-1 text-xs leading-5 text-white/40">
-            CLARA only notifies you about meaningful actions—not simply because you have not opened the app.
-          </p>
-          '''
-          assert panel.count(old_family_copy) == 1, "Notification Families helper authority changed; refusing broad edit"
-          panel = panel.replace(old_family_copy, "", 1)
+          family_pattern = re.compile(
+              r'\n\s*<p className="mt-1 text-xs leading-5 text-white/40">\s*'
+              r'CLARA only notifies you about meaningful actions—not simply because you have not opened the app\.'
+              r'\s*</p>'
+          )
+          matches = family_pattern.findall(panel)
+          assert len(matches) == 1, "Notification Families helper authority changed; refusing broad edit"
+          panel = family_pattern.sub("", panel, count=1)
           panel_path.write_text(panel, encoding="utf-8")
 
           assert "Control how and when CLARA gets your attention." not in dashboard
