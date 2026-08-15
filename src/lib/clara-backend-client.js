@@ -6,7 +6,7 @@ const TOKEN_KEY = "clara_backend_access_token_v1";
 const USER_KEY = "clara_backend_user_v1";
 const USER_VERIFIED_AT_KEY = "clara_backend_user_verified_at_v1";
 const VALID_STATUSES = new Set(["active", "pending", "inactive"]);
-const VALID_PLANS = new Set(["free", "committed"]);
+const VALID_PLANS = new Set(["free", "supporter", "builder", "champion"]);
 
 function getBuildEnvironment() {
   try {
