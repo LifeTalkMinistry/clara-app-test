@@ -15,9 +15,9 @@ import {
 } from "@/lib/incomeHubRepository";
 import {
   normalizeRecurrenceRule,
-  syncIncomeTimingFromSource,
   toLocalDateKey,
 } from "@/lib/recurringCashFlowRepository";
+import { syncStableIncomeTimingSource } from "@/lib/stableIncomeTimingAuthority";
 
 const DEFAULT_CATEGORY = INCOME_SOURCE_CATEGORIES.includes("Salary")
   ? "Salary"
@@ -247,7 +247,7 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
       });
 
       try {
-        syncIncomeTimingFromSource(localUserId, saved);
+        syncStableIncomeTimingSource(localUserId, saved);
       } catch (timingError) {
         console.warn("CLARA income timing sync warning:", timingError);
       }

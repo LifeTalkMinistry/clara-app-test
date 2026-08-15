@@ -9,6 +9,11 @@ import {
   ACTIVE_CURRENT_STATE_KEY,
   SAMPLE_DATA_LOCAL_USER_ID,
 } from "./clara-young-professional-current-state.js";
+import {
+  reconcileStableIncomeTimingCache,
+  removeStableIncomeTimingSource,
+  syncStableIncomeTimingSource,
+} from "./stableIncomeTimingAuthority.js";
 
 const STORE_NAME = LOCAL_FINANCE_STORES?.privatePreferences || "private_preferences";
 const WALLET_STORE = LOCAL_FINANCE_STORES?.wallets || "wallets";
@@ -220,7 +225,7 @@ const sortNewest = (sources) =>
 export async function getIncomeSources(localUserId) {
   const readLocalUserId = getIncomeHubReadUserId(localUserId);
   const records = await getLocalRecords(STORE_NAME, readLocalUserId);
-  return sortNewest(
+  const activeSources = sortNewest(
     (records || []).filter(
       (record) =>
         !record?.deletedAt &&
@@ -230,10 +235,16 @@ export async function getIncomeSources(localUserId) {
         (record?.kind === RECORD_KIND || record?.recordType === RECORD_KIND)
     )
   );
+
+  // Income Hub is the canonical owner. Every read repairs the synchronous
+  // recurring timing cache so older users never need to recreate Salary.
+  reconcileStableIncomeTimingCache(readLocalUserId, activeSources);
+  return activeSources;
 }
 
 export async function upsertIncomeSource(localUserId, source) {
   const savedSource = await upsertLocalRecord(STORE_NAME, normalizeIncomeSource(source), localUserId);
+  syncStableIncomeTimingSource(localUserId, savedSource);
   emitIncomeHubUpdated();
   return savedSource;
 }
@@ -437,6 +448,7 @@ export async function archiveIncomeSource(localUserId, id) {
     localUserId
   );
 
+  syncStableIncomeTimingSource(localUserId, archivedSource);
   emitIncomeHubUpdated();
   return archivedSource;
 }
@@ -462,6 +474,7 @@ export async function deleteIncomeSource(localUserId, id) {
   }
 
   const deletedSource = await softDeleteLocalRecord(STORE_NAME, id, localUserId);
+  removeStableIncomeTimingSource(localUserId, id);
   emitIncomeHubUpdated();
   return deletedSource;
 }
