@@ -182,21 +182,6 @@ export function normalizeIncomeSource(source = {}) {
   const stability = INCOME_SOURCE_STABILITY.includes(source.stability) ? source.stability : "Irregular";
   const isArchived = Boolean(source.isArchived ?? source.is_archived ?? false);
   const archivedAt = source.archivedAt || source.archived_at || null;
-  const hasIncomeRecurrence = Boolean(
-    source.incomeRecurrence ||
-      source.income_recurrence ||
-      source.recurrenceRule ||
-      source.recurrence_rule
-  );
-  const stableTimingEnabled =
-    stability === "Stable" &&
-    !isArchived &&
-    (source.usualIncomeDateEnabled === true ||
-      source.usual_income_date_enabled === true ||
-      hasIncomeRecurrence);
-  const stableBudgetTiming =
-    stableTimingEnabled &&
-    (source.useForBudgetTiming === true || source.use_for_budget_timing === true);
 
   return {
     ...source,
@@ -219,10 +204,6 @@ export function normalizeIncomeSource(source = {}) {
     is_archived: isArchived,
     archivedAt,
     archived_at: archivedAt,
-    usualIncomeDateEnabled: stableTimingEnabled,
-    usual_income_date_enabled: stableTimingEnabled,
-    useForBudgetTiming: stableBudgetTiming,
-    use_for_budget_timing: stableBudgetTiming,
     createdAt: source.createdAt || source.created_at || timestamp,
     created_at: source.created_at || source.createdAt || timestamp,
     updatedAt: timestamp,
