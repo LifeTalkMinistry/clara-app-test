@@ -1,0 +1,30 @@
+name: Verify Life Profile Body Isolation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/pages/Profile.jsx"
+      - "src/pages/ClaraLifeProfile.jsx"
+      - "src/components/fresh/main-dashboard/assistant/ClaraLifeProfilePortal.jsx"
+      - "tests/life-profile-navigation-layout.test.mjs"
+      - ".github/workflows/verify-life-profile-body-isolation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify Life Profile layout isolation
+        run: node --test tests/life-profile-navigation-layout.test.mjs
+      - name: Build app without prebuild hook
+        run: npx vite build --base=./
