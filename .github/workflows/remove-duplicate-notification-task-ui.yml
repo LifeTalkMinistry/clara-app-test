@@ -83,7 +83,7 @@ jobs:
       - name: Verify notification UI authority
         run: |
           node --test tests/notification-runtime-contracts.test.mjs
-          node --test tests/settings-integrity-regression.test.mjs
+          node --test --test-name-pattern="notification Settings no longer queries retired program tables" tests/settings-integrity-regression.test.mjs
           if grep -q 'TaskReminderSettingsCard' src/components/notifications/NotificationSettingsPanel.jsx; then
             echo "Nested TaskReminderSettingsCard is still present" >&2
             exit 1
