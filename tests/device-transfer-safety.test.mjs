@@ -14,6 +14,13 @@ const panelSource = await fs.readFile(
   new URL("../src/components/device-transfer/DeviceTransferPanel.jsx", import.meta.url),
   "utf8"
 );
+const settingsSource = await fs.readFile(
+  new URL(
+    "../src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx",
+    import.meta.url
+  ),
+  "utf8"
+);
 const dataExportSource = await fs.readFile(
   new URL("../src/pages/DataExport.jsx", import.meta.url),
   "utf8"
@@ -23,11 +30,12 @@ const mainSource = await fs.readFile(
   "utf8"
 );
 
-test("device transfer is deliberate and never installed as a startup sync runtime", () => {
+test("device transfer is deliberate, visible in Security settings, and never installed as startup sync", () => {
   assert.doesNotMatch(mainSource, /installFastAccountSync/);
   assert.doesNotMatch(mainSource, /installAccountStreakSyncBridge/);
   assert.doesNotMatch(mainSource, /CloudVaultSyncBridge/);
-  assert.match(dataExportSource, /DeviceTransferPanel/);
+  assert.match(settingsSource, /DeviceTransferPanel/);
+  assert.doesNotMatch(dataExportSource, /DeviceTransferPanel/);
   assert.match(panelSource, /Send data to another device/);
   assert.match(panelSource, /Receive data on this device/);
   assert.match(panelSource, /Approve this device/);
