@@ -4,7 +4,11 @@ import {
   buildNotificationContract,
   isNotificationEventAllowed,
 } from "@/lib/notifications/notificationRegistry";
-import { createNotification } from "@/lib/notifications/localNotificationRepository";
+import {
+  createNotification,
+  dismissNotification,
+  getNotificationByDedupeKey,
+} from "@/lib/notifications/localNotificationRepository";
 import {
   getZonedDateParts,
   isInsideQuietHours,
@@ -32,31 +36,48 @@ function hasCompletedEligibleDay(userId, eligibleDay) {
   );
 }
 
+async function retirePendingReminder(userId, dedupeKey) {
+  const existing = await getNotificationByDedupeKey(userId, dedupeKey);
+  if (!existing || existing.deliveredAt || existing.dismissedAt) return;
+  await dismissNotification(userId, existing.id);
+}
+
 export async function evaluateDailyCheckInNotification({
   userId,
   preferences = {},
   now = new Date(),
 } = {}) {
   if (!userId) return [];
-  if (preferences.dailyCheckIn === false) return [];
-  if (!isNotificationEventAllowed(DAILY_CHECK_IN_EVENT_TYPE, preferences)) return [];
+
+  // The Daily Money Tip / streak engine owns what counts as today's check-in.
+  // Its eligible-day key includes the existing challenge day-boundary policy.
+  const eligibleDay = getEligibleDayKey(now);
+  const dedupeKey = `${DAILY_CHECK_IN_EVENT_TYPE}:${eligibleDay}`;
+
+  if (
+    preferences.dailyCheckIn === false ||
+    !isNotificationEventAllowed(DAILY_CHECK_IN_EVENT_TYPE, preferences)
+  ) {
+    await retirePendingReminder(userId, dedupeKey);
+    return [];
+  }
+
+  if (hasCompletedEligibleDay(userId, eligibleDay)) {
+    await retirePendingReminder(userId, dedupeKey);
+    return [];
+  }
 
   // Do not create a reminder while quiet hours are active. Re-evaluation after
-  // quiet hours will first re-check the authoritative check-in state, which
-  // prevents a stale reminder from surfacing after the user already checked in.
+  // quiet hours re-checks the authoritative check-in state before any reminder
+  // can be created or delivered.
   if (isInsideQuietHours(preferences, now)) return [];
 
   const zoned = getZonedDateParts(preferences.timezone, now);
   if (zoned.minutes < timeToMinutes(preferences.preferredTime)) return [];
 
-  // The Daily Money Tip / streak engine owns what counts as today's check-in.
-  // Its eligible-day key includes the existing challenge day-boundary policy.
-  const eligibleDay = getEligibleDayKey(now);
-  if (hasCompletedEligibleDay(userId, eligibleDay)) return [];
-
   const notification = buildNotificationContract({
     eventType: DAILY_CHECK_IN_EVENT_TYPE,
-    dedupeKey: `${DAILY_CHECK_IN_EVENT_TYPE}:${eligibleDay}`,
+    dedupeKey,
     title: "Today’s CLARA check-in is waiting",
     body: "Tap today’s Daily Money Tip to complete your check-in and keep your progress moving.",
     userId,
