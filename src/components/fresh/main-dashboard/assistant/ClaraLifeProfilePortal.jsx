@@ -63,7 +63,7 @@ export default function ClaraLifeProfilePortal({
   return createPortal(
     <ProfileTrigger
       filledCount={filledCount}
-      onOpen={() => navigate("/life-profile", { state: { source: "buy-check" } })}
+      onOpen={() => navigate("/profile?view=life-context", { state: { source: "buy-check" } })}
     />,
     board,
   );
