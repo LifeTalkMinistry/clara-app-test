@@ -14,12 +14,24 @@ test("Life Profile trigger is owned by the Buy Check viewport, not the Buy Check
   assert.match(source, /navigate\("\/profile\?view=life-context"/);
 });
 
-test("Life Profile route is isolated as a fully opaque viewport surface", () => {
+test("Life Profile route is portaled outside Layout as a fully opaque viewport", () => {
   const source = read("../src/pages/Profile.jsx");
 
+  assert.match(source, /createPortal/);
+  assert.match(source, /document\.body/);
   assert.match(source, /data-clara-life-profile-viewport="true"/);
-  assert.match(source, /fixed inset-0 h-\[100dvh\] w-full overflow-y-auto bg-\[#020714\]/);
+  assert.match(source, /background: "#020714"/);
   assert.match(source, /zIndex: 2147483500/);
+});
+
+test("Life Profile brand rail can never expand beyond three pixels", () => {
+  const source = read("../src/pages/Profile.jsx");
+
+  assert.match(source, /data-clara-life-profile-page="true"\] > div:first-child/);
+  assert.match(source, /height: 3px !important/);
+  assert.match(source, /min-height: 3px !important/);
+  assert.match(source, /max-height: 3px !important/);
+  assert.match(source, /flex: 0 0 3px !important/);
 });
 
 test("opening Buy Check is top-anchored while Life Profile control is active", () => {
