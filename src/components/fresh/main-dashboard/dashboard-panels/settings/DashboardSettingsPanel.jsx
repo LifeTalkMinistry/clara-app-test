@@ -22,6 +22,7 @@ import {
   resolveCanonicalDisplayName,
 } from "@/lib/canonical-clara-profile";
 import { getSupportTier } from "@/lib/clara-support";
+import DeviceTransferPanel from "@/components/device-transfer/DeviceTransferPanel";
 import NotificationSettingsPanel from "@/components/notifications/NotificationSettingsPanel";
 import SupportTierBadge from "@/components/support/SupportTierBadge";
 import useClaraSupport from "@/hooks/useClaraSupport";
@@ -606,7 +607,8 @@ export default function DashboardSettingsPanelOfficial({
           <button type="button" onClick={() => setIsDataDetailsOpen((current) => !current)} aria-expanded={isDataDetailsOpen} className="mt-4 inline-flex min-h-11 items-center gap-2 text-xs font-black text-[#8ec7ff] transition hover:text-[#c6e3ff]">View data details<ChevronRight className={`h-4 w-4 transition ${isDataDetailsOpen ? "rotate-90 text-[#ffd84a]" : ""}`} /></button>
           {isDataDetailsOpen ? <div className="mt-1 border-t border-[#1a466f]/45 pt-4"><ul className="space-y-2">{protectedDataItems.map((item) => <li key={item} className="flex items-center gap-2 text-xs font-semibold text-[#8ba0b8]"><Check className="h-3.5 w-3.5 shrink-0 text-[#58bfff]" />{item}</li>)}</ul></div> : null}
         </section>
-        <button type="button" onClick={() => navigate("/data-export")} className={`${quietSurfaceClass} group flex min-h-[72px] w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-[#0a1c33]`}><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#367ec5]/40 bg-[#0867ff]/9 text-[#b8d8ff]"><Database className="h-4 w-4" /></div><div className="min-w-0 flex-1"><p className="text-sm font-black text-white">Move & Restore Data</p><p className="mt-1 text-xs leading-5 text-[#8198b2]">Move your CLARA data to another device or restore a previous backup.</p></div><div className="flex shrink-0 items-center gap-1 text-[11px] font-bold text-[#6e88a5]"><span>Open</span><ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:text-[#9cc9ff]" /></div></button>
+        <DeviceTransferPanel user={user} profile={canonicalProfile} />
+        <button type="button" onClick={() => navigate("/data-export")} className={`${quietSurfaceClass} group flex min-h-[72px] w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-[#0a1c33]`}><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#367ec5]/40 bg-[#0867ff]/9 text-[#b8d8ff]"><Database className="h-4 w-4" /></div><div className="min-w-0 flex-1"><p className="text-sm font-black text-white">Backup & Restore File</p><p className="mt-1 text-xs leading-5 text-[#8198b2]">Download or restore your personal CLARA backup file.</p></div><div className="flex shrink-0 items-center gap-1 text-[11px] font-bold text-[#6e88a5]"><span>Open</span><ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:text-[#9cc9ff]" /></div></button>
       </div>
     );
   };
