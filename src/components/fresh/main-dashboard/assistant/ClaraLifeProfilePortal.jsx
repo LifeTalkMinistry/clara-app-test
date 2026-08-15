@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { UserRound } from "lucide-react";
+import { UserRound, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const OVERLAY_SELECTOR = '[data-clara-pause-overlay="true"]';
+const BOARD_SELECTOR = '[data-clara-pause-entry-board="true"]';
 
 function ProfileTrigger({ filledCount, onOpen }) {
   return (
@@ -33,33 +34,55 @@ function ProfileTrigger({ filledCount, onOpen }) {
   );
 }
 
+function CloseTrigger({ onClose }) {
+  return (
+    <button
+      type="button"
+      onClick={onClose}
+      aria-label="Close CLARA Ask Before You Spend"
+      className="absolute right-3 top-[10px] z-[90] grid h-[42px] w-[42px] place-items-center overflow-hidden rounded-full border border-[#4d8cff]/42 bg-[#07152d] text-white/90 shadow-[0_12px_30px_rgba(23,105,255,0.16),inset_0_1px_0_rgba(255,255,255,0.07)] transition hover:border-[#4d8cff]/70 hover:bg-[#0a1d3c] active:scale-95"
+      data-clara-buy-check-contained-close="true"
+    >
+      <span className="pointer-events-none absolute inset-[3px] rounded-full border border-white/[0.055]" />
+      <X className="relative h-4 w-4" strokeWidth={2} />
+    </button>
+  );
+}
+
 export default function ClaraLifeProfilePortal({
   isActive = false,
   disabled = false,
   filledCount = 0,
   onBeforeOpen,
+  onClose,
 }) {
   const navigate = useNavigate();
-  const [overlay, setOverlay] = useState(null);
+  const [targets, setTargets] = useState({ overlay: null, board: null });
 
   useEffect(() => {
     if (!isActive || disabled || typeof document === "undefined") {
-      setOverlay(null);
+      setTargets({ overlay: null, board: null });
       return undefined;
     }
 
-    const syncOverlay = () => {
-      const nextOverlay = document.querySelector(OVERLAY_SELECTOR);
-      setOverlay((current) => (current === nextOverlay ? current : nextOverlay));
+    const syncTargets = () => {
+      const overlay = document.querySelector(OVERLAY_SELECTOR);
+      const board = overlay?.querySelector(BOARD_SELECTOR) || null;
+      setTargets((current) =>
+        current.overlay === overlay && current.board === board ? current : { overlay, board }
+      );
     };
 
-    syncOverlay();
-    const observer = new MutationObserver(syncOverlay);
+    syncTargets();
+    const observer = new MutationObserver(syncTargets);
     observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
   }, [disabled, isActive]);
 
-  if (!isActive || disabled || !overlay) return null;
+  if (!isActive || disabled) return null;
+
+  const target = targets.board || targets.overlay;
+  if (!target) return null;
 
   const openLifeProfile = () => {
     onBeforeOpen?.();
@@ -77,9 +100,22 @@ export default function ClaraLifeProfilePortal({
           padding-top: 4px !important;
         }
       `}</style>
+      {targets.board ? (
+        <style>{`
+          body.clara-ai-environment-active
+            [data-clara-pause-overlay="true"]
+            [data-clara-buy-check-header="true"]
+            > button[aria-label="Close CLARA Ask Before You Spend"] {
+            display: none !important;
+          }
+        `}</style>
+      ) : null}
       {createPortal(
-        <ProfileTrigger filledCount={filledCount} onOpen={openLifeProfile} />,
-        overlay,
+        <>
+          <ProfileTrigger filledCount={filledCount} onOpen={openLifeProfile} />
+          {targets.board ? <CloseTrigger onClose={onClose} /> : null}
+        </>,
+        target,
       )}
     </>
   );

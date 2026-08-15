@@ -4,14 +4,27 @@ import { readFileSync } from "node:fs";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
-test("Life Profile trigger is owned by the Buy Check viewport, not the Buy Check card", () => {
+test("Life Profile trigger is owned by the Buy Check opening card when available", () => {
   const source = read("../src/components/fresh/main-dashboard/assistant/ClaraLifeProfilePortal.jsx");
 
   assert.match(source, /OVERLAY_SELECTOR = '\[data-clara-pause-overlay="true"\]'/);
-  assert.doesNotMatch(source, /BOARD_SELECTOR/);
+  assert.match(source, /BOARD_SELECTOR = '\[data-clara-pause-entry-board="true"\]'/);
+  assert.match(source, /const target = targets\.board \|\| targets\.overlay/);
   assert.match(source, /left-3 top-\[10px\]/);
   assert.match(source, /onBeforeOpen\?\.\(\)/);
   assert.match(source, /navigate\("\/profile\?view=life-context"/);
+});
+
+test("Buy Check opening card owns a mirrored contained exit control", () => {
+  const source = read("../src/components/fresh/main-dashboard/assistant/ClaraLifeProfilePortal.jsx");
+  const wrapper = read("../src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay.jsx");
+
+  assert.match(source, /data-clara-buy-check-contained-close="true"/);
+  assert.match(source, /right-3 top-\[10px\]/);
+  assert.match(source, /h-\[42px\] w-\[42px\]/);
+  assert.match(source, /targets\.board \? <CloseTrigger onClose=\{onClose\} \/>/);
+  assert.match(source, /display: none !important/);
+  assert.match(wrapper, /onClose=\{props\?\.onClose\}/);
 });
 
 test("Life Profile route is portaled outside Layout as a fully opaque viewport", () => {
@@ -34,7 +47,7 @@ test("Life Profile brand rail can never expand beyond three pixels", () => {
   assert.match(source, /flex: 0 0 3px !important/);
 });
 
-test("opening Buy Check is top-anchored while Life Profile control is active", () => {
+test("opening Buy Check remains top-anchored while Life Profile controls are active", () => {
   const source = read("../src/components/fresh/main-dashboard/assistant/ClaraLifeProfilePortal.jsx");
 
   assert.match(source, /justify-content: flex-start !important/);

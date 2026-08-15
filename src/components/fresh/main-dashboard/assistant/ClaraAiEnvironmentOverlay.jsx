@@ -34,6 +34,7 @@ export default function ClaraAiEnvironmentOverlay(props) {
         disabled={guidePreview}
         filledCount={lifeContext.filledCount}
         onBeforeOpen={props?.onClose}
+        onClose={props?.onClose}
       />
       <ClaraBuyCheckImpactPortal
         isActive={Boolean(props?.isActive)}
