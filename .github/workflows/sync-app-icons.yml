@@ -130,6 +130,8 @@ jobs:
             exit 0
           fi
 
+          # Push only the deliberately staged icon commit. Capacitor sync can
+          # leave unrelated generated worktree files behind; they must never be
+          # pulled into the icon commit and should not block publishing it.
           git commit -m 'Sync CLARA icon across web Android and Play assets'
-          git pull --rebase origin main
           git push origin HEAD:main
