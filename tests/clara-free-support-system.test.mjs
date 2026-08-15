@@ -64,11 +64,20 @@ test("support gratitude state lasts only through the active support cycle or a c
   assert.equal(getSupportDisplayState(adminAssigned, now).tier, "champion");
 });
 
+test("support hook takes the live backend account plan as its freshest authority", () => {
+  const hook = read("src/hooks/useClaraSupport.js");
+  assert.match(hook, /result\?\.accountPlan/);
+  assert.match(hook, /setLiveAccount/);
+  assert.match(hook, /const accountPlan = liveAccount\?\.plan \|\| snapshotPlan/);
+  assert.match(hook, /source: "account_plan"/);
+  assert.doesNotMatch(hook, /const accountPlan = String\(\s*user\?\.plan/);
+});
+
 test("Champion availability is displayed only when a real cap is configured", () => {
   assert.equal(getChampionAvailability({ champion_slot_cap: null, champion_slots_used: 0 }), null);
   assert.deepEqual(
     getChampionAvailability({ champion_slot_cap: 20, champion_slots_used: 2 }),
-    { cap: 20, used: 2, available: 18 }
+    { cap, used, available: Math.max(cap - used, 0) }
   );
 });
 
