@@ -1,0 +1,144 @@
+name: Finalize CLARA Memory retirement
+
+on:
+  push:
+    branches:
+      - eradicate-memory-system
+    paths:
+      - ".github/workflows/finalize-memory-retirement.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout retirement branch
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Apply audited retirement patch
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          workflow = Path('.github/workflows/eradicate-clara-memory-system.yml').read_text().splitlines()
+          start = next(i for i, line in enumerate(workflow) if "python <<'PY'" in line) + 1
+          end = next(i for i in range(start, len(workflow)) if workflow[i].strip() == 'PY')
+          Path('/tmp/retire-memory.py').write_text(textwrap.dedent('\n'.join(workflow[start:end])) + '\n')
+          PY
+          python /tmp/retire-memory.py
+
+      - name: Align ownership tests with retired Memory architecture
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          dashboard_test = Path('tests/dashboard-top-nav-ownership.test.mjs')
+          source = dashboard_test.read_text()
+          old = '''test("Settings owns its detail history, logout, memory, and scroll behavior in React", () => {\n  assert.match(settingsSource, /SETTINGS_DETAIL_HISTORY_KEY/);\n  assert.match(settingsSource, /openSetting/);\n  assert.match(settingsSource, /closeActiveSetting/);\n  assert.match(settingsSource, /signOutFromClaraBackend/);\n  assert.match(settingsSource, /clara:open-assistant-memory-board/);\n  assert.match(settingsSource, /settingsRootRef/);\n  assert.doesNotMatch(settingsSource, /MutationObserver/);\n\n  retiredRuntimePaths.forEach((relativePath) => {\n    assert.equal(existsSync(new URL(`../${relativePath}`, import.meta.url)), false);\n  });\n  assert.doesNotMatch(mainSource, /installSettingsAccessLogout/);\n  assert.doesNotMatch(mainSource, /installClaraGuideSchedulePhaseRedirect/);\n  assert.doesNotMatch(mainSource, /CloudVaultSyncBridge/);\n  assert.doesNotMatch(runtimeRegistrySource, /installSettingsScrollReset/);\n  assert.doesNotMatch(runtimeRegistrySource, /clara-settings-memory-entry/);\n});\n'''
+          new = '''test("Settings owns its detail history, logout, and scroll behavior without retired Memory", () => {\n  assert.match(settingsSource, /SETTINGS_DETAIL_HISTORY_KEY/);\n  assert.match(settingsSource, /openSetting/);\n  assert.match(settingsSource, /closeActiveSetting/);\n  assert.match(settingsSource, /signOutFromClaraBackend/);\n  assert.doesNotMatch(settingsSource, /clara:open-assistant-memory-board/);\n  assert.doesNotMatch(settingsSource, /title: "Memory"/);\n  assert.match(settingsSource, /settingsRootRef/);\n  assert.doesNotMatch(settingsSource, /MutationObserver/);\n\n  retiredRuntimePaths.forEach((relativePath) => {\n    assert.equal(existsSync(new URL(`../${relativePath}`, import.meta.url)), false);\n  });\n  assert.doesNotMatch(mainSource, /installSettingsAccessLogout/);\n  assert.doesNotMatch(mainSource, /installClaraGuideSchedulePhaseRedirect/);\n  assert.doesNotMatch(mainSource, /CloudVaultSyncBridge/);\n  assert.doesNotMatch(runtimeRegistrySource, /installSettingsScrollReset/);\n  assert.doesNotMatch(runtimeRegistrySource, /clara-settings-memory-entry/);\n  assert.doesNotMatch(runtimeRegistrySource, /clara-assistant-memory-tab/);\n});\n'''
+          if old not in source:
+              raise SystemExit('Dashboard Settings Memory ownership test anchor not found.')
+          dashboard_test.write_text(source.replace(old, new, 1))
+
+          onboarding_test = Path('tests/onboarding-gate-regression.test.mjs')
+          source = onboarding_test.read_text()
+          source = source.replace(
+              'test("memory fallback cannot complete onboarding for another vault", async () => {',
+              'test("retired Memory records cannot complete onboarding for any vault", async () => {',
+              1,
+          )
+          source = source.replace(
+              '    assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-a" }), true);\n    assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-b" }), false);',
+              '    assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-a" }), false);\n    assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-b" }), false);',
+              1,
+          )
+          onboarding_test.write_text(source)
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Memory retirement focused regression tests
+        run: |
+          node --test \
+            tests/retired-context-system.test.mjs \
+            tests/dashboard-top-nav-ownership.test.mjs \
+            tests/onboarding-gate-regression.test.mjs \
+            tests/settings-local-only-regression.test.mjs \
+            tests/local-data-export.test.mjs \
+            tests/buy-check-gemini-authority.test.mjs \
+            tests/device-transfer-safety.test.mjs
+
+      - name: Run full suite against pre-existing baseline
+        run: |
+          set +e
+          npm test > /tmp/current-retirement-tests.txt 2>&1
+          test_status=$?
+          set -e
+          cat /tmp/current-retirement-tests.txt
+          python <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          baseline = Path('baseline-test-output.txt').read_text()
+          current = Path('/tmp/current-retirement-tests.txt').read_text()
+          pattern = re.compile(r'^not ok \d+ - (.+)$', re.MULTILINE)
+          baseline_failures = set(pattern.findall(baseline))
+          current_failures = set(pattern.findall(current))
+          new_failures = sorted(current_failures - baseline_failures)
+
+          print(f'Baseline failures: {len(baseline_failures)}')
+          print(f'Current failures: {len(current_failures)}')
+          if new_failures:
+              print('New failures introduced by Memory retirement:')
+              for failure in new_failures:
+                  print(f' - {failure}')
+              sys.exit(1)
+          print('No new full-suite failures beyond the pre-existing baseline.')
+          PY
+
+      - name: Run Buy Check lint
+        run: npm run lint:buy-check
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Final source-level retirement audit
+        run: |
+          set -euo pipefail
+          test ! -e src/clara-assistant-memory-tab.js
+          test ! -e src/clara-memory-bridge.js
+          test ! -e src/lib/memory-cabinets
+          test ! -e src/lib/ai/clara-memory.js
+          test ! -e tests/memory-review-premium-design.test.mjs
+
+          if grep -R -n -E 'clara:open-assistant-memory-board|CLARA BEHAVIORAL INTELLIGENCE FRAMEWORK|__claraBehavioralMemoryTrainingInstalled|installScopedClaraMemoryStorage|clara-assistant-memory-tab|clara-onboarding-memory-review-bridge|clara-memory-cabinet-autosave|clara-conversation-memory-summarizer|clara-universal-memory-profile|clara-user-context-story|clara-behavioral-intelligence|@/lib/memory-cabinets|@/lib/ai/clara-memory' src index.html --exclude='installRetiredContextDataCleanup.js'; then
+            echo 'Retired Memory implementation reference still exists.' >&2
+            exit 1
+          fi
+
+          if grep -R -n -E 'memoryContext|profileMemoryNotes|previousConversationMemory|aiFinancialMemory' src --exclude='clara-life-context.js'; then
+            echo 'Retired Memory context is still connected to active source.' >&2
+            exit 1
+          fi
+
+      - name: Commit verified retirement
+        run: |
+          rm -f retirement-test-output.txt retirement-test-exit-code.txt
+          rm -f baseline-test-output.txt baseline-test-exit-code.txt
+          rm -f .github/workflows/eradicate-clara-memory-system.yml
+          rm -f .github/workflows/debug-memory-retirement-tests.yml
+          rm -f .github/workflows/capture-baseline-tests.yml
+          rm -f .github/workflows/finalize-memory-retirement.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Remove retired CLARA memory system"
+          git push origin eradicate-memory-system
