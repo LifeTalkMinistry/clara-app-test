@@ -2,10 +2,22 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
+import {
+  __recurringCashFlowTestUtils,
+  getExpectedIncomeWindow,
+  getIncomeTimingRecords,
+  getRecurrenceOccurrences,
+} from "../src/lib/recurringCashFlowRepository.js";
+import {
+  reconcileStableIncomeTimingCache,
+  syncStableIncomeTimingSource,
+} from "../src/lib/stableIncomeTimingAuthority.js";
+
 const readSource = (relativePath) =>
   readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
 
 const repository = readSource("src/lib/incomeHubRepository.js");
+const timingAuthority = readSource("src/lib/stableIncomeTimingAuthority.js");
 const card = readSource("src/components/financial-carousel/cards/investment/ui/InvestmentCardView.jsx");
 const addMoneyModal = readSource("src/components/financial-carousel/cards/investment/ui/IncomeSourceAddMoneyModal.jsx");
 const createModal = readSource("src/components/financial-carousel/cards/investment/ui/IncomeSourceCreateModal.jsx");
@@ -15,6 +27,69 @@ const cardLogic = readSource("src/components/financial-carousel/cards/investment
 const renderer = readSource("src/components/financial-carousel/ui/CarouselItemCard.jsx");
 const financeActionModal = readSource("src/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal.jsx");
 const recurringScheduleIntegration = readSource("src/components/fresh/main-dashboard/dashboard-panels/schedule/recurringScheduleIntegration.js");
+const schedulePortal = readSource("src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardScheduleImpactPortalPanel.js");
+const budgetTimingHook = readSource("src/components/fresh/main-dashboard/budget/useDashboardManualExpenseBudgetOptions.js");
+
+class MemoryStorage {
+  constructor() {
+    this.values = new Map();
+  }
+  get length() {
+    return this.values.size;
+  }
+  key(index) {
+    return [...this.values.keys()][index] ?? null;
+  }
+  getItem(key) {
+    return this.values.has(key) ? this.values.get(key) : null;
+  }
+  setItem(key, value) {
+    this.values.set(key, String(value));
+  }
+  removeItem(key) {
+    this.values.delete(key);
+  }
+  clear() {
+    this.values.clear();
+  }
+}
+
+const localStorage = new MemoryStorage();
+globalThis.window = {
+  localStorage,
+  dispatchEvent() {},
+};
+globalThis.CustomEvent = class CustomEvent {
+  constructor(type, init = {}) {
+    this.type = type;
+    this.detail = init.detail;
+  }
+};
+
+function resetTiming(ownerId) {
+  localStorage.removeItem(__recurringCashFlowTestUtils.storageKey(ownerId));
+}
+
+function stableSalary(overrides = {}) {
+  return {
+    id: "salary-1",
+    name: "Salary",
+    category: "Salary",
+    stability: "Stable",
+    minimumStableIncome: 25000,
+    usualIncomeDateEnabled: true,
+    useForBudgetTiming: true,
+    incomeRecurrence: {
+      type: "twice_monthly",
+      startDate: "2026-08-15",
+      days: [15, 30],
+    },
+    currentBalance: 4200,
+    totalMoneyIn: 30000,
+    totalMoneyOut: 25800,
+    ...overrides,
+  };
+}
 
 test("Income Hub transfer is one IndexedDB transaction across source, wallet, and wallet ledger", () => {
   assert.equal(repository.includes("transferIncomeSourceToWallet"), true);
@@ -46,6 +121,14 @@ test("stable income requires a conservative minimum and forces payday timing aut
   assert.equal(createModalBase.includes("useForBudgetTiming: stable ||"), true);
 });
 
+test("Income Hub repository is the synchronization boundary for every writer and reader", () => {
+  assert.equal(repository.includes("reconcileStableIncomeTimingCache"), true);
+  assert.equal(repository.includes("syncStableIncomeTimingSource(localUserId, savedSource)"), true);
+  assert.equal(repository.includes("syncStableIncomeTimingSource(localUserId, archivedSource)"), true);
+  assert.equal(repository.includes("removeStableIncomeTimingSource(localUserId, id)"), true);
+  assert.equal(timingAuthority.includes("reconcileStableIncomeTimingCache"), true);
+});
+
 test("stable income minimum is projected as money-in on the Payday schedule", () => {
   assert.equal(recurringScheduleIntegration.includes('import { getIncomeSources } from "@/lib/incomeHubRepository"'), true);
   assert.equal(recurringScheduleIntegration.includes("stableMinimumAmount"), true);
@@ -54,12 +137,176 @@ test("stable income minimum is projected as money-in on the Payday schedule", ()
   assert.equal(recurringScheduleIntegration.includes('direction: "in"'), true);
 });
 
-test("payday projection is durable and limited to one rolling year", () => {
+test("payday projection replaces managed events and has a live Calendar consumer", () => {
   assert.equal(recurringScheduleIntegration.includes("RECURRING_SCHEDULE_WINDOW_MONTHS = 12"), true);
   assert.equal(recurringScheduleIntegration.includes("persistIncomeScheduleProjection"), true);
   assert.equal(recurringScheduleIntegration.includes('SCHEDULE_STORAGE_PREFIX = "clara_schedule_events_v2"'), true);
-  assert.equal(recurringScheduleIntegration.includes("getMonth() + RECURRING_SCHEDULE_WINDOW_MONTHS"), true);
-  assert.equal(recurringScheduleIntegration.includes("projectedEvents.forEach((event) => dispatchClaraEvent(SCHEDULE_CREATE_EVENT, event))"), true);
+  assert.equal(recurringScheduleIntegration.includes("new Date(now.getFullYear(), now.getMonth(), 1)"), true);
+  assert.equal(recurringScheduleIntegration.includes("projectedEvents.forEach((event) => dispatchClaraEvent(SCHEDULE_CREATE_EVENT, event))"), false);
+  assert.equal(recurringScheduleIntegration.includes("SCHEDULE_SYNC_INCOME_EVENT"), true);
+  assert.equal(schedulePortal.includes('SCHEDULE_SYNC_INCOME_EVENT = "clara:schedule:sync-income-events"'), true);
+  assert.equal(schedulePortal.includes("setScheduleRevision((current) => current + 1)"), true);
+});
+
+test("Budget opens through the canonical Income Hub timing read before using the synchronous cache", () => {
+  assert.equal(budgetTimingHook.includes('import { getIncomeSources } from "@/lib/incomeHubRepository"'), true);
+  assert.equal(budgetTimingHook.includes("getIncomeSources(ownerId)"), true);
+  assert.equal(budgetTimingHook.includes("resolveIncomeBasedBudgetPeriod"), true);
+});
+
+test("existing Stable Income backfills a missing timing cache and Buy Check window", () => {
+  const ownerId = "stable-income-backfill";
+  resetTiming(ownerId);
+
+  reconcileStableIncomeTimingCache(ownerId, [stableSalary()]);
+
+  const timings = getIncomeTimingRecords(ownerId);
+  assert.equal(timings.length, 1);
+  assert.equal(timings[0].incomeSourceId, "salary-1");
+
+  const window = getExpectedIncomeWindow(ownerId, "2026-08-20");
+  assert.equal(window.previousExpectedDate, "2026-08-15");
+  assert.equal(window.nextExpectedDate, "2026-08-30");
+  assert.equal(window.daysUntilNextIncome, 10);
+  assert.equal(window.timing.sourceName, "Salary");
+});
+
+test("monthly stable income can project an earlier payday in the current visible month", () => {
+  const ownerId = "stable-income-current-month";
+  resetTiming(ownerId);
+
+  reconcileStableIncomeTimingCache(ownerId, [
+    stableSalary({
+      incomeRecurrence: {
+        type: "monthly",
+        startDate: "2026-08-15",
+        dayOfMonth: 10,
+      },
+    }),
+  ]);
+
+  const [timing] = getIncomeTimingRecords(ownerId);
+  const occurrences = getRecurrenceOccurrences(
+    timing.recurrence,
+    "2026-08-01",
+    "2026-08-31",
+    { kind: "income" }
+  );
+
+  assert.deepEqual(occurrences, ["2026-08-10"]);
+});
+
+test("twice-monthly payday edits replace old recurrence without duplicate timing records", () => {
+  const ownerId = "stable-income-edit";
+  resetTiming(ownerId);
+
+  reconcileStableIncomeTimingCache(ownerId, [stableSalary()]);
+  reconcileStableIncomeTimingCache(ownerId, [
+    stableSalary({
+      incomeRecurrence: {
+        type: "twice_monthly",
+        startDate: "2026-08-15",
+        days: [10, 25],
+      },
+    }),
+  ]);
+
+  const timings = getIncomeTimingRecords(ownerId);
+  assert.equal(timings.length, 1);
+  assert.deepEqual(
+    getRecurrenceOccurrences(
+      timings[0].recurrence,
+      "2026-08-01",
+      "2026-08-31",
+      { kind: "income" }
+    ),
+    ["2026-08-10", "2026-08-25"]
+  );
+});
+
+test("weekly and biweekly Stable Income remain supported by the canonical authority", () => {
+  const weeklyOwner = "stable-income-weekly";
+  resetTiming(weeklyOwner);
+  reconcileStableIncomeTimingCache(weeklyOwner, [
+    stableSalary({
+      incomeRecurrence: {
+        type: "weekly",
+        startDate: "2026-08-03",
+        dayOfWeek: 1,
+      },
+    }),
+  ]);
+  const [weekly] = getIncomeTimingRecords(weeklyOwner);
+  assert.deepEqual(
+    getRecurrenceOccurrences(
+      weekly.recurrence,
+      "2026-08-01",
+      "2026-08-31",
+      { kind: "income" }
+    ),
+    ["2026-08-03", "2026-08-10", "2026-08-17", "2026-08-24", "2026-08-31"]
+  );
+
+  const biweeklyOwner = "stable-income-biweekly";
+  resetTiming(biweeklyOwner);
+  reconcileStableIncomeTimingCache(biweeklyOwner, [
+    stableSalary({
+      incomeRecurrence: {
+        type: "biweekly",
+        startDate: "2026-08-03",
+      },
+    }),
+  ]);
+  const [biweekly] = getIncomeTimingRecords(biweeklyOwner);
+  assert.deepEqual(
+    getRecurrenceOccurrences(
+      biweekly.recurrence,
+      "2026-08-01",
+      "2026-08-31",
+      { kind: "income" }
+    ),
+    ["2026-08-03", "2026-08-17", "2026-08-31"]
+  );
+});
+
+test("Stable to Irregular, archive, and delete states remove only derived salary timing", () => {
+  const ownerId = "stable-income-removal";
+  resetTiming(ownerId);
+
+  const source = stableSalary();
+  reconcileStableIncomeTimingCache(ownerId, [source]);
+  assert.equal(getIncomeTimingRecords(ownerId).length, 1);
+
+  syncStableIncomeTimingSource(ownerId, {
+    ...source,
+    stability: "Irregular",
+  });
+  assert.equal(getIncomeTimingRecords(ownerId).length, 0);
+
+  reconcileStableIncomeTimingCache(ownerId, [source]);
+  syncStableIncomeTimingSource(ownerId, {
+    ...source,
+    isArchived: true,
+  });
+  assert.equal(getIncomeTimingRecords(ownerId).length, 0);
+
+  reconcileStableIncomeTimingCache(ownerId, [source]);
+  reconcileStableIncomeTimingCache(ownerId, []);
+  assert.equal(getIncomeTimingRecords(ownerId).length, 0);
+});
+
+test("timing reconciliation never converts projected salary into actual money", () => {
+  const ownerId = "stable-income-no-phantom-money";
+  resetTiming(ownerId);
+  const source = stableSalary();
+  const before = structuredClone(source);
+
+  reconcileStableIncomeTimingCache(ownerId, [source]);
+
+  assert.deepEqual(source, before);
+  assert.equal(source.currentBalance, 4200);
+  assert.equal(source.totalMoneyIn, 30000);
+  assert.equal(source.totalMoneyOut, 25800);
 });
 
 test("one Hide tap is not swallowed by an open source menu", () => {
