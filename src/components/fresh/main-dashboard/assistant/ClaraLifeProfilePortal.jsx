@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { UserRound } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const BOARD_SELECTOR = '[data-clara-pause-entry-board="true"]';
+const OVERLAY_SELECTOR = '[data-clara-pause-overlay="true"]';
 
 function ProfileTrigger({ filledCount, onOpen }) {
   return (
@@ -11,11 +11,11 @@ function ProfileTrigger({ filledCount, onOpen }) {
       type="button"
       onClick={onOpen}
       aria-label="Open CLARA Life Profile"
-      className="absolute left-3 top-3 z-30 grid h-11 w-11 place-items-center overflow-visible rounded-full border border-[#4d8cff]/42 bg-[#07152d] text-blue-100 shadow-[0_12px_30px_rgba(23,105,255,0.20),inset_0_1px_0_rgba(255,255,255,0.07)] transition hover:border-[#4d8cff]/70 hover:bg-[#0a1d3c] active:scale-95"
+      className="absolute left-3 top-[10px] z-[90] grid h-[42px] w-[42px] place-items-center overflow-visible rounded-full border border-[#4d8cff]/42 bg-[#07152d] text-blue-100 shadow-[0_12px_30px_rgba(23,105,255,0.20),inset_0_1px_0_rgba(255,255,255,0.07)] transition hover:border-[#4d8cff]/70 hover:bg-[#0a1d3c] active:scale-95"
       data-clara-life-profile-trigger="true"
     >
       <span className="pointer-events-none absolute inset-[3px] rounded-full border border-white/[0.055]" />
-      <UserRound className="relative h-[19px] w-[19px]" strokeWidth={2.2} />
+      <UserRound className="relative h-[18px] w-[18px]" strokeWidth={2.2} />
       <span
         className="pointer-events-none absolute -bottom-[2px] left-1/2 flex -translate-x-1/2 gap-[2px]"
         aria-hidden="true"
@@ -37,34 +37,50 @@ export default function ClaraLifeProfilePortal({
   isActive = false,
   disabled = false,
   filledCount = 0,
+  onBeforeOpen,
 }) {
   const navigate = useNavigate();
-  const [board, setBoard] = useState(null);
+  const [overlay, setOverlay] = useState(null);
 
   useEffect(() => {
     if (!isActive || disabled || typeof document === "undefined") {
-      setBoard(null);
+      setOverlay(null);
       return undefined;
     }
 
-    const syncBoard = () => {
-      const nextBoard = document.querySelector(BOARD_SELECTOR);
-      setBoard((current) => (current === nextBoard ? current : nextBoard));
+    const syncOverlay = () => {
+      const nextOverlay = document.querySelector(OVERLAY_SELECTOR);
+      setOverlay((current) => (current === nextOverlay ? current : nextOverlay));
     };
 
-    syncBoard();
-    const observer = new MutationObserver(syncBoard);
+    syncOverlay();
+    const observer = new MutationObserver(syncOverlay);
     observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
   }, [disabled, isActive]);
 
-  if (!isActive || disabled || !board) return null;
+  if (!isActive || disabled || !overlay) return null;
 
-  return createPortal(
-    <ProfileTrigger
-      filledCount={filledCount}
-      onOpen={() => navigate("/profile?view=life-context", { state: { source: "buy-check" } })}
-    />,
-    board,
+  const openLifeProfile = () => {
+    onBeforeOpen?.();
+    navigate("/profile?view=life-context", { state: { source: "buy-check" } });
+  };
+
+  return (
+    <>
+      <style>{`
+        body.clara-ai-environment-active
+          [data-clara-pause-overlay="true"]
+          > main[data-clara-ai-message-viewport="true"]
+          > div.flex.min-h-full.flex-col.justify-center {
+          justify-content: flex-start !important;
+          padding-top: 4px !important;
+        }
+      `}</style>
+      {createPortal(
+        <ProfileTrigger filledCount={filledCount} onOpen={openLifeProfile} />,
+        overlay,
+      )}
+    </>
   );
 }
