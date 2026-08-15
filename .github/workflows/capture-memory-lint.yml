@@ -1,0 +1,45 @@
+name: Capture Memory retirement lint
+
+on:
+  push:
+    branches:
+      - eradicate-memory-system
+    paths:
+      - ".github/workflows/capture-memory-lint.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Apply retirement patch
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import textwrap
+          workflow = Path('.github/workflows/eradicate-clara-memory-system.yml').read_text().splitlines()
+          start = next(i for i, line in enumerate(workflow) if "python <<'PY'" in line) + 1
+          end = next(i for i in range(start, len(workflow)) if workflow[i].strip() == 'PY')
+          Path('/tmp/retire-memory.py').write_text(textwrap.dedent('\n'.join(workflow[start:end])) + '\n')
+          PY
+          python /tmp/retire-memory.py
+      - run: npm ci
+      - name: Capture lint
+        run: |
+          set +e
+          npm run lint:buy-check > memory-lint-output.txt 2>&1
+          status=$?
+          set -e
+          printf '%s\n' "$status" > memory-lint-exit-code.txt
+      - name: Publish diagnostics
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add memory-lint-output.txt memory-lint-exit-code.txt
+          git commit -m "Capture Memory retirement lint diagnostics"
+          git push origin eradicate-memory-system
