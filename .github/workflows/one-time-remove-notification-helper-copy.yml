@@ -56,3 +56,5 @@ jobs:
           git commit -m "Remove redundant Notifications helper copy"
           git pull --rebase origin main
           git push origin HEAD:main
+
+# Trigger after workflow registration.
