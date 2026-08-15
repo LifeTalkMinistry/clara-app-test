@@ -38,19 +38,18 @@ const retiredSettingsRuntimeUrls = [
   new URL("../src/clara-settings-memory-entry.js", import.meta.url),
 ];
 
-test("active Settings explains device ownership and exposes Move & Restore Data", () => {
+test("active Settings explains device ownership and exposes transfer plus backup controls", () => {
   assert.match(activeSettingsSource, /Your CLARA data stays private/);
+  assert.match(activeSettingsSource, /Your financial data stays on this device by default/);
+  assert.match(activeSettingsSource, /Signing in somewhere else will not automatically copy it/);
+  assert.match(activeSettingsSource, /Stays on this device/);
+  assert.match(activeSettingsSource, /No automatic device sync/);
+  assert.match(activeSettingsSource, /You control backup & transfer/);
+  assert.match(activeSettingsSource, /DeviceTransferPanel/);
+  assert.match(activeSettingsSource, /Backup & Restore File/);
   assert.match(
     activeSettingsSource,
-    /Signing in on another device will not automatically bring your financial records with it/
-  );
-  assert.match(activeSettingsSource, /Each device starts with its own data/);
-  assert.match(activeSettingsSource, /No automatic device-to-device sync/);
-  assert.match(activeSettingsSource, /You choose when to transfer your data/);
-  assert.match(activeSettingsSource, /Move & Restore Data/);
-  assert.match(
-    activeSettingsSource,
-    /Move your CLARA data to another device or restore a previous backup\./
+    /Download or restore your personal CLARA backup file\./
   );
   assert.match(activeSettingsSource, /navigate\("\/data-export"\)/);
 });
@@ -127,19 +126,20 @@ test("login and AuthContext use the custom backend instead of Supabase auth", ()
   assert.doesNotMatch(authContextSource, /device-local and does not use user accounts/);
 });
 
-test("Backup & Transfer owns explicit device roles plus separate backup files", () => {
-  assert.match(dataExportSource, /Backup & Transfer/);
-  assert.match(dataExportSource, /No automatic replacement/);
-  assert.match(dataExportSource, /DeviceTransferPanel/);
+test("Security settings owns explicit device roles while Backup & Restore owns backup files", () => {
+  assert.match(activeSettingsSource, /DeviceTransferPanel/);
   assert.match(deviceTransferSource, /Send data to another device/);
   assert.match(deviceTransferSource, /Receive data on this device/);
   assert.match(deviceTransferSource, /Approve this device/);
   assert.match(deviceTransferSource, /Migrate to this device now/);
+  assert.match(dataExportSource, /Backup & Restore/);
+  assert.match(dataExportSource, /Personal backup file/);
   assert.match(dataExportSource, /Download backup/);
   assert.match(dataExportSource, /Restore from backup file/);
   assert.match(dataExportSource, /restoreClaraPrivateBackupFile/);
   assert.match(dataExportSource, /accept="application\/json,\.json"/);
   assert.match(dataExportSource, /window\.location\.reload\(\)/);
+  assert.doesNotMatch(dataExportSource, /DeviceTransferPanel/);
   assert.doesNotMatch(dataExportSource, /syncServerFinance/);
   assert.doesNotMatch(dataExportSource, /One account database across devices/);
   assert.doesNotMatch(dataExportSource, /source of truth/i);
