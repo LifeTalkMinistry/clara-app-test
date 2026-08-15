@@ -1,5 +1,6 @@
 import {
   ASK_BEFORE_YOU_SPEND_FEATURE,
+  CLARA_GEMINI_CLIENT_TIMEOUT_MS,
   getClaraProxyModel,
   requestClaraGeminiProxyJson,
 } from "./clara-gemini-proxy-client";
@@ -56,13 +57,33 @@ export function extractGeminiJson(text = "") {
   throw new Error("Gemini did not return valid JSON.");
 }
 
-function withTimeout(ms = 14000) {
+function withTimeout(ms = CLARA_GEMINI_CLIENT_TIMEOUT_MS, parentSignal) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), ms);
+  let timedOut = false;
+
+  const abortFromParent = () => {
+    if (!controller.signal.aborted) controller.abort(parentSignal?.reason);
+  };
+
+  if (parentSignal?.aborted) {
+    abortFromParent();
+  } else {
+    parentSignal?.addEventListener?.("abort", abortFromParent, { once: true });
+  }
+
+  const timeoutId = setTimeout(() => {
+    if (controller.signal.aborted) return;
+    timedOut = true;
+    controller.abort();
+  }, ms);
 
   return {
     signal: controller.signal,
-    clear: () => clearTimeout(timeoutId),
+    didTimeout: () => timedOut,
+    clear: () => {
+      clearTimeout(timeoutId);
+      parentSignal?.removeEventListener?.("abort", abortFromParent);
+    },
   };
 }
 
@@ -74,8 +95,9 @@ export async function requestGeminiJson({
   feature = "",
   prompt,
   maxOutputTokens = 650,
-  timeoutMs = 14000,
+  timeoutMs = CLARA_GEMINI_CLIENT_TIMEOUT_MS,
   label = "CLARA Gemini JSON",
+  signal,
 } = {}) {
   const cleanPrompt = String(prompt || "").trim();
   const normalizedFeature = normalizeFeature(feature);
@@ -89,7 +111,7 @@ export async function requestGeminiJson({
   }
 
   const model = getClaraProxyModel();
-  const timeout = withTimeout(timeoutMs);
+  const timeout = withTimeout(timeoutMs, signal);
 
   try {
     const text = await requestClaraGeminiProxyJson({
@@ -109,12 +131,21 @@ export async function requestGeminiJson({
       rawText: text,
     };
   } catch (error) {
-    if (error?.name === "AbortError") {
+    if (timeout.didTimeout()) {
       throw Object.assign(new Error(`${label} timed out.`), {
         code: "GEMINI_JSON_TIMEOUT",
         model,
       });
     }
+
+    if (signal?.aborted || error?.name === "AbortError") {
+      throw Object.assign(new Error(`${label} cancelled.`), {
+        name: "AbortError",
+        code: "CLARA_AI_CANCELLED",
+        model,
+      });
+    }
+
     throw error;
   } finally {
     timeout.clear();

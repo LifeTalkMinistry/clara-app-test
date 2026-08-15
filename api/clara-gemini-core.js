@@ -1,3 +1,10 @@
+import {
+  CLARA_AI_AUTH_TIMEOUT_MS,
+  CLARA_AI_GEMINI_TIMEOUT_MS,
+  abortCode,
+  createLinkedAbortController,
+} from "./clara-gemini-lifecycle.js";
+
 const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const DEFAULT_MODEL = "gemini-3.6-flash";
 const APPROVED_MODELS = new Set([DEFAULT_MODEL]);
@@ -7,8 +14,6 @@ const MAX_PROMPT_CHARS = 28000;
 const MAX_OUTPUT_TOKENS = 2048;
 const STRUCTURED_MIN_OUTPUT_TOKENS = 1200;
 const PLAIN_MAX_OUTPUT_TOKENS = 700;
-const REQUEST_TIMEOUT_MS = 20000;
-const AUTH_TIMEOUT_MS = 8000;
 const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
 const RATE_LIMIT_MAX_REQUESTS = 30;
 const DUPLICATE_WINDOW_MS = 2500;
@@ -139,7 +144,7 @@ function extractAuthenticatedUser(payload = {}) {
   return null;
 }
 
-async function authenticateClaraUser(req) {
+async function authenticateClaraUser(req, parentSignal) {
   const token = getBearerToken(req);
   if (!token) {
     return {
@@ -150,8 +155,12 @@ async function authenticateClaraUser(req) {
     };
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS);
+  const abort = createLinkedAbortController({
+    parentSignal,
+    timeoutMs: CLARA_AI_AUTH_TIMEOUT_MS,
+    timeoutCode: "CLARA_AI_AUTH_TIMEOUT",
+    timeoutMessage: "CLARA AI authentication timed out.",
+  });
 
   try {
     const response = await fetch(`${getClaraBackendApiUrl()}/api/users/me`, {
@@ -161,7 +170,7 @@ async function authenticateClaraUser(req) {
         Accept: "application/json",
         Authorization: `Bearer ${token}`,
       },
-      signal: controller.signal,
+      signal: abort.signal,
     });
 
     const payload = await response.json().catch(() => ({}));
@@ -195,14 +204,31 @@ async function authenticateClaraUser(req) {
 
     return { ok: true, user };
   } catch (error) {
+    const code = error?.code || abortCode(abort.signal);
+    if (code === "CLARA_AI_CLIENT_CANCELLED" || code === "CLARA_AI_CANCELLED") {
+      return {
+        ok: false,
+        status: 499,
+        code: "CLARA_AI_CANCELLED",
+        error: "CLARA AI request was cancelled.",
+      };
+    }
+    if (code === "CLARA_AI_SERVER_DEADLINE") {
+      return {
+        ok: false,
+        status: 504,
+        code: "CLARA_AI_DEADLINE_EXCEEDED",
+        error: "CLARA AI request reached its server deadline.",
+      };
+    }
     return {
       ok: false,
       status: 503,
-      code: error?.name === "AbortError" ? "CLARA_AI_AUTH_TIMEOUT" : "CLARA_AI_AUTH_UNAVAILABLE",
+      code: code === "CLARA_AI_AUTH_TIMEOUT" ? "CLARA_AI_AUTH_TIMEOUT" : "CLARA_AI_AUTH_UNAVAILABLE",
       error: "CLARA couldn't verify your session right now, so no AI money check was run.",
     };
   } finally {
-    clearTimeout(timeoutId);
+    abort.clear();
   }
 }
 
@@ -444,6 +470,56 @@ function takeDuplicateSlot(req, prompt) {
   return true;
 }
 
+function getRequestContext(req) {
+  const context = req?.__claraAiRequestContext;
+  return context && typeof context === "object" ? context : {};
+}
+
+function markStart(timing, stage) {
+  timing?.start?.(stage);
+}
+
+function markEnd(timing, stage) {
+  timing?.end?.(stage);
+}
+
+function cancellationPayload(code, model) {
+  if (code === "CLARA_AI_CLIENT_CANCELLED" || code === "CLARA_AI_CANCELLED") {
+    return {
+      status: 499,
+      payload: {
+        ok: false,
+        code: "CLARA_AI_CANCELLED",
+        error: "CLARA AI request was cancelled.",
+        model,
+      },
+    };
+  }
+  if (code === "CLARA_AI_SERVER_DEADLINE") {
+    return {
+      status: 504,
+      payload: {
+        ok: false,
+        code: "CLARA_AI_DEADLINE_EXCEEDED",
+        error: "CLARA AI request reached its server deadline.",
+        model,
+      },
+    };
+  }
+  if (code === "CLARA_AI_GEMINI_TIMEOUT") {
+    return {
+      status: 504,
+      payload: {
+        ok: false,
+        code: "CLARA_AI_UPSTREAM_TIMEOUT",
+        error: "CLARA AI request timed out.",
+        model,
+      },
+    };
+  }
+  return null;
+}
+
 export default async function handler(req, res) {
   setCorsHeaders(res);
 
@@ -456,6 +532,9 @@ export default async function handler(req, res) {
     res.setHeader("Allow", "POST, OPTIONS");
     return sendJson(res, 405, { ok: false, error: "Method not allowed." });
   }
+
+  const requestContext = getRequestContext(req);
+  const timing = requestContext.timing;
 
   let body;
   try {
@@ -502,7 +581,12 @@ export default async function handler(req, res) {
     });
   }
 
-  const authentication = await authenticateClaraUser(req);
+  markStart(timing, "authentication");
+  const authentication = requestContext.authenticationVerified === true
+    ? { ok: true, source: "usage_reservation" }
+    : await authenticateClaraUser(req, requestContext.signal);
+  markEnd(timing, "authentication");
+
   if (!authentication.ok) {
     return sendJson(res, authentication.status, {
       ok: false,
@@ -527,9 +611,14 @@ export default async function handler(req, res) {
   const model = chooseModel(body?.model);
   const generationConfig = buildGenerationConfig(body?.generationConfig, prompt);
   const wantsJson = isStructuredJsonRequest(body?.generationConfig);
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const abort = createLinkedAbortController({
+    parentSignal: requestContext.signal,
+    timeoutMs: CLARA_AI_GEMINI_TIMEOUT_MS,
+    timeoutCode: "CLARA_AI_GEMINI_TIMEOUT",
+    timeoutMessage: "CLARA Gemini request timed out.",
+  });
 
+  markStart(timing, "gemini");
   try {
     const response = await fetch(`${GEMINI_ENDPOINT_BASE}/${encodeURIComponent(model)}:generateContent`, {
       method: "POST",
@@ -537,7 +626,7 @@ export default async function handler(req, res) {
         "Content-Type": "application/json",
         "x-goog-api-key": apiKey,
       },
-      signal: controller.signal,
+      signal: abort.signal,
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig,
@@ -545,6 +634,7 @@ export default async function handler(req, res) {
     });
 
     const payload = await response.json().catch(() => ({}));
+    markEnd(timing, "gemini");
 
     if (!response.ok) {
       console.warn("[CLARA Gemini] Upstream request failed.", {
@@ -563,8 +653,10 @@ export default async function handler(req, res) {
       });
     }
 
+    markStart(timing, "structuredParse");
     let text = extractGeminiText(payload);
     if (!text) {
+      markEnd(timing, "structuredParse");
       return sendJson(res, 502, { ok: false, error: "CLARA AI returned an empty response.", model });
     }
 
@@ -580,6 +672,7 @@ export default async function handler(req, res) {
         thoughtsTokenCount: Number(usage?.thoughtsTokenCount || 0),
         totalTokenCount: Number(usage?.totalTokenCount || 0),
       });
+      markEnd(timing, "structuredParse");
       return sendJson(res, 502, {
         ok: false,
         code: "CLARA_AI_INVALID_STRUCTURED_OUTPUT",
@@ -592,6 +685,7 @@ export default async function handler(req, res) {
       const allowedFactIds = extractAllowedFactIds(prompt);
       if (!allowedFactIds.length) {
         console.warn("[CLARA Gemini] Spending decision had no CLARA-owned verified fact catalog.", { model });
+        markEnd(timing, "structuredParse");
         return sendJson(res, 502, {
           ok: false,
           code: "CLARA_AI_NO_VERIFIED_FACTS",
@@ -603,15 +697,22 @@ export default async function handler(req, res) {
       text = normalizeStructuredOutputText(text, prompt);
     }
 
+    markEnd(timing, "structuredParse");
     return sendJson(res, 200, { ok: true, text, model, feature: ALLOWED_FEATURE });
   } catch (error) {
-    const isTimeout = error?.name === "AbortError";
-    return sendJson(res, isTimeout ? 504 : 502, {
+    markEnd(timing, "gemini");
+    markEnd(timing, "structuredParse");
+    const code = error?.code || abortCode(abort.signal);
+    const cancelled = cancellationPayload(code, model);
+    if (cancelled) return sendJson(res, cancelled.status, cancelled.payload);
+
+    return sendJson(res, 502, {
       ok: false,
-      error: isTimeout ? "CLARA AI request timed out." : "CLARA AI could not be reached.",
+      code: "CLARA_AI_UPSTREAM_FAILED",
+      error: "CLARA AI could not be reached.",
       model,
     });
   } finally {
-    clearTimeout(timeoutId);
+    abort.clear();
   }
 }

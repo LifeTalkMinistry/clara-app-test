@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   analyzeBuyCheckBudgetCoverage,
   budgetCoverageFromAssessment,
@@ -78,15 +78,28 @@ function prepareBudgetState(item, price, reason, assistantContext, current = {})
 export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {}) {
   const [state, setState] = useState(() => createExpertInitialState());
   const activeGeminiRequestRef = useRef(null);
+  const activeGeminiAbortRef = useRef(null);
+
+  const cancelActiveGeminiRequest = useCallback(() => {
+    activeGeminiAbortRef.current?.abort();
+    activeGeminiAbortRef.current = null;
+    activeGeminiRequestRef.current = null;
+  }, []);
+
+  useEffect(() => () => {
+    cancelActiveGeminiRequest();
+  }, [cancelActiveGeminiRequest]);
 
   const startSession = useCallback((sessionId = "") => {
+    cancelActiveGeminiRequest();
     setState(createExpertInitialState(sessionId || `buy-check-${Date.now()}`));
     return true;
-  }, []);
+  }, [cancelActiveGeminiRequest]);
 
   const clearSession = useCallback(() => {
+    cancelActiveGeminiRequest();
     setState(createExpertInitialState());
-  }, []);
+  }, [cancelActiveGeminiRequest]);
 
   const submitAnswer = useCallback(async (raw = "") => {
     const answer = clean(raw);
@@ -97,7 +110,9 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
     if (activeGeminiRequestRef.current) return false;
 
     const requestToken = `${snapshot.sessionId || "no-session"}:conversation:${Date.now()}`;
+    const requestController = new AbortController();
     activeGeminiRequestRef.current = requestToken;
+    activeGeminiAbortRef.current = requestController;
     const userMessage = createMessage("user", answer);
     const thinkingMessage = createMessage("clara", "");
     const thinkingStartedAt = Date.now();
@@ -117,6 +132,7 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
         history: historyForTurn(snapshot),
         evidence: snapshot.evidence,
         assistantContext,
+        signal: requestController.signal,
       });
 
       await holdThinkingUntil(thinkingStartedAt);
@@ -156,6 +172,10 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
       });
       return true;
     } catch (error) {
+      if (error?.code === "CLARA_AI_CANCELLED" || error?.name === "AbortError") {
+        return false;
+      }
+
       console.warn("[CLARA Buy Check] Expert conversation turn failed safely.", error);
       await holdThinkingUntil(thinkingStartedAt);
       const dailyLimitReached = error?.code === "CLARA_AI_DAILY_LIMIT_REACHED";
@@ -177,7 +197,10 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
           });
       return false;
     } finally {
-      if (activeGeminiRequestRef.current === requestToken) activeGeminiRequestRef.current = null;
+      if (activeGeminiRequestRef.current === requestToken) {
+        activeGeminiRequestRef.current = null;
+        activeGeminiAbortRef.current = null;
+      }
     }
   }, [assistantContext, state]);
 
@@ -299,9 +322,10 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
   }, [state]);
 
   const checkAnother = useCallback(() => {
+    cancelActiveGeminiRequest();
     setState(createExpertInitialState(`buy-check-${Date.now()}-${Math.random().toString(36).slice(2)}`));
     return true;
-  }, []);
+  }, [cancelActiveGeminiRequest]);
 
   return useMemo(() => ({
     state,

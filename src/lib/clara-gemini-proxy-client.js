@@ -5,6 +5,9 @@ const GEMINI_PROXY_ENDPOINT = "/api/clara-gemini";
 const CLARA_GEMINI_PROXY_PRODUCTION_URL = "https://clara-app-test.vercel.app/api/clara-gemini";
 export const ASK_BEFORE_YOU_SPEND_FEATURE = "ask-before-you-spend";
 export const CLARA_AI_USAGE_UPDATED_EVENT = "clara:ai-usage-updated";
+// Transport watchdog only. The server owns the 30s AI lifecycle deadline; this
+// remains later so the browser does not abandon legitimate server work first.
+export const CLARA_GEMINI_CLIENT_TIMEOUT_MS = 35000;
 
 function cleanText(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
