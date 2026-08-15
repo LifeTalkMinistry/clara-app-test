@@ -66,7 +66,8 @@ jobs:
 
       - name: Run Memory retirement focused regression tests
         run: |
-          node --test \
+          set -euo pipefail
+          for test_file in \
             tests/retired-context-system.test.mjs \
             tests/dashboard-top-nav-ownership.test.mjs \
             tests/onboarding-gate-regression.test.mjs \
@@ -74,6 +75,9 @@ jobs:
             tests/local-data-export.test.mjs \
             tests/buy-check-gemini-authority.test.mjs \
             tests/device-transfer-safety.test.mjs
+          do
+            node --test "$test_file"
+          done
 
       - name: Run full suite against pre-existing baseline
         run: |
@@ -136,6 +140,7 @@ jobs:
           rm -f .github/workflows/eradicate-clara-memory-system.yml
           rm -f .github/workflows/debug-memory-retirement-tests.yml
           rm -f .github/workflows/capture-baseline-tests.yml
+          rm -f .github/workflows/debug-focused-memory-tests.yml
           rm -f .github/workflows/finalize-memory-retirement.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
