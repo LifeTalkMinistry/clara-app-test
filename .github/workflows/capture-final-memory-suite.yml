@@ -1,0 +1,66 @@
+name: Capture final Memory retirement suite
+
+on:
+  push:
+    branches:
+      - eradicate-memory-system
+    paths:
+      - ".github/workflows/capture-final-memory-suite.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply retirement patch and test alignment
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import textwrap
+          workflow = Path('.github/workflows/eradicate-clara-memory-system.yml').read_text().splitlines()
+          start = next(i for i, line in enumerate(workflow) if "python <<'PY'" in line) + 1
+          end = next(i for i in range(start, len(workflow)) if workflow[i].strip() == 'PY')
+          Path('/tmp/retire-memory.py').write_text(textwrap.dedent('\n'.join(workflow[start:end])) + '\n')
+          PY
+          python /tmp/retire-memory.py
+          python <<'PY'
+          from pathlib import Path
+          path = Path('tests/dashboard-top-nav-ownership.test.mjs')
+          source = path.read_text()
+          source = source.replace('test("Settings owns its detail history, logout, memory, and scroll behavior in React", () => {','test("Settings owns its detail history, logout, and scroll behavior without retired Memory", () => {',1)
+          source = source.replace('  assert.match(settingsSource, /clara:open-assistant-memory-board/);','  assert.doesNotMatch(settingsSource, /clara:open-assistant-memory-board/);\n  assert.doesNotMatch(settingsSource, /title: "Memory"/);',1)
+          source = source.replace('  assert.doesNotMatch(runtimeRegistrySource, /clara-settings-memory-entry/);','  assert.doesNotMatch(runtimeRegistrySource, /clara-settings-memory-entry/);\n  assert.doesNotMatch(runtimeRegistrySource, /clara-assistant-memory-tab/);',1)
+          path.write_text(source)
+
+          path = Path('tests/onboarding-gate-regression.test.mjs')
+          source = path.read_text()
+          source = source.replace('test("memory fallback cannot complete onboarding for another vault", async () => {','test("retired Memory records cannot complete onboarding for any vault", async () => {',1)
+          source = source.replace('    assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-a" }), true);\n    assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-b" }), false);','    assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-a" }), false);\n    assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-b" }), false);',1)
+          path.write_text(source)
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Capture suite
+        run: |
+          set +e
+          npm test > final-memory-suite-output.txt 2>&1
+          status=$?
+          set -e
+          printf '%s\n' "$status" > final-memory-suite-exit-code.txt
+
+      - name: Publish diagnostics
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add final-memory-suite-output.txt final-memory-suite-exit-code.txt
+          git commit -m "Capture final Memory suite diagnostics"
+          git push origin eradicate-memory-system
