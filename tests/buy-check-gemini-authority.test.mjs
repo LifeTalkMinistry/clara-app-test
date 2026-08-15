@@ -106,24 +106,25 @@ test("post-choice saving does not spend another Gemini call", async () => {
 
 test("duplicate requests remain guarded and conversation rate limit supports normal dialogue", async () => {
   const flow = await source("src/components/fresh/main-dashboard/assistant/useClaraBuyCheckExpertFlow.js");
-  const api = await source("api/clara-gemini.js");
+  const core = await source("api/clara-gemini-core.js");
 
   assert.match(flow, /activeGeminiRequestRef/);
   assert.match(flow, /if \(activeGeminiRequestRef\.current\) return false/);
-  assert.match(api, /RATE_LIMIT_MAX_REQUESTS = 30/);
-  assert.match(api, /DUPLICATE_WINDOW_MS = 2500/);
-  assert.match(api, /CLARA_AI_DUPLICATE_REQUEST/);
+  assert.match(core, /RATE_LIMIT_MAX_REQUESTS = 30/);
+  assert.match(core, /DUPLICATE_WINDOW_MS = 2500/);
+  assert.match(core, /CLARA_AI_DUPLICATE_REQUEST/);
 });
 
 test("Gemini cost and secret controls remain server-owned", async () => {
-  const api = await source("api/clara-gemini.js");
+  const core = await source("api/clara-gemini-core.js");
+  const lifecycle = await source("api/clara-gemini-lifecycle.js");
   const proxy = await source("src/lib/clara-gemini-proxy-client.js");
   const json = await source("src/lib/clara-gemini-json-utils.js");
   const expert = await source("src/lib/clara-buy-check-expert-ai.js");
 
-  assert.match(api, /process\.env\.GEMINI_API_KEY/);
-  assert.match(api, /REQUEST_TIMEOUT_MS = 20000/);
-  assert.match(api, /MAX_PROMPT_CHARS = 28000/);
+  assert.match(core, /process\.env\.GEMINI_API_KEY/);
+  assert.match(lifecycle, /CLARA_AI_GEMINI_TIMEOUT_MS = 20000/);
+  assert.match(core, /MAX_PROMPT_CHARS = 28000/);
   assert.doesNotMatch(proxy, /VITE_GEMINI_API_KEY/);
   assert.doesNotMatch(json, /VITE_GEMINI_API_KEY/);
   assert.match(expert, /history\.slice\(-12\)/);
@@ -131,13 +132,13 @@ test("Gemini cost and secret controls remain server-owned", async () => {
 
 test("Ask Before You Spend feature authority remains explicit", async () => {
   const expert = await source("src/lib/clara-buy-check-expert-ai.js");
-  const api = await source("api/clara-gemini.js");
+  const core = await source("api/clara-gemini-core.js");
   const json = await source("src/lib/clara-gemini-json-utils.js");
 
   assert.match(expert, /feature: "ask-before-you-spend"/);
   assert.match(expert, /label: "CLARA universal spending conversation"/);
-  assert.match(api, /const ALLOWED_FEATURE = "ask-before-you-spend"/);
-  assert.match(api, /CLARA_AI_FEATURE_DISABLED/);
+  assert.match(core, /const ALLOWED_FEATURE = "ask-before-you-spend"/);
+  assert.match(core, /CLARA_AI_FEATURE_DISABLED/);
   assert.match(json, /ASK_BEFORE_YOU_SPEND_FEATURE/);
 });
 
