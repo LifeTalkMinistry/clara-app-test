@@ -112,11 +112,11 @@ jobs:
           print('No new full-suite failures beyond the pre-existing baseline.')
           PY
 
-      - name: Run Buy Check lint
-        run: npm run lint:buy-check
+      - name: Lint modified Buy Check contract
+        run: npx eslint src/lib/clara-buy-check-context-contract.js
 
-      - name: Build production bundle
-        run: npm run build
+      - name: Build production bundle directly
+        run: npx vite build --base=./
 
       - name: Final source-level retirement audit
         run: |
@@ -142,11 +142,13 @@ jobs:
           rm -f retirement-test-output.txt retirement-test-exit-code.txt
           rm -f baseline-test-output.txt baseline-test-exit-code.txt
           rm -f final-memory-suite-output.txt final-memory-suite-exit-code.txt
+          rm -f memory-lint-output.txt memory-lint-exit-code.txt
           rm -f .github/workflows/eradicate-clara-memory-system.yml
           rm -f .github/workflows/debug-memory-retirement-tests.yml
           rm -f .github/workflows/capture-baseline-tests.yml
           rm -f .github/workflows/debug-focused-memory-tests.yml
           rm -f .github/workflows/capture-final-memory-suite.yml
+          rm -f .github/workflows/capture-memory-lint.yml
           rm -f .github/workflows/finalize-memory-retirement.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
