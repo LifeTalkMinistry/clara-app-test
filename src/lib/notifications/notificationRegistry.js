@@ -16,7 +16,7 @@ const event = ({ category, severity = "info", optional = true, active = false })
 
 export const NOTIFICATION_EVENTS = Object.freeze({
   // 1. Daily Check-In
-  daily_check_in_reminder: event({ category: NOTIFICATION_CATEGORIES.DAILY_CHECK_IN }),
+  daily_check_in_reminder: event({ category: NOTIFICATION_CATEGORIES.DAILY_CHECK_IN, active: true }),
   daily_check_in_incomplete: event({ category: NOTIFICATION_CATEGORIES.DAILY_CHECK_IN, severity: "warning" }),
 
   // 2. Expense Logging

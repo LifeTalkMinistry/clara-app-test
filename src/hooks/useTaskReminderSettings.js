@@ -95,6 +95,29 @@ export default function useTaskReminderSettings(userId) {
 
   useEffect(() => {
     refreshPushStatus();
+
+    if (typeof window === "undefined") return undefined;
+
+    const handleFocus = () => {
+      refreshPushStatus();
+    };
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        refreshPushStatus();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+    }
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      }
+    };
   }, [refreshPushStatus]);
 
   const saveSettings = useCallback(

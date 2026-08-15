@@ -583,7 +583,27 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
     preferences.tasksAndCoaching !== false &&
     preferences.scheduleAndCalendar !== false;
 
-  const deliveryIsDevice = preferences.deliveryMode === "device_and_in_app";
+  const deliveryWantsDevice = preferences.deliveryMode === "device_and_in_app";
+  const phoneDeliveryReady = Boolean(
+    deliveryWantsDevice &&
+      taskReminderSettings.pushSupported &&
+      taskReminderSettings.permissionState === "granted" &&
+      taskReminderSettings.pushConfigured
+  );
+  const deliveryStatusTitle = phoneDeliveryReady
+    ? "Phone + in-app"
+    : deliveryWantsDevice
+      ? "Phone notifications need attention"
+      : "In-app only";
+  const deliveryStatusDescription = phoneDeliveryReady
+    ? "Phone delivery is ready on this device. In-app notifications remain active."
+    : deliveryWantsDevice && taskReminderSettings.permissionState === "denied"
+      ? "Phone permission is blocked. In-app notifications remain active."
+      : deliveryWantsDevice && !taskReminderSettings.pushSupported
+        ? "Phone notifications are unavailable in this environment. In-app notifications remain active."
+        : deliveryWantsDevice
+          ? "Phone delivery is requested, but permission or device configuration is not currently ready. In-app notifications remain active."
+          : "Enable phone notifications if you want CLARA reminders to appear outside the app when supported.";
 
   return (
     <div className="space-y-5">
@@ -605,10 +625,10 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
               Notification delivery
             </p>
             <p className="mt-1 text-sm font-black text-white">
-              {deliveryIsDevice ? "Phone + in-app" : "In-app only"}
+              {deliveryStatusTitle}
             </p>
             <p className="mt-1 text-xs leading-5 text-white/45">
-              Enable phone notifications if you want CLARA reminders to appear outside the app when supported.
+              {deliveryStatusDescription}
             </p>
           </div>
           <Bell className="mt-1 h-5 w-5 shrink-0 text-[#8ed0ff]" />
@@ -623,14 +643,14 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
           >
             {taskReminderSettings.pushEnabling
               ? "Enabling..."
-              : deliveryIsDevice
+              : deliveryWantsDevice
                 ? "Refresh phone notifications"
                 : "Enable phone notifications"}
           </button>
           <button
             type="button"
             onClick={useInAppOnly}
-            disabled={!deliveryIsDevice}
+            disabled={!deliveryWantsDevice}
             className="rounded-2xl border border-[#1d4b7b]/45 bg-[#07162b] px-4 py-3 text-xs font-black text-white/70 transition disabled:opacity-35"
           >
             Use in-app only
