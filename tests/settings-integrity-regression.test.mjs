@@ -112,7 +112,8 @@ test("notification Settings no longer queries retired program tables to decide w
     notificationPanelSource,
     /from\("user_program_day_assignments"\)/
   );
-  assert.match(notificationPanelSource, /Advanced task reminder schedule/);
+  assert.match(notificationPanelSource, /Delivery diagnostics/);
+  assert.doesNotMatch(notificationPanelSource, /TaskReminderSettingsCard/);
   assert.match(notificationPanelSource, /tasksAndCoaching/);
 });
 

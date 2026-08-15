@@ -117,3 +117,12 @@ test("device capability refreshes after returning from OS or browser settings", 
   );
   assert.match(taskReminderSettingsSource, /refreshPushStatus\(\)/);
 });
+
+
+test("notification Settings exposes one user-facing notification system", () => {
+  assert.match(notificationPanelSource, /Delivery diagnostics/);
+  assert.match(notificationPanelSource, /Technical delivery status only/);
+  assert.doesNotMatch(notificationPanelSource, /TaskReminderSettingsCard/);
+  assert.doesNotMatch(notificationPanelSource, /Advanced delivery & task reminder tools/);
+  assert.doesNotMatch(notificationPanelSource, /Save advanced task schedule/);
+});

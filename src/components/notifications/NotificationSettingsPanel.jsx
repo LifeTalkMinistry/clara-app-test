@@ -11,7 +11,6 @@ import {
   WalletCards,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import TaskReminderSettingsCard from "@/components/TaskReminderSettingsCard";
 import useTaskReminderSettings from "@/hooks/useTaskReminderSettings";
 import useNotificationPreferences from "@/hooks/useNotificationPreferences";
 import { hasStoredNotificationPreferences } from "@/lib/notifications/notificationPreferences";
@@ -448,7 +447,7 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
         } catch (saveError) {
           console.error("Notification task settings sync failed:", saveError);
           setError(
-            "Your notification choice was saved, but task reminder delivery could not be updated."
+            "Your notification choice was saved, but notification delivery could not be updated."
           );
         }
       }
@@ -511,7 +510,7 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
       setError("");
     } catch (saveError) {
       console.error("In-app delivery update failed:", saveError);
-      setError("Your app preference was saved, but task reminder delivery could not be updated.");
+      setError("Your app preference was saved, but notification delivery could not be updated.");
     }
   }, [syncTaskSettings, updatePreference]);
 
@@ -558,26 +557,6 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
     }
   }, [taskReminderSettings]);
 
-  const saveTaskReminderSchedule = useCallback(async () => {
-    setNotice("");
-    setError("");
-    try {
-      const enabled = Boolean(taskReminderSettings.settings.reminders_enabled);
-      updatePreference("tasksAndCoaching", enabled);
-      await taskReminderSettings.saveSettings({
-        ...taskReminderSettings.settings,
-        reminders_enabled: enabled,
-        timezone: preferences.timezone,
-        quiet_hours_enabled: preferences.quietHoursEnabled,
-        quiet_hours_start: preferences.quietHoursStart,
-        quiet_hours_end: preferences.quietHoursEnd,
-      });
-      setNotice("Task reminder schedule updated.");
-    } catch (saveError) {
-      console.error("Task reminder schedule save failed:", saveError);
-      setError("Unable to save the task reminder schedule.");
-    }
-  }, [preferences, taskReminderSettings, updatePreference]);
 
   const coachingScheduleEnabled =
     preferences.tasksAndCoaching !== false &&
@@ -813,39 +792,67 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
       </section>
 
       {notificationOwnerId ? (
-        <details className="group rounded-[26px] border border-[#1d4b7b]/45 bg-[#061225] p-3">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-2 py-2 text-sm font-bold text-white/75">
-            Advanced delivery & task reminder tools
+        <details className="group overflow-hidden rounded-[22px] border border-[#1d4b7b]/45 bg-[#061225]">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 text-sm font-bold text-white/75">
+            Delivery diagnostics
             <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
           </summary>
-          <p className="px-2 pb-2 text-[11px] leading-5 text-white/40">
-            Diagnostics and custom task-reminder timing live here. These controls do not create a second notification system.
-          </p>
-          <div className="mt-3">
-            <TaskReminderSettingsCard
-              settings={taskReminderSettings.settings}
-              onChange={taskReminderSettings.setSettings}
-              loading={taskReminderSettings.loading || taskReminderSettings.saving}
-              pushSupported={taskReminderSettings.pushSupported}
-              permissionState={taskReminderSettings.permissionState}
-              pushConfigured={taskReminderSettings.pushConfigured}
-              pushEnabling={taskReminderSettings.pushEnabling}
-              localTestSending={localTestSending}
-              realPushTestSending={realPushTestSending}
-              onEnablePush={enableDeviceNotifications}
-              onSendLocalTest={sendLocalDeviceTest}
-              onSendRealPushTest={sendRealPushTest}
-            />
-            <button
-              type="button"
-              disabled={!taskReminderSettings.dirty || taskReminderSettings.saving}
-              onClick={saveTaskReminderSchedule}
-              className="mt-3 w-full rounded-2xl border border-[#4f96ff]/35 bg-[#0867ff] px-4 py-3 text-sm font-black text-white disabled:opacity-45"
-            >
-              {taskReminderSettings.saving
-                ? "Saving..."
-                : "Save advanced task schedule"}
-            </button>
+          <div className="border-t border-[#1d4b7b]/45 px-4 pb-4 pt-3">
+            <p className="text-[11px] leading-5 text-white/40">
+              Technical delivery status only. Notification families above remain the single source of truth.
+            </p>
+
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <div className="rounded-2xl border border-[#1d4b7b]/45 bg-[#040d1c] px-3 py-3">
+                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/30">
+                  Device support
+                </p>
+                <p className="mt-1 text-xs font-black text-white/75">
+                  {taskReminderSettings.pushSupported ? "Available" : "Unavailable"}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-[#1d4b7b]/45 bg-[#040d1c] px-3 py-3">
+                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/30">
+                  Permission
+                </p>
+                <p className="mt-1 text-xs font-black text-white/75">
+                  {taskReminderSettings.permissionState === "granted"
+                    ? "Granted"
+                    : taskReminderSettings.permissionState === "denied"
+                      ? "Blocked"
+                      : taskReminderSettings.permissionState === "unsupported"
+                        ? "Unavailable"
+                        : "Not granted"}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-[#1d4b7b]/45 bg-[#040d1c] px-3 py-3">
+                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/30">
+                  Phone delivery
+                </p>
+                <p className="mt-1 text-xs font-black text-white/75">
+                  {taskReminderSettings.pushConfigured ? "Ready" : "Not configured"}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={sendLocalDeviceTest}
+                disabled={localTestSending}
+                className="rounded-2xl border border-[#1d4b7b]/45 bg-[#07162b] px-4 py-3 text-xs font-black text-white/70 disabled:opacity-45"
+              >
+                {localTestSending ? "Sending local test..." : "Test local notification"}
+              </button>
+              <button
+                type="button"
+                onClick={sendRealPushTest}
+                disabled={realPushTestSending || !taskReminderSettings.pushConfigured}
+                className="rounded-2xl border border-[#4f96ff]/35 bg-[#0867ff] px-4 py-3 text-xs font-black text-white disabled:opacity-45"
+              >
+                {realPushTestSending ? "Sending push test..." : "Test phone push"}
+              </button>
+            </div>
           </div>
         </details>
       ) : null}
