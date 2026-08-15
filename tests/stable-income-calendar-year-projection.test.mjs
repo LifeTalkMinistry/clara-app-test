@@ -139,3 +139,18 @@ test("Stable Income Schedule projection is owned by returned Income Hub sources,
     /projectionTimings\s*=\s*\[\s*\.\.\.canonicalStableTimings,\s*\.\.\.compatibilityTimings/
   );
 });
+
+test("Schedule refreshes from the canonical Income Hub update signal", () => {
+  const source = readFileSync(
+    new URL(
+      "../src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardScheduleImpactPortalPanel.js",
+      import.meta.url
+    ),
+    "utf8"
+  );
+
+  assert.equal(source.includes('INCOME_HUB_UPDATED_EVENT = "clara-income-hub-updated"'), true);
+  assert.equal(source.includes("window.addEventListener(INCOME_HUB_UPDATED_EVENT, resyncSchedule)"), true);
+  assert.equal(source.includes("window.removeEventListener(INCOME_HUB_UPDATED_EVENT, resyncSchedule)"), true);
+  assert.equal(source.includes("syncRecurringBillsIntoSchedule(ownerId)"), true);
+});
