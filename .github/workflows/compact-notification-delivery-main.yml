@@ -27,8 +27,8 @@ jobs:
           git diff --check
           node --test tests/notification-runtime-contracts.test.mjs
 
-      - name: Verify production build
-        run: npm run build
+      - name: Verify production compilation
+        run: npx vite build --base=./
 
       - name: Commit verified repair and self-clean
         run: |
