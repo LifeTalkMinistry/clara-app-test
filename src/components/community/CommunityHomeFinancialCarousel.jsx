@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import FinancialCarousel from "@/components/financial-carousel/FinancialCarousel";
 import WalletProviderPicker from "@/components/financial-carousel/cards/wallet/ui/WalletProviderPicker";
+import { syncProtectedAllocations } from "@/components/financial-carousel/cards/wallet/ui/WalletCardContentSynced";
 import {
   buildWalletProviderPayload,
   getWalletProvider,
@@ -27,6 +28,8 @@ import useMoneySummaryVisibility from "@/components/fresh/main-dashboard/money-s
 import { formatPhpCurrency } from "@/components/fresh/main-dashboard/hooks/usePhpCurrencyFormatter";
 import useUserRole from "@/hooks/useUserRole";
 import useFinancialData from "@/hooks/useFinancialData";
+import { isDebtCommitment } from "@/lib/clara-derived-budget";
+import { buildHomeSpendableMoneyProjection } from "@/lib/clara-home-spendable-money";
 import { useTheme } from "@/theme/ThemeProvider";
 import {
   firstPositiveNumber,
@@ -87,6 +90,21 @@ function walletProtectedAmount(wallet) {
   return Number.isFinite(value) ? Math.max(value, 0) : 0;
 }
 
+function getDebtBudgetRemaining(monthlyBudgetPlan = {}) {
+  const rows = Array.isArray(monthlyBudgetPlan?.categories)
+    ? monthlyBudgetPlan.categories
+    : Array.isArray(monthlyBudgetPlan?.categoryRows)
+      ? monthlyBudgetPlan.categoryRows
+      : [];
+
+  return rows.filter(isDebtCommitment).reduce((sum, row) => {
+    const remaining = Number(
+      row?.remaining ?? row?.remaining_amount ?? row?.amount_left ?? 0
+    );
+    return sum + (Number.isFinite(remaining) ? Math.max(remaining, 0) : 0);
+  }, 0);
+}
+
 export default function CommunityHomeFinancialCarousel() {
   const navigate = useNavigate();
   const { selectedTheme: selectedDashboardTheme } = useTheme();
@@ -139,20 +157,57 @@ export default function CommunityHomeFinancialCarousel() {
     emergencyFund,
   });
 
-  const afterMonthlyBudgetMoney = useMemo(() => {
+  const {
+    thisMonthSpent = 0,
+    monthlyObligationPressure = 0,
+  } = useDashboardMoneyLeftMetrics({
+    expenses,
+    walletTransactions,
+    user,
+  });
+
+  const spendableWalletBalance = useMemo(() => {
+    const protectedWallets = syncProtectedAllocations({
+      rows: wallets,
+      allWallets: wallets,
+      emergencyFund,
+      savingsGoals,
+    });
+
+    return protectedWallets
+      .filter(isManageableWallet)
+      .reduce((sum, wallet) => sum + getWalletSpendableBalance(wallet), 0);
+  }, [emergencyFund, savingsGoals, wallets]);
+
+  const debtBudgetRemaining = useMemo(
+    () => getDebtBudgetRemaining(monthlyBudgetPlan),
+    [monthlyBudgetPlan]
+  );
+
+  const spendableMoneyProjection = useMemo(() => {
     const rawRemaining = Number(
       monthlyBudgetPlan?.remaining ?? monthlyBudgetPlan?.remaining_amount ?? 0
     );
-    const remainingMonthlyCommitment = Number.isFinite(rawRemaining)
+    const remainingBudget = Number.isFinite(rawRemaining)
       ? Math.max(rawRemaining, 0)
       : 0;
-    const currentWalletBalance = Number(totalWalletBalance);
-    return (Number.isFinite(currentWalletBalance) ? currentWalletBalance : 0) - remainingMonthlyCommitment;
+
+    return buildHomeSpendableMoneyProjection({
+      spendableWalletBalance,
+      remainingBudget,
+      monthlyObligationPressure,
+      debtBudgetRemaining,
+    });
   }, [
+    debtBudgetRemaining,
     monthlyBudgetPlan?.remaining,
     monthlyBudgetPlan?.remaining_amount,
-    totalWalletBalance,
+    monthlyObligationPressure,
+    spendableWalletBalance,
   ]);
+
+  const afterMonthlyBudgetMoney =
+    spendableMoneyProjection.projectedSpendableMoney;
 
   const {
     walletPreviewTransactions = [],
@@ -165,12 +220,6 @@ export default function CommunityHomeFinancialCarousel() {
     budgets,
     expenses,
     savingsGoals,
-  });
-
-  const { thisMonthSpent = 0 } = useDashboardMoneyLeftMetrics({
-    expenses,
-    walletTransactions,
-    user,
   });
 
   const [moneySummaryVisible, toggleMoneySummaryVisibility] =
@@ -638,12 +687,12 @@ export default function CommunityHomeFinancialCarousel() {
           />
           <div
             data-clara-after-budget-total="true"
-            aria-label={`Projected money left after the monthly budget is fully spent: ${formatPhpCurrency(
+            aria-label={`Projected spendable money after protected funds, remaining budget, and unpaid obligations: ${formatPhpCurrency(
               afterMonthlyBudgetMoney
             )}`}
-            title="Projected after monthly budget"
+            title="Spendable after commitments"
           >
-            <span>After budget</span>
+            <span>After commitments</span>
             <strong>
               {moneySummaryVisible
                 ? formatPhpCurrency(afterMonthlyBudgetMoney)
