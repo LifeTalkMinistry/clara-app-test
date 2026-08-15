@@ -531,6 +531,9 @@ export async function runClaraBuyCheckExpertTurn({
       model,
     };
   } catch (error) {
+    if (error?.code === "CLARA_AI_CANCELLED" || error?.name === "AbortError") {
+      throw error;
+    }
     console.warn("[CLARA Buy Check] Universal conversation fallback used.", error);
     return fallback;
   }
