@@ -1,0 +1,56 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { buildHomeSpendableMoneyProjection } from "../src/lib/clara-home-spendable-money.js";
+
+const readSource = (relativePath) =>
+  readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
+
+test("Home spendable projection reserves protected-wallet-adjusted budget and unpaid obligations", () => {
+  const result = buildHomeSpendableMoneyProjection({
+    spendableWalletBalance: 8912.5,
+    remainingBudget: 3200,
+    monthlyObligationPressure: 1500,
+    debtBudgetRemaining: 0,
+  });
+
+  assert.equal(result.debtReserveOutsideBudget, 1500);
+  assert.equal(result.projectedSpendableMoney, 4212.5);
+});
+
+test("debt already reserved inside the active budget is not deducted twice", () => {
+  const result = buildHomeSpendableMoneyProjection({
+    spendableWalletBalance: 9000,
+    remainingBudget: 4000,
+    monthlyObligationPressure: 1500,
+    debtBudgetRemaining: 1000,
+  });
+
+  assert.equal(result.debtReserveOutsideBudget, 500);
+  assert.equal(result.projectedSpendableMoney, 4500);
+});
+
+test("paid or completed obligation pressure of zero adds no extra debt reserve", () => {
+  const result = buildHomeSpendableMoneyProjection({
+    spendableWalletBalance: 7000,
+    remainingBudget: 2500,
+    monthlyObligationPressure: 0,
+    debtBudgetRemaining: 0,
+  });
+
+  assert.equal(result.debtReserveOutsideBudget, 0);
+  assert.equal(result.projectedSpendableMoney, 4500);
+});
+
+test("Home projection is wired to wallet protection and debt pressure authorities", () => {
+  const communityHome = readSource(
+    "src/components/community/CommunityHomeFinancialCarousel.jsx"
+  );
+
+  assert.match(communityHome, /syncProtectedAllocations/);
+  assert.match(communityHome, /getWalletSpendableBalance/);
+  assert.match(communityHome, /monthlyObligationPressure/);
+  assert.match(communityHome, /getDebtBudgetRemaining/);
+  assert.match(communityHome, /buildHomeSpendableMoneyProjection/);
+  assert.match(communityHome, /After commitments/);
+});
