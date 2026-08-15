@@ -152,3 +152,36 @@ test("legacy deterministic verdict engine remains removed", async () => {
   await assert.rejects(() => source("src/lib/clara-buy-check-decision-core.js"), { code: "ENOENT" });
   await assert.rejects(() => source("src/components/fresh/main-dashboard/assistant/useClaraBuyCheckBudgetFlowDeterministic.js"), { code: "ENOENT" });
 });
+
+test("Life Profile stays a compact user-declared context layer inside the same Gemini turn", async () => {
+  const expert = await source("src/lib/clara-buy-check-expert-ai.js");
+  const overlay = await source("src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay.jsx");
+
+  assert.match(expert, /buildClaraLifeContextStatement/);
+  assert.match(expert, /USER-PROVIDED LIFE CONTEXT/);
+  assert.match(expert, /Use it only when it materially improves the spending decision/);
+  assert.match(overlay, /lifeProfileSupportTier/);
+  assert.equal((expert.match(/requestGeminiJson\s*\(/g) || []).length, 1);
+});
+
+test("Life Profile fields are tier-gated and only explicit user fields enter the compact statement", async () => {
+  const life = await import(new URL("../src/lib/clara-life-context.js", import.meta.url));
+  let profile = {};
+  profile = life.updateClaraLifeProfileField(profile, "breadwinnerStatus", "Primary breadwinner");
+  profile = life.updateClaraLifeProfileField(profile, "businessPlan", "Planning to start");
+  profile = life.updateClaraLifeProfileField(profile, "businessType", "Online food business");
+
+  const coreStatement = life.buildClaraLifeContextStatement(profile, {
+    supportTier: null,
+    message: "Should I buy equipment for a small business?",
+  });
+  const builderStatement = life.buildClaraLifeContextStatement(profile, {
+    supportTier: "builder",
+    message: "Should I buy equipment for a small business?",
+  });
+
+  assert.match(coreStatement, /breadwinner role: primary breadwinner/);
+  assert.doesNotMatch(coreStatement, /business status:/);
+  assert.match(builderStatement, /business status: Planning to start/);
+  assert.match(builderStatement, /business idea: Online food business/);
+});
