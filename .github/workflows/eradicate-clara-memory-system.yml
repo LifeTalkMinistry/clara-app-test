@@ -1,0 +1,412 @@
+name: Eradicate retired CLARA Memory system
+
+on:
+  push:
+    branches:
+      - eradicate-memory-system
+    paths:
+      - ".github/workflows/eradicate-clara-memory-system.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  eradicate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout retirement branch
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Remove retired Memory product and AI stack
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import re
+          import shutil
+
+          ROOT = Path('.')
+
+          def read(path):
+              return (ROOT / path).read_text()
+
+          def write(path, text):
+              (ROOT / path).write_text(text)
+
+          def replace_once(path, old, new):
+              source = read(path)
+              if old not in source:
+                  raise SystemExit(f"Missing replacement anchor in {path}: {old[:120]!r}")
+              write(path, source.replace(old, new, 1))
+
+          def regex_once(path, pattern, replacement, flags=re.S):
+              source = read(path)
+              updated, count = re.subn(pattern, replacement, source, count=1, flags=flags)
+              if count != 1:
+                  raise SystemExit(f"Expected one regex match in {path}, got {count}: {pattern[:120]!r}")
+              write(path, updated)
+
+          def remove_script_containing(source, marker):
+              index = source.find(marker)
+              if index < 0:
+                  raise SystemExit(f"Could not find inline script marker: {marker}")
+              start = source.rfind('<script>', 0, index)
+              end = source.find('</script>', index)
+              if start < 0 or end < 0:
+                  raise SystemExit(f"Could not bound script containing: {marker}")
+              return source[:start] + source[end + len('</script>'):]
+
+          # -----------------------------------------------------------------
+          # 1. Settings: remove the user-facing Memory entry and event bridge.
+          # -----------------------------------------------------------------
+          settings = 'src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx'
+          replace_once(settings, '  BrainCircuit,\n', '')
+          replace_once(settings, 'import { dispatchClaraEvent } from "@/components/fresh/main-dashboard/dashboard-events/dashboardEvents";\n', '')
+          replace_once(settings, '''  const openMemoryBoard = useCallback(() => {\n    dispatchClaraEvent("clara:open-assistant-memory-board", {\n      cabinetName: "Spending Memory",\n      source: "settings",\n    });\n  }, []);\n\n''', '')
+          replace_once(settings, '        { key: "memory", title: "Memory", description: "Saved context, patterns, and AI memory", icon: BrainCircuit, badge: "Review", tone: "blue", action: openMemoryBoard },\n', '')
+
+          # -----------------------------------------------------------------
+          # 2. Remove hidden Gemini prompt interception/training for Memory.
+          # -----------------------------------------------------------------
+          index_path = 'index.html'
+          index_source = read(index_path)
+          for marker in [
+              'const copyRules = [',
+              'window.__claraBehavioralMemoryTrainingInstalled',
+              'window.__claraFrameworkFlowGuardInstalled',
+          ]:
+              index_source = remove_script_containing(index_source, marker)
+          write(index_path, index_source)
+
+          # -----------------------------------------------------------------
+          # 3. Runtime registry: uninstall all old Memory UI/side-effect logic.
+          #    Preserve Life Stage helpers that were indirectly imported by
+          #    clara-memory-bridge so Profile/Life Context does not regress.
+          # -----------------------------------------------------------------
+          runtime = 'src/runtime/installClaraRuntimePatches.js'
+          runtime_source = read(runtime)
+          runtime_source = re.sub(
+              r'// Core memory runtime\. The scoped compatibility layer must install before any\n// legacy memory reader/writer touches the historical unscoped storage key\.\nimport "\./installScopedClaraMemoryStorage";\nimport "\.\./clara-memory-bridge";\n\n',
+              '// Retired context data cleanup. This only erases obsolete Memory-system storage;\n// it does not read or personalize CLARA responses.\nimport "./installRetiredContextDataCleanup";\n\n',
+              runtime_source,
+              count=1,
+          )
+          runtime_source = re.sub(
+              r'// WARNING:\n// These patches relabel/replace assistant tabs through DOM selectors\.\n// Later they should become real React tab configuration\.\n// Assistant tab runtime controllers\nimport "\.\./clara-assistant-forecast-tab";\nimport "\.\./clara-assistant-analytic-tab";\nimport "\.\./clara-assistant-feature-dock-polish";\nimport "\.\./clara-assistant-memory-tab";\n\n// Core memory runtime\nimport "\.\./clara-onboarding-memory-review-bridge";\nimport "\.\./clara-memory-cabinet-autosave";\nimport "\.\./clara-me-panel";\nimport "\.\./clara-talk-pause-bridge";\n\n// Memory Review presentation\. The legacy runtime owns behavior; this scoped CSS\n// owns only the visual hierarchy for Review and Edit Mode\.\nimport "\.\./clara-memory-review-premium\.css";\n\n// The review list owns scrolling\. Its cards retain their natural content height\n// so populated sections cannot collapse into thin pills\.\nimport "\.\./clara-memory-review-layout-integrity\.css";\n\n// Header controls stay pinned to the true top-right corner while the title and\n// timestamp reserve their footprint on narrow screens\.\nimport "\.\./clara-memory-review-header-actions-position\.css";\n\n',
+              '// Assistant tab runtime controllers\nimport "../clara-assistant-forecast-tab";\nimport "../clara-assistant-analytic-tab";\nimport "../clara-assistant-feature-dock-polish";\n\n',
+              runtime_source,
+              count=1,
+          )
+          life_stage_anchor = 'import "../life-stage-setup-flow-polish";\n'
+          if life_stage_anchor not in runtime_source:
+              raise SystemExit('Life Stage runtime anchor missing.')
+          life_stage_imports = (
+              'import "../life-stage-progressive-flow";\n'
+              'import "../life-stage-selection-explanations";\n'
+              'import "../life-stage-hide-stage-picker-progress";\n'
+              'import "../life-stage-progressive-flow.css";\n'
+          )
+          runtime_source = runtime_source.replace(life_stage_anchor, life_stage_imports + life_stage_anchor, 1)
+          write(runtime, runtime_source)
+
+          # -----------------------------------------------------------------
+          # 4. Conversation bridge: current-session messages remain; persistent
+          #    conversation/Memory storage is no longer read.
+          # -----------------------------------------------------------------
+          bridge = 'src/lib/clara-bridge-context-readers.js'
+          regex_once(bridge, r'const LIVE_USER_MESSAGE_HISTORY_KEY = .*?;\nconst CONVERSATION_MEMORY_KEYS = \[[\s\S]*?\];\n', '')
+          regex_once(bridge, r'function readLiveUserMessageHistory\(\) \{[\s\S]*?\n\}\n\n', '')
+          regex_once(bridge, r'function summarizeStoredMemory\(value = null\) \{[\s\S]*?\n\}\n\nfunction readStoredConversationMemory\(\) \{[\s\S]*?\n\}\n\n', '')
+          regex_once(
+              bridge,
+              r'export function buildClaraBridgeConversationContext\(messages = \[\]\) \{[\s\S]*?\n\}\n\nexport function buildClaraBridgeReadableContext',
+              '''export function buildClaraBridgeConversationContext(messages = []) {\n  return {\n    userMessageHistory: summarizeMessages(messages),\n  };\n}\n\nexport function buildClaraBridgeReadableContext''',
+          )
+          replace_once(bridge, '    previousConversationMemory: conversation.previousConversationMemory,\n', '')
+
+          # -----------------------------------------------------------------
+          # 5. Shared effective financial context no longer loads Memory.
+          # -----------------------------------------------------------------
+          effective = 'src/lib/clara-effective-finance-context.js'
+          replace_once(effective, 'import { MEMORY_CABINET_DEFINITIONS, readMemoryCabinet } from "@/lib/memory-cabinets";\n', '')
+          regex_once(effective, r'function summarizeMemoryCabinets\(\) \{[\s\S]*?\n\}\n\nfunction countMemoryRecords\(memoryContext = null\) \{[\s\S]*?\n\}\n\n', '')
+          regex_once(effective, r'function buildMemoryContext\(bridgeContext = \{\}, meProfileContext = null\) \{[\s\S]*?\n\}\n\n', '')
+          replace_once(effective, '  const memoryContext = buildMemoryContext(bridgeContext, meProfileContext);\n  const memoryLoaded = countMemoryRecords(memoryContext);\n', '')
+          replace_once(effective, '    memoryLoaded,\n', '')
+          replace_once(effective, '    memoryContext: memoryLoaded ? memoryContext : null,\n', '')
+
+          # -----------------------------------------------------------------
+          # 6. Life Profile remains authoritative, but no longer embeds a
+          #    second AI-generated memory-note collection.
+          # -----------------------------------------------------------------
+          life_profile = 'src/lib/clara-life-profile.js'
+          replace_once(life_profile, '  memoryNotes: [],\n', '')
+          regex_once(life_profile, r'function normalizeMemoryNotes\(notes = \[\]\) \{[\s\S]*?\n\}\n\n', '')
+          replace_once(life_profile, '    memoryNotes: normalizeMemoryNotes(embedded.memoryNotes),\n', '')
+          replace_once(life_profile, '      normalized.replacementActivity ||\n      normalized.memoryNotes?.length\n', '      normalized.replacementActivity\n')
+          regex_once(life_profile, r'  const approvedMemoryNotes = normalizeMemoryNotes\(normalized\.memoryNotes\)[\s\S]*?\n\n  return \{', '  return {')
+          replace_once(life_profile, '    approvedMemoryNotes,\n', '')
+
+          # -----------------------------------------------------------------
+          # 7. Local command fallback stops reading the retired context story.
+          # -----------------------------------------------------------------
+          gemini_local = 'src/lib/ai-command/gemini-service.js'
+          replace_once(gemini_local, 'const USER_CONTEXT_STORY_KEY = "CLARA_USER_CONTEXT_STORY_V1";\n\n', '')
+          regex_once(gemini_local, r'function compactText\(value = ""\) \{[\s\S]*?\n\}\n\n', '')
+          regex_once(gemini_local, r'function readUserContextStory\(\) \{[\s\S]*?\n\}\n\nfunction flattenUserContextStory\(\) \{[\s\S]*?\n\}\n\n', '')
+          replace_once(gemini_local, '  const memoryText = flattenUserContextStory();\n\n', '')
+          regex_once(gemini_local, r'\n  if \(/why\.\*spending\.\*better[\s\S]*?healthier reset that has worked for you before, then decide after the urge settles\.";\n  \}\n', '\n')
+
+          # -----------------------------------------------------------------
+          # 8. Onboarding completion is based only on explicit setup answers,
+          #    never on old clara_memory_* records.
+          # -----------------------------------------------------------------
+          setup_profile = 'src/lib/claraLocalProfile.js'
+          replace_once(setup_profile, 'const ACTIVE_MEMORY_USER_ID_KEY = "clara_active_memory_user_id";\nconst MEMORY_STORAGE_PREFIX = "clara_memory_";\n', '')
+          regex_once(setup_profile, r'const REQUIRED_MEMORY_CATEGORIES = \[[\s\S]*?\];\n\n', '')
+          replace_once(setup_profile, '    window.localStorage.getItem(LOCAL_VAULT_ID_KEY) ||\n      window.localStorage.getItem(ACTIVE_MEMORY_USER_ID_KEY)\n', '    window.localStorage.getItem(LOCAL_VAULT_ID_KEY)\n')
+          regex_once(setup_profile, r'function getMemoryKeys\(ownerLike = null\) \{[\s\S]*?\n\}\n\nfunction hasCompletedLocalMemorySetup\(ownerLike = null\) \{[\s\S]*?\n\}\n\n', '')
+          regex_once(
+              setup_profile,
+              r'export function hasCompletedLocalSetup\(ownerLike = null\) \{[\s\S]*?\n\}\n\nexport function clearLocalSetupProfile',
+              '''export function hasCompletedLocalSetup(ownerLike = null) {\n  const setup = getLocalSetupProfile(ownerLike);\n  const answers = isPlainObject(setup?.answers) ? setup.answers : {};\n  return Boolean(setup?.completed) && hasAllRequiredAnswers(answers);\n}\n\nexport function clearLocalSetupProfile''',
+          )
+
+          # -----------------------------------------------------------------
+          # 9. Identity migration no longer migrates obsolete memories.
+          # -----------------------------------------------------------------
+          identity_migration = 'src/lib/local-identity-storage-migration.js'
+          replace_once(identity_migration, 'const MEMORY_PREFIX = "clara_memory_";\n', '')
+          regex_once(identity_migration, r'function mergeMemories\(sourceId, destinationId\) \{[\s\S]*?\n\}\n\n', '')
+          replace_once(identity_migration, '      sourceKey.startsWith(MEMORY_PREFIX) ||\n', '')
+          replace_once(identity_migration, '    if (mergeMemories(sourceId, canonicalId)) migrated += 1;\n', '')
+          regex_once(identity_migration, r'\n  if \(store\.getItem\("clara_active_memory_user_id"\)\) \{\n    store\.setItem\("clara_active_memory_user_id", canonicalId\);\n  \}\n', '\n')
+
+          # -----------------------------------------------------------------
+          # 10. Reset path no longer imports/calls a deleted Memory module.
+          # -----------------------------------------------------------------
+          reset = 'src/lib/reset-local-clara-journey.js'
+          replace_once(reset, 'import { clearMemories } from "@/lib/ai/clara-memory";\n', '')
+          for old in [
+              '  "clara_ai_financial_memory",\n',
+              '  "clara_user_context",\n',
+              '  "clara_live_user_message",\n',
+          ]:
+              replace_once(reset, old, '')
+          replace_once(reset, '  removeKey(storage, `clara_memory_${localUserId}`);\n', '')
+          replace_once(reset, '  clearMemories(canonicalId);\n', '')
+
+          # -----------------------------------------------------------------
+          # 11. Buy Check context contract: remove saved-memory-derived risk.
+          #     Financial records + Profile/Life Stage remain available.
+          # -----------------------------------------------------------------
+          buy_contract = 'src/lib/clara-buy-check-context-contract.js'
+          regex_once(buy_contract, r'function memorySummary\(contextValue\) \{[\s\S]*?\n\}\n\n', '')
+          replace_once(buy_contract, '  const memory = pkg.behavior?.memorySummary || pkg.memory || "";\n', '')
+          replace_once(buy_contract, '    repeatedImpulseRisk: /impulse|regret|tempt|payday|overspend|unplanned/i.test(memory) ? "present" : "none",\n', '')
+          regex_once(buy_contract, r'  const memory = memorySummary\(context\);\n  const behavior = \{[\s\S]*?\n  \};\n', '')
+          replace_once(buy_contract, '    behavior,\n', '')
+          replace_once(buy_contract, '      memory: behavior.recentPatterns.length > 0,\n', '')
+          replace_once(buy_contract, '  pkg.memory = memory;\n', '')
+          replace_once(buy_contract, 'export { buildBuyCheckContext, buildBuyCheckContext as buildContextPackage, buildContextSignals, memorySummary };\n', 'export { buildBuyCheckContext, buildBuyCheckContext as buildContextPackage, buildContextSignals };\n')
+
+          # -----------------------------------------------------------------
+          # 12. Forecast behavior signals may use explicit Profile fields, but
+          #     never hidden Memory records.
+          # -----------------------------------------------------------------
+          forecast = 'src/lib/clara-forecast-phase-one-snapshot.js'
+          regex_once(forecast, r'function flattenMemoryRecords\(memoryContext = \{\}\) \{[\s\S]*?\n\}\n\nfunction findMemorySignal\(memoryContext = \{\}, patterns = \[\]\) \{[\s\S]*?\n\}\n\n', '')
+          replace_once(forecast, '  const memoryContext = effectiveContext.memoryContext || null;\n\n', '')
+          replace_once(forecast, '''  const stressSpendingHabit =\n    firstProfileValue(effectiveContext, fallbackContext, ["stressSpendingHabits", "stressSpendingHabit"]) ||\n    findMemorySignal(memoryContext, ["stress", "pressure"]);\n  const commonImpulsePurchases =\n    firstProfileValue(effectiveContext, fallbackContext, ["commonImpulsivePurchases", "commonImpulsePurchases"]) ||\n    findMemorySignal(memoryContext, ["impulse", "shopee", "lazada", "coffee", "food"]);\n  const biggestSpendingWeakness =\n    firstProfileValue(effectiveContext, fallbackContext, ["biggestSpendingWeakness", "spendingWeakness"]) ||\n    findMemorySignal(memoryContext, ["weakness", "leak", "overspend"]);\n''', '''  const stressSpendingHabit =\n    firstProfileValue(effectiveContext, fallbackContext, ["stressSpendingHabits", "stressSpendingHabit"]);\n  const commonImpulsePurchases =\n    firstProfileValue(effectiveContext, fallbackContext, ["commonImpulsivePurchases", "commonImpulsePurchases"]);\n  const biggestSpendingWeakness =\n    firstProfileValue(effectiveContext, fallbackContext, ["biggestSpendingWeakness", "spendingWeakness"]);\n''')
+
+          # -----------------------------------------------------------------
+          # 13. Legacy static Buy Check report polish uses transaction/Profile
+          #     evidence only; remove Memory signal extraction helpers.
+          # -----------------------------------------------------------------
+          report = 'src/clara-buy-check-report-content-polish.js'
+          regex_once(report, r'function compactMemorySignal\(value = ""\) \{[\s\S]*?\n\}\n\n', '')
+          regex_once(report, r'function sanitizeMemorySignal\(value = ""\) \{[\s\S]*?\n\}\n\nfunction getMemorySignal\(context = \{\}\) \{[\s\S]*?\n\}\n\n', '')
+          replace_once(report, '  const memorySignal = getMemorySignal(context);\n', '')
+          replace_once(report, '          memorySignal,\n', '')
+
+          # -----------------------------------------------------------------
+          # 14. Remove obsolete AI-memory object store via controlled schema
+          #     migration. Existing users lose only the retired store.
+          # -----------------------------------------------------------------
+          finance_store = 'src/lib/localFinanceStore.js'
+          replace_once(finance_store, ' * Hardened schema for all finance, LIFE OS, AI memory, and private preference stores.\n', ' * Hardened schema for finance, LIFE OS profile, and private preference stores.\n')
+          replace_once(finance_store, 'export const LOCAL_FINANCE_SCHEMA_VERSION = 3;\n', 'export const LOCAL_FINANCE_SCHEMA_VERSION = 4;\n')
+          replace_once(finance_store, '  aiFinancialMemory: "ai_financial_memory",\n', '')
+          replace_once(finance_store, '  LOCAL_FINANCE_STORES.aiFinancialMemory,\n', '')
+          replace_once(finance_store, '''      const db = request.result;\n      const transaction = request.transaction;\n\n      STORE_DEFINITIONS.forEach((definition) => {\n''', '''      const db = request.result;\n      const transaction = request.transaction;\n\n      if (db.objectStoreNames.contains("ai_financial_memory")) {\n        db.deleteObjectStore("ai_financial_memory");\n      }\n\n      STORE_DEFINITIONS.forEach((definition) => {\n''')
+
+          # Remove remaining enum references from cleanup/demo utilities.
+          current_state = 'src/lib/clara-young-professional-current-state.js'
+          replace_once(current_state, '  LOCAL_FINANCE_STORES.aiFinancialMemory,\n', '')
+          ai_bridge = 'src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentBridge.jsx'
+          ai_bridge_source = read(ai_bridge).replace('  LOCAL_FINANCE_STORES.aiFinancialMemory,\n', '')
+          write(ai_bridge, ai_bridge_source)
+
+          # -----------------------------------------------------------------
+          # 15. Backup/transfer no longer exports or restores retired context.
+          # -----------------------------------------------------------------
+          data_export = 'src/lib/local-data-export.js'
+          data_source = read(data_export)
+          data_source = data_source.replace('      "ai_financial_memory",\n', '')
+          data_source = data_source.replace('        version: 3,', '        version: 4,', 1)
+          data_source = data_source.replace('          ai_financial_memory: { keyPath: "id", private: true },\n', '')
+          data_source = data_source.replace('  /^ai_financial_memory/i,\n', '')
+          denylist = '''const RETIRED_CONTEXT_STORAGE_PREFIXES = [\n  "CLARA_USER_CONTEXT_STORY_V1",\n  "CLARA_USER_CONTEXT_STORY_V2:",\n  "clara_user_context",\n  "clara_behavioral_memory_v1",\n  "clara_behavioral_memory_v2:",\n  "CLARA_MEMORY_CABINET_V1:",\n  "CLARA_MEMORY_CABINET_V2:",\n  "CLARA_UNIVERSAL_MEMORY_PROFILE_V1",\n  "clara_memory_",\n  "CLARA_PREVIOUS_CONVERSATION_MEMORY",\n  "clara_previous_conversation_memory",\n  "clara_conversation_memory_v1",\n  "clara_chat_memory_v1",\n  "CLARA_LIVE_USER_MESSAGE_HISTORY",\n  "clara_live_user_message",\n  "clara_active_memory_user_id",\n  "clara_talk_to_clara_pause_v1",\n];\n\n'''
+          key_patterns_anchor = 'const CLARA_KEY_PATTERNS = [\n'
+          if key_patterns_anchor not in data_source:
+              raise SystemExit('Backup key-pattern anchor missing.')
+          data_source = data_source.replace(key_patterns_anchor, denylist + key_patterns_anchor, 1)
+          include_anchor = '  if (!normalized) return false;\n'
+          if include_anchor not in data_source:
+              raise SystemExit('Backup include-key anchor missing.')
+          data_source = data_source.replace(include_anchor, include_anchor + '  if (RETIRED_CONTEXT_STORAGE_PREFIXES.some((prefix) => normalized.startsWith(prefix))) return false;\n', 1)
+          write(data_export, data_source)
+
+          cloud = 'src/lib/cloud-vault-snapshot.js'
+          replace_once(cloud, '|ai_financial_memory', '')
+
+          # -----------------------------------------------------------------
+          # 16. Startup privacy cleanup: erase old keys/databases that prior
+          #     builds may have already stored. Explicit Profile data is kept.
+          # -----------------------------------------------------------------
+          cleanup_path = ROOT / 'src/runtime/installRetiredContextDataCleanup.js'
+          cleanup_path.write_text('''const RETIRED_CONTEXT_STORAGE_PREFIXES = [\n  "CLARA_USER_CONTEXT_STORY_V1",\n  "CLARA_USER_CONTEXT_STORY_V2:",\n  "clara_user_context",\n  "clara_behavioral_memory_v1",\n  "clara_behavioral_memory_v2:",\n  "CLARA_MEMORY_CABINET_V1:",\n  "CLARA_MEMORY_CABINET_V2:",\n  "CLARA_UNIVERSAL_MEMORY_PROFILE_V1",\n  "clara_memory_",\n  "CLARA_PREVIOUS_CONVERSATION_MEMORY",\n  "clara_previous_conversation_memory",\n  "clara_conversation_memory_v1",\n  "clara_chat_memory_v1",\n  "CLARA_LIVE_USER_MESSAGE_HISTORY",\n  "clara_live_user_message",\n  "clara_active_memory_user_id",\n  "clara_talk_to_clara_pause_v1",\n];\n\nconst RETIRED_CONTEXT_DATABASES = ["clara_behavioral_memory_db"];\n\nfunction matchesRetiredContextKey(key = "") {\n  const value = String(key || "");\n  return RETIRED_CONTEXT_STORAGE_PREFIXES.some((prefix) => value.startsWith(prefix));\n}\n\nfunction clearRetiredStorage(storage) {\n  if (!storage) return;\n  const keys = [];\n  try {\n    for (let index = 0; index < storage.length; index += 1) {\n      const key = storage.key(index);\n      if (key && matchesRetiredContextKey(key)) keys.push(key);\n    }\n    keys.forEach((key) => storage.removeItem(key));\n  } catch {\n    // Restricted storage modes should not block CLARA startup.\n  }\n}\n\nfunction deleteRetiredDatabases() {\n  const indexedDb = globalThis?.indexedDB;\n  if (!indexedDb) return;\n  RETIRED_CONTEXT_DATABASES.forEach((name) => {\n    try {\n      indexedDb.deleteDatabase(name);\n    } catch {\n      // A blocked legacy database can be retried on the next app start.\n    }\n  });\n}\n\nexport function purgeRetiredClaraContextData() {\n  if (typeof window === "undefined") return;\n  clearRetiredStorage(window.localStorage);\n  clearRetiredStorage(window.sessionStorage);\n  deleteRetiredDatabases();\n}\n\nif (typeof window !== "undefined") {\n  purgeRetiredClaraContextData();\n  window.addEventListener("clara-data-restored", purgeRetiredClaraContextData);\n}\n''')
+
+          # -----------------------------------------------------------------
+          # 17. Delete the retired Memory feature, AI, storage, router, review,
+          #     cabinet and diagnostic implementation files.
+          # -----------------------------------------------------------------
+          deleted_files = [
+              'src/clara-assistant-memory-tab.js',
+              'src/clara-memory-bridge.js',
+              'src/clara-onboarding-memory-review-bridge.js',
+              'src/clara-memory-cabinet-autosave.js',
+              'src/clara-me-panel.js',
+              'src/clara-talk-pause-bridge.js',
+              'src/clara-memory-edit-reply-polisher.js',
+              'src/clara-memory-review-premium.css',
+              'src/clara-memory-review-layout-integrity.css',
+              'src/clara-memory-review-header-actions-position.css',
+              'src/runtime/installScopedClaraMemoryStorage.js',
+              'src/lib/clara-conversation-memory-summarizer.js',
+              'src/lib/clara-universal-memory-profile.js',
+              'src/lib/clara-user-context-story.js',
+              'src/lib/clara-behavioral-intelligence.js',
+              'src/lib/clara-memory-cabinet-router.js',
+              'src/lib/ai/clara-memory.js',
+              'src/lib/ai/clara-memory-extractor.js',
+              'src/lib/ai/clara-memory-context.js',
+              'src/lib/ai/clara-memory-router.js',
+              'src/lib/ai-brains/memory-brain.js',
+              'src/lib/ai-brains/brain-router.js',
+              'src/lib/ai-brains/sub-context-selector.js',
+              'src/lib/clara-central-context-brain.js',
+              'src/lib/clara-context-diagnostic-report.js',
+              'src/lib/clara-diagnostic-direct-reply.js',
+              'src/lib/ai/20240424120000_create_clara_ai_memories.sql.txt',
+              'tests/memory-review-premium-design.test.mjs',
+          ]
+          for relative in deleted_files:
+              path = ROOT / relative
+              if not path.exists():
+                  raise SystemExit(f'Expected retired Memory file is missing before deletion: {relative}')
+              path.unlink()
+
+          cabinet_dir = ROOT / 'src/lib/memory-cabinets'
+          if not cabinet_dir.exists():
+              raise SystemExit('Expected memory-cabinets directory is missing before deletion.')
+          shutil.rmtree(cabinet_dir)
+
+          # -----------------------------------------------------------------
+          # 18. Tests: remove assertions that require Memory to exist and add a
+          #     retirement regression test so it cannot silently return.
+          # -----------------------------------------------------------------
+          settings_integrity = 'tests/settings-integrity-regression.test.mjs'
+          source = read(settings_integrity)
+          source = source.replace('const scopedMemoryStorageSource = readSource(\n  "src/runtime/installScopedClaraMemoryStorage.js"\n);\n', '')
+          old_test = re.search(r'test\("CLARA story and behavioral memory are isolated by the active vault", \(\) => \{[\s\S]*?\n\}\);\n\n', source)
+          if not old_test:
+              raise SystemExit('Old scoped Memory settings regression test was not found.')
+          replacement = '''test("retired CLARA Memory runtime stays uninstalled", () => {\n  assert.doesNotMatch(runtimePatchRegistrySource, /installScopedClaraMemoryStorage/);\n  assert.doesNotMatch(runtimePatchRegistrySource, /clara-memory-bridge/);\n  assert.doesNotMatch(runtimePatchRegistrySource, /clara-assistant-memory-tab/);\n  assert.doesNotMatch(runtimePatchRegistrySource, /clara-onboarding-memory-review-bridge/);\n  assert.match(runtimePatchRegistrySource, /installRetiredContextDataCleanup/);\n  assert.doesNotMatch(activeSettingsSource, /title: "Memory"/);\n  assert.doesNotMatch(activeSettingsSource, /clara:open-assistant-memory-board/);\n});\n\n'''
+          source = source[:old_test.start()] + replacement + source[old_test.end():]
+          write(settings_integrity, source)
+
+          settings_local = 'tests/settings-local-only-regression.test.mjs'
+          source = read(settings_local)
+          source = source.replace('const assistantMemorySource = readSource("src/clara-assistant-memory-tab.js");\n', '')
+          old = re.search(r'test\("Settings directly owns detail history, logout, and Memory", \(\) => \{[\s\S]*?\n\}\);\n\n', source)
+          if not old:
+              raise SystemExit('Old Settings Memory ownership test was not found.')
+          replacement = '''test("Settings owns detail history and logout without the retired Memory entry", () => {\n  assert.match(activeSettingsSource, /SETTINGS_DETAIL_HISTORY_KEY/);\n  assert.match(activeSettingsSource, /window\\.history\\.pushState/);\n  assert.match(activeSettingsSource, /window\\.addEventListener\\("popstate"/);\n  assert.match(activeSettingsSource, /signOutFromClaraBackend/);\n  assert.match(activeSettingsSource, /"Log out"/);\n  assert.doesNotMatch(activeSettingsSource, /title: "Memory"/);\n  assert.doesNotMatch(activeSettingsSource, /clara:open-assistant-memory-board/);\n  assert.doesNotMatch(activeSettingsSource, /MutationObserver/);\n});\n\n'''
+          source = source[:old.start()] + replacement + source[old.end():]
+          source = source.replace(
+              '    /Signing in on another device will not automatically bring your financial records with it/\n',
+              '    /Signing in somewhere else will not automatically copy it/\n'
+          )
+          source = source.replace('  assert.match(activeSettingsSource, /Each device starts with its own data/);\n', '  assert.match(activeSettingsSource, /Stays on this device/);\n')
+          source = source.replace('  assert.match(activeSettingsSource, /No automatic device-to-device sync/);\n', '  assert.match(activeSettingsSource, /No automatic device sync/);\n')
+          source = source.replace('  assert.match(activeSettingsSource, /You choose when to transfer your data/);\n', '  assert.match(activeSettingsSource, /You control backup & transfer/);\n')
+          write(settings_local, source)
+
+          retirement_test = ROOT / 'tests/retired-context-system.test.mjs'
+          retirement_test.write_text('''import test from "node:test";\nimport assert from "node:assert/strict";\nimport { existsSync, readFileSync } from "node:fs";\n\nconst readSource = (relativePath) =>\n  readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");\n\nconst retiredFiles = [\n  "src/clara-assistant-memory-tab.js",\n  "src/clara-memory-bridge.js",\n  "src/clara-onboarding-memory-review-bridge.js",\n  "src/clara-memory-cabinet-autosave.js",\n  "src/runtime/installScopedClaraMemoryStorage.js",\n  "src/lib/clara-conversation-memory-summarizer.js",\n  "src/lib/clara-universal-memory-profile.js",\n  "src/lib/clara-user-context-story.js",\n  "src/lib/clara-behavioral-intelligence.js",\n  "src/lib/ai/clara-memory.js",\n  "src/lib/ai/clara-memory-router.js",\n  "src/lib/ai-brains/memory-brain.js",\n];\n\ntest("retired Memory implementation files are absent", () => {\n  retiredFiles.forEach((relativePath) => {\n    assert.equal(existsSync(new URL(`../${relativePath}`, import.meta.url)), false, relativePath);\n  });\n  assert.equal(existsSync(new URL("../src/lib/memory-cabinets", import.meta.url)), false);\n});\n\ntest("Settings and runtime no longer expose or install Memory", () => {\n  const settings = readSource("src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx");\n  const runtime = readSource("src/runtime/installClaraRuntimePatches.js");\n  assert.doesNotMatch(settings, /title: "Memory"|open-assistant-memory-board|BrainCircuit/);\n  assert.doesNotMatch(runtime, /clara-memory-bridge|clara-assistant-memory-tab|installScopedClaraMemoryStorage|memory-review-premium/);\n  assert.match(runtime, /installRetiredContextDataCleanup/);\n});\n\ntest("the hidden Behavioral Memory Gemini prompt interceptor is gone", () => {\n  const html = readSource("index.html");\n  assert.doesNotMatch(html, /CLARA BEHAVIORAL INTELLIGENCE FRAMEWORK/);\n  assert.doesNotMatch(html, /__claraBehavioralMemoryTrainingInstalled/);\n  assert.doesNotMatch(html, /__claraFrameworkFlowGuardInstalled/);\n});\n\ntest("Profile and AI context have no parallel saved-memory reader", () => {\n  const profile = readSource("src/lib/clara-life-profile.js");\n  const effective = readSource("src/lib/clara-effective-finance-context.js");\n  const buyCheck = readSource("src/lib/clara-buy-check-context-contract.js");\n  const bridge = readSource("src/lib/clara-bridge-context-readers.js");\n  assert.doesNotMatch(profile, /memoryNotes|approvedMemoryNotes/);\n  assert.doesNotMatch(effective, /memoryContext|memory-cabinets|memoryLoaded/);\n  assert.doesNotMatch(buyCheck, /memorySummary|profileMemoryNotes|storedMemoryRecords/);\n  assert.doesNotMatch(bridge, /previousConversationMemory|CONVERSATION_MEMORY_KEYS|LIVE_USER_MESSAGE_HISTORY_KEY/);\n});\n\ntest("the obsolete ai_financial_memory object store is migrated away", () => {\n  const financeStore = readSource("src/lib/localFinanceStore.js");\n  const backup = readSource("src/lib/local-data-export.js");\n  assert.match(financeStore, /LOCAL_FINANCE_SCHEMA_VERSION = 4/);\n  assert.match(financeStore, /deleteObjectStore\\("ai_financial_memory"\\)/);\n  assert.doesNotMatch(financeStore, /aiFinancialMemory:/);\n  assert.doesNotMatch(backup, /ai_financial_memory: \{ keyPath/);\n});\n\ntest("legacy context storage is actively purged and excluded from backups", () => {\n  const cleanup = readSource("src/runtime/installRetiredContextDataCleanup.js");\n  const backup = readSource("src/lib/local-data-export.js");\n  assert.match(cleanup, /clara_behavioral_memory_v1/);\n  assert.match(cleanup, /CLARA_USER_CONTEXT_STORY_V1/);\n  assert.match(cleanup, /clara_behavioral_memory_db/);\n  assert.match(backup, /RETIRED_CONTEXT_STORAGE_PREFIXES/);\n  assert.match(backup, /normalized\\.startsWith\\(prefix\\)/);\n});\n''')
+
+          package = 'package.json'
+          package_source = read(package)
+          package_source = package_source.replace(' tests/memory-review-premium-design.test.mjs', '')
+          package_source = package_source.replace('tests/free-core-access-authority.test.mjs",', 'tests/free-core-access-authority.test.mjs tests/retired-context-system.test.mjs",')
+          write(package, package_source)
+
+          print('Retired Memory product and AI stack patched successfully.')
+          PY
+
+      - name: Verify retired Memory references are gone
+        run: |
+          set -euo pipefail
+          test ! -e src/clara-assistant-memory-tab.js
+          test ! -e src/clara-memory-bridge.js
+          test ! -e src/lib/memory-cabinets
+          test ! -e src/lib/ai/clara-memory.js
+          test ! -e tests/memory-review-premium-design.test.mjs
+
+          if grep -R -n -E 'clara:open-assistant-memory-board|CLARA BEHAVIORAL INTELLIGENCE FRAMEWORK|__claraBehavioralMemoryTrainingInstalled|installScopedClaraMemoryStorage|clara-assistant-memory-tab|clara-onboarding-memory-review-bridge|clara-memory-cabinet-autosave|clara-conversation-memory-summarizer|clara-universal-memory-profile|clara-user-context-story|clara-behavioral-intelligence|@/lib/memory-cabinets|@/lib/ai/clara-memory' src index.html --exclude='installRetiredContextDataCleanup.js'; then
+            echo 'Retired Memory implementation reference still exists.' >&2
+            exit 1
+          fi
+
+          if grep -R -n -E 'memoryContext|profileMemoryNotes|previousConversationMemory|aiFinancialMemory' src --exclude='clara-life-context.js'; then
+            echo 'Retired Memory context is still connected to active source.' >&2
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run regression tests
+        run: npm test
+
+      - name: Run Buy Check lint
+        run: npm run lint:buy-check
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Commit retirement and remove workflow
+        run: |
+          rm -f .github/workflows/eradicate-clara-memory-system.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No Memory retirement changes to commit."
+          else
+            git commit -m "Remove retired CLARA memory system"
+            git push origin eradicate-memory-system
+          fi
