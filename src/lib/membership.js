@@ -1,14 +1,29 @@
 export const FREE_PLAN_KEY = "free";
+export const SUPPORTER_PLAN_KEY = "supporter";
+export const BUILDER_PLAN_KEY = "builder";
+export const CHAMPION_PLAN_KEY = "champion";
+
+// Retained only for compatibility with older imports. The Committed plan is no
+// longer a canonical account plan and normalizes to Free.
 export const COMMITTED_PLAN_KEY = "committed_249";
 export const FREE_ACCESS_LEVEL = "free";
 export const COMMITTED_ACCESS_LEVEL = "committed";
 export const COMMITTED_PRODUCT_ID = "clara_commitment_249";
-export const CUSTOMER_PLAN_KEYS = [FREE_PLAN_KEY, COMMITTED_PLAN_KEY];
+
+export const SUPPORTER_PLAN_KEYS = Object.freeze([
+  SUPPORTER_PLAN_KEY,
+  BUILDER_PLAN_KEY,
+  CHAMPION_PLAN_KEY,
+]);
+export const CUSTOMER_PLAN_KEYS = Object.freeze([
+  FREE_PLAN_KEY,
+  ...SUPPORTER_PLAN_KEYS,
+]);
 export const CUSTOMER_ACCESS_LEVEL_KEYS = [FREE_ACCESS_LEVEL, COMMITTED_ACCESS_LEVEL];
 
 export const LEGACY_PAID_PLAN_ALIASES = Object.freeze({
-  committed: COMMITTED_PLAN_KEY,
-  committed_249: COMMITTED_PLAN_KEY,
+  committed: FREE_PLAN_KEY,
+  committed_249: FREE_PLAN_KEY,
 });
 
 export const LEGACY_PAID_ACCESS_ALIASES = Object.freeze({
@@ -17,6 +32,20 @@ export const LEGACY_PAID_ACCESS_ALIASES = Object.freeze({
 
 export const ACTIVE_MEMBERSHIP_STATUSES = new Set(["active"]);
 export const PENDING_MEMBERSHIP_STATUSES = new Set(["pending", "inactive"]);
+
+const PLAN_LABELS = Object.freeze({
+  free: "Free Version",
+  supporter: "CLARA Supporter",
+  builder: "CLARA Builder",
+  champion: "CLARA Champion",
+});
+
+const PLAN_PRICE_LABELS = Object.freeze({
+  free: "₱0",
+  supporter: "₱99/month",
+  builder: "₱249/month",
+  champion: "₱499/month",
+});
 
 export function normalizeMembershipToken(value) {
   return String(value ?? "")
@@ -27,16 +56,16 @@ export function normalizeMembershipToken(value) {
 
 export function normalizePlanKey(value) {
   const normalized = normalizeMembershipToken(value);
-  if (normalized === "committed" || normalized === COMMITTED_PLAN_KEY) {
-    return COMMITTED_PLAN_KEY;
-  }
+  if (CUSTOMER_PLAN_KEYS.includes(normalized)) return normalized;
   return FREE_PLAN_KEY;
 }
 
 export function normalizeAccessLevel(value, fallback = FREE_ACCESS_LEVEL) {
   const normalized = normalizeMembershipToken(value);
   if (normalized === COMMITTED_ACCESS_LEVEL) return COMMITTED_ACCESS_LEVEL;
-  if (normalizePlanKey(normalized) === COMMITTED_PLAN_KEY) return COMMITTED_ACCESS_LEVEL;
+  if (SUPPORTER_PLAN_KEYS.includes(normalizePlanKey(normalized))) {
+    return COMMITTED_ACCESS_LEVEL;
+  }
   return fallback === COMMITTED_ACCESS_LEVEL
     ? COMMITTED_ACCESS_LEVEL
     : FREE_ACCESS_LEVEL;
@@ -60,7 +89,7 @@ export function hasCanonicalActivationSignal(profileLike = {}) {
     profileLike?.plan || profileLike?.plan_key || profileLike?.subscription_plan
   );
   const statuses = readMembershipStatuses(profileLike);
-  return planKey === COMMITTED_PLAN_KEY && statuses.includes("active");
+  return SUPPORTER_PLAN_KEYS.includes(planKey) && statuses.includes("active");
 }
 
 export function resolveMembership({
@@ -82,45 +111,48 @@ export function resolveMembership({
   );
   const membershipReady = Boolean(ready && !loading);
   const statusCandidates = readMembershipStatuses(profileLike);
+  const isSupporterPlan = SUPPORTER_PLAN_KEYS.includes(planKey);
   const accountStatus =
     statusCandidates.find((status) =>
       ["active", "pending", "inactive"].includes(status)
-    ) || (planKey === COMMITTED_PLAN_KEY ? "inactive" : "free");
-  const isCommittedPlan = planKey === COMMITTED_PLAN_KEY;
-  const isActiveCommitted = Boolean(
-    membershipReady && isCommittedPlan && accountStatus === "active"
+    ) || (isSupporterPlan ? "inactive" : "free");
+  const isActiveSupporter = Boolean(
+    membershipReady && isSupporterPlan && accountStatus === "active"
   );
   const membershipStatus = !membershipReady
     ? "loading"
-    : !isCommittedPlan
+    : !isSupporterPlan
       ? "not_committed"
       : accountStatus;
-  const hasCommittedAccess = isActiveCommitted;
 
   return {
     planKey,
-    accessLevel: hasCommittedAccess
+    supportTier: isSupporterPlan ? planKey : null,
+    accessLevel: isActiveSupporter
       ? COMMITTED_ACCESS_LEVEL
       : FREE_ACCESS_LEVEL,
-    membershipType: isCommittedPlan ? "committed" : "free",
+    membershipType: isSupporterPlan ? "supporter" : "free",
     membershipStatus,
     accountStatus,
-    isCommittedPlan,
+    isSupporterPlan,
+    isActiveSupporter,
+    hasSupporterAccess: isActiveSupporter,
+
+    // Legacy aliases remain so older components continue to operate while the
+    // product vocabulary migrates away from Committed.
+    isCommittedPlan: isSupporterPlan,
     isPendingActivation: membershipStatus === "pending",
-    isActiveCommitted,
-    hasCommittedAccess,
+    isActiveCommitted: isActiveSupporter,
+    hasCommittedAccess: isActiveSupporter,
+
     planLabel:
       membershipStatus === "loading"
         ? "Syncing membership…"
-        : isCommittedPlan
-          ? "Committed"
-          : "Free Version",
+        : PLAN_LABELS[planKey],
     priceLabel:
       membershipStatus === "loading"
         ? "—"
-        : isCommittedPlan
-          ? "₱249/month"
-          : "₱0",
+        : PLAN_PRICE_LABELS[planKey],
     statusLabel:
       membershipStatus === "loading"
         ? "SYNCING"
@@ -130,22 +162,22 @@ export function resolveMembership({
             ? "PENDING ACTIVATION"
             : membershipStatus === "inactive"
               ? "INACTIVE"
-              : "NOT COMMITTED",
+              : "FREE",
     description:
       membershipStatus === "loading"
-        ? "Syncing your CLARA membership state."
+        ? "Syncing your CLARA account tier."
         : membershipStatus === "active"
-          ? "Your Committed membership is active."
+          ? `${PLAN_LABELS[planKey]} is active.`
           : membershipStatus === "pending"
-            ? "Your Committed membership is pending activation."
+            ? `${PLAN_LABELS[planKey]} is pending activation.`
             : membershipStatus === "inactive"
-              ? "Your Committed membership is inactive."
-              : "You are currently using CLARA’s free version.",
+              ? `${PLAN_LABELS[planKey]} is inactive.`
+              : "You are using CLARA's free core app.",
     featureDescription:
-      hasCommittedAccess
-        ? "Your Committed Version features are unlocked."
-        : isCommittedPlan
-          ? "Committed Version features remain locked until your backend account is active."
-          : "Committed features are managed through your CLARA account.",
+      isActiveSupporter
+        ? `${PLAN_LABELS[planKey]} benefits are active.`
+        : isSupporterPlan
+          ? `${PLAN_LABELS[planKey]} benefits remain inactive until the backend account is active.`
+          : "CLARA's core financial accountability features remain free.",
   };
 }
