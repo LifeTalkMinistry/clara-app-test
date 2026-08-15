@@ -75,16 +75,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify retirement-specific regressions individually
-        run: |
-          node --test tests/retired-context-system.test.mjs
-          node --test tests/dashboard-top-nav-ownership.test.mjs
-          node --test tests/onboarding-gate-regression.test.mjs
-          node --test tests/settings-local-only-regression.test.mjs
-          node --test tests/local-data-export.test.mjs
-          node --test tests/buy-check-gemini-authority.test.mjs
-          node --test tests/device-transfer-safety.test.mjs
-
       - name: Run full suite against pre-existing baseline
         run: |
           set +e
