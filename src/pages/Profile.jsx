@@ -6,7 +6,15 @@ export default function Profile() {
   const view = new URLSearchParams(location.search).get("view");
 
   if (view === "life-context") {
-    return <ClaraLifeProfile />;
+    return (
+      <div
+        data-clara-life-profile-viewport="true"
+        className="fixed inset-0 h-[100dvh] w-full overflow-y-auto bg-[#020714]"
+        style={{ zIndex: 2147483500 }}
+      >
+        <ClaraLifeProfile />
+      </div>
+    );
   }
 
   return <Navigate to="/community?view=profile" replace />;
