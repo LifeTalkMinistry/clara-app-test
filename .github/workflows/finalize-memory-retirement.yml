@@ -37,6 +37,7 @@ jobs:
         run: |
           python <<'PY'
           from pathlib import Path
+          import re
 
           path = Path('tests/dashboard-top-nav-ownership.test.mjs')
           source = path.read_text()
@@ -59,17 +60,25 @@ jobs:
 
           path = Path('tests/onboarding-gate-regression.test.mjs')
           source = path.read_text()
-          source = source.replace(
+          pattern = re.compile(
+            r'test\("memory fallback cannot complete onboarding for another vault", async \(\) => \{[\s\S]*?\n\}\);',
+            re.MULTILINE,
+          )
+          match = pattern.search(source)
+          if not match:
+              raise SystemExit('Old Memory onboarding fallback test block was not found.')
+          block = match.group(0)
+          block = block.replace(
             'test("memory fallback cannot complete onboarding for another vault", async () => {',
             'test("retired Memory records cannot complete onboarding for any vault", async () => {',
             1,
           )
-          source = source.replace(
-            '    assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-a" }), true);\n    assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-b" }), false);',
-            '    assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-a" }), false);\n    assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-b" }), false);',
+          block = block.replace(
+            'assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-a" }), true);',
+            'assert.equal(onboarding.hasCompletedLocalSetup({ id: "vault-a" }), false);',
             1,
           )
-          path.write_text(source)
+          path.write_text(source[:match.start()] + block + source[match.end():])
           PY
 
       - name: Install dependencies
@@ -132,10 +141,12 @@ jobs:
         run: |
           rm -f retirement-test-output.txt retirement-test-exit-code.txt
           rm -f baseline-test-output.txt baseline-test-exit-code.txt
+          rm -f final-memory-suite-output.txt final-memory-suite-exit-code.txt
           rm -f .github/workflows/eradicate-clara-memory-system.yml
           rm -f .github/workflows/debug-memory-retirement-tests.yml
           rm -f .github/workflows/capture-baseline-tests.yml
           rm -f .github/workflows/debug-focused-memory-tests.yml
+          rm -f .github/workflows/capture-final-memory-suite.yml
           rm -f .github/workflows/finalize-memory-retirement.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
