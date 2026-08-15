@@ -158,6 +158,10 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
     } catch (error) {
       console.warn("[CLARA Buy Check] Expert conversation turn failed safely.", error);
       await holdThinkingUntil(thinkingStartedAt);
+      const dailyLimitReached = error?.code === "CLARA_AI_DAILY_LIMIT_REACHED";
+      const failureReply = dailyLimitReached
+        ? clean(error?.message || "You've used today's CLARA replies for your current plan. Your allowance resets tomorrow.")
+        : "I missed that. Tell me a little more about what you're considering, and I'll keep working through it with you.";
       setState((current) => current.sessionId !== snapshot.sessionId
         ? current
         : {
@@ -168,7 +172,7 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
             messages: replaceThinkingMessage(
               current.messages,
               thinkingMessage.id,
-              "I missed that. Tell me a little more about what you're considering, and I'll keep working through it with you.",
+              failureReply,
             ),
           });
       return false;

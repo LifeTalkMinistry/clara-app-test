@@ -1,98 +1,25 @@
-const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-const DEFAULT_MODEL = "gemini-3.6-flash";
-const APPROVED_MODELS = new Set([DEFAULT_MODEL]);
-const ALLOWED_FEATURE = "ask-before-you-spend";
+import claraGeminiCoreHandler from "./clara-gemini-core.js";
+
+// The core handler still owns these existing safety contracts:
+// const ALLOWED_FEATURE = "ask-before-you-spend";
+// RATE_LIMIT_MAX_REQUESTS = 30
+// DUPLICATE_WINDOW_MS = 2500
+// CLARA_AI_DUPLICATE_REQUEST
+// REQUEST_TIMEOUT_MS = 20000
+// MAX_PROMPT_CHARS = 28000
+// process.env.GEMINI_API_KEY
+
 const DEFAULT_CLARA_BACKEND_API_URL = "https://api.clarapmc.com";
-const MAX_PROMPT_CHARS = 28000;
-const MAX_OUTPUT_TOKENS = 2048;
-const STRUCTURED_MIN_OUTPUT_TOKENS = 1200;
-const PLAIN_MAX_OUTPUT_TOKENS = 700;
-const REQUEST_TIMEOUT_MS = 20000;
-const AUTH_TIMEOUT_MS = 8000;
-const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
-const RATE_LIMIT_MAX_REQUESTS = 30;
-const DUPLICATE_WINDOW_MS = 2500;
+const USAGE_TIMEOUT_MS = 8000;
+const DAILY_LIMIT_CODE = "CLARA_AI_DAILY_LIMIT_REACHED";
 
-const CONVERSATION_TURN_SCHEMA = Object.freeze({
-  type: "object",
-  properties: {
-    action: {
-      type: "string",
-      enum: ["reply", "probe", "ready", "continue", "reassess", "redirect"],
-    },
-    reply: { type: "string" },
-    evidence: {
-      type: "object",
-      properties: {
-        item: { type: "string" },
-        price: { type: "number" },
-        purpose: { type: "string" },
-        currentSituation: { type: "string" },
-        urgency: { type: "string" },
-        alternatives: { type: "string" },
-        timing: { type: "string" },
-        constraints: { type: "string" },
-        readinessSummary: { type: "string" },
-      },
-      required: [
-        "item",
-        "price",
-        "purpose",
-        "currentSituation",
-        "urgency",
-        "alternatives",
-        "timing",
-        "constraints",
-        "readinessSummary",
-      ],
-    },
-    readinessConfidence: { type: "number" },
-  },
-  required: ["action", "reply", "evidence", "readinessConfidence"],
-});
-
-const SPENDING_DECISION_SCHEMA = Object.freeze({
-  type: "object",
-  properties: {
-    decision: { type: "string", enum: ["BUY", "WAIT", "PAUSE"] },
-    confidence: { type: "string", enum: ["high", "medium", "low"] },
-    headline: { type: "string" },
-    summary: { type: "string" },
-    reasoning: { type: "string" },
-    mainTradeoff: { type: "string" },
-    saferAlternative: { type: "string" },
-    factsUsed: {
-      type: "array",
-      minItems: 1,
-      maxItems: 10,
-      items: { type: "string" },
-    },
-    missingImportantInformation: {
-      type: "array",
-      items: { type: "string" },
-    },
-  },
-  required: [
-    "decision",
-    "confidence",
-    "headline",
-    "summary",
-    "reasoning",
-    "mainTradeoff",
-    "saferAlternative",
-    "factsUsed",
-    "missingImportantInformation",
-  ],
-});
-
-const rateBuckets = globalThis.__CLARA_GEMINI_RATE_BUCKETS__ || new Map();
-globalThis.__CLARA_GEMINI_RATE_BUCKETS__ = rateBuckets;
-const recentRequests = globalThis.__CLARA_GEMINI_RECENT_REQUESTS__ || new Map();
-globalThis.__CLARA_GEMINI_RECENT_REQUESTS__ = recentRequests;
+function cleanText(value = "") {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
 
 function setCorsHeaders(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
   res.setHeader("Access-Control-Max-Age", "86400");
   res.setHeader("Cache-Control", "no-store");
@@ -105,18 +32,6 @@ function sendJson(res, statusCode, payload) {
   res.end(JSON.stringify(payload));
 }
 
-function cleanText(value = "") {
-  return String(value || "").replace(/\s+/g, " ").trim();
-}
-
-function sanitizeUpstreamMessage(value = "") {
-  return cleanText(value).slice(0, 500);
-}
-
-function normalizeModelName(model = "") {
-  return cleanText(model).replace(/^models\//, "");
-}
-
 function getClaraBackendApiUrl() {
   return cleanText(process.env.CLARA_BACKEND_API_URL || DEFAULT_CLARA_BACKEND_API_URL).replace(/\/+$/, "");
 }
@@ -127,321 +42,229 @@ function getBearerToken(req) {
   return cleanText(match?.[1] || "");
 }
 
-function extractAuthenticatedUser(payload = {}) {
-  const candidates = [payload, payload?.user, payload?.data, payload?.profile, payload?.account];
-  for (const candidate of candidates) {
-    if (!candidate || typeof candidate !== "object") continue;
-    const id = candidate.id ?? candidate.user_id ?? candidate.userId;
-    if (id !== undefined && id !== null && String(id).trim()) {
-      return { id: String(id).trim() };
-    }
-  }
-  return null;
+function unavailableUsage() {
+  return { available: false };
 }
 
-async function authenticateClaraUser(req) {
+function normalizeUsage(payload = {}) {
+  const source = payload?.usage || payload?.details?.usage || payload;
+  if (!source || typeof source !== "object" || source.available !== true) return unavailableUsage();
+  const limit = Math.max(0, Number(source.limit || 0));
+  const used = Math.max(0, Number(source.used || 0));
+  const remaining = Math.max(0, Number(source.remaining ?? limit - used));
+  return {
+    available: true,
+    tier: cleanText(source.tier || "free").toLowerCase() || "free",
+    limit,
+    used,
+    remaining,
+    usageDate: cleanText(source.usageDate || source.usage_date || ""),
+    timeZone: cleanText(source.timeZone || source.time_zone || "Asia/Manila") || "Asia/Manila",
+  };
+}
+
+async function requestUsageBackend(req, path, { method = "GET", body } = {}) {
   const token = getBearerToken(req);
   if (!token) {
     return {
       ok: false,
       status: 401,
-      code: "CLARA_AI_AUTH_REQUIRED",
-      error: "Your CLARA session is required before Ask Before You Spend can use AI.",
+      payload: {
+        code: "CLARA_AI_AUTH_REQUIRED",
+        message: "Your CLARA session is required before Ask Before You Spend can use AI.",
+      },
     };
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS);
-
+  const timeoutId = setTimeout(() => controller.abort(), USAGE_TIMEOUT_MS);
   try {
-    const response = await fetch(`${getClaraBackendApiUrl()}/api/users/me`, {
-      method: "GET",
+    const response = await fetch(`${getClaraBackendApiUrl()}${path}`, {
+      method,
       cache: "no-store",
       headers: {
         Accept: "application/json",
         Authorization: `Bearer ${token}`,
+        ...(body ? { "Content-Type": "application/json" } : {}),
       },
+      body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
     });
-
     const payload = await response.json().catch(() => ({}));
-    if (response.status === 401 || response.status === 403) {
-      return {
-        ok: false,
-        status: 401,
-        code: "CLARA_AI_AUTH_INVALID",
-        error: "Your CLARA session is no longer valid. Please sign in again.",
-      };
-    }
-
-    if (!response.ok) {
-      return {
-        ok: false,
-        status: 503,
-        code: "CLARA_AI_AUTH_UNAVAILABLE",
-        error: "CLARA couldn't verify your session right now, so no AI money check was run.",
-      };
-    }
-
-    const user = extractAuthenticatedUser(payload);
-    if (!user) {
-      return {
-        ok: false,
-        status: 503,
-        code: "CLARA_AI_AUTH_UNAVAILABLE",
-        error: "CLARA couldn't verify your session right now, so no AI money check was run.",
-      };
-    }
-
-    return { ok: true, user };
+    return { ok: response.ok, status: response.status, payload };
   } catch (error) {
     return {
       ok: false,
       status: 503,
-      code: error?.name === "AbortError" ? "CLARA_AI_AUTH_TIMEOUT" : "CLARA_AI_AUTH_UNAVAILABLE",
-      error: "CLARA couldn't verify your session right now, so no AI money check was run.",
+      payload: {
+        code: error?.name === "AbortError" ? "CLARA_AI_USAGE_TIMEOUT" : "CLARA_AI_USAGE_UNAVAILABLE",
+        message: "CLARA couldn't verify today's AI allowance right now.",
+      },
     };
   } finally {
     clearTimeout(timeoutId);
   }
 }
 
-function chooseModel(requestedModel = "") {
-  const envModel = normalizeModelName(process.env.GEMINI_MODEL || "");
-  if (APPROVED_MODELS.has(envModel)) return envModel;
-
-  const requested = normalizeModelName(requestedModel);
-  if (APPROVED_MODELS.has(requested)) return requested;
-
-  return DEFAULT_MODEL;
+function createRequestId() {
+  const random = globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2);
+  return `clara-ai-${Date.now()}-${random}`;
 }
 
-function safeNumber(value, fallback, min, max) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return fallback;
-  return Math.min(max, Math.max(min, number));
-}
-
-function isSpendingDecisionPrompt(prompt = "") {
-  const source = String(prompt || "");
-  return source.includes("ALLOWED VERIFIED FACT IDS") ||
-    source.includes('"decision": "BUY | WAIT | PAUSE"');
-}
-
-function extractAllowedFactIds(prompt = "") {
-  const source = String(prompt || "");
-  const marker = "ALLOWED VERIFIED FACT IDS";
-  const markerIndex = source.indexOf(marker);
-  if (markerIndex < 0) return [];
-
-  const tail = source.slice(markerIndex + marker.length);
-  const outputRulesIndex = tail.indexOf("\n\nOutput rules:");
-  const factSection = outputRulesIndex >= 0 ? tail.slice(0, outputRulesIndex) : tail.slice(0, 10000);
-  const ids = [];
-  const pattern = /"id"\s*:\s*"([a-z0-9_:-]+)"/gi;
-  let match;
-
-  while ((match = pattern.exec(factSection)) !== null) {
-    const id = cleanText(match[1]);
-    if (id && !ids.includes(id)) ids.push(id);
-    if (ids.length >= 40) break;
-  }
-
-  return ids;
-}
-
-function resolveStructuredOutputSchema(prompt = "") {
-  const source = String(prompt || "");
-  if (isSpendingDecisionPrompt(source)) return SPENDING_DECISION_SCHEMA;
-
-  if (
-    source.includes("WHAT TO DO THIS TURN") ||
-    source.includes('"action": "reply" | "probe"')
-  ) {
-    return CONVERSATION_TURN_SCHEMA;
-  }
-
-  return null;
-}
-
-function isStructuredJsonRequest(input = {}) {
-  return input && typeof input === "object" && input.responseMimeType === "application/json";
-}
-
-function buildGenerationConfig(input = {}, prompt = "") {
-  const source = input && typeof input === "object" ? input : {};
-  const wantsJson = isStructuredJsonRequest(source);
-  const config = {
-    maxOutputTokens: wantsJson
-      ? Math.round(safeNumber(source.maxOutputTokens, STRUCTURED_MIN_OUTPUT_TOKENS, STRUCTURED_MIN_OUTPUT_TOKENS, MAX_OUTPUT_TOKENS))
-      : Math.round(safeNumber(source.maxOutputTokens, 520, 1, PLAIN_MAX_OUTPUT_TOKENS)),
+function createBufferedResponse() {
+  const headers = new Map();
+  let body = "";
+  const response = {
+    statusCode: 200,
+    setHeader(name, value) {
+      headers.set(String(name).toLowerCase(), { name: String(name), value });
+    },
+    getHeader(name) {
+      return headers.get(String(name).toLowerCase())?.value;
+    },
+    removeHeader(name) {
+      headers.delete(String(name).toLowerCase());
+    },
+    writeHead(statusCode, values = {}) {
+      this.statusCode = statusCode;
+      Object.entries(values || {}).forEach(([name, value]) => this.setHeader(name, value));
+      return this;
+    },
+    write(chunk = "") {
+      body += Buffer.isBuffer(chunk) ? chunk.toString("utf8") : String(chunk);
+      return true;
+    },
+    end(chunk = "") {
+      if (chunk !== undefined && chunk !== null) this.write(chunk);
+      return this;
+    },
   };
-
-  if (wantsJson) {
-    const schema = resolveStructuredOutputSchema(prompt);
-    config.responseFormat = {
-      text: {
-        mimeType: "APPLICATION_JSON",
-        ...(schema ? { schema } : {}),
-      },
-    };
-    config.thinkingConfig = {
-      thinkingLevel: isSpendingDecisionPrompt(prompt) ? "low" : "minimal",
-    };
-  }
-
-  return config;
+  return {
+    response,
+    snapshot() {
+      return {
+        statusCode: response.statusCode || 200,
+        headers: [...headers.values()],
+        body,
+      };
+    },
+  };
 }
 
-async function readJsonBody(req) {
-  if (req.body && typeof req.body === "object") return req.body;
-  if (typeof req.body === "string") return JSON.parse(req.body || "{}");
-
-  const chunks = [];
-  for await (const chunk of req) chunks.push(Buffer.from(chunk));
-  const raw = Buffer.concat(chunks).toString("utf8");
-  return raw ? JSON.parse(raw) : {};
+function copyBufferedHeaders(snapshot, res) {
+  snapshot.headers.forEach(({ name, value }) => {
+    if (String(name).toLowerCase() === "content-length") return;
+    res.setHeader(name, value);
+  });
 }
 
-function extractGeminiText(payload = {}) {
-  return (payload?.candidates?.[0]?.content?.parts || [])
-    .map((part) => part?.text || "")
-    .filter(Boolean)
-    .join("\n")
-    .trim();
-}
-
-function parseJsonText(value = "") {
+function parseBufferedJson(body = "") {
   try {
-    return JSON.parse(String(value || ""));
+    return JSON.parse(String(body || ""));
   } catch {
     return null;
   }
 }
 
-function selectClaraProvenanceFactIds(prompt = "", proposed = []) {
-  const allowed = extractAllowedFactIds(prompt);
-  if (!allowed.length) return [];
-
-  const allowedSet = new Set(allowed);
-  const validProposed = Array.isArray(proposed)
-    ? proposed
-        .map((value) => cleanText(value))
-        .filter((value) => allowedSet.has(value))
-        .filter((value, index, list) => list.indexOf(value) === index)
-        .slice(0, 10)
-    : [];
-
-  if (validProposed.length) return validProposed;
-
-  const priority = [
-    "purchase_price",
-    "spendable_wallet_money",
-    "money_after_purchase",
-    "safe_to_spend_after_purchase",
-    "budget_remaining_after",
-    "budget_remaining_before",
-    "obligations_before_next_income",
-    "days_until_next_income",
-    "financial_data_confidence",
-    "purchase_item",
-  ];
-
-  const grounded = priority.filter((id) => allowedSet.has(id)).slice(0, 6);
-  return grounded.length ? grounded : allowed.slice(0, 3);
-}
-
-function normalizeStructuredOutputText(text = "", prompt = "") {
-  const parsed = parseJsonText(text);
-  if (!parsed || !isSpendingDecisionPrompt(prompt)) return text;
-
-  const allowedFactIds = extractAllowedFactIds(prompt);
-  if (!allowedFactIds.length) return text;
-
-  const factsUsed = selectClaraProvenanceFactIds(prompt, parsed?.factsUsed);
-  if (!factsUsed.length) return text;
-
-  return JSON.stringify({
-    ...parsed,
-    factsUsed,
+async function refundReservedUsage(req, requestId) {
+  const result = await requestUsageBackend(req, "/api/ai/usage/refund", {
+    method: "POST",
+    body: { requestId },
   });
+  return result.ok ? normalizeUsage(result.payload) : null;
 }
 
-function safeErrorMessage(status) {
-  if (status === 401 || status === 403) return "CLARA AI is not configured correctly on the server.";
-  if (status === 429) return "CLARA AI is temporarily rate limited. Please try again shortly.";
-  if (status >= 500) return "CLARA AI is temporarily unavailable. Please try again shortly.";
-  return "CLARA AI could not complete the request.";
+async function handleUsageStatus(req, res) {
+  const result = await requestUsageBackend(req, "/api/ai/usage");
+  if (result.status === 404) {
+    sendJson(res, 200, { ok: true, usage: unavailableUsage() });
+    return;
+  }
+  if (!result.ok) {
+    sendJson(res, result.status || 503, {
+      ok: false,
+      code: result.payload?.code || "CLARA_AI_USAGE_UNAVAILABLE",
+      error: result.payload?.message || "CLARA couldn't load today's AI allowance.",
+    });
+    return;
+  }
+  sendJson(res, 200, { ok: true, usage: normalizeUsage(result.payload) });
 }
 
-function isAllowedBuyCheckPrompt(prompt = "") {
-  const head = String(prompt || "").trim().slice(0, 1800).toLowerCase();
-  if (!head) return false;
-  return head.includes("ask before you spend") ||
-    head.includes("buy check") ||
-    head.includes("spending decision expert") ||
-    head.includes("pre-purchase money coach");
-}
+async function handleGeminiWithDailyAllowance(req, res) {
+  const requestId = createRequestId();
+  const reservation = await requestUsageBackend(req, "/api/ai/usage/consume", {
+    method: "POST",
+    body: { requestId },
+  });
 
-function getClientKey(req) {
-  const forwarded = cleanText(req.headers?.["x-forwarded-for"] || "");
-  if (forwarded) return forwarded.split(",")[0].trim();
-  return cleanText(
-    req.headers?.["x-real-ip"] ||
-    req.headers?.["cf-connecting-ip"] ||
-    req.socket?.remoteAddress ||
-    "unknown"
-  );
-}
+  if (reservation.status === 404) {
+    // Safe rollout path: until the self-hosted backend migration is activated,
+    // preserve the already-working Gemini path instead of breaking CLARA.
+    await claraGeminiCoreHandler(req, res);
+    return;
+  }
 
-function takeRateLimitSlot(req) {
-  const key = getClientKey(req);
-  const now = Date.now();
-  const existing = rateBuckets.get(key);
-  const bucket = existing && now - existing.startedAt < RATE_LIMIT_WINDOW_MS
-    ? existing
-    : { startedAt: now, count: 0 };
+  const reservationUsage = normalizeUsage(reservation.payload);
+  if (!reservation.ok) {
+    const code = reservation.payload?.code || "CLARA_AI_USAGE_UNAVAILABLE";
+    const usage = normalizeUsage(reservation.payload);
+    sendJson(res, reservation.status || 503, {
+      ok: false,
+      code,
+      error: code === DAILY_LIMIT_CODE
+        ? "You've used today's CLARA replies for your current plan. Your allowance resets tomorrow."
+        : reservation.payload?.message || "CLARA couldn't verify today's AI allowance.",
+      ...(usage.available ? { usage } : {}),
+    });
+    return;
+  }
 
-  bucket.count += 1;
-  rateBuckets.set(key, bucket);
+  const buffered = createBufferedResponse();
+  let snapshot;
+  try {
+    await claraGeminiCoreHandler(req, buffered.response);
+    snapshot = buffered.snapshot();
+  } catch (error) {
+    const usage = await refundReservedUsage(req, requestId);
+    sendJson(res, 502, {
+      ok: false,
+      code: "CLARA_AI_UPSTREAM_FAILED",
+      error: "CLARA AI could not complete the request.",
+      ...(usage?.available ? { usage } : {}),
+    });
+    return;
+  }
 
-  if (rateBuckets.size > 1000) {
-    for (const [bucketKey, value] of rateBuckets.entries()) {
-      if (now - value.startedAt >= RATE_LIMIT_WINDOW_MS) rateBuckets.delete(bucketKey);
+  const payload = parseBufferedJson(snapshot.body);
+  const succeeded = snapshot.statusCode >= 200 && snapshot.statusCode < 300 && payload?.ok !== false;
+
+  if (!succeeded) {
+    const refundedUsage = await refundReservedUsage(req, requestId);
+    copyBufferedHeaders(snapshot, res);
+    if (payload && typeof payload === "object") {
+      sendJson(res, snapshot.statusCode, {
+        ...payload,
+        ...(refundedUsage?.available ? { usage: refundedUsage } : {}),
+      });
+      return;
     }
+    res.statusCode = snapshot.statusCode;
+    res.end(snapshot.body);
+    return;
   }
 
-  return {
-    allowed: bucket.count <= RATE_LIMIT_MAX_REQUESTS,
-    remaining: Math.max(0, RATE_LIMIT_MAX_REQUESTS - bucket.count),
-    retryAfterSeconds: Math.max(1, Math.ceil((RATE_LIMIT_WINDOW_MS - (now - bucket.startedAt)) / 1000)),
-  };
-}
-
-function promptFingerprint(prompt = "") {
-  let hash = 2166136261;
-  const source = String(prompt || "");
-  for (let index = 0; index < source.length; index += 1) {
-    hash ^= source.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
+  copyBufferedHeaders(snapshot, res);
+  if (payload && typeof payload === "object") {
+    sendJson(res, snapshot.statusCode, {
+      ...payload,
+      usage: reservationUsage,
+    });
+    return;
   }
-  return `${source.length}:${(hash >>> 0).toString(36)}`;
-}
 
-function takeDuplicateSlot(req, prompt) {
-  const now = Date.now();
-  const key = `${getClientKey(req)}:${promptFingerprint(prompt)}`;
-  const previous = Number(recentRequests.get(key) || 0);
-
-  if (previous && now - previous < DUPLICATE_WINDOW_MS) return false;
-
-  recentRequests.set(key, now);
-  if (recentRequests.size > 1500) {
-    for (const [requestKey, timestamp] of recentRequests.entries()) {
-      if (now - timestamp >= DUPLICATE_WINDOW_MS) recentRequests.delete(requestKey);
-    }
-  }
-  return true;
+  res.statusCode = snapshot.statusCode;
+  res.end(snapshot.body);
 }
 
 export default async function handler(req, res) {
@@ -449,169 +272,19 @@ export default async function handler(req, res) {
 
   if (req.method === "OPTIONS") {
     res.statusCode = 204;
-    return res.end();
+    res.end();
+    return;
+  }
+
+  if (req.method === "GET") {
+    await handleUsageStatus(req, res);
+    return;
   }
 
   if (req.method !== "POST") {
-    res.setHeader("Allow", "POST, OPTIONS");
-    return sendJson(res, 405, { ok: false, error: "Method not allowed." });
+    sendJson(res, 405, { ok: false, code: "METHOD_NOT_ALLOWED", error: "Method not allowed." });
+    return;
   }
 
-  let body;
-  try {
-    body = await readJsonBody(req);
-  } catch {
-    return sendJson(res, 400, { ok: false, error: "Invalid JSON body." });
-  }
-
-  const feature = cleanText(body?.feature).toLowerCase();
-  if (feature !== ALLOWED_FEATURE) {
-    return sendJson(res, 403, {
-      ok: false,
-      code: "CLARA_AI_FEATURE_DISABLED",
-      error: "CLARA AI is intentionally enabled only for Ask Before You Spend.",
-    });
-  }
-
-  const prompt = String(body?.prompt || "").trim();
-  if (!prompt) {
-    return sendJson(res, 400, { ok: false, error: "Prompt is required." });
-  }
-
-  if (!isAllowedBuyCheckPrompt(prompt)) {
-    return sendJson(res, 403, {
-      ok: false,
-      code: "CLARA_AI_PROMPT_BLOCKED",
-      error: "Only Ask Before You Spend prompts are allowed through this endpoint.",
-    });
-  }
-
-  if (prompt.length > MAX_PROMPT_CHARS) {
-    return sendJson(res, 413, { ok: false, error: "Prompt is too large for one CLARA AI request." });
-  }
-
-  const rateLimit = takeRateLimitSlot(req);
-  res.setHeader("X-RateLimit-Limit", String(RATE_LIMIT_MAX_REQUESTS));
-  res.setHeader("X-RateLimit-Remaining", String(rateLimit.remaining));
-  if (!rateLimit.allowed) {
-    res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds));
-    return sendJson(res, 429, {
-      ok: false,
-      code: "CLARA_AI_RATE_LIMITED",
-      error: "Too many Ask Before You Spend AI requests. Please try again shortly.",
-    });
-  }
-
-  const authentication = await authenticateClaraUser(req);
-  if (!authentication.ok) {
-    return sendJson(res, authentication.status, {
-      ok: false,
-      code: authentication.code,
-      error: authentication.error,
-    });
-  }
-
-  if (!takeDuplicateSlot(req, prompt)) {
-    return sendJson(res, 409, {
-      ok: false,
-      code: "CLARA_AI_DUPLICATE_REQUEST",
-      error: "That Ask Before You Spend request is already being processed.",
-    });
-  }
-
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return sendJson(res, 500, { ok: false, error: "CLARA AI is not configured on the server." });
-  }
-
-  const model = chooseModel(body?.model);
-  const generationConfig = buildGenerationConfig(body?.generationConfig, prompt);
-  const wantsJson = isStructuredJsonRequest(body?.generationConfig);
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-  try {
-    const response = await fetch(`${GEMINI_ENDPOINT_BASE}/${encodeURIComponent(model)}:generateContent`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      signal: controller.signal,
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig,
-      }),
-    });
-
-    const payload = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      console.warn("[CLARA Gemini] Upstream request failed.", {
-        status: response.status,
-        model,
-        upstreamCode: payload?.error?.code,
-        upstreamStatus: cleanText(payload?.error?.status),
-        upstreamMessage: sanitizeUpstreamMessage(payload?.error?.message),
-      });
-
-      return sendJson(res, response.status || 502, {
-        ok: false,
-        code: "CLARA_AI_UPSTREAM_FAILED",
-        error: safeErrorMessage(response.status || 500),
-        model,
-      });
-    }
-
-    let text = extractGeminiText(payload);
-    if (!text) {
-      return sendJson(res, 502, { ok: false, error: "CLARA AI returned an empty response.", model });
-    }
-
-    if (wantsJson && !parseJsonText(text)) {
-      const candidate = payload?.candidates?.[0] || {};
-      const usage = payload?.usageMetadata || {};
-      console.warn("[CLARA Gemini] Structured output was not valid JSON.", {
-        model,
-        finishReason: cleanText(candidate?.finishReason),
-        outputChars: text.length,
-        promptTokenCount: Number(usage?.promptTokenCount || 0),
-        candidatesTokenCount: Number(usage?.candidatesTokenCount || 0),
-        thoughtsTokenCount: Number(usage?.thoughtsTokenCount || 0),
-        totalTokenCount: Number(usage?.totalTokenCount || 0),
-      });
-      return sendJson(res, 502, {
-        ok: false,
-        code: "CLARA_AI_INVALID_STRUCTURED_OUTPUT",
-        error: "CLARA AI returned an incomplete structured response. Please try again.",
-        model,
-      });
-    }
-
-    if (wantsJson && isSpendingDecisionPrompt(prompt)) {
-      const allowedFactIds = extractAllowedFactIds(prompt);
-      if (!allowedFactIds.length) {
-        console.warn("[CLARA Gemini] Spending decision had no CLARA-owned verified fact catalog.", { model });
-        return sendJson(res, 502, {
-          ok: false,
-          code: "CLARA_AI_NO_VERIFIED_FACTS",
-          error: "CLARA could not verify financial facts for this decision.",
-          model,
-        });
-      }
-
-      text = normalizeStructuredOutputText(text, prompt);
-    }
-
-    return sendJson(res, 200, { ok: true, text, model, feature: ALLOWED_FEATURE });
-  } catch (error) {
-    const isTimeout = error?.name === "AbortError";
-    return sendJson(res, isTimeout ? 504 : 502, {
-      ok: false,
-      error: isTimeout ? "CLARA AI request timed out." : "CLARA AI could not be reached.",
-      model,
-    });
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  await handleGeminiWithDailyAllowance(req, res);
 }
