@@ -41,7 +41,7 @@ function installScheduleAgendaBreathingRoomStyles() {
 
 installScheduleAgendaBreathingRoomStyles();
 
-function getScheduleProjectionRange() {
+function getRecurringBillProjectionRange() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
   const end = new Date(now);
@@ -50,6 +50,14 @@ function getScheduleProjectionRange() {
   return {
     start: toLocalDateKey(start),
     end: toLocalDateKey(end),
+  };
+}
+
+function getIncomeScheduleProjectionRange() {
+  const currentYear = new Date().getFullYear();
+  return {
+    start: toLocalDateKey(new Date(currentYear, 0, 1)),
+    end: toLocalDateKey(new Date(currentYear, 11, 31)),
   };
 }
 
@@ -98,7 +106,7 @@ function persistIncomeScheduleProjection(ownerId, projectedEvents) {
 
 export function dispatchRecurringBillOccurrences(ownerId, bill) {
   if (!bill?.id) return;
-  const { start, end } = getScheduleProjectionRange();
+  const { start, end } = getRecurringBillProjectionRange();
 
   getBillOccurrencesForRange(ownerId, start, end)
     .filter((occurrence) => String(occurrence.id) === String(bill.id))
@@ -122,7 +130,7 @@ export function dispatchRecurringBillOccurrences(ownerId, bill) {
 }
 
 export async function dispatchIncomeTimingOccurrences(ownerId) {
-  const { start, end } = getScheduleProjectionRange();
+  const { start, end } = getIncomeScheduleProjectionRange();
   let incomeSources = [];
 
   try {
