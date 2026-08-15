@@ -14,10 +14,6 @@ import { Switch } from "@/components/ui/switch";
 import useTaskReminderSettings from "@/hooks/useTaskReminderSettings";
 import useNotificationPreferences from "@/hooks/useNotificationPreferences";
 import { hasStoredNotificationPreferences } from "@/lib/notifications/notificationPreferences";
-import {
-  sendRealPushTestNotification,
-  showTestDeviceNotification,
-} from "@/lib/notifications/deviceNotifications";
 
 const EXPENSE_LOG_FREQUENCY_OPTIONS = [
   { value: 1, label: "Once a day" },
@@ -401,8 +397,6 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
   );
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const [localTestSending, setLocalTestSending] = useState(false);
-  const [realPushTestSending, setRealPushTestSending] = useState(false);
 
   useEffect(() => {
     if (taskReminderSettings.loading) return;
@@ -513,50 +507,6 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
       setError("Your app preference was saved, but notification delivery could not be updated.");
     }
   }, [syncTaskSettings, updatePreference]);
-
-  const sendLocalDeviceTest = useCallback(async () => {
-    setNotice("");
-    setError("");
-    setLocalTestSending(true);
-
-    try {
-      await showTestDeviceNotification();
-      setNotice(
-        "Local test notification sent from this device. This verifies local device delivery only."
-      );
-    } catch (testError) {
-      console.error("Local device notification test failed:", testError);
-      setError(testError?.message || "Local device notification test failed.");
-    } finally {
-      setLocalTestSending(false);
-    }
-  }, []);
-
-  const sendRealPushTest = useCallback(async () => {
-    setNotice("");
-    setError("");
-    setRealPushTestSending(true);
-
-    try {
-      const result = await sendRealPushTestNotification();
-      const sent = Number(result.nativeSent || result.sent || 0);
-      setNotice(
-        `Real push test sent. nativeSent: ${Number(
-          result.nativeSent || 0
-        )}, sent: ${sent}. Check the phone notification tray or lock screen.`
-      );
-      await taskReminderSettings.refreshPushStatus();
-    } catch (testError) {
-      console.error("Real push notification test failed:", testError);
-      setError(
-        testError?.message ||
-          "Real push test failed. Do not treat local notifications as proof that remote push works."
-      );
-    } finally {
-      setRealPushTestSending(false);
-    }
-  }, [taskReminderSettings]);
-
 
   const coachingScheduleEnabled =
     preferences.tasksAndCoaching !== false &&
@@ -790,72 +740,6 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
           <QuietHoursDetails preferences={preferences} onChange={changePreference} />
         </NotificationFamilyCard>
       </section>
-
-      {notificationOwnerId ? (
-        <details className="group overflow-hidden rounded-[22px] border border-[#1d4b7b]/45 bg-[#061225]">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 text-sm font-bold text-white/75">
-            Delivery diagnostics
-            <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
-          </summary>
-          <div className="border-t border-[#1d4b7b]/45 px-4 pb-4 pt-3">
-            <p className="text-[11px] leading-5 text-white/40">
-              Technical delivery status only. Notification families above remain the single source of truth.
-            </p>
-
-            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <div className="rounded-2xl border border-[#1d4b7b]/45 bg-[#040d1c] px-3 py-3">
-                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/30">
-                  Device support
-                </p>
-                <p className="mt-1 text-xs font-black text-white/75">
-                  {taskReminderSettings.pushSupported ? "Available" : "Unavailable"}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-[#1d4b7b]/45 bg-[#040d1c] px-3 py-3">
-                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/30">
-                  Permission
-                </p>
-                <p className="mt-1 text-xs font-black text-white/75">
-                  {taskReminderSettings.permissionState === "granted"
-                    ? "Granted"
-                    : taskReminderSettings.permissionState === "denied"
-                      ? "Blocked"
-                      : taskReminderSettings.permissionState === "unsupported"
-                        ? "Unavailable"
-                        : "Not granted"}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-[#1d4b7b]/45 bg-[#040d1c] px-3 py-3">
-                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/30">
-                  Phone delivery
-                </p>
-                <p className="mt-1 text-xs font-black text-white/75">
-                  {taskReminderSettings.pushConfigured ? "Ready" : "Not configured"}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={sendLocalDeviceTest}
-                disabled={localTestSending}
-                className="rounded-2xl border border-[#1d4b7b]/45 bg-[#07162b] px-4 py-3 text-xs font-black text-white/70 disabled:opacity-45"
-              >
-                {localTestSending ? "Sending local test..." : "Test local notification"}
-              </button>
-              <button
-                type="button"
-                onClick={sendRealPushTest}
-                disabled={realPushTestSending || !taskReminderSettings.pushConfigured}
-                className="rounded-2xl border border-[#4f96ff]/35 bg-[#0867ff] px-4 py-3 text-xs font-black text-white disabled:opacity-45"
-              >
-                {realPushTestSending ? "Sending push test..." : "Test phone push"}
-              </button>
-            </div>
-          </div>
-        </details>
-      ) : null}
 
       {!embedded ? (
         <p className="px-1 text-[11px] leading-5 text-white/35">
