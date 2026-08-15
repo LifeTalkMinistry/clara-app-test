@@ -4,14 +4,8 @@ import {
   parseCommand,
 } from "@/lib/ai-command/command-parser";
 
-const USER_CONTEXT_STORY_KEY = "CLARA_USER_CONTEXT_STORY_V1";
-
 function cleanText(value) {
   return String(value || "").trim();
-}
-
-function compactText(value = "") {
-  return cleanText(value).replace(/\s+/g, " ");
 }
 
 function todayManilaDate() {
@@ -25,29 +19,6 @@ function todayManilaDate() {
 
 function currentManilaPeriod() {
   return todayManilaDate().slice(0, 7);
-}
-
-function readUserContextStory() {
-  if (typeof window === "undefined") return null;
-  try {
-    return JSON.parse(window.localStorage.getItem(USER_CONTEXT_STORY_KEY) || "null");
-  } catch {
-    return null;
-  }
-}
-
-function flattenUserContextStory() {
-  const story = readUserContextStory();
-  const sections = Array.isArray(story?.sections) ? story.sections : [];
-  return sections
-    .flatMap((section) => {
-      const bullets = Array.isArray(section?.bullets)
-        ? section.bullets
-        : section?.items || section?.memories || [];
-      return bullets.map(compactText).filter(Boolean);
-    })
-    .join(" ")
-    .toLowerCase();
 }
 
 function isGreeting(text) {
@@ -68,19 +39,10 @@ function isSadMood(text) {
 
 function createLocalAssistantMessage(text) {
   const input = cleanText(text);
-  const memoryText = flattenUserContextStory();
-
   if (!input) return "I’m here. Tell me what you want to log, check, or plan with your money.";
   if (asksHowAreYou(input)) return "I’m doing good — ready to help you stay on top of your money. What do you want to check first?";
   if (isGreeting(input)) return "Hi! I’m here with you. Want to log an expense, check your wallet, or plan your spending today?";
 
-  if (/why.*spending.*better|spending.*better|patterns.*notice|what patterns/i.test(input) && /basketball|sports/.test(memoryText)) {
-    return "Your saved pattern shows physical activity may be helping you release stress before it turns into impulse spending. That pause can make your money decisions more deliberate.";
-  }
-
-  if (/tempted|order food|delivery|craving|stress spend/i.test(input) && /basketball|sports/.test(memoryText)) {
-    return "This looks close to a spending-trigger window saved in your memory. Try the healthier reset that has worked for you before, then decide after the urge settles.";
-  }
 
   if (isHappyMood(input)) return "Glad to hear that. Want to quickly check your money left or log anything you spent today?";
   if (isSadMood(input)) return "I’m here with you. Want to do a quick money check so things feel a little more organized?";

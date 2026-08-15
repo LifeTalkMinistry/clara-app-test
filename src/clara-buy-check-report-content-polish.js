@@ -43,21 +43,6 @@ function clampText(value = "", limit = 150) {
   return `${safeCut.trim().replace(/[.,;:–—-]+$/g, "")}…`;
 }
 
-function compactMemorySignal(value = "") {
-  const text = clean(value);
-  const pieces = text
-    .split(/\s+-\s+|[.!?]\s+/)
-    .map(clean)
-    .filter((piece) => piece.length >= 16);
-
-  const bestPieces = pieces
-    .filter((piece) => /spend|food|shopping|stress|trigger|impulse|goal|discipline|habit|budget|basketball|work/i.test(piece))
-    .slice(0, 2);
-
-  const summary = bestPieces.length ? bestPieces.join(". ") : pieces.slice(0, 1).join(". ");
-  return clampText(summary || text, 170);
-}
-
 function limitCardData(kind = "", cardData = {}) {
   const bodyLimit = CARD_BODY_LIMITS[kind] || 205;
   const bulletLimit = CARD_BULLET_LIMITS[kind] || 135;
@@ -143,28 +128,6 @@ function normalizeReason(value = "") {
   return text;
 }
 
-function sanitizeMemorySignal(value = "") {
-  const text = clean(value)
-    .replace(/^[-•]\s*/g, "")
-    .replace(/\bStart Buy Check\b/gi, "")
-    .replace(/\bBuy Check\b/gi, "purchase check")
-    .replace(/\bmemory\.?\s*paydayBehavior\s*(is missing)?\.?/gi, "")
-    .replace(/\bpaydayBehavior\b/gi, "payday spending pattern");
-
-  if (!text || text.length < 8) return "I did not find a strong spending pattern for this check.";
-  return compactMemorySignal(text);
-}
-
-function getMemorySignal(context = {}) {
-  const memory = context.fullMemoryContext || {};
-  const cabinets = safeArray(memory.memoryCabinets);
-  const records = cabinets.flatMap((cabinet) => safeArray(cabinet.records));
-  const notes = safeArray(memory.profileMemoryNotes);
-  const all = [...records, ...notes];
-  const chosen = all.find((record) => /payday|impulse|shopping|spending|reward|trigger|goal|discipline/i.test(`${record.summary || ""} ${safeArray(record.signals).join(" ")}`)) || all[0];
-  return sanitizeMemorySignal(chosen?.summary || safeArray(chosen?.signals).join(" "));
-}
-
 function getMoneyImpactEvent(context = {}) {
   const schedule = safeArray(context.scheduleContext);
   return schedule.find((event) => toNumber(event.amount || event.cost || event.estimatedImpact) > 0 || /bill|due|rent|dinner|health|appointment|social|payment/i.test(`${event.type || ""} ${event.title || ""} ${event.note || ""}`)) || schedule[0] || null;
@@ -197,7 +160,6 @@ function buildCardData(kind, context = {}) {
   const eventAmount = toNumber(event?.amount || event?.cost || event?.estimatedImpact);
   const categoryExpenses = safeArray(finance.categoryExpenses);
   const categorySpend = categoryExpenses.reduce((sum, expense) => sum + toNumber(expense.amount), 0);
-  const memorySignal = getMemorySignal(context);
   const protectedWallets = safeArray(finance.protectedWallets);
   const spendableWallets = safeArray(finance.spendableWallets);
   const displayItem = normalizePurchaseItem(purchase.item);
@@ -284,7 +246,6 @@ function buildCardData(kind, context = {}) {
       return {
         body: `I found ${categoryExpenses.length} ${purchase.inferredCategory || "category"}-related purchase${categoryExpenses.length === 1 ? "" : "s"} this month totaling ${money(categorySpend)}. I’m checking if this is a pattern or a one-time need.`,
         bullets: [
-          memorySignal,
           context.mePageContext ? "I also have your Me profile, so I can compare this with your stated behavior and priorities." : "I do not have a Me profile signal here, so I’ll rely on transaction and money context.",
           categoryExpenses.length ? "Repeated activity in this category raises impulse risk, so I want you to slow down first." : "I don’t see repeated category activity this month, so this looks less repetitive.",
         ],

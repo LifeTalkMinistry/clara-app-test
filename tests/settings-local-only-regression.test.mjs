@@ -21,7 +21,6 @@ const dashboardPanelRendererSource = readSource(
   "src/components/fresh/main-dashboard/shell/DashboardPanelRenderer.jsx"
 );
 const localVaultIdentityStartup = readSource("src/lib/start-local-vault-identity.js");
-const assistantMemorySource = readSource("src/clara-assistant-memory-tab.js");
 const runtimeRegistrySource = readSource("src/runtime/installClaraRuntimePatches.js");
 
 const retiredThemePatchUrl = new URL(
@@ -54,15 +53,14 @@ test("active Settings explains device ownership and exposes transfer plus backup
   assert.match(activeSettingsSource, /navigate\("\/data-export"\)/);
 });
 
-test("Settings directly owns detail history, logout, and Memory", () => {
+test("Settings owns detail history and logout without the retired Memory entry", () => {
   assert.match(activeSettingsSource, /SETTINGS_DETAIL_HISTORY_KEY/);
   assert.match(activeSettingsSource, /window\.history\.pushState/);
   assert.match(activeSettingsSource, /window\.addEventListener\("popstate"/);
   assert.match(activeSettingsSource, /signOutFromClaraBackend/);
   assert.match(activeSettingsSource, /"Log out"/);
-  assert.match(activeSettingsSource, /title: "Memory"/);
-  assert.match(activeSettingsSource, /clara:open-assistant-memory-board/);
-  assert.match(assistantMemorySource, /clara:open-assistant-memory-board/);
+  assert.doesNotMatch(activeSettingsSource, /title: "Memory"/);
+  assert.doesNotMatch(activeSettingsSource, /clara:open-assistant-memory-board/);
   assert.doesNotMatch(activeSettingsSource, /MutationObserver/);
 });
 

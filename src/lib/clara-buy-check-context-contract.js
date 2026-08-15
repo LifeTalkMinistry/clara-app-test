@@ -16,22 +16,6 @@ const toNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-function memorySummary(contextValue) {
-  const context = safeRecord(contextValue);
-  const source = context.memoryContext || context.fullMemoryContext || context.claraMemoryContext || context.aiFinancialMemory || context.previousConversationMemory || null;
-  if (!source) return "No strong saved spending pattern was available.";
-  if (typeof source === "string") return clean(source).slice(0, 280);
-  const memory = safeRecord(source);
-  const records = [
-    ...safeList(memory.memoryCabinets).flatMap((cabinet) => safeList(cabinet.records)),
-    ...safeList(memory.profileMemoryNotes),
-    ...safeList(memory.storedMemoryRecords),
-    ...safeList(context.userMessageHistory),
-  ];
-  const selected = records.find((record) => /payday|impulse|shopping|trigger|spending|discipline|emergency|goal|regret|overspend/i.test(`${record.summary || ""} ${record.text || ""} ${Array.isArray(record.signals) ? record.signals.join(" ") : ""}`)) || records[0];
-  return clean(selected?.summary || selected?.text || (Array.isArray(selected?.signals) ? selected.signals.join(" ") : "") || "No strong saved spending pattern was available.").slice(0, 280);
-}
-
 function normalizePurchase(flow = {}, assessment = {}) {
   const categoryKey = assessment.purchaseCategoryKey || inferPurchaseCategory({ item: flow.item, reason: flow.reason });
   return {
@@ -84,7 +68,6 @@ function overallConfidence({ wallet, budget, incomeRunway, obligations, calendar
 
 function buildContextSignals(pkg) {
   const assessment = pkg.budget || pkg.finance?.budgetAssessment || {};
-  const memory = pkg.behavior?.memorySummary || pkg.memory || "";
   return {
     budgetCoverageRisk: assessment.status || "no_match",
     individualWalletFundingRisk: assessment.walletFundingStatus || pkg.wallet?.walletFundingStatus || "insufficient",
@@ -92,7 +75,6 @@ function buildContextSignals(pkg) {
     upcomingObligationRisk: pkg.obligations?.conflictAfterPurchase ? "critical" : pkg.obligations?.dueBeforeNextIncome?.length ? "present" : "none",
     emergencyFundRisk: pkg.emergencyFund?.wouldRequireWithdrawal ? "affected" : pkg.emergencyFund?.wouldBeAffected ? "present" : "not_affected",
     savingsGoalRisk: pkg.savingsGoals?.wouldRequireWithdrawal ? "affected" : pkg.savingsGoals?.wouldBeAffected ? "present" : "not_affected",
-    repeatedImpulseRisk: /impulse|regret|tempt|payday|overspend|unplanned/i.test(memory) ? "present" : "none",
     paydayTimingRisk: ["none", "low"].includes(pkg.incomeRunway?.confidence) ? "uncertain" : "measured",
     calendarRisk: pkg.calendar?.knownMoneyImpactTotal > 0 ? "present" : pkg.calendar?.unknownCostEvents?.length ? "unknown_cost" : "none",
     lifeStageRisk: pkg.lifeStage?.relevance === "conflicting" ? "present" : "none",
@@ -160,12 +142,6 @@ function buildBuyCheckContext(flowValue = {}, contextValue = {}, options = {}) {
   goals.emergencyFund.wouldRequireWithdrawal = wallet.protectedMoneyNeeded && goals.emergencyFund.savedAmount > 0;
   goals.savingsGoals.wouldRequireWithdrawal = wallet.protectedMoneyNeeded && goals.savingsGoals.records.some((goal) => goal.savedAmount > 0);
   const lifeStage = analyzeLifeStageContext(context, purchase);
-  const memory = memorySummary(context);
-  const behavior = {
-    repeatedImpulseRisk: /impulse|regret|tempt|payday|overspend|unplanned/i.test(memory) ? "present" : "none",
-    recentPatterns: memory && !/No strong saved/.test(memory) ? [memory] : [],
-    memorySummary: memory,
-  };
   const safety = {
     liquidMoneyAfterPurchase,
     commitmentsBeforeNextIncome,
@@ -189,7 +165,6 @@ function buildBuyCheckContext(flowValue = {}, contextValue = {}, options = {}) {
     savingsGoals: goals.savingsGoals,
     calendar,
     lifeStage,
-    behavior,
     safety,
     debugConnections: {
       incomeHub: Boolean(context.incomeHubSnapshot?.connected || Array.isArray(context.incomes)),
@@ -200,7 +175,6 @@ function buildBuyCheckContext(flowValue = {}, contextValue = {}, options = {}) {
       savingsGoals: Array.isArray(context.savingsGoals),
       lifeStage: lifeStage.connected,
       schedule: calendar.connected,
-      memory: behavior.recentPatterns.length > 0,
     },
   };
 
@@ -238,9 +212,8 @@ function buildBuyCheckContext(flowValue = {}, contextValue = {}, options = {}) {
   };
   pkg.schedule = calendar.upcomingEvents;
   pkg.meProfile = lifeStage;
-  pkg.memory = memory;
   pkg.contextSignals = buildContextSignals(pkg);
   return pkg;
 }
 
-export { buildBuyCheckContext, buildBuyCheckContext as buildContextPackage, buildContextSignals, memorySummary };
+export { buildBuyCheckContext, buildBuyCheckContext as buildContextPackage, buildContextSignals };

@@ -2,12 +2,12 @@
  * CLARA Local Finance Store
  *
  * Offline-first IndexedDB foundation for CLARA finance data.
- * Hardened schema for all finance, LIFE OS, AI memory, and private preference stores.
+ * Hardened schema for finance, LIFE OS profile, and private preference stores.
  */
 
 export const LOCAL_FINANCE_DB_NAME = "clara_local_finance";
 
-export const LOCAL_FINANCE_SCHEMA_VERSION = 3;
+export const LOCAL_FINANCE_SCHEMA_VERSION = 4;
 
 export const LOCAL_FINANCE_STORES = Object.freeze({
   metadata: "metadata",
@@ -19,7 +19,6 @@ export const LOCAL_FINANCE_STORES = Object.freeze({
   savingsGoals: "savings_goals",
   emergencyFund: "emergency_fund",
   lifeProfile: "life_profile",
-  aiFinancialMemory: "ai_financial_memory",
   privatePreferences: "private_preferences",
 });
 
@@ -32,7 +31,6 @@ export const LOCAL_FINANCE_PRIVATE_STORES = Object.freeze([
   LOCAL_FINANCE_STORES.savingsGoals,
   LOCAL_FINANCE_STORES.emergencyFund,
   LOCAL_FINANCE_STORES.lifeProfile,
-  LOCAL_FINANCE_STORES.aiFinancialMemory,
   LOCAL_FINANCE_STORES.privatePreferences,
 ]);
 
@@ -255,6 +253,10 @@ export function openLocalFinanceDb() {
     request.onupgradeneeded = () => {
       const db = request.result;
       const transaction = request.transaction;
+
+      if (db.objectStoreNames.contains("ai_financial_memory")) {
+        db.deleteObjectStore("ai_financial_memory");
+      }
 
       STORE_DEFINITIONS.forEach((definition) => {
         createOrUpdateStore(db, transaction, definition);

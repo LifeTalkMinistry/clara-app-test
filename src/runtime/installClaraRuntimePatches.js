@@ -37,10 +37,9 @@ import "./installCommunityNotificationPostNavigationGuard";
 // activity remains on the bell, with each badge clearing independently.
 import "./installCommunityMessageNotificationSplit";
 
-// Core memory runtime. The scoped compatibility layer must install before any
-// legacy memory reader/writer touches the historical unscoped storage key.
-import "./installScopedClaraMemoryStorage";
-import "../clara-memory-bridge";
+// Retired context data cleanup. This only erases obsolete Memory-system storage;
+// it does not read or personalize CLARA responses.
+import "./installRetiredContextDataCleanup";
 
 // Authenticated app-open tracking. This records only session timestamps and a
 // broad platform label; it does not inspect budgets, screens, notes, or messages.
@@ -99,32 +98,10 @@ import "../clara-google-play-verify-auth-retry";
 // is refreshed into the Committed Version. No plan is granted locally.
 import "./installBetaTesterActivation";
 
-// WARNING:
-// These patches relabel/replace assistant tabs through DOM selectors.
-// Later they should become real React tab configuration.
 // Assistant tab runtime controllers
 import "../clara-assistant-forecast-tab";
 import "../clara-assistant-analytic-tab";
 import "../clara-assistant-feature-dock-polish";
-import "../clara-assistant-memory-tab";
-
-// Core memory runtime
-import "../clara-onboarding-memory-review-bridge";
-import "../clara-memory-cabinet-autosave";
-import "../clara-me-panel";
-import "../clara-talk-pause-bridge";
-
-// Memory Review presentation. The legacy runtime owns behavior; this scoped CSS
-// owns only the visual hierarchy for Review and Edit Mode.
-import "../clara-memory-review-premium.css";
-
-// The review list owns scrolling. Its cards retain their natural content height
-// so populated sections cannot collapse into thin pills.
-import "../clara-memory-review-layout-integrity.css";
-
-// Header controls stay pinned to the true top-right corner while the title and
-// timestamp reserve their footprint on narrow screens.
-import "../clara-memory-review-header-actions-position.css";
 
 // Life Stage ownership note:
 // FinancialClimateUniversalScreen now owns the Me-page pressure dock, support
@@ -133,6 +110,10 @@ import "../clara-memory-review-header-actions-position.css";
 // not installed because they rewrote the same DOM after React rendered it.
 // The setup-flow polish remains until the setup screen itself is separated into
 // a route; it does not own the configured Me-page container or profile data.
+import "../life-stage-progressive-flow";
+import "../life-stage-selection-explanations";
+import "../life-stage-hide-stage-picker-progress";
+import "../life-stage-progressive-flow.css";
 import "../life-stage-setup-flow-polish";
 
 // Global/mobile CSS patches
