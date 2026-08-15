@@ -557,7 +557,7 @@ export default function DashboardSettingsPanelOfficial({
 
   const renderPlanPage = () => (
     <div className="space-y-4">
-      <DetailHeader title="Membership" subtitle="Your CLARA membership, benefits, and status." />
+      <DetailHeader title="Membership" />
       <section className={`${surfaceClass} relative overflow-hidden p-5`}>
         <div aria-hidden="true" className="absolute inset-x-0 top-0 h-0.5 bg-[linear-gradient(90deg,#0867ff_0%,#19b5ff_35%,#ffd84a_67%,#f32645_100%)]" />
         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#e5c95e]">Current membership</p>
