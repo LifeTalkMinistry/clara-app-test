@@ -83,13 +83,19 @@ export default function BudgetCard({
     });
   };
 
+  const hasActivePlan = Boolean(
+    activeBudget?.hasActiveBudgetPlan === true ||
+      activeBudget?.has_active_budget_plan === true ||
+      planIsComplete
+  );
   const canEndBudget = Boolean(
     hasDeclaredBudget &&
-      planIsComplete &&
+      hasActivePlan &&
       Array.isArray(financeCardController?.budgets) &&
       typeof financeCardController?.updateBudget === "function"
   );
   const actionLoading = financeActionLoading || endingBudget;
+  const displayBadgeLabel = hasActivePlan && remaining <= 0 ? "Exhausted" : badgeLabel;
 
   const endBudgetInline = async () => {
     if (!canEndBudget || actionLoading) return;
@@ -154,7 +160,7 @@ export default function BudgetCard({
               message={message}
               remainingAmountColor={remainingAmountColor}
               monthKey={monthKey}
-              badgeLabel={badgeLabel}
+              badgeLabel={displayBadgeLabel}
               budgetPace={budgetPace}
               openBudgetModal={openBudgetPlanPage}
             />
