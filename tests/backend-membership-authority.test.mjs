@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import {
   buildBackendMembershipProfile,
   isBackendCommittedActive,
+  isBackendSupportPlanActive,
   normalizeBackendPlan,
   normalizeBackendStatus,
 } from "../src/lib/backend-membership-authority.js";
@@ -18,7 +19,6 @@ import {
 } from "../src/lib/clara-backend-client.js";
 import {
   resolveMembership,
-  COMMITTED_PLAN_KEY,
   FREE_PLAN_KEY,
 } from "../src/lib/membership.js";
 
@@ -46,33 +46,37 @@ function createStorage(initial = {}) {
 }
 
 test("backend plan and status normalize conservatively", () => {
-  assert.equal(normalizeBackendPlan("committed"), "committed");
+  assert.equal(normalizeBackendPlan("supporter"), "supporter");
+  assert.equal(normalizeBackendPlan("builder"), "builder");
+  assert.equal(normalizeBackendPlan("champion"), "champion");
+  assert.equal(normalizeBackendPlan("committed"), "free");
   assert.equal(normalizeBackendPlan("premium"), "free");
   assert.equal(normalizeBackendStatus("active"), "active");
   assert.equal(normalizeBackendStatus("approved"), "inactive");
 });
 
-test("only active committed backend users unlock committed access", () => {
+test("only active canonical supporter plans unlock supporter benefits", () => {
   const cases = [
-    [{ plan: "free", status: "active", role: "user" }, false],
-    [{ plan: "free", status: "active", role: "admin" }, false],
-    [{ plan: "free", status: "active", role: "advertiser" }, false],
-    [{ plan: "committed", status: "active", role: "user" }, true],
-    [{ plan: "committed", status: "pending", role: "user" }, false],
-    [{ plan: "committed", status: "inactive", role: "user" }, false],
-    [{ plan: "premium", status: "active", role: "admin" }, false],
-    [{ plan: null, status: null, role: "admin" }, false],
+    [{ plan: "free", status: "active", role: "user" }, false, "free"],
+    [{ plan: "free", status: "active", role: "admin" }, false, "free"],
+    [{ plan: "supporter", status: "active", role: "user" }, true, "supporter"],
+    [{ plan: "builder", status: "active", role: "user" }, true, "builder"],
+    [{ plan: "champion", status: "active", role: "user" }, true, "champion"],
+    [{ plan: "builder", status: "pending", role: "user" }, false, "builder"],
+    [{ plan: "champion", status: "inactive", role: "user" }, false, "champion"],
+    [{ plan: "committed", status: "active", role: "user" }, false, "free"],
+    [{ plan: "premium", status: "active", role: "admin" }, false, "free"],
+    [{ plan: null, status: null, role: "admin" }, false, "free"],
   ];
 
-  cases.forEach(([serverUser, expected]) => {
+  cases.forEach(([serverUser, expected, expectedPlan]) => {
     const profile = buildBackendMembershipProfile(serverUser);
     const membership = resolveMembership({ profile });
+    assert.equal(isBackendSupportPlanActive(serverUser), expected);
     assert.equal(isBackendCommittedActive(serverUser), expected);
+    assert.equal(membership.hasSupporterAccess, expected);
     assert.equal(membership.hasCommittedAccess, expected);
-    assert.equal(
-      profile.plan,
-      serverUser.plan === "committed" ? COMMITTED_PLAN_KEY : FREE_PLAN_KEY
-    );
+    assert.equal(profile.plan, expectedPlan);
   });
 });
 
@@ -82,7 +86,7 @@ test("backend profile overwrites local membership claims without deleting local 
     {
       budget_currency: "PHP",
       wallet_count: 3,
-      plan: "committed_249",
+      plan: "champion",
       is_activated: true,
       program_active: true,
     }
@@ -96,15 +100,15 @@ test("backend profile overwrites local membership claims without deleting local 
   assert.equal(profile.membership_source, "backend");
 });
 
-test("backend user normalization preserves plan, status, and timestamps", () => {
+test("backend user normalization preserves canonical supporter plans, status, and timestamps", () => {
   assert.deepEqual(
     normalizeUser({
       id: 4,
       name: "Max",
       email: "MAX@example.com",
       role: "admin",
-      plan: "committed",
-      status: "pending",
+      plan: "champion",
+      status: "active",
       created_at: "created",
       updated_at: "updated",
     }),
@@ -113,13 +117,15 @@ test("backend user normalization preserves plan, status, and timestamps", () => 
       name: "Max",
       email: "max@example.com",
       role: "admin",
-      plan: "committed",
-      status: "pending",
+      plan: "champion",
+      status: "active",
       created_at: "created",
       updated_at: "updated",
     }
   );
 
+  assert.equal(normalizeUser({ id: 5, plan: "builder", status: "active" }).plan, "builder");
+  assert.equal(normalizeUser({ id: 5, plan: "committed", status: "active" }).plan, FREE_PLAN_KEY);
   assert.equal(normalizeUser({ id: 5, plan: "pro", status: "approved" }).plan, "free");
   assert.equal(
     normalizeUser({ id: 5, plan: "pro", status: "approved" }).status,
