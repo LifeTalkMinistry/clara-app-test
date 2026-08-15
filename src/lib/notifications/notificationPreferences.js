@@ -397,8 +397,9 @@ export function isInsideQuietHours(preferences, date = new Date()) {
 }
 
 export function getZonedDateParts(timezone, date = new Date()) {
+  const resolvedTimezone = validTimezone(timezone);
   const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: validTimezone(timezone),
+    timeZone: resolvedTimezone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -409,14 +410,22 @@ export function getZonedDateParts(timezone, date = new Date()) {
   const parts = Object.fromEntries(
     formatter.formatToParts(date).map((part) => [part.type, part.value])
   );
+  const year = Number(parts.year);
+  const month = Number(parts.month);
+  const day = Number(parts.day);
+  const hour = Number(parts.hour);
+  const minute = Number(parts.minute);
+
   return {
-    year: Number(parts.year),
-    month: Number(parts.month),
-    day: Number(parts.day),
-    hour: Number(parts.hour),
-    minute: Number(parts.minute),
+    dateKey: `${parts.year}-${parts.month}-${parts.day}`,
+    minutes: hour * 60 + minute,
+    year,
+    month,
+    day,
+    hour,
+    minute,
     weekday: new Intl.DateTimeFormat("en-US", {
-      timeZone: validTimezone(timezone),
+      timeZone: resolvedTimezone,
       weekday: "short",
     }).format(date),
   };
