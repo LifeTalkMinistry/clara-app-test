@@ -476,6 +476,7 @@ export async function runClaraBuyCheckExpertTurn({
   history = [],
   evidence = {},
   assistantContext = {},
+  signal,
 } = {}) {
   const previousEvidence = sanitizeEvidence(evidence);
   const fallback = fallbackTurn(message, previousEvidence, assistantContext);
@@ -486,8 +487,8 @@ export async function runClaraBuyCheckExpertTurn({
       prompt: buildPrompt({ message, history, evidence: previousEvidence, assistantContext }),
       temperature: 0.3,
       maxOutputTokens: 520,
-      timeoutMs: 12000,
       label: "CLARA universal spending conversation",
+      signal,
     });
 
     const mergedEvidence = mergeEvidence(previousEvidence, json?.evidence);
@@ -518,6 +519,9 @@ export async function runClaraBuyCheckExpertTurn({
       model,
     };
   } catch (error) {
+    if (error?.code === "CLARA_AI_CANCELLED" || error?.name === "AbortError") {
+      throw error;
+    }
     console.warn("[CLARA Buy Check] Universal conversation fallback used.", error);
     return fallback;
   }
