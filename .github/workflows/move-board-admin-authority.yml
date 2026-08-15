@@ -48,3 +48,5 @@ jobs:
           git commit -m "Move CLARA Board control to official admin"
           git pull --rebase origin main
           git push origin main
+
+# This workflow is intentionally narrow: it only migrates the legacy in-app admin authority.
