@@ -81,8 +81,11 @@ function getClaraGeminiProxyEndpoint() {
     hostname === "localhost" ||
     hostname === "127.0.0.1" ||
     Boolean(window.Capacitor?.isNativePlatform?.());
+  const isGitHubPages = hostname === "github.io" || hostname.endsWith(".github.io");
 
-  return isNativeLike ? CLARA_GEMINI_PROXY_PRODUCTION_URL : GEMINI_PROXY_ENDPOINT;
+  return isNativeLike || isGitHubPages
+    ? CLARA_GEMINI_PROXY_PRODUCTION_URL
+    : GEMINI_PROXY_ENDPOINT;
 }
 
 async function parseProxyPayload(response) {
