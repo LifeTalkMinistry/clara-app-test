@@ -360,7 +360,7 @@ export function InteractiveMessageBubble({
             aria-label={
               isTemporary
                 ? undefined
-                : `${isMine ? "Your" : "Received"} message at ${messageTime}. Press Enter for message actions.`
+                : `${isMine ? "Your" : "Received"} message: ${String(message.content || "").trim() || "No text"}. Sent at ${messageTime}. Press Enter for message actions.`
             }
             aria-haspopup={isTemporary ? undefined : "menu"}
             aria-expanded={isTemporary ? undefined : menuOpen}
