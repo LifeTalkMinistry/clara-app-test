@@ -27,36 +27,14 @@ jobs:
           path = Path('src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx')
           source = path.read_text()
 
-          old_label = '''  const membershipStatusLabel = membershipStatus === "loading"
-    ? "SYNCING"
-    : membershipStatus === "active"
-      ? "ACTIVE"
-      : membershipStatus === "pending"
-        ? "PENDING"
-        : ["inactive", "expired", "cancelled"].includes(membershipStatus)
-          ? "INACTIVE"
-          : "FREE";
-  const membershipStatusBadgeClass = membershipStatus === "active"
-    ? "border-[#b89934]/45 bg-[#ffd84a]/8 text-[#ffe681]"
-    : membershipStatus === "pending"
-      ? "border-[#b89934]/40 bg-[#ffd84a]/7 text-[#ffe681]"
-      : "border-[#315c8c]/45 bg-[#0a1a30] text-[#9fb9d8]";'''
-          new_label = '''  const membershipStatusLabel = membershipStatus === "loading"
-    ? "SYNCING"
-    : membershipStatus === "pending"
-      ? "PENDING"
-      : ["inactive", "expired", "cancelled"].includes(membershipStatus)
-        ? "INACTIVE"
-        : "FREE";
-  const membershipStatusBadgeClass = membershipStatus === "pending"
-    ? "border-[#b89934]/40 bg-[#ffd84a]/7 text-[#ffe681]"
-    : "border-[#315c8c]/45 bg-[#0a1a30] text-[#9fb9d8]";'''
+          old_label = '  const membershipStatusLabel = membershipStatus === "loading"\n    ? "SYNCING"\n    : membershipStatus === "active"\n      ? "ACTIVE"\n      : membershipStatus === "pending"\n        ? "PENDING"\n        : ["inactive", "expired", "cancelled"].includes(membershipStatus)\n          ? "INACTIVE"\n          : "FREE";\n  const membershipStatusBadgeClass = membershipStatus === "active"\n    ? "border-[#b89934]/45 bg-[#ffd84a]/8 text-[#ffe681]"\n    : membershipStatus === "pending"\n      ? "border-[#b89934]/40 bg-[#ffd84a]/7 text-[#ffe681]"\n      : "border-[#315c8c]/45 bg-[#0a1a30] text-[#9fb9d8]";'
+          new_label = '  const membershipStatusLabel = membershipStatus === "loading"\n    ? "SYNCING"\n    : membershipStatus === "pending"\n      ? "PENDING"\n      : ["inactive", "expired", "cancelled"].includes(membershipStatus)\n        ? "INACTIVE"\n        : "FREE";\n  const membershipStatusBadgeClass = membershipStatus === "pending"\n    ? "border-[#b89934]/40 bg-[#ffd84a]/7 text-[#ffe681]"\n    : "border-[#315c8c]/45 bg-[#0a1a30] text-[#9fb9d8]";'
           if old_label not in source:
               raise SystemExit('membership status label block not found')
           source = source.replace(old_label, new_label, 1)
 
-          old_render = '''<span className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${membershipStatusBadgeClass}`}>{membershipStatusLabel}</span>'''
-          new_render = '''{membershipStatus === "active" && selectedMembershipTierKey ? <SupportTierBadge tier={selectedMembershipTierKey} compact tone="settings" /> : <span className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${membershipStatusBadgeClass}`}>{membershipStatusLabel}</span>}'''
+          old_render = '<span className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${membershipStatusBadgeClass}`}>{membershipStatusLabel}</span>'
+          new_render = '{membershipStatus === "active" && selectedMembershipTierKey ? <SupportTierBadge tier={selectedMembershipTierKey} compact tone="settings" /> : <span className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${membershipStatusBadgeClass}`}>{membershipStatusLabel}</span>}'
           if old_render not in source:
               raise SystemExit('membership status badge render not found')
           source = source.replace(old_render, new_render, 1)
@@ -64,16 +42,11 @@ jobs:
 
           test_path = Path('tests/clara-free-support-system.test.mjs')
           test_source = test_path.read_text()
-          anchor = '''  assert.match(settings, /badgeNode: activeSupporterTier \\?/);
-  assert.match(settings, /<SupportTierBadge tier=\\{activeSupporterTier\\} compact \\/>/);'''
-          replacement = '''  assert.match(settings, /badgeNode: activeSupporterTier \\?/);
-  assert.match(settings, /<SupportTierBadge tier=\\{activeSupporterTier\\} compact tone="settings" \\/>/);
-  assert.match(settings, /membershipStatus === "active" && selectedMembershipTierKey \\? <SupportTierBadge tier=\\{selectedMembershipTierKey\\} compact tone="settings" \\/>/);
-  assert.doesNotMatch(settings, /\\? "ACTIVE"/);'''
-          if anchor not in test_source:
-              raise SystemExit('support identity test anchor not found')
-          test_source = test_source.replace(anchor, replacement, 1)
-          test_path.write_text(test_source)
+          old_assert = '  assert.match(settings, /<SupportTierBadge tier=\\{activeSupporterTier\\} compact \\/>/);'
+          new_assert = '  assert.match(settings, /<SupportTierBadge tier=\\{activeSupporterTier\\} compact tone="settings" \\/>/);\n  assert.match(settings, /membershipStatus === "active" && selectedMembershipTierKey \\? <SupportTierBadge tier=\\{selectedMembershipTierKey\\} compact tone="settings" \\/>/);\n  assert.doesNotMatch(settings, /\\? "ACTIVE"/);'
+          if old_assert not in test_source:
+              raise SystemExit('support identity assertion anchor not found')
+          test_path.write_text(test_source.replace(old_assert, new_assert, 1))
           PY
 
       - name: Verify support identity regression
