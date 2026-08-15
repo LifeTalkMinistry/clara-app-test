@@ -141,7 +141,7 @@ async function refreshUnreadState() {
   refreshInFlight = true;
   try {
     const [messages, notifications] = await Promise.all([
-      backendRequest("/api/messages", { token }),
+      backendRequest("/api/messages/view", { token }),
       backendRequest("/api/community/notifications?limit=50", { token }),
     ]);
 
