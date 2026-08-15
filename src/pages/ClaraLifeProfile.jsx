@@ -304,6 +304,7 @@ export default function ClaraLifeProfile() {
           onClick={() => setInfoOpen(false)}
         >
           <section
+            data-clara-life-profile-info-sheet="true"
             role="dialog"
             aria-modal="true"
             aria-labelledby="clara-life-profile-info-title"
