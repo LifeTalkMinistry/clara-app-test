@@ -46,7 +46,6 @@ const RETIRED_DEMO_CLEANUP_STORES = [
   LOCAL_FINANCE_STORES.budgets,
   LOCAL_FINANCE_STORES.savingsGoals,
   LOCAL_FINANCE_STORES.emergencyFund,
-  LOCAL_FINANCE_STORES.aiFinancialMemory,
   LOCAL_FINANCE_STORES.privatePreferences,
 ].filter(Boolean);
 
@@ -56,7 +55,6 @@ const RETIRED_YOUNG_PROFESSIONAL_STORES = new Set([
   LOCAL_FINANCE_STORES.budgets,
   LOCAL_FINANCE_STORES.savingsGoals,
   LOCAL_FINANCE_STORES.emergencyFund,
-  LOCAL_FINANCE_STORES.aiFinancialMemory,
 ]);
 
 const CLARA_AI_ENVIRONMENT_STYLES = `

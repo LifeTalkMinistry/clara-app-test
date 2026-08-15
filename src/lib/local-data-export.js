@@ -14,7 +14,6 @@ export const CLARA_BACKUP_REGISTRY = Object.freeze({
       "clara_daily_check_in_v1_migrated_to",
       "clara_daily_check_in_v3_migrated:",
       "life_profile",
-      "ai_financial_memory",
       "money",
       "wallet",
       "budget",
@@ -44,7 +43,6 @@ export const CLARA_BACKUP_REGISTRY = Object.freeze({
       "clara_daily_check_in_v1_migrated_to",
       "clara_daily_check_in_v3_migrated:",
       "life_profile",
-      "ai_financial_memory",
       "money",
       "wallet",
       "budget",
@@ -68,7 +66,7 @@ export const CLARA_BACKUP_REGISTRY = Object.freeze({
     databases: {
       clara_local_finance: {
         name: "clara_local_finance",
-        version: 3,
+        version: 4,
         stores: {
           metadata: {
             keyPath: "id",
@@ -85,7 +83,6 @@ export const CLARA_BACKUP_REGISTRY = Object.freeze({
           savings_goals: { keyPath: "id", private: true },
           emergency_fund: { keyPath: "id", private: true },
           life_profile: { keyPath: "id", private: true },
-          ai_financial_memory: { keyPath: "id", private: true },
           private_preferences: { keyPath: "id", private: true },
         },
       },
@@ -131,10 +128,29 @@ const CLARA_RESTORE_EVENTS = [
   "clara-data-restored",
 ];
 
+const RETIRED_CONTEXT_STORAGE_PREFIXES = [
+  "CLARA_USER_CONTEXT_STORY_V1",
+  "CLARA_USER_CONTEXT_STORY_V2:",
+  "clara_user_context",
+  "clara_behavioral_memory_v1",
+  "clara_behavioral_memory_v2:",
+  "CLARA_MEMORY_CABINET_V1:",
+  "CLARA_MEMORY_CABINET_V2:",
+  "CLARA_UNIVERSAL_MEMORY_PROFILE_V1",
+  "clara_memory_",
+  "CLARA_PREVIOUS_CONVERSATION_MEMORY",
+  "clara_previous_conversation_memory",
+  "clara_conversation_memory_v1",
+  "clara_chat_memory_v1",
+  "CLARA_LIVE_USER_MESSAGE_HISTORY",
+  "clara_live_user_message",
+  "clara_active_memory_user_id",
+  "clara_talk_to_clara_pause_v1",
+];
+
 const CLARA_KEY_PATTERNS = [
   /^clara/i,
   /^life_profile/i,
-  /^ai_financial_memory/i,
   /^money/i,
   /^wallet/i,
   /^budget/i,
@@ -166,6 +182,7 @@ function matchesKnownPrefix(key, prefixes) {
 function shouldIncludeStorageKey(key, storageType = "localStorage") {
   const normalized = String(key || "").trim();
   if (!normalized) return false;
+  if (RETIRED_CONTEXT_STORAGE_PREFIXES.some((prefix) => normalized.startsWith(prefix))) return false;
   const registryPrefixes =
     storageType === "sessionStorage"
       ? CLARA_BACKUP_REGISTRY.storage.sessionStoragePrefixes

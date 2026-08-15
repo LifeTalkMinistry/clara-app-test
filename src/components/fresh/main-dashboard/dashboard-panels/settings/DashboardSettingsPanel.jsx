@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowDown,
   Bell,
-  BrainCircuit,
   Check,
   ChevronRight,
   Database,
@@ -31,7 +30,6 @@ import {
   readStoredPerformanceMode,
   saveVisualPerformanceMode,
 } from "@/components/fresh/main-dashboard/performance-mode/visualPerformanceMode";
-import { dispatchClaraEvent } from "@/components/fresh/main-dashboard/dashboard-events/dashboardEvents";
 import {
   formatCompactDate,
   normalizeLower,
@@ -322,13 +320,6 @@ export default function DashboardSettingsPanelOfficial({
     return () => window.cancelAnimationFrame(frame);
   }, [activeSetting]);
 
-  const openMemoryBoard = useCallback(() => {
-    dispatchClaraEvent("clara:open-assistant-memory-board", {
-      cabinetName: "Spending Memory",
-      source: "settings",
-    });
-  }, []);
-
   const handleLogout = useCallback(() => {
     if (signingOut) return;
     setSigningOut(true);
@@ -429,7 +420,6 @@ export default function DashboardSettingsPanelOfficial({
       tone: "blue",
       rows: [
         { key: "security", title: "Security & privacy", description: "Local records, AI privacy, and safe reset", icon: ShieldCheck, badge: "Safe", tone: "blue", action: () => openSetting("security") },
-        { key: "memory", title: "Memory", description: "Saved context, patterns, and AI memory", icon: BrainCircuit, badge: "Review", tone: "blue", action: openMemoryBoard },
         { key: "notifications", title: "Notifications", description: "Reminders, alerts, and program updates", icon: Bell, tone: "blue", action: () => openSetting("notifications") },
       ],
     },

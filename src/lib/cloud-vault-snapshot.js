@@ -22,7 +22,7 @@ const FORBIDDEN_STORAGE_KEYS = new Set([
 ]);
 const SECRET_KEY_PATTERN = /(access[_-]?token|refresh[_-]?token|password|jwt|auth[_-]?session|admin[_-]?session)/i;
 const DEVICE_ONLY_STORAGE_KEY_PATTERN = /^clara_daily_check_in_/i;
-const CLOUD_RESTORE_CLEAR_PATTERN = /^(clara_(?!backend_|local_vault_id_v1$|active_local_vault_v1$|account_vault_directory_v1$|sync_device_id_v1$)|life_profile|ai_financial_memory|money|wallet|budget|expense|transaction|savings|emergency|finance|daily_tip|guide|onboarding|learning_hub|game_progress)/i;
+const CLOUD_RESTORE_CLEAR_PATTERN = /^(clara_(?!backend_|local_vault_id_v1$|active_local_vault_v1$|account_vault_directory_v1$|sync_device_id_v1$)|life_profile|money|wallet|budget|expense|transaction|savings|emergency|finance|daily_tip|guide|onboarding|learning_hub|game_progress)/i;
 
 const text = (value) => String(value ?? "").trim();
 

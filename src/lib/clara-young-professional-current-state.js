@@ -19,7 +19,6 @@ const CURRENT_STATE_STORES = [
   LOCAL_FINANCE_STORES.budgets,
   LOCAL_FINANCE_STORES.savingsGoals,
   LOCAL_FINANCE_STORES.emergencyFund,
-  LOCAL_FINANCE_STORES.aiFinancialMemory,
   LOCAL_FINANCE_STORES.privatePreferences,
   LOCAL_FINANCE_STORES.lifeProfile,
 ].filter(Boolean);

@@ -9,7 +9,6 @@ import { PROFILE_KEY_PREFIX } from "@/lib/local-profile-repository";
 import { LEGACY_ACTIVE_LOCAL_VAULT_KEY } from "@/lib/local-user-identity";
 
 const LEGACY_IDS = ["local-dev-user", "local-user"];
-const MEMORY_PREFIX = "clara_memory_";
 const LIFE_SETUP_PREFIX = "clara_me_life_setup:";
 const MIGRATION_PREFIX = "clara_local_identity_storage_migration_v3:";
 
@@ -41,30 +40,6 @@ function copyJsonKey(sourceKey, destinationKey, transform = (value) => value) {
 
   store.setItem(destinationKey, serialized);
   return store.getItem(destinationKey) === serialized;
-}
-
-function mergeMemories(sourceId, destinationId) {
-  const store = storage();
-  if (!store) return false;
-  const sourceKey = `${MEMORY_PREFIX}${sourceId}`;
-  const destinationKey = `${MEMORY_PREFIX}${destinationId}`;
-  const source = parse(store.getItem(sourceKey), []);
-  if (!Array.isArray(source) || source.length === 0) return false;
-  const destination = parse(store.getItem(destinationKey), []);
-  const merged = [...(Array.isArray(destination) ? destination : [])];
-  const signatures = new Set(
-    merged.map((item) => `${item?.id || ""}|${item?.category || ""}|${item?.content || ""}`)
-  );
-  source.forEach((item) => {
-    const signature = `${item?.id || ""}|${item?.category || ""}|${item?.content || ""}`;
-    if (!signatures.has(signature)) {
-      signatures.add(signature);
-      merged.push(item);
-    }
-  });
-  store.setItem(destinationKey, JSON.stringify(merged));
-  store.removeItem(sourceKey);
-  return true;
 }
 
 function migrateEntitlement(sourceId, destinationId) {
@@ -109,7 +84,6 @@ function migrateIdentityKeyedStorage(sourceId, destinationId) {
   keys.forEach((sourceKey) => {
     if (
       sourceKey.startsWith(PROFILE_KEY_PREFIX) ||
-      sourceKey.startsWith(MEMORY_PREFIX) ||
       sourceKey.startsWith(ENTITLEMENT_KEY_PREFIX) ||
       sourceKey.startsWith("clara_daily_check_in_v2:")
     ) {
@@ -176,7 +150,6 @@ export async function migrateLegacyLocalIdentityStorage(canonicalLocalUserId) {
       migrated += 1;
     }
 
-    if (mergeMemories(sourceId, canonicalId)) migrated += 1;
     if (migrateEntitlement(sourceId, canonicalId)) migrated += 1;
 
     const checkInResult = migrateSessionIdentityState(
@@ -189,9 +162,6 @@ export async function migrateLegacyLocalIdentityStorage(canonicalLocalUserId) {
     migrated += migrateIdentityKeyedStorage(sourceId, canonicalId);
   }
 
-  if (store.getItem("clara_active_memory_user_id")) {
-    store.setItem("clara_active_memory_user_id", canonicalId);
-  }
   if (LEGACY_IDS.includes(oldActiveId)) {
     store.removeItem(LEGACY_ACTIVE_LOCAL_VAULT_KEY);
   }
