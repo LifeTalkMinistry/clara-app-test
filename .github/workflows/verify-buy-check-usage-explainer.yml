@@ -1,0 +1,27 @@
+name: Verify Buy Check Usage Explainer
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/components/fresh/main-dashboard/assistant/ClaraBuyCheckUsagePortal.jsx"
+      - ".github/workflows/verify-buy-check-usage-explainer.yml"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production bundle
+        run: npm run build
