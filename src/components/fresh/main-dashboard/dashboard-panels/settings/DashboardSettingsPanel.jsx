@@ -21,6 +21,7 @@ import {
   fetchCanonicalClaraProfile,
   resolveCanonicalDisplayName,
 } from "@/lib/canonical-clara-profile";
+import { getSupportTier } from "@/lib/clara-support";
 import NotificationSettingsPanel from "@/components/notifications/NotificationSettingsPanel";
 import SupportTierBadge from "@/components/support/SupportTierBadge";
 import useClaraSupport from "@/hooks/useClaraSupport";
@@ -35,10 +36,7 @@ import {
   normalizeLower,
   normalizeString,
 } from "@/utils/dashboard/dashboardHelpers";
-import {
-  openCommittedVersionModal,
-  useCommittedMembershipState,
-} from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
+import { useCommittedMembershipState } from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
 import appPackage from "../../../../../../package.json";
 
 const PANEL_HISTORY_KEY = "__claraDashboardPanel";
@@ -105,7 +103,11 @@ export default function DashboardSettingsPanelOfficial({
 }) {
   const navigate = useNavigate();
   const settingsRootRef = useRef(null);
-  const { support: supporterStatus } = useClaraSupport(user);
+  const {
+    support: supporterStatus,
+    record: supportRecord,
+    loading: supportLoading,
+  } = useClaraSupport(user);
   const [localPerformanceMode, setLocalPerformanceMode] = useState(() =>
     readStoredPerformanceMode(user?.id || "guest")
   );
@@ -123,7 +125,7 @@ export default function DashboardSettingsPanelOfficial({
   const [legalInfoError, setLegalInfoError] = useState("");
   const [canonicalProfile, setCanonicalProfile] = useState(null);
   const [settingsNotice, setSettingsNotice] = useState(null);
-  const [supportTopic, setSupportTopic] = useState("Billing / enrollment");
+  const [supportTopic, setSupportTopic] = useState("Membership / access");
   const [supportMessage, setSupportMessage] = useState("");
   const [supportSent, setSupportSent] = useState(false);
   const [supportSending, setSupportSending] = useState(false);
@@ -178,7 +180,7 @@ export default function DashboardSettingsPanelOfficial({
         if (error) throw error;
         if (isMounted) setBillingRecord(data || null);
       } catch (error) {
-        console.error("Embedded billing fetch failed:", error);
+        console.error("Embedded legacy membership fetch failed:", error);
         if (isMounted) setBillingRecord(null);
       } finally {
         if (isMounted) setBillingLoading(false);
@@ -436,8 +438,8 @@ export default function DashboardSettingsPanelOfficial({
       rows: [
         {
           key: "plan",
-          title: "Plan & billing",
-          description: "Enrollment, payment, and access level",
+          title: "Membership",
+          description: "Your tier, status, and membership benefits",
           icon: WalletCards,
           tone: "gold",
           badgeNode: activeSupporterTier ? <SupportTierBadge tier={activeSupporterTier} compact tone="settings" /> : null,
@@ -450,35 +452,99 @@ export default function DashboardSettingsPanelOfficial({
     },
   ];
 
-  const resolveBillingDate = useCallback((record, keys = []) => {
+  const resolveMembershipDate = useCallback((record, keys = []) => {
     const rawValue = keys.map((key) => record?.[key]).find(Boolean);
     return rawValue ? formatCompactDate(rawValue) : "Not recorded";
   }, []);
 
-  const membershipStatusBadgeClass = {
-    active: "border-[#b89934]/45 bg-[#ffd84a]/8 text-[#ffe681]",
-    pending: "border-[#b89934]/40 bg-[#ffd84a]/7 text-[#ffe681]",
-    not_committed: "border-[#315c8c]/45 bg-[#0a1a30] text-[#9fb9d8]",
-    loading: "border-[#315c8c]/45 bg-[#0a1a30] text-[#9fb9d8]",
-  }[membershipState.membershipStatus] || "border-[#315c8c]/45 bg-[#0a1a30] text-[#9fb9d8]";
-
-  const billingStartLabel = billingRecord
-    ? resolveBillingDate(billingRecord, ["current_period_start", "billing_start", "started_at", "approved_at", "created_at"])
+  const supportTierKey = normalizeLower(supportRecord?.tier);
+  const usesLegacyBuilderFallback = Boolean(!supportTierKey && membershipState.isCommittedPlan);
+  const selectedMembershipTierKey = supportTierKey || (usesLegacyBuilderFallback ? "builder" : null);
+  const selectedMembershipTier = getSupportTier(selectedMembershipTierKey);
+  const supportRecordStatus = normalizeLower(supportRecord?.status);
+  const membershipStatus = supportTierKey
+    ? supportLoading
+      ? "loading"
+      : supporterStatus?.active
+        ? "active"
+        : supportRecordStatus || "inactive"
+    : usesLegacyBuilderFallback
+      ? membershipState.membershipStatus
+      : supportLoading
+        ? "loading"
+        : "free";
+  const membershipTierLabel = selectedMembershipTier
+    ? selectedMembershipTier.name.replace(/^CLARA\s+/i, "")
+    : "Free";
+  const membershipPriceLabel = selectedMembershipTier
+    ? `₱${selectedMembershipTier.price}/month`
+    : "₱0";
+  const membershipStatusLabel = membershipStatus === "loading"
+    ? "SYNCING"
+    : membershipStatus === "active"
+      ? "ACTIVE"
+      : membershipStatus === "pending"
+        ? "PENDING"
+        : ["inactive", "expired", "cancelled"].includes(membershipStatus)
+          ? "INACTIVE"
+          : "FREE";
+  const membershipStatusBadgeClass = membershipStatus === "active"
+    ? "border-[#b89934]/45 bg-[#ffd84a]/8 text-[#ffe681]"
+    : membershipStatus === "pending"
+      ? "border-[#b89934]/40 bg-[#ffd84a]/7 text-[#ffe681]"
+      : "border-[#315c8c]/45 bg-[#0a1a30] text-[#9fb9d8]";
+  const membershipDescription = membershipStatus === "loading"
+    ? "Syncing your CLARA membership."
+    : membershipStatus === "active"
+      ? "Your CLARA membership is active."
+      : membershipStatus === "pending"
+        ? "Your CLARA membership is awaiting activation."
+        : ["inactive", "expired", "cancelled"].includes(membershipStatus)
+          ? "Your CLARA membership is currently inactive."
+          : "You’re currently on the Free tier.";
+  const membershipBenefitsDescription = membershipStatus === "loading"
+    ? "Your membership benefits will appear once your status is ready."
+    : membershipStatus === "active"
+      ? "Your membership benefits are unlocked."
+      : membershipStatus === "pending"
+        ? "Your membership benefits will unlock once activation is complete."
+        : selectedMembershipTier
+          ? "Your membership benefits are currently unavailable."
+          : "CLARA’s core experience remains available.";
+  const membershipDateRecord = supportTierKey ? supportRecord : billingRecord;
+  const memberSinceLabel = membershipDateRecord
+    ? resolveMembershipDate(membershipDateRecord, [
+        "support_start_at",
+        "payment_date",
+        "current_period_start",
+        "billing_start",
+        "started_at",
+        "approved_at",
+        "created_at",
+      ])
+    : user?.created_at
+      ? formatCompactDate(user.created_at)
+      : "Not recorded";
+  const nextRenewalLabel = membershipStatus === "active" && membershipDateRecord
+    ? resolveMembershipDate(membershipDateRecord, [
+        "renewal_at",
+        "support_expires_at",
+        "next_billing_date",
+        "next_payment_due",
+        "current_period_end",
+        "renewal_date",
+        "expires_at",
+        "valid_until",
+        "end_date",
+      ])
     : "Not recorded";
-  const nextBillingLabel = billingRecord
-    ? resolveBillingDate(billingRecord, ["next_billing_date", "next_payment_due", "current_period_end", "renewal_date", "expires_at", "valid_until", "end_date"])
-    : "Not recorded";
-  const hasBillingStart = billingStartLabel !== "Not recorded";
-  const hasNextBilling = nextBillingLabel !== "Not recorded";
-  const hasBillingDates = hasBillingStart || hasNextBilling;
-  const shouldShowBillingDates = membershipState.isActiveCommitted && hasBillingDates;
-  const billingDetailsMessage = membershipState.membershipStatus === "loading"
-    ? "Syncing membership…"
-    : membershipState.isActiveCommitted
-      ? billingLoading || !hasBillingDates ? "Billing details are syncing." : ""
-      : membershipState.isPendingActivation
-        ? billingLoading ? "Activation details are syncing." : "Activation is awaiting confirmation."
-        : "No active billing. You will only be charged after starting and activating your commitment.";
+  const hasMemberSince = memberSinceLabel !== "Not recorded";
+  const hasNextRenewal = nextRenewalLabel !== "Not recorded";
+  const shouldShowMembershipDates = hasMemberSince || hasNextRenewal;
+  const membershipDetailsLoading = supportLoading || (usesLegacyBuilderFallback && billingLoading);
+  const membershipDetailsMessage = selectedMembershipTier && membershipDetailsLoading && !shouldShowMembershipDates
+    ? "Membership details are syncing."
+    : "";
 
   const renderNotice = () => {
     if (!settingsNotice) return null;
@@ -515,17 +581,16 @@ export default function DashboardSettingsPanelOfficial({
 
   const renderPlanPage = () => (
     <div className="space-y-4">
-      <DetailHeader title="Plan & Billing" subtitle="Membership and supporter status in one place." />
+      <DetailHeader title="Membership" subtitle="Your CLARA membership, benefits, and status." />
       <section className={`${surfaceClass} relative overflow-hidden p-5`}>
         <div aria-hidden="true" className="absolute inset-x-0 top-0 h-0.5 bg-[linear-gradient(90deg,#0867ff_0%,#19b5ff_35%,#ffd84a_67%,#f32645_100%)]" />
         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#e5c95e]">Current membership</p>
-        <div className="mt-3 flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><h3 className="text-2xl font-black tracking-tight text-white">{membershipState.planLabel}</h3><p className="mt-1 text-lg font-black text-[#ffe477]">{membershipState.priceLabel}</p></div><span className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${membershipStatusBadgeClass}`}>{membershipState.statusLabel}</span></div>
-        <p className="mt-3 text-sm font-semibold leading-6 text-[#b8c8da]">{membershipState.description}</p>
-        <p className="mt-1 text-xs font-semibold leading-5 text-[#849ab4]">{membershipState.featureDescription}</p>
-        {shouldShowBillingDates ? <div className={`mt-5 grid gap-3 border-t border-[#1c466f]/45 pt-4 ${hasBillingStart && hasNextBilling ? "grid-cols-2" : "grid-cols-1"}`}>{hasBillingStart ? <div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#6f8aa8]">Started</p><p className="mt-1 break-words text-sm font-bold text-[#dce9f7]">{billingStartLabel}</p></div> : null}{hasNextBilling ? <div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#6f8aa8]">Next billing</p><p className="mt-1 break-words text-sm font-bold text-[#dce9f7]">{nextBillingLabel}</p></div> : null}</div> : billingDetailsMessage ? <p className="mt-5 rounded-2xl border border-[#1b466f]/40 bg-[#040d1a] px-4 py-3 text-xs leading-5 text-[#8199b5]">{billingDetailsMessage}</p> : null}
-        {membershipState.membershipStatus === "not_committed" ? <button type="button" onClick={openCommittedVersionModal} className={`${primaryButtonClass} mt-4 w-full`}>View Committed Version</button> : null}
+        <div className="mt-3 flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><h3 className="text-2xl font-black tracking-tight text-white">{membershipTierLabel}</h3><p className="mt-1 text-lg font-black text-[#ffe477]">{membershipPriceLabel}</p></div><span className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${membershipStatusBadgeClass}`}>{membershipStatusLabel}</span></div>
+        <p className="mt-3 text-sm font-semibold leading-6 text-[#b8c8da]">{membershipDescription}</p>
+        <p className="mt-1 text-xs font-semibold leading-5 text-[#849ab4]">{membershipBenefitsDescription}</p>
+        {shouldShowMembershipDates ? <div className={`mt-5 grid gap-3 border-t border-[#1c466f]/45 pt-4 ${hasMemberSince && hasNextRenewal ? "grid-cols-2" : "grid-cols-1"}`}>{hasMemberSince ? <div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#6f8aa8]">Member since</p><p className="mt-1 break-words text-sm font-bold text-[#dce9f7]">{memberSinceLabel}</p></div> : null}{hasNextRenewal ? <div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#6f8aa8]">Next renewal</p><p className="mt-1 break-words text-sm font-bold text-[#dce9f7]">{nextRenewalLabel}</p></div> : null}</div> : membershipDetailsMessage ? <p className="mt-5 rounded-2xl border border-[#1b466f]/40 bg-[#040d1a] px-4 py-3 text-xs leading-5 text-[#8199b5]">{membershipDetailsMessage}</p> : null}
       </section>
-      <section className={`${quietSurfaceClass} p-4`}><h3 className="text-sm font-black text-white">Need help with activation or billing?</h3><p className="mt-2 text-xs leading-5 text-[#849ab4]">Contact CLARA Support and include the email connected to your account so the team can review your membership or billing details.</p><button type="button" onClick={() => openSetting("support")} className={`${secondaryButtonClass} mt-4 w-full`}>Contact CLARA Support</button></section>
+      <section className={`${quietSurfaceClass} p-4`}><h3 className="text-sm font-black text-white">Need help with your membership?</h3><p className="mt-2 text-xs leading-5 text-[#849ab4]">CLARA Support can help with your membership, access, or account.</p><button type="button" onClick={() => openSetting("support")} className={`${secondaryButtonClass} mt-4 w-full`}>Contact CLARA Support</button></section>
     </div>
   );
 
@@ -550,7 +615,7 @@ export default function DashboardSettingsPanelOfficial({
     <div className="space-y-4">
       <DetailHeader title="Help & support" subtitle="Send a support message directly to CLARA admins." />
       {renderNotice()}
-      <div className={`${surfaceClass} relative overflow-hidden p-4`}><div aria-hidden="true" className="absolute inset-y-0 left-0 w-0.5 bg-[#f32645]/75" /><label className="block space-y-2"><span className="text-xs font-black uppercase tracking-[0.14em] text-[#8ca4bf]">Topic</span><select value={supportTopic} onChange={(event) => setSupportTopic(event.target.value)} className={fieldClass}><option>Billing / enrollment</option><option>Technical issue</option><option>Account access</option><option>Feature request</option><option>Other concern</option></select></label><label className="mt-4 block space-y-2"><span className="text-xs font-black uppercase tracking-[0.14em] text-[#8ca4bf]">Message</span><textarea value={supportMessage} onChange={(event) => setSupportMessage(event.target.value)} placeholder="Briefly describe what you need help with..." className={`${fieldClass} min-h-[120px] resize-none`} disabled={supportSending} /></label><button type="button" onClick={handleSendSupportMessage} disabled={supportSending || !supportMessage.trim()} className={`${primaryButtonClass} mt-4 w-full`}>{supportSending ? "Sending to CLARA support..." : "Send CLARA support message"}</button><p className="mt-3 text-center text-[11px] leading-5 text-[#7e94ad]">All admin accounts will receive this in Messages. You’ll be moved to the Message tab after sending.</p></div>
+      <div className={`${surfaceClass} relative overflow-hidden p-4`}><div aria-hidden="true" className="absolute inset-y-0 left-0 w-0.5 bg-[#f32645]/75" /><label className="block space-y-2"><span className="text-xs font-black uppercase tracking-[0.14em] text-[#8ca4bf]">Topic</span><select value={supportTopic} onChange={(event) => setSupportTopic(event.target.value)} className={fieldClass}><option>Membership / access</option><option>Technical issue</option><option>Account access</option><option>Feature request</option><option>Other concern</option></select></label><label className="mt-4 block space-y-2"><span className="text-xs font-black uppercase tracking-[0.14em] text-[#8ca4bf]">Message</span><textarea value={supportMessage} onChange={(event) => setSupportMessage(event.target.value)} placeholder="Briefly describe what you need help with..." className={`${fieldClass} min-h-[120px] resize-none`} disabled={supportSending} /></label><button type="button" onClick={handleSendSupportMessage} disabled={supportSending || !supportMessage.trim()} className={`${primaryButtonClass} mt-4 w-full`}>{supportSending ? "Sending to CLARA support..." : "Send CLARA support message"}</button><p className="mt-3 text-center text-[11px] leading-5 text-[#7e94ad]">All admin accounts will receive this in Messages. You’ll be moved to the Message tab after sending.</p></div>
       {supportSent ? <div className="rounded-[22px] border border-[#2d6dae]/45 bg-[#0867ff]/8 p-4"><p className="text-sm font-black text-[#c5e0ff]">Support message sent</p><p className="mt-1 text-xs leading-5 text-[#8298b2]">Your message was sent to CLARA admin support. Check the Message tab for the conversation.</p></div> : null}
       <div className={`${quietSurfaceClass} p-4`}><p className="text-sm font-black text-white">Support email</p><p className="mt-1 select-all text-sm font-black text-[#ffd84a]">{supportEmail}</p></div>
     </div>
