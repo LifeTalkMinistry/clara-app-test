@@ -37,7 +37,7 @@ const retiredSettingsRuntimeUrls = [
   new URL("../src/clara-settings-memory-entry.js", import.meta.url),
 ];
 
-test("active Settings explains device ownership and exposes transfer plus backup controls", () => {
+test("active Settings explains device ownership and exposes transfer directly", () => {
   assert.match(activeSettingsSource, /Your CLARA data stays private/);
   assert.match(activeSettingsSource, /Your financial data stays on this device by default/);
   assert.match(activeSettingsSource, /Signing in somewhere else will not automatically copy it/);
@@ -45,12 +45,12 @@ test("active Settings explains device ownership and exposes transfer plus backup
   assert.match(activeSettingsSource, /No automatic device sync/);
   assert.match(activeSettingsSource, /You control backup & transfer/);
   assert.match(activeSettingsSource, /DeviceTransferPanel/);
-  assert.match(activeSettingsSource, /Backup & Restore File/);
-  assert.match(
+  assert.doesNotMatch(activeSettingsSource, /Backup & Restore File/);
+  assert.doesNotMatch(
     activeSettingsSource,
     /Download or restore your personal CLARA backup file\./
   );
-  assert.match(activeSettingsSource, /navigate\("\/data-export"\)/);
+  assert.doesNotMatch(activeSettingsSource, /navigate\("\/data-export"\)/);
 });
 
 test("Settings owns detail history and logout without the retired Memory entry", () => {
