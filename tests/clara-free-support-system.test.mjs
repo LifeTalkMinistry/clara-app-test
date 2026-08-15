@@ -77,7 +77,7 @@ test("Champion availability is displayed only when a real cap is configured", ()
   assert.equal(getChampionAvailability({ champion_slot_cap: null, champion_slots_used: 0 }), null);
   assert.deepEqual(
     getChampionAvailability({ champion_slot_cap: 20, champion_slots_used: 2 }),
-    { cap, used, available: Math.max(cap - used, 0) }
+    { cap: 20, used: 2, available: 18 }
   );
 });
 
