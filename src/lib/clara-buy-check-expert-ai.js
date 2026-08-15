@@ -7,6 +7,7 @@ import {
   toNumber,
 } from "./clara-buy-check-budget-intelligence.js";
 import { buildBudgetMetadata } from "./clara-buy-check-budget-engine.js";
+import { buildClaraLifeContextStatement } from "./clara-life-context.js";
 
 const ACTIONS = new Set(["reply", "probe", "ready", "continue", "reassess", "redirect"]);
 const CLARA_ATTITUDE_STORAGE_KEY = "clara_buy_check_attitude_v1";
@@ -269,6 +270,11 @@ function buildPrompt({ message, history = [], evidence = {}, assistantContext = 
   const userName = userNameFromContext(assistantContext) || "the user";
   const understoodEvidence = sanitizeEvidence(evidence);
   const financialContext = buildConversationFinancialContext(assistantContext, understoodEvidence);
+  const lifeContext = buildClaraLifeContextStatement(assistantContext.lifeProfile || {}, {
+    supportTier: assistantContext.lifeProfileSupportTier,
+    message,
+    evidence: understoodEvidence,
+  });
   const communicationAttitude = selectedCommunicationAttitude();
 
   return `You are CLARA, an economist-informed personal spending decision expert.
@@ -368,6 +374,12 @@ FINANCIAL INTEGRITY
 - Never invent balances, income, budgets, debts, obligations, savings, dates, schedule costs, or other financial facts.
 - Do not treat missing data as zero unless the supplied context explicitly says zero.
 - Do not invent calculated peso amounts. If a useful calculated amount is already supplied in VERIFIED FINANCIAL CONTEXT, you may use it.
+
+USER-PROVIDED LIFE CONTEXT
+${lifeContext || "No relevant life context provided."}
+- This is user-declared life context, not a verified financial balance or transaction record.
+- Use it only when it materially improves the spending decision. Do not mention profile facts merely because they exist.
+- Never let age, relationship status, employment label, breadwinner status, or another profile fact automatically decide whether a purchase is good or bad. Hard financial facts and the user's stated purpose remain primary.
 
 RECENT CONVERSATION
 ${transcript(history)}
