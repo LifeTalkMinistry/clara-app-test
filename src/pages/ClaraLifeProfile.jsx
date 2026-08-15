@@ -5,7 +5,6 @@ import {
   Check,
   LockKeyhole,
   ShieldCheck,
-  Sparkles,
   UserRound,
 } from "lucide-react";
 import ClaraBrandName from "@/components/ClaraBrandName";
@@ -155,6 +154,18 @@ export default function ClaraLifeProfile() {
     [lifeContext.profile]
   );
 
+  const accessibleFields = useMemo(
+    () => CLARA_LIFE_PROFILE_FIELDS.filter((field) =>
+      canUseClaraLifeProfileField(field, lifeContext.supportTier)
+    ),
+    [lifeContext.supportTier]
+  );
+
+  const accessibleFilledCount = useMemo(
+    () => accessibleFields.filter((field) => filledFields.has(field.key)).length,
+    [accessibleFields, filledFields]
+  );
+
   const sections = useMemo(
     () => SECTION_ORDER.map((name) => ({
       name,
@@ -183,58 +194,60 @@ export default function ClaraLifeProfile() {
       <div className="h-[3px] w-full bg-[linear-gradient(90deg,#4d8cff_0%,#4d8cff_42%,#ffd42f_42%,#ffd42f_56%,#ff4d55_56%,#ff4d55_100%)]" />
 
       <div className="mx-auto w-full max-w-3xl px-4 pb-28 pt-4 sm:px-6 sm:pt-6">
-        <header className="rounded-[28px] border border-[#183c69] bg-[#06162e] px-4 py-4 shadow-[0_20px_50px_rgba(0,0,0,0.28)] sm:px-5 sm:py-5">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex min-w-0 items-start gap-3">
+        <header className="rounded-[26px] border border-[#183c69] bg-[#06162e] px-4 py-4 shadow-[0_20px_50px_rgba(0,0,0,0.28)] sm:px-5 sm:py-5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2.5">
               <button
                 type="button"
                 onClick={goBack}
-                className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#28578c] bg-[#0a2346] text-blue-100 transition hover:border-[#4d8cff] active:scale-95"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[#28578c] bg-[#0a2346] text-blue-100 transition hover:border-[#4d8cff] active:scale-95"
                 aria-label="Back from CLARA Life Profile"
               >
-                <ArrowLeft className="h-[18px] w-[18px]" />
+                <ArrowLeft className="h-[17px] w-[17px]" />
               </button>
 
-              <div className="min-w-0">
-                <div className="flex items-center gap-2.5">
-                  <div className="relative grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border border-[#28578c] bg-[#0a2346] text-blue-100">
-                    <UserRound className="h-[18px] w-[18px]" strokeWidth={2.1} />
-                    <span className="absolute -bottom-[1px] left-1/2 flex -translate-x-1/2 gap-[2px]" aria-hidden="true">
-                      <span className="h-[2px] w-2 rounded-full bg-[#4d8cff]" />
-                      <span className="h-[2px] w-1 rounded-full bg-[#ffd42f]" />
-                      <span className="h-[2px] w-2 rounded-full bg-[#ff4d55]" />
-                    </span>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-black uppercase tracking-[0.20em] text-slate-400">
-                      <ClaraBrandName className="tracking-[0.16em]" /> <span className="text-blue-100/70">LIFE PROFILE</span>
-                    </p>
-                    <p className="mt-0.5 flex items-center gap-1.5 text-[10px] font-bold text-blue-200/65">
-                      <Sparkles className="h-3 w-3" /> Personal context for smarter decisions
-                    </p>
-                  </div>
-                </div>
+              <div className="relative grid h-9 w-9 shrink-0 place-items-center rounded-[13px] border border-[#28578c] bg-[#0a2346] text-blue-100">
+                <UserRound className="h-[17px] w-[17px]" strokeWidth={2.1} />
+                <span className="absolute -bottom-[1px] left-1/2 flex -translate-x-1/2 gap-[2px]" aria-hidden="true">
+                  <span className="h-[2px] w-2 rounded-full bg-[#4d8cff]" />
+                  <span className="h-[2px] w-1 rounded-full bg-[#ffd42f]" />
+                  <span className="h-[2px] w-2 rounded-full bg-[#ff4d55]" />
+                </span>
+              </div>
 
-                <h1 className="mt-4 text-[25px] font-black leading-[1.02] tracking-[-0.045em] text-white sm:text-[30px]">
-                  Your life behind the numbers.
-                </h1>
-                <p className="mt-2 max-w-xl text-[12px] font-semibold leading-5 text-slate-300">
-                  Fill only what matters to you. CLARA uses only the relevant parts of this profile during Buy Check.
+              <div className="min-w-0">
+                <p className="flex min-w-0 items-center gap-1.5 text-[8.5px] font-black uppercase tracking-[0.16em] text-slate-400">
+                  <ClaraBrandName className="shrink-0 tracking-[0.14em]" />
+                  <span className="truncate text-blue-100/70">LIFE PROFILE</span>
+                </p>
+                <p className="mt-0.5 truncate text-[9.5px] font-bold text-blue-200/55">
+                  Personal context
                 </p>
               </div>
             </div>
 
-            <span className="shrink-0 rounded-full border border-[#5f5018] bg-[#211d0e] px-2.5 py-1.5 text-[9px] font-black uppercase tracking-[0.13em] text-[#fff0a1]">
+            <span className="shrink-0 rounded-full border border-[#5f5018] bg-[#211d0e] px-2.5 py-1.5 text-[8.5px] font-black uppercase tracking-[0.11em] text-[#fff0a1]">
               {accessLabel(access)} context
             </span>
           </div>
 
-          <div className="mt-4 flex items-center justify-between gap-3 rounded-[16px] border border-[#173b68] bg-[#081a35] px-3.5 py-3 text-[10px] font-bold text-slate-300">
+          <div className="mt-5">
+            <h1 className="max-w-[19rem] text-[27px] font-black leading-[0.98] tracking-[-0.045em] text-white sm:max-w-none sm:text-[31px]">
+              Your life behind the numbers.
+            </h1>
+            <p className="mt-2 max-w-[34rem] text-[11.5px] font-semibold leading-[1.55] text-slate-300">
+              Personal context CLARA uses only when it helps make a smarter Buy Check decision.
+            </p>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-3 rounded-[15px] border border-[#173b68] bg-[#081a35] px-3.5 py-2.5 text-[10px] font-bold text-slate-300">
             <span className="flex min-w-0 items-center gap-2">
               <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-cyan-300" />
               <span className="truncate">{lifeContext.saveState}</span>
             </span>
-            <span className="shrink-0 text-white">{filledFields.size} filled</span>
+            <span className="shrink-0 text-white">
+              {accessibleFilledCount} / {accessibleFields.length} filled
+            </span>
           </div>
         </header>
 
