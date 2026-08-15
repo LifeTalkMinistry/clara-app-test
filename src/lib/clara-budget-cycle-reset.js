@@ -63,6 +63,79 @@ function archivePatch(now) {
   };
 }
 
+function closePatch(now) {
+  return {
+    is_active: false,
+    active: false,
+    status: "closed",
+    closed_at: now,
+    updated_at: now,
+  };
+}
+
+function getTimestamp(row = {}) {
+  const value = new Date(row?.updated_at || row?.created_at || 0).getTime();
+  return Number.isFinite(value) ? value : 0;
+}
+
+function findActiveHeader(budgets = [], headerHint = null) {
+  const activeHeaders = budgets
+    .filter((budget) => isBudgetHeader(budget) && !isInactive(budget))
+    .sort((a, b) => getTimestamp(b) - getTimestamp(a));
+
+  if (!activeHeaders.length) return null;
+  if (!headerHint) return activeHeaders[0];
+
+  return activeHeaders.find((header) => sameCycle(header, headerHint)) || activeHeaders[0];
+}
+
+export async function closeMonthlyBudgetCycle({
+  budgets = [],
+  headerHint = null,
+  updateBudget,
+} = {}) {
+  if (typeof updateBudget !== "function") {
+    throw new Error("updateBudget is required to end the budget cycle.");
+  }
+
+  const safeBudgets = Array.isArray(budgets) ? budgets : [];
+  const activeHeader = findActiveHeader(safeBudgets, headerHint);
+
+  if (!activeHeader?.id) {
+    throw new Error("No active budget was found to end.");
+  }
+
+  const activeCategories = safeBudgets.filter((budget) => {
+    if (!budget?.id || isBudgetHeader(budget) || isInactive(budget)) return false;
+    if (sameCycle(budget, activeHeader)) return true;
+
+    // Legacy category rows can predate explicit cycle metadata. If they are
+    // still active, they belong to the live plan and must close with it so an
+    // orphan category cannot continue accepting planned expenses.
+    return !hasCycleIdentity(budget);
+  });
+
+  const now = new Date().toISOString();
+  const patch = closePatch(now);
+  const closedCategoryIds = [];
+
+  // Close categories before the header. If a category write fails, the header
+  // remains active and the user can safely retry instead of leaving an active
+  // orphan category under a closed plan.
+  for (const category of activeCategories) {
+    await updateBudget(String(category.id), patch);
+    closedCategoryIds.push(category.id);
+  }
+
+  await updateBudget(String(activeHeader.id), patch);
+
+  return {
+    closedHeaderId: activeHeader.id,
+    closedCategoryIds,
+    closedAt: now,
+  };
+}
+
 function resetBoundaryFrom(payload = {}) {
   // The cycle window describes when the plan is scheduled to run. It must not
   // be reused as the fresh-session cutoff, or transactions from earlier in the

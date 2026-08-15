@@ -1,9 +1,13 @@
-import { PieChart } from "lucide-react";
+import { useState } from "react";
+import { CircleStop, PieChart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import useBudgetCardLogic from "@/components/financial-carousel/cards/budget/logic/useBudgetCardLogic";
 import BudgetCardContent from "@/components/financial-carousel/cards/budget/ui/BudgetCardContent";
 import FinanceCardSetupEmptyState from "@/components/financial-carousel/shared/FinanceCardSetupEmptyState";
 import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
+import FinanceActionModal from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal";
+import { closeMonthlyBudgetCycle } from "@/lib/clara-budget-cycle-reset";
 
 const BUDGET_GLOW_LAYERS = [];
 
@@ -42,8 +46,11 @@ export default function BudgetCard({
   financeActionLoading = false,
   onEditBudgetCategory,
   onDeleteBudgetCategory,
+  financeCardController = null,
 }) {
   const navigate = useNavigate();
+  const [endBudgetConfirmOpen, setEndBudgetConfirmOpen] = useState(false);
+  const [endingBudget, setEndingBudget] = useState(false);
   const {
     categories,
     declared,
@@ -76,6 +83,41 @@ export default function BudgetCard({
     });
   };
 
+  const hasActivePlan = Boolean(
+    activeBudget?.hasActiveBudgetPlan === true ||
+      activeBudget?.has_active_budget_plan === true ||
+      planIsComplete
+  );
+  const canEndBudget = Boolean(
+    hasDeclaredBudget &&
+      hasActivePlan &&
+      Array.isArray(financeCardController?.budgets) &&
+      typeof financeCardController?.updateBudget === "function"
+  );
+  const actionLoading = financeActionLoading || endingBudget;
+  const displayBadgeLabel = hasActivePlan && remaining <= 0 ? "Exhausted" : badgeLabel;
+
+  const endBudgetInline = async () => {
+    if (!canEndBudget || actionLoading) return;
+
+    try {
+      setEndingBudget(true);
+      await closeMonthlyBudgetCycle({
+        budgets: financeCardController.budgets,
+        headerHint: activeBudget,
+        updateBudget: financeCardController.updateBudget,
+      });
+      await financeCardController?.refreshData?.();
+      setEndBudgetConfirmOpen(false);
+      if (expanded) onToggleDetails?.();
+      toast.success("Budget ended early. Your history is still saved.");
+    } catch (error) {
+      toast.error(error?.message || "CLARA could not end this budget yet.");
+    } finally {
+      setEndingBudget(false);
+    }
+  };
+
   return (
     <div className="flex h-full min-h-[inherit] flex-col rounded-[inherit]">
       <FinanceCardShell
@@ -92,37 +134,72 @@ export default function BudgetCard({
             onSetup={openBudgetPlanPage}
           />
         ) : (
-          <BudgetCardContent
-            expanded={expanded}
-            onToggleDetails={onToggleDetails}
-            financeActionLoading={financeActionLoading}
-            onSaveBudget={openBudgetPlanPage}
-            onEditBudgetCategory={openBudgetCategoryOnPlanPage}
-            onDeleteBudgetCategory={onDeleteBudgetCategory}
-            categories={categories}
-            declared={declared}
-            allocated={allocated}
-            spent={spent}
-            remaining={remaining}
-            unallocated={unallocated}
-            progress={progress}
-            hasDeclaredBudget={hasDeclaredBudget}
-            planIsComplete={planIsComplete}
-            unplannedSpent={unplannedSpent}
-            undocumentedSpent={undocumentedSpent}
-            unplannedItems={unplannedItems}
-            undocumentedItems={undocumentedItems}
-            outsidePlanItems={outsidePlanItems}
-            status={status}
-            message={message}
-            remainingAmountColor={remainingAmountColor}
-            monthKey={monthKey}
-            badgeLabel={badgeLabel}
-            budgetPace={budgetPace}
-            openBudgetModal={openBudgetPlanPage}
-          />
+          <>
+            <BudgetCardContent
+              expanded={expanded}
+              onToggleDetails={onToggleDetails}
+              financeActionLoading={actionLoading}
+              onSaveBudget={openBudgetPlanPage}
+              onEditBudgetCategory={openBudgetCategoryOnPlanPage}
+              onDeleteBudgetCategory={onDeleteBudgetCategory}
+              categories={categories}
+              declared={declared}
+              allocated={allocated}
+              spent={spent}
+              remaining={remaining}
+              unallocated={unallocated}
+              progress={progress}
+              hasDeclaredBudget={hasDeclaredBudget}
+              planIsComplete={planIsComplete}
+              unplannedSpent={unplannedSpent}
+              undocumentedSpent={undocumentedSpent}
+              unplannedItems={unplannedItems}
+              undocumentedItems={undocumentedItems}
+              outsidePlanItems={outsidePlanItems}
+              status={status}
+              message={message}
+              remainingAmountColor={remainingAmountColor}
+              monthKey={monthKey}
+              badgeLabel={displayBadgeLabel}
+              budgetPace={budgetPace}
+              openBudgetModal={openBudgetPlanPage}
+            />
+
+            {expanded && canEndBudget ? (
+              <button
+                type="button"
+                onClick={() => setEndBudgetConfirmOpen(true)}
+                disabled={actionLoading}
+                className="absolute right-7 top-[30px] z-40 flex min-h-9 items-center gap-1.5 rounded-full border border-rose-200/[0.16] bg-rose-500/[0.10] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-rose-100/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-md transition hover:border-rose-200/25 hover:bg-rose-500/[0.16] disabled:cursor-not-allowed disabled:opacity-45"
+                aria-label="End this budget early"
+              >
+                <CircleStop className="h-3.5 w-3.5" />
+                End budget
+              </button>
+            ) : null}
+          </>
         )}
       </FinanceCardShell>
+
+      <FinanceActionModal
+        open={endBudgetConfirmOpen}
+        title="End this budget?"
+        description="Your transactions and budget history will stay saved. New expenses will no longer count toward this budget."
+        onClose={() => {
+          if (!endingBudget) setEndBudgetConfirmOpen(false);
+        }}
+        onSubmit={(event) => {
+          event.preventDefault();
+          void endBudgetInline();
+        }}
+        submitLabel="End Budget"
+        loading={endingBudget}
+        danger
+      >
+        <div className="rounded-2xl border border-rose-300/14 bg-rose-500/[0.08] px-4 py-3 text-[12px] font-semibold leading-5 text-rose-50/74">
+          This closes the current budget only. CLARA keeps its original cycle dates and past spending records intact.
+        </div>
+      </FinanceActionModal>
     </div>
   );
 }
