@@ -1,5 +1,6 @@
 import { dispatchClaraEvent } from "@/components/fresh/main-dashboard/dashboard-events/dashboardEvents";
 import { getIncomeSources } from "@/lib/incomeHubRepository";
+import { buildCanonicalStableIncomeTimingSource } from "@/lib/stableIncomeTimingAuthority";
 import {
   getBillOccurrencesForRange,
   getIncomeTimingRecords,
@@ -74,6 +75,44 @@ function stableMinimumAmount(source = {}) {
   return Number.isFinite(amount) ? Math.max(0, amount) : 0;
 }
 
+function timingSourceId(timing = {}) {
+  return String(
+    timing?.incomeSourceId ||
+      timing?.income_source_id ||
+      timing?.id ||
+      ""
+  ).trim();
+}
+
+function stableTimingFromIncomeSource(source = {}) {
+  const canonicalSource = buildCanonicalStableIncomeTimingSource(source);
+  if (!canonicalSource) return null;
+
+  const sourceId = String(canonicalSource.id || "").trim();
+  if (!sourceId) return null;
+
+  const sourceName =
+    String(canonicalSource.name || canonicalSource.title || "Expected income").trim() ||
+    "Expected income";
+  const recurrence =
+    canonicalSource.incomeRecurrence || canonicalSource.income_recurrence || null;
+
+  if (!recurrence) return null;
+
+  return {
+    id: sourceId,
+    incomeSourceId: sourceId,
+    income_source_id: sourceId,
+    sourceName,
+    source_name: sourceName,
+    recurrence,
+    recurrence_rule: recurrence,
+    useForBudgetTiming: canonicalSource.useForBudgetTiming !== false,
+    use_for_budget_timing: canonicalSource.use_for_budget_timing !== false,
+    projectionSource: "income_hub_stable_source",
+  };
+}
+
 function scheduleStorageKey(ownerId) {
   return `${SCHEDULE_STORAGE_PREFIX}_${String(ownerId || "guest").trim() || "guest"}`;
 }
@@ -134,22 +173,44 @@ export async function dispatchIncomeTimingOccurrences(ownerId) {
   let incomeSources = [];
 
   try {
-    // getIncomeSources is also the canonical reconciliation boundary. By the
-    // time this resolves, incomeTimings[] is a derived cache of Income Hub.
+    // Income Hub owns Stable Income recurrence. Its read may intentionally
+    // resolve through a translated local data owner (for example sample/current
+    // state), so Schedule must project from the returned source records rather
+    // than assuming the derived timing cache uses the same ownerId.
     incomeSources = await getIncomeSources(ownerId);
   } catch (error) {
-    console.warn("CLARA income source amounts could not be loaded for Schedule projection:", error);
+    console.warn("CLARA income sources could not be loaded for Schedule projection:", error);
   }
 
+  const safeIncomeSources = Array.isArray(incomeSources) ? incomeSources : [];
   const sourceById = new Map(
-    (Array.isArray(incomeSources) ? incomeSources : [])
+    safeIncomeSources
       .filter((source) => source?.id)
       .map((source) => [String(source.id), source])
   );
 
-  const projectedEvents = getIncomeTimingRecords(ownerId).flatMap((timing) => {
-    const sourceId = String(timing.incomeSourceId || timing.income_source_id || timing.id || "income");
-    const sourceName = String(timing.sourceName || timing.source_name || "Expected income").trim() || "Expected income";
+  // Stable Income is projected directly from the canonical Income Hub records.
+  // The local incomeTimings cache remains a compatibility source for any timing
+  // that is not represented by a canonical Stable Income source.
+  const canonicalStableTimings = safeIncomeSources
+    .map(stableTimingFromIncomeSource)
+    .filter(Boolean);
+  const canonicalStableIds = new Set(
+    canonicalStableTimings.map(timingSourceId).filter(Boolean)
+  );
+  const compatibilityTimings = getIncomeTimingRecords(ownerId).filter(
+    (timing) => !canonicalStableIds.has(timingSourceId(timing))
+  );
+  const projectionTimings = [
+    ...canonicalStableTimings,
+    ...compatibilityTimings,
+  ];
+
+  const projectedEvents = projectionTimings.flatMap((timing) => {
+    const sourceId = timingSourceId(timing) || "income";
+    const sourceName =
+      String(timing.sourceName || timing.source_name || "Expected income").trim() ||
+      "Expected income";
     const incomeSource = sourceById.get(sourceId) || null;
     const minimumAmount = stableMinimumAmount(incomeSource);
 
@@ -171,7 +232,7 @@ export async function dispatchIncomeTimingOccurrences(ownerId) {
       impactBreakdown: minimumAmount > 0
         ? [{ direction: "in", amount: minimumAmount, source: "stable_income_minimum" }]
         : [{ direction: "in", pendingAmount: true, source: "income_timing" }],
-      source: "income_timing_projection",
+      source: timing.projectionSource || "income_timing_projection",
       incomeSourceId: sourceId,
       income_source_id: sourceId,
     }));
