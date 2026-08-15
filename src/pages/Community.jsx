@@ -30,6 +30,7 @@ import {
   getStoredBackendToken,
   getStoredBackendUser,
 } from "@/lib/clara-backend-client";
+import { consumeSupportConversationTarget } from "@/lib/support-conversation-navigation";
 
 const COMMUNITY_GUIDE_LAUNCHER_SELECTOR = '[aria-label="Open CLARA Guide Mode"]';
 
@@ -523,7 +524,14 @@ export default function Community() {
             <DashboardSettingsPanel
               user={settingsUser}
               isAdmin={isAdmin}
-              onOpenMessages={() => navigate("/community?view=messages")}
+              onOpenMessages={() => {
+                const targetUserId = consumeSupportConversationTarget();
+                navigate(
+                  targetUserId
+                    ? `/community?view=messages&userId=${encodeURIComponent(targetUserId)}`
+                    : "/community?view=messages"
+                );
+              }}
             />
           </div>
         </main>
