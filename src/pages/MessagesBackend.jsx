@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
+  LockKeyhole,
   MessageSquare,
   Search,
   Send,
@@ -29,6 +30,7 @@ import { ClaraOrbMark } from "@/components/community/ClaraOrbPage";
 import { CLARA_SUPPORT_CONVERSATION_TARGET } from "@/lib/support-conversation-navigation";
 
 const CLARA_SUPPORT_EMAIL = "claraprogram2026@gmail.com";
+const MESSAGE_GROUP_WINDOW_MS = 5 * 60 * 1000;
 
 function isSettingsSupportContent(value) {
   return /^\[CLARA Support\s*•/i.test(String(value || "").trim());
@@ -44,6 +46,65 @@ function isSupportMessage(message = {}) {
 
 function supportConversationKey(userId) {
   return `support:${String(userId || "")}`;
+}
+
+function validMessageDate(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function sameMessageDay(first, second) {
+  const firstDate = validMessageDate(first?.created_at);
+  const secondDate = validMessageDate(second?.created_at);
+  if (!firstDate || !secondDate) return false;
+  return (
+    firstDate.getFullYear() === secondDate.getFullYear() &&
+    firstDate.getMonth() === secondDate.getMonth() &&
+    firstDate.getDate() === secondDate.getDate()
+  );
+}
+
+function formatMessageDayLabel(value) {
+  const date = validMessageDate(value);
+  if (!date) return "";
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.round((today.getTime() - target.getTime()) / 86_400_000);
+
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    ...(date.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}),
+  });
+}
+
+function messagesBelongTogether(first, second, isOutgoing) {
+  if (!first || !second || !sameMessageDay(first, second)) return false;
+  if (isOutgoing(first) !== isOutgoing(second)) return false;
+
+  const firstDate = validMessageDate(first.created_at);
+  const secondDate = validMessageDate(second.created_at);
+  if (!firstDate || !secondDate) return false;
+
+  return Math.abs(secondDate.getTime() - firstDate.getTime()) <= MESSAGE_GROUP_WINDOW_MS;
+}
+
+function messageGroupPosition(messages, index, isOutgoing) {
+  const current = messages[index];
+  const previous = messages[index - 1];
+  const next = messages[index + 1];
+  const joinsPrevious = messagesBelongTogether(previous, current, isOutgoing);
+  const joinsNext = messagesBelongTogether(current, next, isOutgoing);
+
+  if (joinsPrevious && joinsNext) return "middle";
+  if (joinsNext) return "first";
+  if (joinsPrevious) return "last";
+  return "single";
 }
 
 function ClaraSupportAvatar({ size = "h-11 w-11" }) {
@@ -389,9 +450,7 @@ export default function MessagesBackend() {
             return String(message.recipient_id) === String(currentUserId);
           }
           if (isAdmin) {
-            return (
-              String(message.sender_id) === String(activeConvo.supportUserId)
-            );
+            return String(message.sender_id) === String(activeConvo.supportUserId);
           }
           return String(message.recipient_id) === String(currentUserId);
         })
@@ -586,21 +645,22 @@ export default function MessagesBackend() {
 
   if (activeConvo) {
     const showClaraIdentity = activeConvo.isSupport && !isAdmin;
-    const conversationSubtitle = activeConvo.isSupport
-      ? isAdmin
-        ? "CLARA Support"
-        : "CLARA Support"
-      : "Private conversation";
+    const conversationSubtitle = activeConvo.isSupport ? "CLARA Support" : "Private conversation";
+    const lastOutgoingMessage = [...activeConvo.messages]
+      .reverse()
+      .find((message) => messageIsOutgoing(message, activeConvo));
 
     return (
       <div className="fixed inset-0 z-[100] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[#06111f] text-white">
-        <header className="shrink-0 border-b border-white/10 bg-[#06111f]/95 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.85rem)] backdrop-blur-xl">
+        <header className="relative shrink-0 border-b border-white/[0.08] bg-[#06111f]/96 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.85rem)] shadow-[0_14px_40px_rgba(0,0,0,0.16)] backdrop-blur-2xl">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#22c7b8]/45 to-transparent" />
           <div className="mx-auto flex max-w-3xl items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Back to messages"
               onClick={handleBackFromConversation}
-              className="h-11 w-11 shrink-0 rounded-2xl border border-white/10 bg-white/5 text-white"
+              className="h-11 w-11 shrink-0 rounded-2xl border border-white/10 bg-white/[0.055] text-white transition hover:bg-white/[0.09]"
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -609,7 +669,7 @@ export default function MessagesBackend() {
               <ClaraSupportAvatar />
             ) : (
               <div className="relative shrink-0">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[#22c7b8]/20 bg-[#22c7b8]/10 font-black text-[#ccfbf1]">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[#22c7b8]/25 bg-[#22c7b8]/10 font-black text-[#ccfbf1] shadow-[0_0_24px_rgba(34,199,184,0.08)]">
                   {getMessageInitials(activeConvo.name)}
                 </div>
                 {!activeConvo.isSupport ? (
@@ -620,16 +680,17 @@ export default function MessagesBackend() {
 
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                <p className="min-w-0 truncate font-black text-white">
+                <p className="min-w-0 truncate font-black tracking-[-0.015em] text-white">
                   {showClaraIdentity ? "CLARA" : activeConvo.name}
                 </p>
                 {!showClaraIdentity ? (
                   <SupportTierBadge tier={activeConvo.supportTier} compact />
                 ) : null}
               </div>
-              <p className="truncate text-xs text-white/45">
-                {conversationSubtitle}
-              </p>
+              <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-white/42">
+                {!activeConvo.isSupport ? <LockKeyhole className="h-3 w-3" /> : null}
+                <span className="truncate">{conversationSubtitle}</span>
+              </div>
             </div>
 
             <ConversationActionsMenu
@@ -639,18 +700,20 @@ export default function MessagesBackend() {
           </div>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          <div className="mx-auto flex min-h-full max-w-3xl flex-col justify-end space-y-3">
+        <main className="min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(circle_at_50%_-20%,rgba(34,199,184,0.055),transparent_38%)] px-4 py-4">
+          <div className="mx-auto flex min-h-full max-w-3xl flex-col justify-end">
             {activeConvo.messages.length === 0 ? (
               <div className="flex min-h-[56dvh] items-center justify-center">
-                <div className="text-center">
+                <div className="max-w-sm text-center">
                   {showClaraIdentity ? (
                     <ClaraSupportAvatar size="mx-auto h-12 w-12" />
                   ) : (
-                    <MessageSquare className="mx-auto h-8 w-8 text-[#5eead4]/50" />
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-[#5eead4]/15 bg-[#5eead4]/[0.06]">
+                      <MessageSquare className="h-6 w-6 text-[#5eead4]/55" />
+                    </div>
                   )}
-                  <p className="mt-3 font-black">Start your conversation</p>
-                  <p className="mt-1 text-sm text-white/45">
+                  <p className="mt-4 font-black tracking-[-0.015em]">Start your conversation</p>
+                  <p className="mt-1 text-sm font-medium leading-relaxed text-white/42">
                     {activeConvo.isSupport
                       ? isAdmin
                         ? `Reply to ${activeConvo.name} as CLARA Support.`
@@ -660,16 +723,48 @@ export default function MessagesBackend() {
                 </div>
               </div>
             ) : (
-              activeConvo.messages.map((message) => {
+              activeConvo.messages.map((message, index) => {
                 const isMine = messageIsOutgoing(message, activeConvo);
+                const groupPosition = messageGroupPosition(
+                  activeConvo.messages,
+                  index,
+                  (candidate) => messageIsOutgoing(candidate, activeConvo)
+                );
+                const startsNewDay =
+                  index === 0 || !sameMessageDay(activeConvo.messages[index - 1], message);
+                const joinsPrevious =
+                  groupPosition === "middle" || groupPosition === "last";
+                const spacingClass = startsNewDay
+                  ? index === 0
+                    ? ""
+                    : "mt-5"
+                  : joinsPrevious
+                    ? "mt-1"
+                    : "mt-3";
+
                 return (
-                  <InteractiveMessageBubble
-                    key={message.id}
-                    message={message}
-                    isMine={isMine}
-                    onDeleted={handleMessageDeleted}
-                    onInteractionChanged={handleInteractionChanged}
-                  />
+                  <div key={message.id} className={spacingClass}>
+                    {startsNewDay ? (
+                      <div className="mb-4 flex items-center gap-3 py-1">
+                        <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/[0.08]" />
+                        <span className="rounded-full border border-white/[0.08] bg-white/[0.035] px-3 py-1 text-[9px] font-black uppercase tracking-[0.13em] text-white/32 backdrop-blur-sm">
+                          {formatMessageDayLabel(message.created_at)}
+                        </span>
+                        <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/[0.08]" />
+                      </div>
+                    ) : null}
+                    <InteractiveMessageBubble
+                      message={message}
+                      isMine={isMine}
+                      groupPosition={groupPosition}
+                      showReceipt={
+                        isMine &&
+                        String(lastOutgoingMessage?.id || "") === String(message.id)
+                      }
+                      onDeleted={handleMessageDeleted}
+                      onInteractionChanged={handleInteractionChanged}
+                    />
+                  </div>
                 );
               })
             )}
@@ -677,9 +772,9 @@ export default function MessagesBackend() {
           </div>
         </main>
 
-        <footer className="shrink-0 border-t border-white/10 bg-[#06111f]/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
+        <footer className="relative shrink-0 border-t border-white/[0.08] bg-[#06111f]/97 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 shadow-[0_-18px_44px_rgba(0,0,0,0.18)] backdrop-blur-2xl">
           <div className="mx-auto flex max-w-3xl items-end gap-2">
-            <div className="flex-1 rounded-[24px] border border-white/10 bg-white/[0.05] px-3 py-2">
+            <div className="flex-1 rounded-[25px] border border-white/[0.09] bg-white/[0.055] px-4 py-2 shadow-inner shadow-black/10 transition focus-within:border-[#5eead4]/25 focus-within:bg-white/[0.07] focus-within:ring-2 focus-within:ring-[#22c7b8]/[0.06]">
               <Input
                 placeholder="Type a message..."
                 value={newMsg}
@@ -691,13 +786,14 @@ export default function MessagesBackend() {
                   }
                 }}
                 disabled={sending}
-                className="border-0 bg-transparent px-0 text-white placeholder:text-white/35 focus-visible:ring-0"
+                className="h-8 border-0 bg-transparent px-0 text-[14px] font-medium text-white placeholder:text-white/30 focus-visible:ring-0"
               />
             </div>
             <Button
+              aria-label="Send message"
               onClick={handleSend}
               disabled={!newMsg.trim() || sending}
-              className="h-12 w-12 rounded-full bg-[#22c7b8] text-[#042f2e]"
+              className="h-12 w-12 shrink-0 rounded-full border border-[#67e8d5]/20 bg-gradient-to-br from-[#28d2c2] to-[#12b8ad] text-[#032f2c] shadow-[0_10px_24px_rgba(34,199,184,0.18)] transition hover:scale-[1.02] hover:from-[#36dccc] hover:to-[#19c2b6] disabled:border-white/[0.06] disabled:bg-none disabled:bg-white/[0.055] disabled:text-white/22 disabled:shadow-none"
             >
               <Send className="h-4 w-4" />
             </Button>
@@ -733,9 +829,7 @@ export default function MessagesBackend() {
               placeholder="Search members"
               value={search}
               onFocus={() => setSearchActive(true)}
-              onBlur={() =>
-                window.setTimeout(() => setSearchActive(false), 140)
-              }
+              onBlur={() => window.setTimeout(() => setSearchActive(false), 140)}
               onChange={(event) => setSearch(event.target.value)}
               className="min-w-0 border-0 bg-transparent px-0 text-sm font-semibold text-white placeholder:text-white/30 focus-visible:ring-0"
             />
@@ -833,10 +927,7 @@ export default function MessagesBackend() {
                                   Support
                                 </span>
                               ) : (
-                                <SupportTierBadge
-                                  tier={conversation.supportTier}
-                                  compact
-                                />
+                                <SupportTierBadge tier={conversation.supportTier} compact />
                               )}
                               <span className="shrink-0 text-[10px] text-white/35">
                                 {formatChatTime(last?.created_at)}
