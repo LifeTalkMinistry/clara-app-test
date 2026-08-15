@@ -8,6 +8,7 @@ import {
   normalizeLower,
   normalizeString,
 } from "@/utils/dashboard/dashboardHelpers";
+import { getIncomeSources } from "@/lib/incomeHubRepository";
 import {
   getRecurringBills,
   getRecurringBudgetItems,
@@ -41,6 +42,14 @@ export default function useDashboardManualExpenseBudgetOptions({ budgets = [] } 
       window.removeEventListener("storage", refresh);
     };
   }, []);
+
+  useEffect(() => {
+    // Budget reads income timing synchronously. Touch the canonical Income Hub
+    // first so an existing user's missing/stale derived timing repairs itself.
+    getIncomeSources(ownerId).catch((error) => {
+      console.warn("CLARA Budget could not reconcile stable income timing:", error);
+    });
+  }, [ownerId]);
 
   return useMemo(() => {
     const currentMonthKey = getPHMonthKey();
