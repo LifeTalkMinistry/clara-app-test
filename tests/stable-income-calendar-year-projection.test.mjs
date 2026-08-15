@@ -154,3 +154,27 @@ test("Schedule refreshes from the canonical Income Hub update signal", () => {
   assert.equal(source.includes("window.removeEventListener(INCOME_HUB_UPDATED_EVENT, resyncSchedule)"), true);
   assert.equal(source.includes("syncRecurringBillsIntoSchedule(ownerId)"), true);
 });
+
+test("stale pre-demo current-state flags cannot redirect a real user's Income Hub owner", () => {
+  const source = readFileSync(
+    new URL(
+      "../src/lib/clara-young-professional-current-state.js",
+      import.meta.url
+    ),
+    "utf8"
+  );
+
+  assert.equal(source.includes("function isSupportedActiveDemoState"), true);
+  assert.match(source, /state\?\.demoModeActive === true/);
+  assert.match(source, /clean\(state\?\.activeDemoProfile\)/);
+  assert.match(source, /clean\(state\?\.demoLocalUserId\)/);
+  assert.equal(source.includes("export function sanitizeActiveCurrentStateFlag()"), true);
+  assert.match(
+    source,
+    /window\.localStorage\.removeItem\(ACTIVE_CURRENT_STATE_KEY\)/
+  );
+  assert.match(
+    source,
+    /sanitizeActiveCurrentStateFlag\(\);/
+  );
+});
