@@ -118,13 +118,15 @@ test("the scroll isolation scheduler has an older-WebView fallback", () => {
   assert.match(isolationRuntime, /typeof MutationObserver === "function"/);
 });
 
-test("screen changes reset the active shell scroll container", () => {
-  assert.match(onboardingSource, /ref=\{onboardingShellRef\}/);
+test("screen changes remount the active onboarding scroll container", () => {
+  assert.match(onboardingSource, /<AnimatePresence mode="wait" initial=\{false\}>/);
+  assert.match(onboardingSource, /key=\{activeScreen\}/);
+  assert.match(onboardingSource, /className="clara-onboarding-transition"/);
   assert.match(
     onboardingSource,
-    /onboardingShellRef\.current\?\.scrollTo\(\{ top: 0, left: 0, behavior: "auto" \}\)/
+    /\.clara-onboarding-transition\s*\{[\s\S]*?overflow-y:\s*auto;/
   );
-  assert.match(onboardingSource, /sm:h-\[calc\(100dvh-48px\)\]/);
+  assert.doesNotMatch(onboardingSource, /onboardingShellRef/);
 });
 
 test("Community scroll ownership does not depend on :has support in Android WebView", () => {
