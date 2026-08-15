@@ -185,3 +185,26 @@ test("Life Profile fields are tier-gated and only explicit user fields enter the
   assert.match(builderStatement, /business status: Planning to start/);
   assert.match(builderStatement, /business idea: Online food business/);
 });
+
+test("Buy Check firmness is automatic and the manual tone selector is retired", async () => {
+  const expert = await source("src/lib/clara-buy-check-expert-ai.js");
+  const overlay = await source("src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx");
+
+  assert.match(expert, /ADAPTIVE FIRMNESS/);
+  assert.match(expert, /not from a manual user-selected tone/);
+  assert.match(expert, /Low financial risk: calm and conversational/);
+  assert.match(expert, /High risk: firm recommendation/);
+  assert.doesNotMatch(expert, /clara_buy_check_attitude_v1/);
+  assert.doesNotMatch(expert, /selectedCommunicationAttitude/);
+  assert.doesNotMatch(expert, /COMMUNICATION ATTITUDE/);
+  assert.doesNotMatch(overlay, /BuyCheckAttitudeSelector/);
+  assert.doesNotMatch(overlay, /SlidersHorizontal/);
+  assert.doesNotMatch(overlay, /clara_buy_check_attitude_v1/);
+  assert.doesNotMatch(overlay, /data-clara-attitude-trigger/);
+  assert.match(overlay, /disabled=\{composerLocked \|\| !hasDraft\}/);
+});
+
+test("retired Buy Check attitude patch machinery stays removed", async () => {
+  await assert.rejects(() => source("scripts/patch_clara_attitude_popover.py"), { code: "ENOENT" });
+  await assert.rejects(() => source(".github/workflows/patch-clara-attitude-popover.yml"), { code: "ENOENT" });
+});
