@@ -520,7 +520,6 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
       taskReminderSettings.pushConfigured
   );
 
-
   return (
     <div className="space-y-5">
       {notice ? (
@@ -656,6 +655,15 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
                 { syncTask: true }
               )
             }
+          />
+
+          <NotificationFamilyCard
+            icon={MessageCircle}
+            title="Message Notifications"
+            description="Get notified when another user or CLARA Support sends you a new message."
+            priority="Important"
+            enabled={preferences.messageNotifications}
+            onToggle={(checked) => changePreference("messageNotifications", checked)}
           />
 
           <NotificationFamilyCard
