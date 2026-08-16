@@ -1,8 +1,7 @@
-import { supabase } from "@/lib/supabaseClient";
 import {
-  cloudSupabase,
-  isCloudSupabaseConfigured,
-} from "@/lib/cloud-supabase-client";
+  backendRequest,
+  getStoredBackendToken,
+} from "@/lib/clara-backend-client";
 import { getNotificationEnvironment } from "@/lib/notifications/notificationEnvironment";
 
 let listenersInstalled = false;
@@ -35,69 +34,46 @@ function safeRouteFromNotification(data = {}) {
     window.location.href = rawUrl;
     return;
   }
-
   if (rawUrl.startsWith("#")) {
     window.location.hash = rawUrl.replace(/^#/, "");
     return;
   }
-
   if (rawUrl.startsWith("/")) {
     window.location.hash = rawUrl;
     return;
   }
-
   window.location.hash = `/${rawUrl.replace(/^\/+/, "")}`;
 }
 
-function nativePushClient({ requireCloud = false } = {}) {
-  if (requireCloud) return cloudSupabase;
-  return isCloudSupabaseConfigured ? cloudSupabase : supabase;
-}
-
-function buildTokenSaveError(error) {
-  const message = String(error?.message || error || "");
-  if (/relation .*user_notification_devices|does not exist|schema cache/i.test(message)) {
-    return new Error("Missing Supabase migration: public.user_notification_devices was not found. Run supabase/universal_notification_devices.sql.");
-  }
-  if (/row-level security|permission denied|violates row-level security/i.test(message)) {
-    return new Error("Supabase rejected the device token save. Check RLS policies for public.user_notification_devices.");
-  }
-  return error instanceof Error ? error : new Error(message || "Unable to save native push token.");
-}
-
-async function saveNativeToken({ userId, token, platform, client = nativePushClient() }) {
+async function saveNativeToken({ token, platform }) {
   const cleanToken = String(token || "").trim();
-  if (!cleanToken) throw new Error("Native push registration did not return an FCM token. Check Firebase/google-services.json and Android build config.");
+  if (!cleanToken) {
+    throw new Error("Native push registration did not return an FCM token. Check Firebase/google-services.json and Android build config.");
+  }
 
-  const { error } = await client.from("user_notification_devices").upsert(
-    {
-      user_id: userId,
-      channel: channelForPlatform(platform),
-      platform,
+  const backendToken = getStoredBackendToken();
+  if (!backendToken) {
+    throw new Error("Sign in to your CLARA account before enabling device notifications.");
+  }
+
+  await backendRequest("/api/push/native-devices", {
+    method: "POST",
+    token: backendToken,
+    body: {
       token: cleanToken,
-      endpoint: null,
-      subscription: null,
-      device_label: platform === "ios" ? "CLARA iPhone app" : "CLARA Android app",
-      user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
-      is_active: true,
-      last_seen_at: new Date().toISOString(),
+      platform,
+      deviceLabel: platform === "ios" ? "CLARA iPhone app" : "CLARA Android app",
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
     },
-    { onConflict: "token" }
-  );
-
-  if (error) throw buildTokenSaveError(error);
+  });
 }
 
 export async function requestNativeNotificationPermission() {
   const environment = getNotificationEnvironment();
-  if (!environment.supportsNativePush) {
-    return { permission: "unsupported", configured: false };
-  }
+  if (!environment.supportsNativePush) return { permission: "unsupported", configured: false };
 
   const PushNotifications = await loadPushPlugin();
-  if (!PushNotifications) {
-    return { permission: "unsupported", configured: false };
-  }
+  if (!PushNotifications) return { permission: "unsupported", configured: false };
 
   const current = await PushNotifications.checkPermissions();
   const currentPermission = normalizePermission(current?.receive);
@@ -110,19 +86,12 @@ export async function requestNativeNotificationPermission() {
   return { permission, configured: permission === "granted" };
 }
 
-export async function enableNativePushNotifications({ userId, requireCloud = false } = {}) {
+export async function enableNativePushNotifications({ userId } = {}) {
   const environment = getNotificationEnvironment();
   if (!environment.supportsNativePush) {
     return { permission: "unsupported", configured: false, token: null, environment };
   }
-
-  if (!userId) {
-    throw new Error("Sign in to enable device notifications.");
-  }
-
-  if (requireCloud && !isCloudSupabaseConfigured) {
-    throw new Error("Supabase cloud is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before testing real push.");
-  }
+  if (!userId || !getStoredBackendToken()) throw new Error("Sign in to enable device notifications.");
 
   const PushNotifications = await loadPushPlugin();
   if (!PushNotifications) {
@@ -147,9 +116,7 @@ export async function enableNativePushNotifications({ userId, requireCloud = fal
       try {
         await registrationHandle?.remove?.();
         await errorHandle?.remove?.();
-      } catch {
-        // Listener cleanup should never block setup.
-      }
+      } catch {}
     };
 
     const finish = async (callback, value) => {
@@ -163,28 +130,20 @@ export async function enableNativePushNotifications({ userId, requireCloud = fal
       registrationHandle = await PushNotifications.addListener("registration", (registrationToken) => {
         finish(resolve, registrationToken?.value || registrationToken?.token || "");
       });
-
       errorHandle = await PushNotifications.addListener("registrationError", (registrationError) => {
         const message = registrationError?.error || registrationError?.message || "Native push registration failed. Check Firebase google-services.json and Android configuration.";
         finish(reject, new Error(message));
       });
-
       timeoutId = window.setTimeout(() => {
         finish(reject, new Error("Native push registration timed out. Check Firebase google-services.json, Play services, and Android build configuration."));
       }, 15000);
-
       await PushNotifications.register();
     } catch (error) {
       await finish(reject, error);
     }
   });
 
-  await saveNativeToken({
-    userId,
-    token,
-    platform: environment.platform,
-    client: nativePushClient({ requireCloud }),
-  });
+  await saveNativeToken({ token, platform: environment.platform });
 
   return {
     permission: "granted",
@@ -197,14 +156,10 @@ export async function enableNativePushNotifications({ userId, requireCloud = fal
 
 export async function getNativeNotificationStatus() {
   const environment = getNotificationEnvironment();
-  if (!environment.supportsNativePush) {
-    return { permission: "unsupported", configured: false, environment };
-  }
+  if (!environment.supportsNativePush) return { permission: "unsupported", configured: false, environment };
 
   const PushNotifications = await loadPushPlugin();
-  if (!PushNotifications) {
-    return { permission: "unsupported", configured: false, environment };
-  }
+  if (!PushNotifications) return { permission: "unsupported", configured: false, environment };
 
   const status = await PushNotifications.checkPermissions();
   const permission = normalizePermission(status?.receive);
@@ -216,7 +171,6 @@ export function installNativeNotificationListeners() {
   if (!environment.supportsNativePush || listenersInstalled) return;
 
   listenersInstalled = true;
-
   loadPushPlugin().then((PushNotifications) => {
     if (!PushNotifications) return;
 
@@ -230,8 +184,7 @@ export function installNativeNotificationListeners() {
 
     PushNotifications.addListener("pushNotificationActionPerformed", (event) => {
       try {
-        const data = event?.notification?.data || {};
-        safeRouteFromNotification(data);
+        safeRouteFromNotification(event?.notification?.data || {});
       } catch (error) {
         console.warn("Unable to route native notification tap:", error);
       }
