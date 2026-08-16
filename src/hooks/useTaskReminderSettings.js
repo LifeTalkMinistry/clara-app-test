@@ -42,16 +42,38 @@ export default function useTaskReminderSettings(userId) {
     const environment = getDeviceNotificationEnvironment();
     setNotificationEnvironment(environment);
 
+    let permission = "default";
     try {
-      const permission = await getDeviceNotificationPermissionState();
+      permission = await getDeviceNotificationPermissionState();
       setPermissionState(permission);
     } catch (error) {
       console.error("Failed checking device notification permission:", error);
-      setPermissionState(environment.supportsAnyDevicePush ? "default" : "unsupported");
+      permission = environment.supportsAnyDevicePush ? "default" : "unsupported";
+      setPermissionState(permission);
     }
 
     if (!environment.supportsAnyDevicePush) {
       setPushConfigured(false);
+      return;
+    }
+
+    // Native Android/iOS push is now owned by the CLARA backend, not the
+    // retired Supabase device table. Once permission has already been granted,
+    // re-registering is safe and refreshes the FCM/APNs token on the backend.
+    // This also self-heals app reinstalls and token rotations.
+    if (environment.preferredChannel === "native_push") {
+      if (permission !== "granted" || !userId) {
+        setPushConfigured(false);
+        return;
+      }
+
+      try {
+        const result = await enableDeviceNotifications({ userId });
+        setPushConfigured(Boolean(result?.configured));
+      } catch (error) {
+        console.error("Failed refreshing native notification registration:", error);
+        setPushConfigured(false);
+      }
       return;
     }
 
@@ -151,12 +173,12 @@ export default function useTaskReminderSettings(userId) {
       const result = await enableDeviceNotifications({ userId });
       setPermissionState(result.permission);
       if (result.environment) setNotificationEnvironment(result.environment);
-      await refreshPushStatus();
+      setPushConfigured(Boolean(result.configured));
       return result;
     } finally {
       setPushEnabling(false);
     }
-  }, [refreshPushStatus, userId]);
+  }, [userId]);
 
   const dirty = useMemo(() => {
     return JSON.stringify(settings) !== JSON.stringify(initialSettings);
