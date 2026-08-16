@@ -28,6 +28,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES = Object.freeze({
   streaksAndChallenge: true,
   tasksAndCoaching: true,
   scheduleAndCalendar: true,
+  messageNotifications: true,
   communityAndAccountability: false,
   productUpdates: false,
 
@@ -57,6 +58,7 @@ const BOOLEAN_KEYS = [
   "streaksAndChallenge",
   "tasksAndCoaching",
   "scheduleAndCalendar",
+  "messageNotifications",
   "communityAndAccountability",
   "productUpdates",
   "expenseLogStopAfterLogged",
@@ -200,6 +202,11 @@ function migrateLegacyShape(value = {}) {
       source.scheduleAndCalendar,
       source.calendarReminders,
       source.scheduleReminders
+    ),
+    messageNotifications: firstBoolean(
+      source.messageNotifications,
+      source.messageAlerts,
+      source.chatNotifications
     ),
     communityAndAccountability: firstBoolean(
       source.communityAndAccountability,
@@ -367,6 +374,8 @@ export function notificationPreferencesToLegacySettings(preferences = {}) {
     billReminders: normalized.billsAndObligations,
     streakAlerts: normalized.streaksAndChallenge,
     challengeAlerts: normalized.streaksAndChallenge,
+    messageAlerts: normalized.messageNotifications,
+    chatNotifications: normalized.messageNotifications,
     communityAlerts: normalized.communityAndAccountability,
     circleAlerts: normalized.communityAndAccountability,
   };
