@@ -17,6 +17,7 @@ const notificationPanelSource = readSource(
   "src/components/notifications/NotificationSettingsPanel.jsx"
 );
 const taskReminderSettingsSource = readSource("src/hooks/useTaskReminderSettings.js");
+const nativePushSource = readSource("src/lib/notifications/nativePushNotifications.js");
 
 
 test("getZonedDateParts exposes the coherent dateKey/minutes contract", () => {
@@ -136,4 +137,20 @@ test("notification Settings exposes one clean On/Off phone delivery control", ()
   assert.doesNotMatch(notificationPanelSource, /TaskReminderSettingsCard/);
   assert.doesNotMatch(notificationPanelSource, /Advanced delivery & task reminder tools/);
   assert.doesNotMatch(notificationPanelSource, /Save advanced task schedule/);
+});
+
+
+test("native Android push creates the same channel used by backend FCM payloads", () => {
+  assert.match(nativePushSource, /ANDROID_NOTIFICATION_CHANNEL_ID = "clara_reminders"/);
+  assert.match(nativePushSource, /PushNotifications\.createChannel/);
+  assert.match(nativePushSource, /ensureAndroidNotificationChannel\(PushNotifications, environment\)/);
+});
+
+
+test("foreground native pushes become visible local notifications and remain tappable", () => {
+  assert.match(nativePushSource, /pushNotificationReceived/);
+  assert.match(nativePushSource, /showForegroundNativeNotification\(notification, environment\)/);
+  assert.match(nativePushSource, /LocalNotifications\.schedule/);
+  assert.match(nativePushSource, /localNotificationActionPerformed/);
+  assert.match(nativePushSource, /safeRouteFromNotification\(event\?\.notification\?\.extra/);
 });

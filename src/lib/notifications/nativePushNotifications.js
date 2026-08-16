@@ -4,7 +4,9 @@ import {
 } from "@/lib/clara-backend-client";
 import { getNotificationEnvironment } from "@/lib/notifications/notificationEnvironment";
 
+const ANDROID_NOTIFICATION_CHANNEL_ID = "clara_reminders";
 let listenersInstalled = false;
+let localNotificationActionListenerInstalled = false;
 
 function normalizePermission(value) {
   if (value === "granted" || value === "denied") return value;
@@ -18,6 +20,16 @@ async function loadPushPlugin() {
     return module.PushNotifications;
   } catch (error) {
     console.warn("Native push plugin is unavailable:", error);
+    return null;
+  }
+}
+
+async function loadLocalNotificationsPlugin() {
+  try {
+    const module = await import("@capacitor/local-notifications");
+    return module.LocalNotifications;
+  } catch (error) {
+    console.warn("Native local notification plugin is unavailable:", error);
     return null;
   }
 }
@@ -43,6 +55,80 @@ function safeRouteFromNotification(data = {}) {
     return;
   }
   window.location.hash = `/${rawUrl.replace(/^\/+/, "")}`;
+}
+
+async function ensureAndroidNotificationChannel(PushNotifications, environment) {
+  if (environment?.platform !== "android" || !PushNotifications?.createChannel) return;
+
+  await PushNotifications.createChannel({
+    id: ANDROID_NOTIFICATION_CHANNEL_ID,
+    name: "CLARA notifications",
+    description: "Messages, reminders, and important CLARA updates.",
+    importance: 5,
+    visibility: 1,
+    vibration: true,
+    sound: "default",
+  });
+}
+
+function installLocalNotificationActionListener(LocalNotifications) {
+  if (localNotificationActionListenerInstalled || !LocalNotifications?.addListener) return;
+  localNotificationActionListenerInstalled = true;
+
+  LocalNotifications.addListener("localNotificationActionPerformed", (event) => {
+    try {
+      safeRouteFromNotification(event?.notification?.extra || {});
+    } catch (error) {
+      console.warn("Unable to route foreground message notification tap:", error);
+    }
+  }).catch((error) => {
+    localNotificationActionListenerInstalled = false;
+    console.warn("Unable to install foreground notification tap listener:", error);
+  });
+}
+
+function foregroundNotificationId(notification = {}) {
+  const source = String(
+    notification?.data?.messageId ||
+      notification?.data?.dedupeKey ||
+      notification?.id ||
+      Date.now()
+  );
+  let hash = 0;
+  for (let index = 0; index < source.length; index += 1) {
+    hash = ((hash << 5) - hash + source.charCodeAt(index)) | 0;
+  }
+  const positive = Math.abs(hash);
+  return positive > 0 ? positive % 2147483647 : Math.floor(Date.now() % 2147483647);
+}
+
+async function showForegroundNativeNotification(notification = {}, environment) {
+  const LocalNotifications = await loadLocalNotificationsPlugin();
+  if (!LocalNotifications?.schedule) return { delivered: false, reason: "local_notifications_unavailable" };
+
+  const status = await LocalNotifications.checkPermissions?.();
+  const permission = normalizePermission(status?.display || status?.receive);
+  if (permission !== "granted") {
+    return { delivered: false, permission, reason: "notification_permission_not_granted" };
+  }
+
+  installLocalNotificationActionListener(LocalNotifications);
+
+  const data = notification?.data && typeof notification.data === "object" ? notification.data : {};
+  await LocalNotifications.schedule({
+    notifications: [
+      {
+        id: foregroundNotificationId(notification),
+        title: String(notification?.title || "CLARA"),
+        body: String(notification?.body || "CLARA has a new message for you."),
+        schedule: { at: new Date(Date.now() + 150) },
+        channelId: environment?.platform === "android" ? ANDROID_NOTIFICATION_CHANNEL_ID : undefined,
+        extra: data,
+      },
+    ],
+  });
+
+  return { delivered: true, permission };
 }
 
 async function saveNativeToken({ token, platform }) {
@@ -103,6 +189,7 @@ export async function enableNativePushNotifications({ userId } = {}) {
     return { ...permissionResult, token: null, environment };
   }
 
+  await ensureAndroidNotificationChannel(PushNotifications, environment);
   installNativeNotificationListeners();
 
   const token = await new Promise(async (resolve, reject) => {
@@ -171,8 +258,14 @@ export function installNativeNotificationListeners() {
   if (!environment.supportsNativePush || listenersInstalled) return;
 
   listenersInstalled = true;
-  loadPushPlugin().then((PushNotifications) => {
+  loadPushPlugin().then(async (PushNotifications) => {
     if (!PushNotifications) return;
+
+    try {
+      await ensureAndroidNotificationChannel(PushNotifications, environment);
+    } catch (error) {
+      console.warn("Unable to create CLARA Android notification channel:", error);
+    }
 
     PushNotifications.addListener("registrationError", (error) => {
       console.error("Native push registration error:", error);
@@ -180,6 +273,9 @@ export function installNativeNotificationListeners() {
 
     PushNotifications.addListener("pushNotificationReceived", (notification) => {
       window.dispatchEvent(new CustomEvent("clara:native-push-received", { detail: notification }));
+      void showForegroundNativeNotification(notification, environment).catch((error) => {
+        console.warn("Unable to display foreground CLARA push notification:", error);
+      });
     });
 
     PushNotifications.addListener("pushNotificationActionPerformed", (event) => {
@@ -189,5 +285,8 @@ export function installNativeNotificationListeners() {
         console.warn("Unable to route native notification tap:", error);
       }
     });
+  }).catch((error) => {
+    listenersInstalled = false;
+    console.error("Unable to install native notification listeners:", error);
   });
 }
