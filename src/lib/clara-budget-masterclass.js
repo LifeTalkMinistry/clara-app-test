@@ -87,7 +87,302 @@ export const BUDGET_MASTERCLASS_STEPS = [
   },
 ];
 
-export const BUDGET_MASTERCLASS_INTRO = `Not just what a budget is — I’ll walk you through why money can disappear even when individual purchases look affordable, how a realistic budget is built, how to use it while you spend, and what to do when the plan does not go perfectly.\n\nYou control the pace. After every important point, you can continue, ask me to explain it another way, or ask a follow-up question.`;
+const SUPPORT = (buttonLabel, userText, eyebrow, text) => ({
+  buttonLabel,
+  userText,
+  eyebrow,
+  text,
+});
+
+export const BUDGET_MASTERCLASS_SUPPORT_SEQUENCE = {
+  "budget-is-a-decision": [
+    SUPPORT(
+      "Show me another way",
+      "Show me another way to see this.",
+      "CLARA · ANOTHER WAY TO SEE IT · 1/3",
+      `Think of your salary like a birthday cake that has to serve several people. If you start cutting slices without deciding how many people need to eat, the first few slices can look perfectly reasonable. The problem only appears later, when there is not enough cake left for everyone.\n\nA budget is the decision to divide the cake before serving it. You look at everything your money needs to cover first, then you know how much room each choice can safely take.`
+    ),
+    SUPPORT(
+      "Show me a real-life example",
+      "Show me how this looks in real life.",
+      "CLARA · IN REAL LIFE · 2/3",
+      `Imagine ₱25,000 arrives on payday. You buy a ₱700 meal, a ₱900 item online, spend ₱500 on a ride, and say yes to a few other small purchases. None of them looks dangerous by itself.\n\nThen rent, food, transportation, family support, and savings all need money from the same ₱25,000. The problem was not one purchase. It was making each decision without seeing the other responsibilities at the same time. A budget puts those responsibilities on the table first.`
+    ),
+    SUPPORT(
+      "Give me the simplest version",
+      "Give me the simplest version of this point.",
+      "CLARA · SIMPLEST VERSION · 3/3",
+      `A budget answers one question before you spend: “What does this money need to do?”\n\nWithout that answer, every purchase gets to argue for itself. With a budget, every purchase has to fit inside the bigger plan.\n\nThe simplest rule is: decide the whole job of your money before small spending decisions start taking pieces of it.`
+    ),
+  ],
+  "balance-is-not-free-money": [
+    SUPPORT(
+      "Show me another way",
+      "Show me another way to see this.",
+      "CLARA · ANOTHER WAY TO SEE IT · 1/3",
+      `Think of your account balance like envelopes sitting inside one box. The box may contain ₱10,000, but some envelopes are already meant for rent, food, transportation, or savings. Looking only at the box total hides those assignments.\n\nThe important number is not simply what is visible. It is what remains after you respect what the money is already supposed to do.`
+    ),
+    SUPPORT(
+      "Show me a real-life example",
+      "Show me how this looks in real life.",
+      "CLARA · IN REAL LIFE · 2/3",
+      `Suppose your account shows ₱8,000. It can feel like you have ₱8,000 available. But ₱3,000 may already be for a bill, ₱2,000 for food until payday, and ₱1,500 for transportation.\n\nYour visible balance is still ₱8,000, but your truly flexible amount is much smaller. Budgeting helps you see that difference before the account balance gives you false confidence.`
+    ),
+    SUPPORT(
+      "Give me the simplest version",
+      "Give me the simplest version of this point.",
+      "CLARA · SIMPLEST VERSION · 3/3",
+      `Money can be present and still be unavailable for random spending.\n\nDo not ask only, “How much money is there?” Ask, “How much of this money has no other job yet?”\n\nYour balance tells you what you have. Your budget tells you what is actually free to use.`
+    ),
+  ],
+  "decide-before-spending": [
+    SUPPORT(
+      "Show me another way",
+      "Show me another way to see this.",
+      "CLARA · ANOTHER WAY TO SEE IT · 1/3",
+      `Budgeting is like deciding your route before you start driving. If you wait until every intersection to decide where to go, whatever looks easiest in the moment can keep changing your direction.\n\nThe budget gives you the route while you are still calm. When a purchase appears later, you do not need to invent a financial rule while temptation is already asking for an answer.`
+    ),
+    SUPPORT(
+      "Show me a real-life example",
+      "Show me how this looks in real life.",
+      "CLARA · IN REAL LIFE · 2/3",
+      `Imagine seeing a ₱1,200 sale while scrolling at night. If you have no prior plan, the decision becomes “Do I want this enough?” and “Can I still pay for it?”\n\nIf you already decided that your flexible shopping room for the cycle is ₱1,000, the question changes. Now you can compare the purchase with a decision you made earlier, instead of letting the sale create the rule for you.`
+    ),
+    SUPPORT(
+      "Give me the simplest version",
+      "Give me the simplest version of this point.",
+      "CLARA · SIMPLEST VERSION · 3/3",
+      `The best time to decide your spending limits is before you want something.\n\nA budget moves the decision from the emotional moment to the planning moment.\n\nPlan first. Compare later. That is easier than inventing discipline at the checkout screen.`
+    ),
+  ],
+  "give-money-jobs": [
+    SUPPORT(
+      "Show me another way",
+      "Show me another way to see this.",
+      "CLARA · ANOTHER WAY TO SEE IT · 1/3",
+      `Think of income like a small team of workers. If nobody is assigned a job, whoever shouts first can take their time. If each worker already has a responsibility, the important work gets protected.\n\nYour pesos behave similarly. Giving money jobs means deciding which part keeps life running, which part protects you, which part builds a goal, and which part you can enjoy.`
+    ),
+    SUPPORT(
+      "Show me a real-life example",
+      "Show me how this looks in real life.",
+      "CLARA · IN REAL LIFE · 2/3",
+      `A ₱30,000 income might need to cover housing, food, transport, family responsibilities, savings, and personal spending. If all ₱30,000 sits as one undivided amount, a weekend of spending can quietly consume money meant for something less immediate.\n\nAssigning jobs does not require dozens of categories. It simply makes sure the important responsibilities have a place before the loudest wants arrive.`
+    ),
+    SUPPORT(
+      "Give me the simplest version",
+      "Give me the simplest version of this point.",
+      "CLARA · SIMPLEST VERSION · 3/3",
+      `If money has no job, it is easy for anything to claim it.\n\nGive the important things a place first. Then you can see what is left for flexible choices.\n\nBudgeting is not about controlling every peso obsessively. It is about making sure your priorities get paid before your impulses do.`
+    ),
+  ],
+  "essentials-and-flexible": [
+    SUPPORT(
+      "Show me another way",
+      "Show me another way to see this.",
+      "CLARA · ANOTHER WAY TO SEE IT · 1/3",
+      `Think of a house with walls and furniture. The walls are difficult to move; the furniture can be rearranged. Some expenses work like the walls, while others work more like the furniture.\n\nA realistic budget knows which costs are hard commitments and which ones can actually change. That keeps you from trying to create savings by squeezing categories that have almost no room to move.`
+    ),
+    SUPPORT(
+      "Show me a real-life example",
+      "Show me how this looks in real life.",
+      "CLARA · IN REAL LIFE · 2/3",
+      `If rent is ₱6,000 and a required debt payment is ₱2,000, pretending those can suddenly become ₱3,000 and ₱500 will not fix the budget. But deliveries, leisure, shopping, or some food choices may have more room to adjust.\n\nThe goal is to protect what must happen first, then make deliberate changes where your choices genuinely have flexibility.`
+    ),
+    SUPPORT(
+      "Give me the simplest version",
+      "Give me the simplest version of this point.",
+      "CLARA · SIMPLEST VERSION · 3/3",
+      `Some expenses are commitments. Some are choices with room to move.\n\nProtect the commitments first. Adjust the flexible categories second.\n\nA smart budget does not cut everything equally; it knows where change is actually possible.`
+    ),
+  ],
+  "planned-and-unplanned": [
+    SUPPORT(
+      "Show me another way",
+      "Show me another way to see this.",
+      "CLARA · ANOTHER WAY TO SEE IT · 1/3",
+      `Think of a travel plan. You can plan the route, hotel, and transportation, but rain or a delay can still happen. The surprise does not mean planning was useless. It simply gives you new information to respond to.\n\nA budget works the same way. Planned spending had a place before it happened. Unplanned spending did not. Seeing that difference helps you learn without treating every surprise as failure.`
+    ),
+    SUPPORT(
+      "Show me a real-life example",
+      "Show me how this looks in real life.",
+      "CLARA · IN REAL LIFE · 2/3",
+      `You may budget for food, fare, bills, and savings, then suddenly need medicine or a repair you did not expect. That expense is unplanned, but it does not erase the decisions you already made correctly.\n\nRecord it honestly, see what it changed, and ask whether this kind of expense should have more room next cycle. The budget becomes useful because it shows what surprised you.`
+    ),
+    SUPPORT(
+      "Give me the simplest version",
+      "Give me the simplest version of this point.",
+      "CLARA · SIMPLEST VERSION · 3/3",
+      `A plan does not promise that nothing unexpected will happen.\n\nIt gives you a clear difference between what you expected and what surprised you.\n\nThat difference is valuable information. Use it to improve the next budget instead of calling the whole plan a failure.`
+    ),
+  ],
+  "breathing-room": [
+    SUPPORT(
+      "Show me another way",
+      "Show me another way to see this.",
+      "CLARA · ANOTHER WAY TO SEE IT · 1/3",
+      `Think of walking with a glass filled exactly to the rim. Even a small bump makes it spill. A little empty space makes the same glass much easier to carry.\n\nA budget with zero room for normal surprises behaves like the overfilled glass. Breathing room is not wasted money; it is what helps the plan survive ordinary life without collapsing every time something changes.`
+    ),
+    SUPPORT(
+      "Show me a real-life example",
+      "Show me how this looks in real life.",
+      "CLARA · IN REAL LIFE · 2/3",
+      `Suppose every peso of your income is assigned so tightly that nothing remains. Then a ₱300 fare increase, medicine, school contribution, or unexpected meal has nowhere to go. You are forced to steal from another category or abandon the plan.\n\nEven a modest buffer gives those small surprises somewhere to land. That keeps one unexpected expense from turning into several financial problems.`
+    ),
+    SUPPORT(
+      "Give me the simplest version",
+      "Give me the simplest version of this point.",
+      "CLARA · SIMPLEST VERSION · 3/3",
+      `Do not build a budget that only works on a perfect month.\n\nLeave reasonable room for reality.\n\nDiscipline gives the plan direction; breathing room gives the plan durability.`
+    ),
+  ],
+  "realistic-not-impressive": [
+    SUPPORT(
+      "Show me another way",
+      "Show me another way to see this.",
+      "CLARA · ANOTHER WAY TO SEE IT · 1/3",
+      `A budget is like a workout plan. Writing “run 20 kilometers every day” may look impressive, but if your real starting point is two kilometers, the plan is more likely to make you quit than improve.\n\nA useful budget starts from your real life, then asks for believable improvement. A challenging plan can help you grow. An imaginary plan only gives you numbers you cannot consistently live with.`
+    ),
+    SUPPORT(
+      "Show me a real-life example",
+      "Show me how this looks in real life.",
+      "CLARA · IN REAL LIFE · 2/3",
+      `If your necessary food spending has consistently been around ₱4,000, setting it to ₱1,000 without a real change in circumstances does not create ₱3,000 of savings. It creates a gap between the budget and reality.\n\nA better plan might test ₱3,600, understand what needs to change, and review the result. Improvement that you can repeat is stronger than a dramatic target you abandon.`
+    ),
+    SUPPORT(
+      "Give me the simplest version",
+      "Give me the simplest version of this point.",
+      "CLARA · SIMPLEST VERSION · 3/3",
+      `Your budget should describe the life you can actually practice, not the person you wish you became overnight.\n\nStart honest. Improve deliberately.\n\nA realistic budget you can repeat is more powerful than an impressive budget you cannot follow.`
+    ),
+  ],
+  "payday-behavior": [
+    SUPPORT(
+      "Show me another way",
+      "Show me another way to see this.",
+      "CLARA · ANOTHER WAY TO SEE IT · 1/3",
+      `Payday is like starting a long trip with a full tank of fuel. A full tank feels abundant at the beginning, but it still has to carry you all the way to the destination.\n\nThe budget reminds you that today's large balance is not just for today. It has to survive the whole income cycle. The feeling of having plenty should not erase the distance your money still needs to travel.`
+    ),
+    SUPPORT(
+      "Show me a real-life example",
+      "Show me how this looks in real life.",
+      "CLARA · IN REAL LIFE · 2/3",
+      `A balance of ₱20,000 on payday can make a ₱1,500 purchase feel small. A few days later, after several “small” purchases, the same person may still need to cover two weeks of food, fare, bills, and other obligations.\n\nThe budget is most useful at the moment the balance feels biggest, because that is when it is easiest to forget how long the money has to last.`
+    ),
+    SUPPORT(
+      "Give me the simplest version",
+      "Give me the simplest version of this point.",
+      "CLARA · SIMPLEST VERSION · 3/3",
+      `Payday shows you the most money, not the most freedom.\n\nThat balance still has to carry the rest of the cycle.\n\nUse the budget early, before the feeling of abundance turns future responsibilities into an afterthought.`
+    ),
+  ],
+  "sticking-to-the-plan": [
+    SUPPORT(
+      "Show me another way",
+      "Show me another way to see this.",
+      "CLARA · ANOTHER WAY TO SEE IT · 1/3",
+      `A budget is like a speedometer. Knowing the speed limit before you drive is useful, but you still need to look at the dashboard while the car is moving.\n\nYour spending plan also needs to be consulted during real decisions. The purpose is not merely to create it once. It is to give you information at the exact moment you can still choose differently.`
+    ),
+    SUPPORT(
+      "Show me a real-life example",
+      "Show me how this looks in real life.",
+      "CLARA · IN REAL LIFE · 2/3",
+      `Suppose your leisure budget has ₱800 left and payday is still ten days away. Before spending ₱600 tonight, checking the plan lets you see that the purchase would leave only ₱200 for the rest of the cycle.\n\nThat pause does not automatically mean “no.” It simply lets you make the decision while seeing its consequence. This is where “Ask before you spend” becomes practical.`
+    ),
+    SUPPORT(
+      "Give me the simplest version",
+      "Give me the simplest version of this point.",
+      "CLARA · SIMPLEST VERSION · 3/3",
+      `A budget cannot guide a decision you never check.\n\nLook before flexible spending, not only after.\n\nRecording afterward tells you what happened. Checking beforehand gives you a chance to change what happens next.`
+    ),
+  ],
+  "overspending-is-information": [
+    SUPPORT(
+      "Show me another way",
+      "Show me another way to see this.",
+      "CLARA · ANOTHER WAY TO SEE IT · 1/3",
+      `Think of missing one turn while using navigation. The map does not say the entire trip is ruined. It recalculates from where you are now.\n\nOverspending can be treated the same way. The useful response is not to throw away the budget. It is to identify what changed, understand why, and decide how the rest of the cycle should adjust from this point forward.`
+    ),
+    SUPPORT(
+      "Show me a real-life example",
+      "Show me how this looks in real life.",
+      "CLARA · IN REAL LIFE · 2/3",
+      `If you planned ₱2,000 for dining and reach ₱2,400, you have information. Maybe the original amount was unrealistic, maybe one event was unusual, or maybe several impulsive choices added up.\n\nYou can now decide whether to reduce another flexible category, stop dining spending for the cycle, or simply learn that next month's plan needs a different number. The mistake becomes useful when it changes your next decision.`
+    ),
+    SUPPORT(
+      "Give me the simplest version",
+      "Give me the simplest version of this point.",
+      "CLARA · SIMPLEST VERSION · 3/3",
+      `Overspending is a signal, not permission to give up.\n\nAsk what caused it, adjust what you still can, and keep the rest of the plan alive.\n\nOne category going wrong does not require the whole month to go wrong.`
+    ),
+  ],
+  "realign-dont-pretend": [
+    SUPPORT(
+      "Show me another way",
+      "Show me another way to see this.",
+      "CLARA · ANOTHER WAY TO SEE IT · 1/3",
+      `A budget is more like a route than a contract carved in stone. If a road genuinely closes, changing the route is sensible. If you keep changing the destination every time another road looks more fun, the route stops guiding you.\n\nRealignment means changing the plan because reality meaningfully changed, while still protecting the purpose of the plan.`
+    ),
+    SUPPORT(
+      "Show me a real-life example",
+      "Show me how this looks in real life.",
+      "CLARA · IN REAL LIFE · 2/3",
+      `Suppose a family responsibility suddenly increases by ₱1,500. Updating the budget to make room for it may be the responsible choice. You can see which flexible category needs to shrink and why.\n\nThat is different from buying something impulsively and then editing the budget afterward only so the purchase appears “planned.” One responds to reality; the other erases accountability.`
+    ),
+    SUPPORT(
+      "Give me the simplest version",
+      "Give me the simplest version of this point.",
+      "CLARA · SIMPLEST VERSION · 3/3",
+      `Change the budget when life changes—not just when you want the numbers to excuse a decision.\n\nA useful plan can move, but the movement should have a reason.\n\nRealign intentionally. Do not rewrite history.`
+    ),
+  ],
+  "close-and-learn": [
+    SUPPORT(
+      "Show me another way",
+      "Show me another way to see this.",
+      "CLARA · ANOTHER WAY TO SEE IT · 1/3",
+      `Think of each budget cycle like one practice session. You would not judge practice only by whether every move was perfect. You would look at what worked, what kept going wrong, and what needs adjustment next time.\n\nClosing the cycle turns your spending into feedback. The next budget becomes stronger because it is based on your real patterns instead of another guess.`
+    ),
+    SUPPORT(
+      "Show me a real-life example",
+      "Show me how this looks in real life.",
+      "CLARA · IN REAL LIFE · 2/3",
+      `At month-end you may notice transportation was consistently higher than planned, food was accurate, and “unexpected” small purchases appeared every week. That tells you something useful.\n\nNext cycle, you can give transportation a more realistic amount, keep food close to the same, and create better room or rules for those repeated unplanned purchases. The review turns experience into a better plan.`
+    ),
+    SUPPORT(
+      "Give me the simplest version",
+      "Give me the simplest version of this point.",
+      "CLARA · SIMPLEST VERSION · 3/3",
+      `Do not finish a budget and forget it.\n\nLook at what the cycle taught you, then use that evidence to build the next one.\n\nA budget improves through repetition: plan, live it, review it, adjust it, repeat.`
+    ),
+  ],
+  "consistency-creates-control": [
+    SUPPORT(
+      "Show me another way",
+      "Show me another way to see this.",
+      "CLARA · ANOTHER WAY TO SEE IT · 1/3",
+      `Financial control is like learning to steer. The goal is not to keep the road perfectly straight every second. The goal is to notice when you are drifting and make small corrections before you leave the road.\n\nBudgeting gives you that steering system for money. Repeating the process helps you recognize drift earlier and respond before small choices become larger problems.`
+    ),
+    SUPPORT(
+      "Show me a real-life example",
+      "Show me how this looks in real life.",
+      "CLARA · IN REAL LIFE · 2/3",
+      `After several budget cycles, you may know roughly what daily life costs, how much flexible spending is safe, what expenses regularly surprise you, and how much you can realistically protect for savings or emergencies.\n\nThat knowledge reduces guesswork. You are no longer reacting only when the balance becomes low. You can see problems earlier and make choices while you still have room to act.`
+    ),
+    SUPPORT(
+      "Give me the simplest version",
+      "Give me the simplest version of this point.",
+      "CLARA · SIMPLEST VERSION · 3/3",
+      `The goal of budgeting is not perfect categories. It is control.\n\nControl means you know what your money needs to do, you notice when spending drifts, and you can adjust before the problem grows.\n\nDo that repeatedly, and your money starts following your decisions instead of constantly surprising you.`
+    ),
+  ],
+};
+
+export function getBudgetMasterclassSupportSequence(stepId = "") {
+  const sequence = BUDGET_MASTERCLASS_SUPPORT_SEQUENCE[String(stepId || "")] || [];
+  return sequence.map((item) => ({ ...item }));
+}
+
+export const BUDGET_MASTERCLASS_INTRO = `Not just what a budget is — I’ll walk you through why money can disappear even when individual purchases look affordable, how a realistic budget is built, how to use it while you spend, and what to do when the plan does not go perfectly.\n\nYou control the pace. After every important point, you can continue, ask a follow-up question, or open up to three authored supporting explanations: another view, a real-life example, and the simplest version. If you still want help after all three, you can continue the Masterclass or schedule a live conversation with CLARA.`;
 
 export const BUDGET_MASTERCLASS_FINISH = `You’ve reached the end of the core Budgeting Masterclass.\n\nIf one part still feels unclear, you do not have to pretend you understand it. Ask me more. If the framework already makes sense, you can finish here and start practicing it.\n\nThe goal is not to memorize every sentence. The goal is to understand the system well enough to use it when real spending decisions happen.`;
 
