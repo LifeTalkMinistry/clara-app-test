@@ -150,9 +150,9 @@ export default function UniversalOnboarding() {
 
         .clara-onboarding-tour-entry {
           position: absolute;
-          z-index: 25;
+          z-index: 30;
           left: 50%;
-          bottom: 82px;
+          bottom: 92px;
           width: min(calc(100% - 54px), 392px);
           min-height: 64px;
           transform: translateX(-50%);
@@ -260,7 +260,7 @@ export default function UniversalOnboarding() {
 
         @media (max-height: 700px) {
           .clara-onboarding-tour-entry {
-            bottom: 72px;
+            bottom: 82px;
             min-height: 56px;
             padding-block: 7px;
           }
@@ -310,31 +310,31 @@ export default function UniversalOnboarding() {
           className="clara-onboarding-transition"
         >
           {content}
-
-          {isLast ? (
-            <button
-              type="button"
-              onClick={startTutorial}
-              className="clara-onboarding-tour-entry"
-              aria-label="Take the CLARA core feature tour"
-            >
-              <span className="clara-onboarding-tour-icon">
-                <Compass strokeWidth={1.8} />
-              </span>
-              <span className="clara-onboarding-tour-copy">
-                <span className="clara-onboarding-tour-kicker">
-                  <Sparkles strokeWidth={1.8} /> Optional guided walkthrough
-                </span>
-                <span className="clara-onboarding-tour-title">Take the CLARA Tour</span>
-                <span className="clara-onboarding-tour-text">See the core features before you start.</span>
-              </span>
-              <span className="clara-onboarding-tour-arrow" aria-hidden="true">
-                <ArrowRight />
-              </span>
-            </button>
-          ) : null}
         </motion.div>
       </AnimatePresence>
+
+      {isLast ? (
+        <button
+          type="button"
+          onClick={startTutorial}
+          className="clara-onboarding-tour-entry"
+          aria-label="Take the CLARA core feature tour"
+        >
+          <span className="clara-onboarding-tour-icon">
+            <Compass strokeWidth={1.8} />
+          </span>
+          <span className="clara-onboarding-tour-copy">
+            <span className="clara-onboarding-tour-kicker">
+              <Sparkles strokeWidth={1.8} /> Optional guided walkthrough
+            </span>
+            <span className="clara-onboarding-tour-title">Take the CLARA Tour</span>
+            <span className="clara-onboarding-tour-text">See the core features before you start.</span>
+          </span>
+          <span className="clara-onboarding-tour-arrow" aria-hidden="true">
+            <ArrowRight />
+          </span>
+        </button>
+      ) : null}
 
       <footer className="clara-onboarding-footer">
         <div className="clara-onboarding-footer-inner">
