@@ -134,6 +134,7 @@ import "../community-premium-theme.css";
 import "../community-reference-refresh.css";
 import "../community-composer-centering-fix.css";
 import "../community-feed-post-seams.css";
+import "../onboarding-money-situation-premium.css";
 import "./installClaraOrbIdleLife";
 import "./installClaraOrbGreeting";
 import "./installClaraOrbImmersiveNav";
