@@ -77,7 +77,7 @@ body:has([aria-label="Close Budgeting Masterclass"]) header .h-1\.5 {
 }
 
 body:has([aria-label="Close Budgeting Masterclass"]) header .h-1\.5 > div {
-  background: linear-gradient(90deg, #44c7ff 0%, #3b82f6 68%, #f2d267 100%) !important;
+  background: linear-gradient(90deg, #44c7ff, #3b82f6, #f2d267) !important;
   box-shadow: 0 0 12px rgba(65, 177, 255, 0.16);
 }
 
@@ -254,4 +254,183 @@ body:has([aria-label="Close Budgeting Masterclass"]) footer:not(:has(form)) butt
     padding-left: 14px !important;
     padding-right: 14px !important;
   }
+}
+
+/* --------------------------------------------------------------------------
+   CLARA identity layer
+   Blue = calm/control, gold = wisdom, red = action. The title remains the only
+   identity text in the header; brand recognition comes from the environment.
+   -------------------------------------------------------------------------- */
+
+body:has([aria-label="Close Budgeting Masterclass"]) div.fixed:has([aria-label="Close Budgeting Masterclass"]) > .pointer-events-none.absolute.inset-0 {
+  opacity: 1 !important;
+  filter: none !important;
+  background:
+    radial-gradient(circle at -8% 18%, rgba(36, 107, 253, 0.24), transparent 34%),
+    radial-gradient(circle at 104% 38%, rgba(206, 17, 38, 0.11), transparent 30%),
+    radial-gradient(circle at 48% 4%, rgba(252, 209, 22, 0.045), transparent 20%),
+    linear-gradient(180deg, rgba(3, 11, 28, 0.20), rgba(1, 4, 22, 0.02) 34%, rgba(1, 4, 22, 0.38)) !important;
+}
+
+/* Let the branded header own the entire top edge rather than reading as a small toolbar. */
+body:has([aria-label="Close Budgeting Masterclass"]) header {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-bottom: 0 !important;
+  background: linear-gradient(100deg, rgba(8, 34, 78, 0.995) 0%, rgba(3, 12, 30, 0.995) 48%, rgba(29, 7, 22, 0.995) 100%) !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.24);
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) header::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 10% 35%, rgba(36, 107, 253, 0.30), transparent 32%),
+    radial-gradient(circle at 52% -35%, rgba(252, 209, 22, 0.10), transparent 36%),
+    radial-gradient(circle at 94% 34%, rgba(206, 17, 38, 0.20), transparent 30%);
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, #246bfd 0 56%, #fcd116 56% 69%, #ce1126 69% 100%);
+  opacity: 0.84;
+  box-shadow: 0 0 14px rgba(36, 107, 253, 0.20);
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) header > div:first-child {
+  position: relative;
+  min-height: 48px;
+  justify-content: center !important;
+  gap: 0 !important;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) header > div:first-child > button:first-child,
+body:has([aria-label="Close Budgeting Masterclass"]) header > div:first-child > button:last-child {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) header > div:first-child > button:first-child {
+  left: 0;
+  border-color: rgba(93, 159, 255, 0.22) !important;
+  background: rgba(36, 107, 253, 0.075) !important;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) header > div:first-child > button:last-child {
+  right: 0;
+  border-color: rgba(229, 84, 96, 0.18) !important;
+  background: rgba(206, 17, 38, 0.055) !important;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) header .min-w-0.flex-1 {
+  flex: none !important;
+  width: calc(100% - 96px);
+  min-height: 48px !important;
+  justify-content: center;
+  padding: 0 8px;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) header h1 {
+  width: 100%;
+  text-align: center !important;
+  font-size: 17.5px !important;
+  font-weight: 790 !important;
+  letter-spacing: -0.028em !important;
+  color: #ffffff !important;
+  text-shadow: 0 1px 18px rgba(80, 164, 255, 0.10);
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) header > div:nth-child(2) {
+  margin-top: 9px !important;
+  padding-bottom: 1px;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) header > div:nth-child(2) > div:first-child span:first-child {
+  color: rgba(155, 208, 255, 0.62) !important;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) header > div:nth-child(2) > div:first-child span:last-child {
+  color: rgba(252, 209, 22, 0.82) !important;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) header .h-1\.5 > div {
+  background: linear-gradient(90deg, #246bfd 0%, #4fc3ff 68%, #fcd116 90%, #ce1126 100%) !important;
+  box-shadow: 0 0 13px rgba(36, 107, 253, 0.24);
+}
+
+/* Teaching surfaces carry CLARA's three-color signature without turning into rainbow cards. */
+body:has([aria-label="Close Budgeting Masterclass"]) main .rounded-bl-\[8px\] {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(36, 107, 253, 0.13), transparent 38%),
+    radial-gradient(circle at 104% 100%, rgba(206, 17, 38, 0.045), transparent 34%),
+    linear-gradient(150deg, #071a34 0%, #06152d 65%, #0b1228 100%) !important;
+  border-color: rgba(104, 174, 255, 0.17) !important;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) main .rounded-bl-\[8px\]::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(36, 107, 253, 0.88) 0 67%, rgba(252, 209, 22, 0.72) 67% 82%, rgba(206, 17, 38, 0.64) 82% 100%);
+  opacity: 0.62;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) main .rounded-bl-\[8px\] > p:first-child:not(:last-child) {
+  color: rgba(92, 180, 255, 0.74) !important;
+}
+
+/* User acknowledgement remains calm blue, with a small warm edge so it belongs to CLARA. */
+body:has([aria-label="Close Budgeting Masterclass"]) main .rounded-br-\[8px\] {
+  border-color: rgba(77, 168, 255, 0.20) !important;
+  background: linear-gradient(110deg, rgba(36, 107, 253, 0.12), rgba(20, 82, 148, 0.10) 80%, rgba(252, 209, 22, 0.035)) !important;
+}
+
+/* The response shelf repeats the same restrained CLARA signature. */
+body:has([aria-label="Close Budgeting Masterclass"]) footer:not(:has(form)) {
+  position: relative;
+  border-top: 0 !important;
+  background: linear-gradient(100deg, rgba(5, 18, 43, 0.99), rgba(3, 10, 25, 0.995) 55%, rgba(20, 7, 20, 0.99)) !important;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:not(:has(form))::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(36, 107, 253, 0.72) 0 64%, rgba(252, 209, 22, 0.56) 64% 78%, rgba(206, 17, 38, 0.46) 78% 100%);
+  opacity: 0.62;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:not(:has(form)) .grid > button:first-child,
+body:has([aria-label="Close Budgeting Masterclass"]) footer:not(:has(form)) > div > button {
+  border-color: rgba(75, 166, 255, 0.26) !important;
+  background: linear-gradient(105deg, rgba(36, 107, 253, 0.19), rgba(30, 125, 205, 0.15) 75%, rgba(252, 209, 22, 0.055)) !important;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:not(:has(form)) .grid > button:nth-child(2) svg {
+  color: rgba(252, 209, 22, 0.72) !important;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:not(:has(form)) .grid > button:nth-child(3) svg {
+  color: rgba(95, 190, 255, 0.72) !important;
 }
