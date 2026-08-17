@@ -76,12 +76,19 @@ export function useCommittedMembershipState({ billingRecord = null } = {}) {
 
 export function useCommittedFeatureAccess() {
   const hasCommittedAccess = useCommittedMembershipState().hasCommittedAccess;
+  const currentPath = getCurrentAppPath();
+
+  // Monthly Coaching is intentionally discoverable by Free users. The route
+  // itself stays open so the live calendar can act as a real preview; the
+  // scheduler components separately enforce active supporter access before any
+  // date/time can be selected or booked.
+  if (currentPath === "/welcome-session") return true;
 
   // P0-F14 compatibility boundary: old component-level Committed guards are
   // never allowed to deny a route whose product feature is defined as free
   // core. Paid coaching, masterclasses, organization programs, and future
   // special services must authorize themselves outside those core routes.
-  if (isFreeCoreRoute(getCurrentAppPath())) return true;
+  if (isFreeCoreRoute(currentPath)) return true;
 
   return hasCommittedAccess;
 }
