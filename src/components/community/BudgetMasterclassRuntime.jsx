@@ -6,11 +6,9 @@ import {
   Check,
   ChevronRight,
   HelpCircle,
-  Loader2,
   MessageCircleQuestion,
   RotateCcw,
   Send,
-  Sparkles,
   Target,
   X,
 } from "lucide-react";
@@ -25,6 +23,9 @@ import {
 } from "@/lib/clara-budget-masterclass";
 import { requestBudgetMasterclassAi } from "@/lib/clara-budget-masterclass-ai";
 
+const MIN_READ_DELAY_MS = 5200;
+const MAX_READ_DELAY_MS = 8200;
+
 function makeMessage(role, text, extra = {}) {
   return {
     id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -34,8 +35,9 @@ function makeMessage(role, text, extra = {}) {
   };
 }
 
-function ClaraBubble({ message }) {
+function ClaraBubble({ message, displayText, typing = false }) {
   const isUser = message.role === "user";
+  const text = displayText ?? message.text;
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
@@ -60,21 +62,40 @@ function ClaraBubble({ message }) {
           </h3>
         ) : null}
         <p className="whitespace-pre-line text-[13px] font-semibold leading-[1.72] text-current/90">
-          {message.text}
+          {text}
+          {typing ? (
+            <span className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[2px] animate-pulse rounded-full bg-cyan-100/75" />
+          ) : null}
         </p>
       </div>
     </div>
   );
 }
 
-function ChoiceButton({ children, icon: Icon, onClick, primary = false, disabled = false }) {
+function ClaraTypingIndicator({ label = "CLARA is typing" }) {
+  return (
+    <div className="flex justify-start" aria-label={label}>
+      <div className="flex items-center gap-1.5 rounded-[20px] rounded-bl-[8px] border border-white/[0.08] bg-white/[0.045] px-4 py-3.5 shadow-[0_12px_30px_rgba(0,0,0,0.16)]">
+        {[0, 1, 2].map((index) => (
+          <span
+            key={index}
+            className="h-2 w-2 animate-bounce rounded-full bg-cyan-100/65"
+            style={{ animationDelay: `${index * 140}ms`, animationDuration: "900ms" }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function QuickReply({ children, icon: Icon, onClick, primary = false, disabled = false }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       className={[
-        "flex min-h-12 w-full items-center justify-between gap-3 rounded-[18px] border px-4 py-3 text-left text-[12px] font-black transition active:scale-[0.992] disabled:cursor-not-allowed disabled:opacity-45",
+        "flex min-h-11 w-full items-center justify-between gap-3 rounded-[18px] border px-4 py-2.5 text-left text-[12px] font-black transition active:scale-[0.992] disabled:cursor-not-allowed disabled:opacity-45",
         primary
           ? "border-cyan-100/22 bg-[linear-gradient(135deg,rgba(34,211,238,0.18),rgba(37,99,235,0.16)_55%,rgba(139,92,246,0.15))] text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_22px_rgba(0,0,0,0.16)]"
           : "border-white/[0.09] bg-white/[0.045] text-white/78 hover:border-white/[0.16] hover:bg-white/[0.07]",
@@ -89,13 +110,26 @@ function ChoiceButton({ children, icon: Icon, onClick, primary = false, disabled
   );
 }
 
+function getReadDelay() {
+  return Math.round(MIN_READ_DELAY_MS + Math.random() * (MAX_READ_DELAY_MS - MIN_READ_DELAY_MS));
+}
+
 export default function BudgetMasterclassRuntime() {
   const location = useLocation();
   const navigate = useNavigate();
   const scrollRef = useRef(null);
+  const typingTimerRef = useRef(null);
+  const readTimerRef = useRef(null);
+  const transitionTimerRef = useRef(null);
+  const initializedRef = useRef(false);
+
   const [started, setStarted] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [messages, setMessages] = useState([]);
+  const [pendingMessage, setPendingMessage] = useState(null);
+  const [pendingChoiceMode, setPendingChoiceMode] = useState("");
+  const [typedText, setTypedText] = useState("");
+  const [choicesMode, setChoicesMode] = useState("");
   const [composerOpen, setComposerOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [aiMode, setAiMode] = useState("");
@@ -114,6 +148,114 @@ export default function BudgetMasterclassRuntime() {
     ? Math.round(((Math.min(stepIndex + 1, BUDGET_MASTERCLASS_STEPS.length)) / BUDGET_MASTERCLASS_STEPS.length) * 100)
     : 0;
   const aiBusy = Boolean(aiMode);
+  const claraBusy = Boolean(pendingMessage) || aiBusy;
+
+  const clearConversationTimers = () => {
+    if (typingTimerRef.current) window.clearInterval(typingTimerRef.current);
+    if (readTimerRef.current) window.clearTimeout(readTimerRef.current);
+    if (transitionTimerRef.current) window.clearTimeout(transitionTimerRef.current);
+    typingTimerRef.current = null;
+    readTimerRef.current = null;
+    transitionTimerRef.current = null;
+  };
+
+  const queueClaraMessage = (message, nextChoiceMode = "") => {
+    if (!message) return;
+    if (typingTimerRef.current) window.clearInterval(typingTimerRef.current);
+    if (readTimerRef.current) window.clearTimeout(readTimerRef.current);
+    typingTimerRef.current = null;
+    readTimerRef.current = null;
+    setChoicesMode("");
+    setPendingChoiceMode(nextChoiceMode);
+    setTypedText("");
+    setPendingMessage(message);
+  };
+
+  useEffect(() => {
+    if (!pendingMessage) return undefined;
+
+    const source = String(pendingMessage.text || "");
+    if (!source) {
+      setMessages((current) => [...current, pendingMessage]);
+      setPendingMessage(null);
+      return undefined;
+    }
+
+    let index = 0;
+    const totalDuration = Math.min(5200, Math.max(1800, source.length * 7));
+    const tickMs = 28;
+    const totalTicks = Math.max(1, Math.ceil(totalDuration / tickMs));
+    const charsPerTick = Math.max(1, Math.ceil(source.length / totalTicks));
+
+    typingTimerRef.current = window.setInterval(() => {
+      index = Math.min(source.length, index + charsPerTick);
+      setTypedText(source.slice(0, index));
+
+      if (index >= source.length) {
+        window.clearInterval(typingTimerRef.current);
+        typingTimerRef.current = null;
+        const completedMessage = pendingMessage;
+        const nextMode = pendingChoiceMode;
+        setMessages((current) => [...current, completedMessage]);
+        setPendingMessage(null);
+        setTypedText("");
+        setPendingChoiceMode("");
+
+        if (nextMode) {
+          readTimerRef.current = window.setTimeout(() => {
+            setChoicesMode(nextMode);
+            readTimerRef.current = null;
+          }, getReadDelay());
+        }
+      }
+    }, tickMs);
+
+    return () => {
+      if (typingTimerRef.current) window.clearInterval(typingTimerRef.current);
+      typingTimerRef.current = null;
+    };
+  }, [pendingMessage, pendingChoiceMode]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      initializedRef.current = false;
+      clearConversationTimers();
+      return;
+    }
+
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    clearConversationTimers();
+    setStarted(false);
+    setStepIndex(0);
+    setMessages([]);
+    setPendingMessage(null);
+    setPendingChoiceMode("");
+    setTypedText("");
+    setChoicesMode("");
+    setComposerOpen(false);
+    setQuestion("");
+    setAiMode("");
+    setFinished(false);
+    setCompleted(false);
+    setLiveNoticeShown(false);
+
+    transitionTimerRef.current = window.setTimeout(() => {
+      queueClaraMessage(
+        makeMessage(
+          "clara",
+          `Want me to teach you how budgeting actually works?\n\n${BUDGET_MASTERCLASS_INTRO}`,
+          {
+            kind: "lesson",
+            title: "Budgeting Masterclass",
+            eyebrow: "CLARA · Let’s learn together",
+          }
+        ),
+        "intro"
+      );
+      transitionTimerRef.current = null;
+    }, 500);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -122,95 +264,115 @@ export default function BudgetMasterclassRuntime() {
       if (node) node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
     });
     return () => window.cancelAnimationFrame(id);
-  }, [isOpen, messages, composerOpen, aiMode, finished, completed]);
+  }, [isOpen, messages, pendingMessage, typedText, composerOpen, choicesMode, aiMode]);
 
   useEffect(() => {
     if (!isOpen) return undefined;
     const onKeyDown = (event) => {
-      if (event.key === "Escape" && !aiBusy) navigate("/community?view=home");
+      if (event.key === "Escape" && !claraBusy) navigate("/community?view=home");
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [aiBusy, isOpen, navigate]);
+  }, [claraBusy, isOpen, navigate]);
+
+  useEffect(() => () => clearConversationTimers(), []);
 
   if (!isOpen) return null;
+
+  const sendUserBubble = (text) => {
+    setMessages((current) => [...current, makeMessage("user", text)]);
+  };
 
   const appendLesson = (index) => {
     const step = BUDGET_MASTERCLASS_STEPS[index];
     if (!step) return;
-    setMessages((current) => [
-      ...current,
+    queueClaraMessage(
       makeMessage("clara", step.text, {
         kind: "lesson",
         title: step.title,
         eyebrow: `Budget Masterclass · Point ${index + 1}`,
       }),
-    ]);
+      "lesson"
+    );
   };
 
   const startMasterclass = () => {
+    if (claraBusy) return;
+    setChoicesMode("");
+    sendUserBubble("Start the Budgeting Masterclass.");
     setStarted(true);
     setFinished(false);
     setCompleted(false);
     setStepIndex(0);
-    setMessages([]);
-    setComposerOpen(false);
-    setQuestion("");
-    setLiveNoticeShown(false);
-    window.setTimeout(() => appendLesson(0), 80);
+    transitionTimerRef.current = window.setTimeout(() => {
+      appendLesson(0);
+      transitionTimerRef.current = null;
+    }, 700);
   };
 
   const continueMasterclass = () => {
-    if (aiBusy || composerOpen) return;
-    if (stepIndex >= BUDGET_MASTERCLASS_STEPS.length - 1) {
-      setFinished(true);
-      setMessages((current) => [
-        ...current,
-        makeMessage("clara", BUDGET_MASTERCLASS_FINISH, {
-          kind: "lesson",
-          title: "You made it through the core lesson",
-          eyebrow: "Budget Masterclass · Core complete",
-        }),
-      ]);
-      return;
-    }
+    if (claraBusy || composerOpen) return;
+    setChoicesMode("");
+    sendUserBubble("Continue.");
 
-    const nextIndex = stepIndex + 1;
-    setStepIndex(nextIndex);
-    appendLesson(nextIndex);
+    transitionTimerRef.current = window.setTimeout(() => {
+      if (stepIndex >= BUDGET_MASTERCLASS_STEPS.length - 1) {
+        setFinished(true);
+        queueClaraMessage(
+          makeMessage("clara", BUDGET_MASTERCLASS_FINISH, {
+            kind: "lesson",
+            title: "You made it through the core lesson",
+            eyebrow: "Budget Masterclass · Core complete",
+          }),
+          "finish"
+        );
+        transitionTimerRef.current = null;
+        return;
+      }
+
+      const nextIndex = stepIndex + 1;
+      setStepIndex(nextIndex);
+      appendLesson(nextIndex);
+      transitionTimerRef.current = null;
+    }, 650);
   };
 
   const explainAnotherWay = async () => {
-    if (aiBusy || composerOpen || finished) return;
+    if (claraBusy || composerOpen || finished) return;
+    setChoicesMode("");
+    sendUserBubble("Can you explain that another way?");
     setAiMode("explain");
+
     try {
       const result = await requestBudgetMasterclassAi({
         mode: "explain_another_way",
         prompt: buildExplainAnotherWayPrompt(currentStep),
       });
-      setMessages((current) => [
-        ...current,
+      setAiMode("");
+      queueClaraMessage(
         makeMessage("clara", result.text, {
           kind: "clarification",
           eyebrow: "CLARA · Another way to see it",
         }),
-      ]);
+        "lesson"
+      );
     } catch (error) {
-      setMessages((current) => [
-        ...current,
+      setAiMode("");
+      queueClaraMessage(
         makeMessage(
           "clara",
           error?.message || "I couldn't generate another explanation right now. You can try again or continue to the next point.",
           { kind: "clarification", eyebrow: "CLARA · Clarification unavailable" }
         ),
-      ]);
-    } finally {
-      setAiMode("");
+        "lesson"
+      );
     }
   };
 
-  const openFollowUp = () => {
-    if (aiBusy) return;
+  const openFollowUp = (fromFinish = false) => {
+    if (claraBusy) return;
+    setChoicesMode("");
+    sendUserBubble(fromFinish ? "I want to ask more." : "I have a follow-up question.");
     setQuestion("");
     setComposerOpen(true);
   };
@@ -218,9 +380,9 @@ export default function BudgetMasterclassRuntime() {
   const submitFollowUp = async (event) => {
     event?.preventDefault?.();
     const cleanQuestion = String(question || "").trim().slice(0, 700);
-    if (!cleanQuestion || aiBusy) return;
+    if (!cleanQuestion || claraBusy) return;
 
-    setMessages((current) => [...current, makeMessage("user", cleanQuestion)]);
+    sendUserBubble(cleanQuestion);
     setQuestion("");
     setComposerOpen(false);
     setAiMode("followup");
@@ -230,65 +392,101 @@ export default function BudgetMasterclassRuntime() {
         mode: "follow_up_question",
         prompt: buildFollowUpPrompt({ stepIndex, question: cleanQuestion }),
       });
-      setMessages((current) => [
-        ...current,
+      setAiMode("");
+      queueClaraMessage(
         makeMessage("clara", result.text, {
           kind: "clarification",
           eyebrow: "CLARA · Follow-up",
         }),
-      ]);
+        finished ? "finish" : "lesson"
+      );
     } catch (error) {
-      setMessages((current) => [
-        ...current,
+      setAiMode("");
+      queueClaraMessage(
         makeMessage(
           "clara",
           error?.message || "I couldn't answer that follow-up right now. You can ask again or keep going with the masterclass.",
           { kind: "clarification", eyebrow: "CLARA · Follow-up unavailable" }
         ),
-      ]);
-    } finally {
-      setAiMode("");
+        finished ? "finish" : "lesson"
+      );
     }
   };
 
   const finishWithUnderstanding = () => {
+    if (claraBusy) return;
+    setChoicesMode("");
+    sendUserBubble("I got it now.");
     setCompleted(true);
     setFinished(false);
     setComposerOpen(false);
-    setMessages((current) => [
-      ...current,
-      makeMessage("clara", BUDGET_MASTERCLASS_CLOSING, {
-        kind: "lesson",
-        title: "You got it",
-        eyebrow: "CLARA · Budgeting Masterclass",
-      }),
-    ]);
+
+    transitionTimerRef.current = window.setTimeout(() => {
+      queueClaraMessage(
+        makeMessage("clara", BUDGET_MASTERCLASS_CLOSING, {
+          kind: "lesson",
+          title: "You got it",
+          eyebrow: "CLARA · Budgeting Masterclass",
+        }),
+        "completed"
+      );
+      transitionTimerRef.current = null;
+    }, 650);
   };
 
   const showLiveConversationNotice = () => {
-    if (liveNoticeShown) return;
+    if (claraBusy || liveNoticeShown) return;
+    setChoicesMode("");
+    sendUserBubble("Schedule a live conversation.");
     setLiveNoticeShown(true);
-    setMessages((current) => [
-      ...current,
-      makeMessage(
-        "clara",
-        "I’ll keep this option ready for a dedicated CLARA live conversation. It is not connected to an admin or human-coaching flow in this Budget pilot. For now, you can keep asking follow-up questions here whenever one part needs more explanation.",
-        { kind: "clarification", eyebrow: "CLARA · Live conversation" }
-      ),
-    ]);
+
+    transitionTimerRef.current = window.setTimeout(() => {
+      queueClaraMessage(
+        makeMessage(
+          "clara",
+          "I’ll keep this option ready for a dedicated CLARA live conversation. It is not connected to an admin or human-coaching flow in this Budget pilot. For now, you can keep asking follow-up questions here whenever one part needs more explanation.",
+          { kind: "clarification", eyebrow: "CLARA · Live conversation" }
+        ),
+        "finish"
+      );
+      transitionTimerRef.current = null;
+    }, 650);
   };
 
   const restartMasterclass = () => {
+    clearConversationTimers();
     setStarted(false);
     setStepIndex(0);
     setMessages([]);
+    setPendingMessage(null);
+    setPendingChoiceMode("");
+    setTypedText("");
+    setChoicesMode("");
     setComposerOpen(false);
     setQuestion("");
     setAiMode("");
     setFinished(false);
     setCompleted(false);
     setLiveNoticeShown(false);
+
+    transitionTimerRef.current = window.setTimeout(() => {
+      queueClaraMessage(
+        makeMessage(
+          "clara",
+          `Want me to teach you how budgeting actually works?\n\n${BUDGET_MASTERCLASS_INTRO}`,
+          {
+            kind: "lesson",
+            title: "Budgeting Masterclass",
+            eyebrow: "CLARA · Let’s learn together",
+          }
+        ),
+        "intro"
+      );
+      transitionTimerRef.current = null;
+    }, 450);
   };
+
+  const quickRepliesVisible = Boolean(choicesMode) && !claraBusy && !composerOpen;
 
   return (
     <div className="fixed inset-0 z-[2147483500] flex flex-col overflow-hidden bg-[#010217] text-white">
@@ -299,7 +497,7 @@ export default function BudgetMasterclassRuntime() {
           <button
             type="button"
             onClick={() => navigate("/community?view=home")}
-            disabled={aiBusy}
+            disabled={claraBusy}
             className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-white/68 transition hover:bg-white/[0.09] disabled:opacity-40"
             aria-label="Back to CLARA Home"
           >
@@ -322,7 +520,7 @@ export default function BudgetMasterclassRuntime() {
           <button
             type="button"
             onClick={() => navigate("/community?view=orb")}
-            disabled={aiBusy}
+            disabled={claraBusy}
             className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.045] text-white/52 transition hover:bg-white/[0.09] disabled:opacity-40"
             aria-label="Close Budgeting Masterclass"
           >
@@ -347,128 +545,101 @@ export default function BudgetMasterclassRuntime() {
       </header>
 
       <main ref={scrollRef} className="relative z-10 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5">
-        <div className="mx-auto w-full max-w-3xl space-y-4 pb-4">
-          {!started ? (
-            <section className="mx-auto mt-[min(6vh,42px)] max-w-xl text-left">
-              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-cyan-100/14 bg-cyan-300/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/62">
-                <Sparkles className="h-3.5 w-3.5" />
-                CLARA guided masterclass
-              </div>
-              <div className="rounded-[30px] border border-white/[0.09] bg-[linear-gradient(145deg,rgba(8,32,61,0.94),rgba(7,18,45,0.96)_52%,rgba(35,19,68,0.90))] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.065)] sm:p-6">
-                <h2 className="text-[25px] font-black leading-tight tracking-[-0.04em] text-white">
-                  Want me to teach you how budgeting actually works?
-                </h2>
-                <p className="mt-4 whitespace-pre-line text-[13px] font-semibold leading-[1.75] text-white/70">
-                  {BUDGET_MASTERCLASS_INTRO}
-                </p>
-                <button
-                  type="button"
-                  onClick={startMasterclass}
-                  className="mt-6 flex min-h-13 w-full items-center justify-center gap-2 rounded-[20px] border border-cyan-100/22 bg-[linear-gradient(135deg,rgba(34,211,238,0.22),rgba(37,99,235,0.22)_55%,rgba(139,92,246,0.20))] px-4 py-3.5 text-[13px] font-black text-white shadow-[0_14px_30px_rgba(0,0,0,0.20)] transition hover:brightness-110 active:scale-[0.992]"
-                >
-                  Start the Budgeting Masterclass
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-            </section>
-          ) : (
-            <>
-              {messages.map((message) => (
-                <ClaraBubble key={message.id} message={message} />
-              ))}
+        <div className="mx-auto w-full max-w-3xl space-y-4 pb-5">
+          {messages.map((message) => (
+            <ClaraBubble key={message.id} message={message} />
+          ))}
 
-              {aiBusy ? (
-                <div className="flex justify-start">
-                  <div className="flex max-w-[88%] items-center gap-3 rounded-[22px] rounded-bl-[8px] border border-cyan-100/10 bg-white/[0.045] px-4 py-3 text-left text-[12px] font-bold text-white/62">
-                    <Loader2 className="h-4 w-4 animate-spin text-cyan-200" />
-                    {aiMode === "explain"
-                      ? "CLARA is thinking of another way to explain this…"
-                      : "CLARA is thinking about your follow-up question…"}
-                  </div>
-                </div>
-              ) : null}
-            </>
-          )}
+          {aiBusy ? <ClaraTypingIndicator label="CLARA is thinking and typing" /> : null}
+
+          {!aiBusy && pendingMessage ? (
+            <ClaraBubble message={pendingMessage} displayText={typedText} typing />
+          ) : null}
         </div>
       </main>
 
-      {started && !completed ? (
-        <footer className="relative z-20 shrink-0 border-t border-white/[0.07] bg-[#041126]/95 px-4 pb-[max(14px,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
-          <div className="mx-auto w-full max-w-3xl">
-            {composerOpen ? (
-              <form onSubmit={submitFollowUp} className="rounded-[22px] border border-cyan-100/13 bg-white/[0.045] p-3">
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100/58">
-                    Your follow-up question
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setComposerOpen(false);
-                      setQuestion("");
-                    }}
-                    className="text-[10px] font-black text-white/38"
-                  >
-                    Cancel
-                  </button>
-                </div>
-                <div className="flex items-end gap-2">
-                  <textarea
-                    autoFocus
-                    value={question}
-                    onChange={(event) => setQuestion(event.target.value.slice(0, 700))}
-                    rows={2}
-                    placeholder="Ask CLARA what is still unclear…"
-                    className="min-h-[54px] flex-1 resize-none rounded-[16px] border border-white/[0.08] bg-black/20 px-3 py-2.5 text-[13px] font-semibold leading-5 text-white outline-none placeholder:text-white/28 focus:border-cyan-100/25"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!question.trim() || aiBusy}
-                    className="grid h-12 w-12 shrink-0 place-items-center rounded-[16px] border border-cyan-100/20 bg-cyan-300/[0.13] text-cyan-50 transition active:scale-95 disabled:opacity-35"
-                    aria-label="Send follow-up question"
-                  >
-                    <Send className="h-4 w-4" />
-                  </button>
-                </div>
-              </form>
-            ) : finished ? (
-              <div className="grid gap-2 sm:grid-cols-3">
-                <ChoiceButton icon={MessageCircleQuestion} onClick={openFollowUp} primary>
-                  Ask more
-                </ChoiceButton>
-                <ChoiceButton icon={Check} onClick={finishWithUnderstanding}>
-                  I got it now
-                </ChoiceButton>
-                <ChoiceButton icon={CalendarClock} onClick={showLiveConversationNotice}>
-                  Schedule a live conversation
-                </ChoiceButton>
-              </div>
-            ) : (
-              <div className="grid gap-2 sm:grid-cols-3">
-                <ChoiceButton icon={ChevronRight} onClick={continueMasterclass} primary disabled={aiBusy}>
-                  Continue
-                </ChoiceButton>
-                <ChoiceButton icon={RotateCcw} onClick={explainAnotherWay} disabled={aiBusy}>
-                  Explain this another way
-                </ChoiceButton>
-                <ChoiceButton icon={HelpCircle} onClick={openFollowUp} disabled={aiBusy}>
-                  I have a follow-up question
-                </ChoiceButton>
-              </div>
-            )}
-          </div>
+      {composerOpen ? (
+        <footer className="relative z-20 shrink-0 border-t border-white/[0.07] bg-[#041126]/96 px-4 pb-[max(14px,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+          <form onSubmit={submitFollowUp} className="mx-auto w-full max-w-3xl">
+            <div className="flex items-end gap-2 rounded-[22px] border border-cyan-100/13 bg-white/[0.045] p-2.5 shadow-[0_-10px_28px_rgba(0,0,0,0.14)]">
+              <textarea
+                autoFocus
+                value={question}
+                onChange={(event) => setQuestion(event.target.value.slice(0, 700))}
+                rows={1}
+                placeholder="Ask CLARA your follow-up question…"
+                className="max-h-28 min-h-[46px] flex-1 resize-none rounded-[16px] border border-white/[0.07] bg-black/20 px-3.5 py-3 text-[13px] font-semibold leading-5 text-white outline-none placeholder:text-white/28 focus:border-cyan-100/25"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setComposerOpen(false);
+                  setQuestion("");
+                  setChoicesMode(finished ? "finish" : "lesson");
+                }}
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-[15px] border border-white/[0.07] bg-white/[0.04] text-white/44"
+                aria-label="Cancel follow-up question"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <button
+                type="submit"
+                disabled={!question.trim() || claraBusy}
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-[15px] border border-cyan-100/20 bg-cyan-300/[0.13] text-cyan-50 transition active:scale-95 disabled:opacity-35"
+                aria-label="Send follow-up question"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </div>
+          </form>
         </footer>
       ) : null}
 
-      {completed ? (
-        <footer className="relative z-20 shrink-0 border-t border-white/[0.07] bg-[#041126]/95 px-4 pb-[max(14px,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
-          <div className="mx-auto grid w-full max-w-3xl gap-2 sm:grid-cols-2">
-            <ChoiceButton icon={ArrowLeft} onClick={() => navigate("/community?view=home")} primary>
-              Back to Budget
-            </ChoiceButton>
-            <ChoiceButton icon={RotateCcw} onClick={restartMasterclass}>
-              Review the masterclass again
-            </ChoiceButton>
+      {quickRepliesVisible ? (
+        <footer className="relative z-20 shrink-0 border-t border-white/[0.07] bg-[#041126]/96 px-4 pb-[max(14px,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+          <div className="mx-auto w-full max-w-3xl">
+            <p className="mb-2 px-1 text-[9px] font-black uppercase tracking-[0.14em] text-white/28">
+              Your reply
+            </p>
+
+            {choicesMode === "intro" ? (
+              <QuickReply icon={ChevronRight} onClick={startMasterclass} primary>
+                Start the Budgeting Masterclass
+              </QuickReply>
+            ) : choicesMode === "finish" ? (
+              <div className="grid gap-2 sm:grid-cols-3">
+                <QuickReply icon={MessageCircleQuestion} onClick={() => openFollowUp(true)} primary>
+                  Ask more
+                </QuickReply>
+                <QuickReply icon={Check} onClick={finishWithUnderstanding}>
+                  I got it now
+                </QuickReply>
+                <QuickReply icon={CalendarClock} onClick={showLiveConversationNotice}>
+                  Schedule a live conversation
+                </QuickReply>
+              </div>
+            ) : choicesMode === "completed" ? (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <QuickReply icon={ArrowLeft} onClick={() => navigate("/community?view=home")} primary>
+                  Back to Budget
+                </QuickReply>
+                <QuickReply icon={RotateCcw} onClick={restartMasterclass}>
+                  Review the masterclass again
+                </QuickReply>
+              </div>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-3">
+                <QuickReply icon={ChevronRight} onClick={continueMasterclass} primary>
+                  Continue
+                </QuickReply>
+                <QuickReply icon={RotateCcw} onClick={explainAnotherWay}>
+                  Explain this another way
+                </QuickReply>
+                <QuickReply icon={HelpCircle} onClick={() => openFollowUp(false)}>
+                  I have a follow-up question
+                </QuickReply>
+              </div>
+            )}
           </div>
         </footer>
       ) : null}
