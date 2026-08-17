@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, ChevronLeft } from "lucide-react";
+import { ArrowRight, ChevronLeft, Compass, Sparkles } from "lucide-react";
 import ClaraBrandName from "@/components/ClaraBrandName";
 import { useAuth } from "@/context/AuthContext";
+import ClaraCoreTutorial from "./ClaraCoreTutorial";
 import MoneySituationScreen from "./MoneySituationScreen";
 import { getUniversalOnboardingStyles } from "./UniversalOnboardingStyles";
 import {
@@ -26,10 +27,16 @@ const CLARA_ORB_PATH = "/community?view=orb";
 const SUPPORT_BUBBLE_EPOCH_KEY = "clara_support_bubble_cycle_epoch_v2";
 const OPEN_SUPPORT_AFTER_ONBOARDING_KEY = "clara_open_support_after_onboarding_v1";
 const MISSION_ONBOARDING_COMPLETE_PREFIX = "clara_mission_onboarding_complete_v1";
+const CORE_TUTORIAL_STATUS_PREFIX = "clara_core_tutorial_status_v1";
 
 function completionKey(user) {
   const identity = user?.id || user?.email || "local";
   return `${MISSION_ONBOARDING_COMPLETE_PREFIX}:${identity}`;
+}
+
+function tutorialStatusKey(user) {
+  const identity = user?.id || user?.email || "local";
+  return `${CORE_TUTORIAL_STATUS_PREFIX}:${identity}`;
 }
 
 function rememberCompletion(user) {
@@ -41,11 +48,24 @@ function rememberCompletion(user) {
   }
 }
 
+function rememberTutorialStatus(user, status) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      tutorialStatusKey(user),
+      JSON.stringify({ status, updatedAt: new Date().toISOString() })
+    );
+  } catch {
+    // Tutorial status is helpful, but never blocks the user from entering CLARA.
+  }
+}
+
 export default function UniversalOnboarding() {
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
   const { user, profile } = useAuth();
   const [screenIndex, setScreenIndex] = useState(0);
+  const [tutorialActive, setTutorialActive] = useState(false);
   const firstName = useMemo(() => firstNameFrom(profile, user), [profile, user]);
   const activeScreen = SCREEN_IDS[screenIndex];
   const isFirst = screenIndex === 0;
@@ -66,6 +86,24 @@ export default function UniversalOnboarding() {
     navigate(CLARA_ORB_PATH, { replace: true });
   };
 
+  const startTutorial = () => {
+    rememberCompletion(user);
+    rememberTutorialStatus(user, "started");
+    setTutorialActive(true);
+  };
+
+  const finishTutorial = () => {
+    rememberCompletion(user);
+    rememberTutorialStatus(user, "completed");
+    navigate(CLARA_ORB_PATH, { replace: true });
+  };
+
+  const skipTutorial = () => {
+    rememberCompletion(user);
+    rememberTutorialStatus(user, "skipped");
+    navigate(CLARA_ORB_PATH, { replace: true });
+  };
+
   const exploreSupport = () => {
     rememberCompletion(user);
     if (typeof window !== "undefined") {
@@ -78,6 +116,10 @@ export default function UniversalOnboarding() {
     }
     navigate(CLARA_ORB_PATH, { replace: true });
   };
+
+  if (tutorialActive) {
+    return <ClaraCoreTutorial onFinish={finishTutorial} onSkip={skipTutorial} />;
+  }
 
   const content = (() => {
     if (activeScreen === "country") return <CountryScreen />;
@@ -103,6 +145,134 @@ export default function UniversalOnboarding() {
       <style>{`${getUniversalOnboardingStyles(SCREEN_IDS.length)}
         .clara-onboarding-transition {
           overflow-y: auto;
+          position: relative;
+        }
+
+        .clara-onboarding-tour-entry {
+          position: absolute;
+          z-index: 4;
+          left: 50%;
+          bottom: 16px;
+          width: min(calc(100% - 54px), 392px);
+          min-height: 64px;
+          transform: translateX(-50%);
+          display: grid;
+          grid-template-columns: 40px minmax(0, 1fr) auto;
+          align-items: center;
+          gap: 12px;
+          padding: 10px 12px;
+          border: 1px solid rgba(77, 130, 220, 0.28);
+          border-radius: 18px;
+          background:
+            linear-gradient(135deg, rgba(16, 35, 70, 0.94), rgba(7, 18, 40, 0.95));
+          box-shadow:
+            0 18px 42px rgba(0, 0, 0, 0.24),
+            inset 0 1px 0 rgba(255, 255, 255, 0.035);
+          color: #eef5ff;
+          text-align: left;
+          cursor: pointer;
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .clara-onboarding-tour-entry::before {
+          content: "";
+          position: absolute;
+          inset: -1px;
+          z-index: -1;
+          border-radius: inherit;
+          background: linear-gradient(110deg, rgba(59, 130, 246, 0.22), transparent 42%, rgba(250, 204, 21, 0.08));
+          pointer-events: none;
+        }
+
+        .clara-onboarding-tour-icon {
+          display: grid;
+          width: 40px;
+          height: 40px;
+          place-items: center;
+          border: 1px solid rgba(96, 165, 250, 0.3);
+          border-radius: 13px;
+          background: rgba(37, 99, 235, 0.13);
+          color: #75a9ff;
+        }
+
+        .clara-onboarding-tour-icon svg {
+          width: 19px;
+          height: 19px;
+        }
+
+        .clara-onboarding-tour-copy {
+          display: block;
+          min-width: 0;
+        }
+
+        .clara-onboarding-tour-kicker {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          color: #6f98d8;
+          font-size: 7px;
+          font-weight: 950;
+          letter-spacing: 0.15em;
+          text-transform: uppercase;
+        }
+
+        .clara-onboarding-tour-kicker svg {
+          width: 10px;
+          height: 10px;
+          color: #facc15;
+        }
+
+        .clara-onboarding-tour-title {
+          display: block;
+          margin-top: 4px;
+          color: #f7fbff;
+          font-size: 12px;
+          font-weight: 900;
+          letter-spacing: -0.015em;
+        }
+
+        .clara-onboarding-tour-text {
+          display: block;
+          margin-top: 2px;
+          overflow: hidden;
+          color: #8295b1;
+          font-size: 9px;
+          font-weight: 600;
+          line-height: 1.35;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .clara-onboarding-tour-arrow {
+          display: grid;
+          width: 28px;
+          height: 28px;
+          place-items: center;
+          border-radius: 999px;
+          background: rgba(37, 99, 235, 0.14);
+          color: #79aaff;
+        }
+
+        .clara-onboarding-tour-arrow svg {
+          width: 14px;
+          height: 14px;
+        }
+
+        @media (max-height: 700px) {
+          .clara-onboarding-tour-entry {
+            bottom: 9px;
+            min-height: 56px;
+            padding-block: 7px;
+          }
+
+          .clara-onboarding-tour-icon {
+            width: 36px;
+            height: 36px;
+          }
+
+          .clara-onboarding-tour-text {
+            display: none;
+          }
         }
       `}</style>
 
@@ -140,6 +310,29 @@ export default function UniversalOnboarding() {
           className="clara-onboarding-transition"
         >
           {content}
+
+          {isLast ? (
+            <button
+              type="button"
+              onClick={startTutorial}
+              className="clara-onboarding-tour-entry"
+              aria-label="Take the CLARA core feature tour"
+            >
+              <span className="clara-onboarding-tour-icon">
+                <Compass strokeWidth={1.8} />
+              </span>
+              <span className="clara-onboarding-tour-copy">
+                <span className="clara-onboarding-tour-kicker">
+                  <Sparkles strokeWidth={1.8} /> Optional guided walkthrough
+                </span>
+                <span className="clara-onboarding-tour-title">Take the CLARA Tour</span>
+                <span className="clara-onboarding-tour-text">See the core features before you start.</span>
+              </span>
+              <span className="clara-onboarding-tour-arrow" aria-hidden="true">
+                <ArrowRight />
+              </span>
+            </button>
+          ) : null}
         </motion.div>
       </AnimatePresence>
 
