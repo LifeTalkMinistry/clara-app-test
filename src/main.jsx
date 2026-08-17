@@ -6,6 +6,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { queryClientInstance } from "@/lib/query-client";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import ClaraAiEnvironmentBridge from "@/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentBridge";
+import BudgetMasterclassRuntime from "@/components/community/BudgetMasterclassRuntime";
 import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
 import { installNativeNotificationListeners } from "@/lib/notifications/nativePushNotifications";
 import { startLocalEntitlementLifecycle } from "@/lib/local-entitlement-lifecycle";
@@ -259,6 +260,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <ThemeProvider>
             <HashRouter>
               <RootApplication />
+              <BudgetMasterclassRuntime />
               <ClaraAiEnvironmentBridge />
             </HashRouter>
           </ThemeProvider>
