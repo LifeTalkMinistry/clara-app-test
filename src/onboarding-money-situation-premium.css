@@ -1,0 +1,101 @@
+/*
+ * Premium polish for the Universal Onboarding money-situation insight board.
+ * Visual-only override: no flow, state, storage, or interaction ownership.
+ */
+
+.clara-onboarding-situation-board {
+  border: 1px solid rgba(104, 158, 245, 0.16) !important;
+  border-radius: 24px !important;
+  background:
+    radial-gradient(circle at 88% 0%, rgba(43, 117, 255, 0.11), transparent 42%),
+    linear-gradient(180deg, rgba(10, 25, 54, 0.91), rgba(4, 12, 29, 0.95)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 22px 58px rgba(0, 0, 0, 0.22),
+    0 0 0 1px rgba(38, 92, 188, 0.035) !important;
+}
+
+.clara-onboarding-situation-board-section {
+  position: relative;
+  padding: 17px 18px 18px !important;
+}
+
+.clara-onboarding-situation-board-section--clara {
+  border-top: 1px solid rgba(116, 166, 244, 0.14) !important;
+  background:
+    linear-gradient(90deg, rgba(43, 117, 255, 0.055), transparent 48%),
+    linear-gradient(180deg, rgba(25, 67, 145, 0.075), rgba(7, 20, 46, 0.035)) !important;
+}
+
+.clara-onboarding-situation-board-section--clara::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 16px;
+  bottom: 16px;
+  width: 2px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #78afff, rgba(43, 117, 255, 0.08));
+  box-shadow: 0 0 14px rgba(75, 139, 255, 0.24);
+}
+
+.clara-onboarding-situation-board-kicker {
+  color: rgba(166, 198, 247, 0.56) !important;
+  font-size: 8px !important;
+  font-weight: 820 !important;
+  letter-spacing: 0.215em !important;
+}
+
+.clara-onboarding-situation-board-section--clara .clara-onboarding-situation-board-kicker {
+  color: #91bdff !important;
+}
+
+.clara-onboarding-situation-board-title {
+  margin-top: 9px !important;
+  color: #fbfdff !important;
+  font-size: 14px !important;
+  line-height: 1.3 !important;
+  font-weight: 780 !important;
+  letter-spacing: -0.022em !important;
+  text-wrap: balance;
+  text-shadow: 0 8px 22px rgba(0, 0, 0, 0.2);
+}
+
+.clara-onboarding-situation-board-copy {
+  margin-top: 8px !important;
+  color: rgba(237, 244, 255, 0.68) !important;
+  font-size: 11.75px !important;
+  line-height: 1.62 !important;
+  font-weight: 520 !important;
+  letter-spacing: -0.007em !important;
+}
+
+.clara-onboarding-situation-board-section--clara .clara-onboarding-situation-board-copy {
+  color: rgba(247, 250, 255, 0.86) !important;
+  font-size: 12px !important;
+  line-height: 1.6 !important;
+  font-weight: 620 !important;
+}
+
+@media (max-height: 760px) {
+  .clara-onboarding-situation-board-section {
+    padding: 14px 16px 15px !important;
+  }
+
+  .clara-onboarding-situation-board-title {
+    margin-top: 7px !important;
+    font-size: 13.25px !important;
+  }
+
+  .clara-onboarding-situation-board-copy,
+  .clara-onboarding-situation-board-section--clara .clara-onboarding-situation-board-copy {
+    margin-top: 6px !important;
+    font-size: 11px !important;
+    line-height: 1.52 !important;
+  }
+
+  .clara-onboarding-situation-board-section--clara::before {
+    top: 13px;
+    bottom: 13px;
+  }
+}
