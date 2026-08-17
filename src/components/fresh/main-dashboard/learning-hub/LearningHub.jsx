@@ -107,42 +107,58 @@ export default function LearningHub({ hubOpen = false, onOpenHub, onCloseHub }) 
   };
 
   return (
-    <section
-      data-clara-learning-hub-section="true"
-      className="clara-budget-focus-shift clara-budget-focus-hub w-full"
-    >
-      <div className="relative flex w-full flex-col gap-[var(--clara-hub-rail-gap,14px)] overflow-visible px-1 py-0">
-        {!hubOpen ? (
-          <div
-            data-clara-learning-hub-bridge="true"
-            className="relative grid w-full items-center"
-            style={{ gridTemplateColumns: "1fr auto 1fr" }}
-          >
-            <div className="mr-1.5 justify-self-end">
-              <CoachingCalendarButton onClick={() => navigate("/welcome-session")} />
+    <>
+      <style>{`
+        .clara-community-home-view {
+          overflow-x: hidden !important;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+
+        .clara-community-home-view::-webkit-scrollbar {
+          display: none;
+          width: 0;
+          height: 0;
+        }
+      `}</style>
+
+      <section
+        data-clara-learning-hub-section="true"
+        className="clara-budget-focus-shift clara-budget-focus-hub w-full"
+      >
+        <div className="relative flex w-full flex-col gap-[var(--clara-hub-rail-gap,14px)] overflow-visible px-1 py-0">
+          {!hubOpen ? (
+            <div
+              data-clara-learning-hub-bridge="true"
+              className="relative grid w-full items-center"
+              style={{ gridTemplateColumns: "1fr auto 1fr" }}
+            >
+              <div className="mr-1.5 justify-self-end">
+                <CoachingCalendarButton onClick={() => navigate("/welcome-session")} />
+              </div>
+
+              <LearningHubToggleButton
+                isExpanded={false}
+                isLocked={isLocked}
+                isInsideCategory={false}
+                headerLabel="Learning Hub"
+                onClick={handleOpenHub}
+                flushSpacing
+              />
+
+              <span aria-hidden="true" />
             </div>
-
-            <LearningHubToggleButton
-              isExpanded={false}
-              isLocked={isLocked}
-              isInsideCategory={false}
-              headerLabel="Learning Hub"
-              onClick={handleOpenHub}
-              flushSpacing
-            />
-
-            <span aria-hidden="true" />
-          </div>
-        ) : (
-          <Suspense fallback={<LearningHubOpeningPlaceholder />}>
-            <LearningHubLoaded
-              initialExpanded
-              flushSpacing={true}
-              onCollapse={handleCloseHub}
-            />
-          </Suspense>
-        )}
-      </div>
-    </section>
+          ) : (
+            <Suspense fallback={<LearningHubOpeningPlaceholder />}>
+              <LearningHubLoaded
+                initialExpanded
+                flushSpacing={true}
+                onCollapse={handleCloseHub}
+              />
+            </Suspense>
+          )}
+        </div>
+      </section>
+    </>
   );
 }
