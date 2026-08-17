@@ -18,13 +18,14 @@ import {
   BUDGET_MASTERCLASS_INTRO,
   BUDGET_MASTERCLASS_STEPS,
   BUDGET_MASTERCLASS_TITLE,
-  buildExplainAnotherWayPrompt,
   buildFollowUpPrompt,
+  getBudgetMasterclassSupportSequence,
 } from "@/lib/clara-budget-masterclass";
 import { requestBudgetMasterclassAi } from "@/lib/clara-budget-masterclass-ai";
 
 const MIN_READ_DELAY_MS = 5200;
 const MAX_READ_DELAY_MS = 8200;
+const LIVE_SESSION_CONTEXT_KEY = "clara_budget_masterclass_live_context_v1";
 
 function makeMessage(role, text, extra = {}) {
   return {
@@ -135,7 +136,8 @@ export default function BudgetMasterclassRuntime() {
   const [aiMode, setAiMode] = useState("");
   const [finished, setFinished] = useState(false);
   const [completed, setCompleted] = useState(false);
-  const [liveNoticeShown, setLiveNoticeShown] = useState(false);
+  const [supportLevel, setSupportLevel] = useState(0);
+  const [unresolvedStepIds, setUnresolvedStepIds] = useState([]);
 
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const isOpen =
@@ -144,6 +146,8 @@ export default function BudgetMasterclassRuntime() {
     searchParams.get("masterclass") === "budget";
 
   const currentStep = BUDGET_MASTERCLASS_STEPS[stepIndex] || BUDGET_MASTERCLASS_STEPS[0];
+  const supportSequence = getBudgetMasterclassSupportSequence(currentStep?.id);
+  const nextSupport = supportSequence[supportLevel] || null;
   const progress = started
     ? Math.round(((Math.min(stepIndex + 1, BUDGET_MASTERCLASS_STEPS.length)) / BUDGET_MASTERCLASS_STEPS.length) * 100)
     : 0;
@@ -238,7 +242,8 @@ export default function BudgetMasterclassRuntime() {
     setAiMode("");
     setFinished(false);
     setCompleted(false);
-    setLiveNoticeShown(false);
+    setSupportLevel(0);
+    setUnresolvedStepIds([]);
 
     transitionTimerRef.current = window.setTimeout(() => {
       queueClaraMessage(
@@ -304,6 +309,8 @@ export default function BudgetMasterclassRuntime() {
     setFinished(false);
     setCompleted(false);
     setStepIndex(0);
+    setSupportLevel(0);
+    setUnresolvedStepIds([]);
     transitionTimerRef.current = window.setTimeout(() => {
       appendLesson(0);
       transitionTimerRef.current = null;
@@ -332,41 +339,39 @@ export default function BudgetMasterclassRuntime() {
 
       const nextIndex = stepIndex + 1;
       setStepIndex(nextIndex);
+      setSupportLevel(0);
       appendLesson(nextIndex);
       transitionTimerRef.current = null;
     }, 650);
   };
 
-  const explainAnotherWay = async () => {
-    if (claraBusy || composerOpen || finished) return;
-    setChoicesMode("");
-    sendUserBubble("Can you explain that another way?");
-    setAiMode("explain");
+  const showNextSupportingExplanation = () => {
+    if (claraBusy || composerOpen || finished || !nextSupport) return;
 
-    try {
-      const result = await requestBudgetMasterclassAi({
-        mode: "explain_another_way",
-        prompt: buildExplainAnotherWayPrompt(currentStep),
-      });
-      setAiMode("");
-      queueClaraMessage(
-        makeMessage("clara", result.text, {
-          kind: "clarification",
-          eyebrow: "CLARA · Another way to see it",
-        }),
-        "lesson"
-      );
-    } catch (error) {
-      setAiMode("");
-      queueClaraMessage(
-        makeMessage(
-          "clara",
-          error?.message || "I couldn't generate another explanation right now. You can try again or continue to the next point.",
-          { kind: "clarification", eyebrow: "CLARA · Clarification unavailable" }
-        ),
-        "lesson"
+    const support = nextSupport;
+    const nextLevel = supportLevel + 1;
+    const exhausted = nextLevel >= supportSequence.length;
+
+    setChoicesMode("");
+    sendUserBubble(support.userText);
+    setSupportLevel(nextLevel);
+
+    if (exhausted && currentStep?.id) {
+      setUnresolvedStepIds((current) =>
+        current.includes(currentStep.id) ? current : [...current, currentStep.id]
       );
     }
+
+    transitionTimerRef.current = window.setTimeout(() => {
+      queueClaraMessage(
+        makeMessage("clara", support.text, {
+          kind: "clarification",
+          eyebrow: support.eyebrow,
+        }),
+        exhausted ? "support-exhausted" : "lesson"
+      );
+      transitionTimerRef.current = null;
+    }, 650);
   };
 
   const openFollowUp = (fromFinish = false) => {
@@ -398,7 +403,7 @@ export default function BudgetMasterclassRuntime() {
           kind: "clarification",
           eyebrow: "CLARA · Follow-up",
         }),
-        finished ? "finish" : "lesson"
+        finished ? "finish" : supportLevel >= supportSequence.length ? "support-exhausted" : "lesson"
       );
     } catch (error) {
       setAiMode("");
@@ -408,7 +413,7 @@ export default function BudgetMasterclassRuntime() {
           error?.message || "I couldn't answer that follow-up right now. You can ask again or keep going with the masterclass.",
           { kind: "clarification", eyebrow: "CLARA · Follow-up unavailable" }
         ),
-        finished ? "finish" : "lesson"
+        finished ? "finish" : supportLevel >= supportSequence.length ? "support-exhausted" : "lesson"
       );
     }
   };
@@ -434,23 +439,32 @@ export default function BudgetMasterclassRuntime() {
     }, 650);
   };
 
-  const showLiveConversationNotice = () => {
-    if (claraBusy || liveNoticeShown) return;
-    setChoicesMode("");
-    sendUserBubble("Schedule a live conversation.");
-    setLiveNoticeShown(true);
+  const scheduleLiveConversation = () => {
+    if (claraBusy) return;
 
-    transitionTimerRef.current = window.setTimeout(() => {
-      queueClaraMessage(
-        makeMessage(
-          "clara",
-          "I’ll keep this option ready for a dedicated CLARA live conversation. It is not connected to an admin or human-coaching flow in this Budget pilot. For now, you can keep asking follow-up questions here whenever one part needs more explanation.",
-          { kind: "clarification", eyebrow: "CLARA · Live conversation" }
-        ),
-        "finish"
-      );
-      transitionTimerRef.current = null;
-    }, 650);
+    const liveContext = {
+      source: "budget-masterclass",
+      stepId: currentStep?.id || "",
+      stepIndex,
+      stepNumber: stepIndex + 1,
+      stepTitle: currentStep?.title || "",
+      supportLevel,
+      unresolvedStepIds,
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      window.sessionStorage.setItem(LIVE_SESSION_CONTEXT_KEY, JSON.stringify(liveContext));
+    } catch {
+      // The scheduler still opens even when storage is unavailable.
+    }
+
+    navigate("/welcome-session", {
+      state: {
+        source: "budget-masterclass",
+        budgetMasterclass: liveContext,
+      },
+    });
   };
 
   const restartMasterclass = () => {
@@ -467,7 +481,8 @@ export default function BudgetMasterclassRuntime() {
     setAiMode("");
     setFinished(false);
     setCompleted(false);
-    setLiveNoticeShown(false);
+    setSupportLevel(0);
+    setUnresolvedStepIds([]);
 
     transitionTimerRef.current = window.setTimeout(() => {
       queueClaraMessage(
@@ -575,7 +590,13 @@ export default function BudgetMasterclassRuntime() {
                 onClick={() => {
                   setComposerOpen(false);
                   setQuestion("");
-                  setChoicesMode(finished ? "finish" : "lesson");
+                  setChoicesMode(
+                    finished
+                      ? "finish"
+                      : supportLevel >= supportSequence.length
+                        ? "support-exhausted"
+                        : "lesson"
+                  );
                 }}
                 className="grid h-11 w-11 shrink-0 place-items-center rounded-[15px] border border-white/[0.07] bg-white/[0.04] text-white/44"
                 aria-label="Cancel follow-up question"
@@ -614,8 +635,8 @@ export default function BudgetMasterclassRuntime() {
                 <QuickReply icon={Check} onClick={finishWithUnderstanding}>
                   I got it now
                 </QuickReply>
-                <QuickReply icon={CalendarClock} onClick={showLiveConversationNotice}>
-                  Schedule a live conversation
+                <QuickReply icon={CalendarClock} onClick={scheduleLiveConversation}>
+                  Schedule with CLARA
                 </QuickReply>
               </div>
             ) : choicesMode === "completed" ? (
@@ -627,14 +648,27 @@ export default function BudgetMasterclassRuntime() {
                   Review the masterclass again
                 </QuickReply>
               </div>
+            ) : choicesMode === "support-exhausted" ? (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <QuickReply icon={ChevronRight} onClick={continueMasterclass} primary>
+                  {stepIndex >= BUDGET_MASTERCLASS_STEPS.length - 1
+                    ? "Finish the core Masterclass"
+                    : `Continue to Point ${stepIndex + 2}`}
+                </QuickReply>
+                <QuickReply icon={CalendarClock} onClick={scheduleLiveConversation}>
+                  Talk this through with CLARA
+                </QuickReply>
+              </div>
             ) : (
               <div className="grid gap-2 sm:grid-cols-3">
                 <QuickReply icon={ChevronRight} onClick={continueMasterclass} primary>
                   Continue
                 </QuickReply>
-                <QuickReply icon={RotateCcw} onClick={explainAnotherWay}>
-                  Explain this another way
-                </QuickReply>
+                {nextSupport ? (
+                  <QuickReply icon={RotateCcw} onClick={showNextSupportingExplanation}>
+                    {nextSupport.buttonLabel}
+                  </QuickReply>
+                ) : null}
                 <QuickReply icon={HelpCircle} onClick={() => openFollowUp(false)}>
                   I have a follow-up question
                 </QuickReply>
