@@ -1,0 +1,39 @@
+.clara-daily-tip-flipper--flipped .clara-daily-tip-face--back {
+  pointer-events: auto;
+}
+
+.clara-daily-tip-flipper--flipped .clara-daily-tip-face--back button {
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.clara-daily-tip-flipper--flipped .clara-daily-tip-face--back button[aria-pressed="true"] {
+  transform: scale(1.04);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 2px rgba(255, 255, 255, 0.08),
+    0 0 18px rgba(103, 232, 249, 0.16);
+}
+
+.clara-daily-tip-flipper--flipped .clara-daily-tip-face--back button[aria-pressed="true"]::after {
+  content: "✓";
+  position: absolute;
+  right: -2px;
+  top: -2px;
+  display: flex;
+  width: 15px;
+  height: 15px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-radius: 999px;
+  background: rgba(8, 47, 73, 0.96);
+  color: rgba(236, 254, 255, 1);
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 2px 8px rgba(2, 8, 23, 0.38);
+}
