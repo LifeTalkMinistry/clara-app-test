@@ -18,6 +18,7 @@ import {
   getBudgetMasterclassSupportSequenceForLanguage,
 } from "@/lib/clara-budget-masterclass-i18n";
 import { getBudgetMasterclassPointQuestions } from "@/lib/clara-budget-masterclass-questions";
+import { getBudgetMasterclassQuestionSupports } from "@/lib/clara-budget-masterclass-question-supports";
 
 const MIN_READ_DELAY_MS = 5200;
 const MAX_READ_DELAY_MS = 8200;
@@ -30,6 +31,24 @@ const POINT_QUESTION_UI = {
     backLabel: "Back to point options",
     answerEyebrow: "CLARA · KEY QUESTION",
     askedLabel: "Asked",
+    clarityLabel: "Need more clarity?",
+    gotItLabel: "That makes sense",
+    backQuestionsLabel: "Back to questions",
+    supportButtons: [
+      "Explain this answer another way",
+      "Show me a real-life example",
+      "Give me the simplest version",
+    ],
+    supportUserText: [
+      "Explain this answer another way.",
+      "Show me a real-life example.",
+      "Give me the simplest version.",
+    ],
+    supportEyebrows: [
+      "CLARA · ANOTHER WAY · 1/3",
+      "CLARA · REAL-LIFE EXAMPLE · 2/3",
+      "CLARA · SIMPLEST VERSION · 3/3",
+    ],
   },
   tl: {
     pickerLabel: "Pumili ng tanong",
@@ -37,6 +56,24 @@ const POINT_QUESTION_UI = {
     backLabel: "Bumalik sa point options",
     answerEyebrow: "CLARA · MAHALAGANG TANONG",
     askedLabel: "Naitanong na",
+    clarityLabel: "Kailangan pa ng linaw?",
+    gotItLabel: "Gets ko na",
+    backQuestionsLabel: "Bumalik sa mga tanong",
+    supportButtons: [
+      "Ipaliwanag sa ibang paraan",
+      "Bigyan ako ng totoong halimbawa",
+      "Pinakasimpleng version",
+    ],
+    supportUserText: [
+      "Ipaliwanag ang sagot sa ibang paraan.",
+      "Bigyan ako ng totoong halimbawa.",
+      "Bigyan ako ng pinakasimpleng version.",
+    ],
+    supportEyebrows: [
+      "CLARA · IBANG PARAAN · 1/3",
+      "CLARA · TOTOONG HALIMBAWA · 2/3",
+      "CLARA · PINAKASIMPLE · 3/3",
+    ],
   },
   es: {
     pickerLabel: "Elige una pregunta",
@@ -44,6 +81,24 @@ const POINT_QUESTION_UI = {
     backLabel: "Volver a las opciones del punto",
     answerEyebrow: "CLARA · PREGUNTA CLAVE",
     askedLabel: "Ya preguntada",
+    clarityLabel: "¿Necesitas más claridad?",
+    gotItLabel: "Ya tiene sentido",
+    backQuestionsLabel: "Volver a las preguntas",
+    supportButtons: [
+      "Explícame esta respuesta de otra forma",
+      "Dame un ejemplo real",
+      "Dame la versión más simple",
+    ],
+    supportUserText: [
+      "Explícame esta respuesta de otra forma.",
+      "Dame un ejemplo real.",
+      "Dame la versión más simple.",
+    ],
+    supportEyebrows: [
+      "CLARA · OTRA FORMA · 1/3",
+      "CLARA · EJEMPLO REAL · 2/3",
+      "CLARA · VERSIÓN MÁS SIMPLE · 3/3",
+    ],
   },
 };
 
@@ -233,6 +288,8 @@ export default function BudgetMasterclassRuntime() {
   const [choicesMode, setChoicesMode] = useState("");
   const [questionReturnMode, setQuestionReturnMode] = useState("lesson");
   const [askedPointQuestions, setAskedPointQuestions] = useState({});
+  const [activeQuestionIndex, setActiveQuestionIndex] = useState(-1);
+  const [questionSupportLevel, setQuestionSupportLevel] = useState(0);
   const [finished, setFinished] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [supportLevel, setSupportLevel] = useState(0);
@@ -251,6 +308,33 @@ export default function BudgetMasterclassRuntime() {
   const supportSequence = getBudgetMasterclassSupportSequenceForLanguage(language || "en", currentStep?.id);
   const pointQuestions = getBudgetMasterclassPointQuestions(language || "en", currentStep?.id);
   const askedQuestionIndexes = askedPointQuestions[currentStep?.id] || [];
+  const activeQuestionSupports =
+    activeQuestionIndex >= 0
+      ? getBudgetMasterclassQuestionSupports(language || "en", currentStep?.id, activeQuestionIndex)
+      : null;
+  const questionSupportSequence = activeQuestionSupports
+    ? [
+        {
+          text: activeQuestionSupports.anotherWay,
+          buttonLabel: questionUi.supportButtons[0],
+          userText: questionUi.supportUserText[0],
+          eyebrow: questionUi.supportEyebrows[0],
+        },
+        {
+          text: activeQuestionSupports.realLife,
+          buttonLabel: questionUi.supportButtons[1],
+          userText: questionUi.supportUserText[1],
+          eyebrow: questionUi.supportEyebrows[1],
+        },
+        {
+          text: activeQuestionSupports.simplest,
+          buttonLabel: questionUi.supportButtons[2],
+          userText: questionUi.supportUserText[2],
+          eyebrow: questionUi.supportEyebrows[2],
+        },
+      ].filter((item) => item.text)
+    : [];
+  const nextQuestionSupport = questionSupportSequence[questionSupportLevel] || null;
   const nextSupport = supportSequence[supportLevel] || null;
   const progress = started
     ? Math.round(((Math.min(stepIndex + 1, experience.steps.length)) / experience.steps.length) * 100)
@@ -266,6 +350,11 @@ export default function BudgetMasterclassRuntime() {
     transitionTimerRef.current = null;
   };
 
+  const resetQuestionThread = () => {
+    setActiveQuestionIndex(-1);
+    setQuestionSupportLevel(0);
+  };
+
   const resetConversationState = () => {
     setStarted(false);
     setStepIndex(0);
@@ -276,6 +365,7 @@ export default function BudgetMasterclassRuntime() {
     setChoicesMode("");
     setQuestionReturnMode("lesson");
     setAskedPointQuestions({});
+    resetQuestionThread();
     setFinished(false);
     setCompleted(false);
     setSupportLevel(0);
@@ -436,6 +526,7 @@ export default function BudgetMasterclassRuntime() {
     setStepIndex(0);
     setSupportLevel(0);
     setAskedPointQuestions({});
+    resetQuestionThread();
     setUnresolvedStepIds([]);
     transitionTimerRef.current = window.setTimeout(() => {
       appendLesson(0);
@@ -446,6 +537,7 @@ export default function BudgetMasterclassRuntime() {
   const continueMasterclass = () => {
     if (claraBusy) return;
     setChoicesMode("");
+    resetQuestionThread();
     sendUserBubble(copy.continueUser);
 
     transitionTimerRef.current = window.setTimeout(() => {
@@ -488,6 +580,7 @@ export default function BudgetMasterclassRuntime() {
     const exhausted = nextLevel >= supportSequence.length;
 
     setChoicesMode("");
+    resetQuestionThread();
     sendUserBubble(support.userText);
     setSupportLevel(nextLevel);
 
@@ -517,6 +610,7 @@ export default function BudgetMasterclassRuntime() {
         ? "support-exhausted"
         : "lesson";
     setQuestionReturnMode(returnMode || choicesMode || fallbackMode);
+    resetQuestionThread();
     setChoicesMode("questions");
   };
 
@@ -540,6 +634,8 @@ export default function BudgetMasterclassRuntime() {
       };
     });
 
+    setActiveQuestionIndex(questionIndex);
+    setQuestionSupportLevel(0);
     setChoicesMode("");
     sendUserBubble(item.question);
 
@@ -549,15 +645,47 @@ export default function BudgetMasterclassRuntime() {
           kind: "clarification",
           eyebrow: questionUi.answerEyebrow,
         }),
-        "questions",
+        "question-thread",
       );
       transitionTimerRef.current = null;
     }, 520);
   };
 
+  const showNextQuestionSupport = () => {
+    if (claraBusy || !nextQuestionSupport || activeQuestionIndex < 0) return;
+
+    const support = nextQuestionSupport;
+    setChoicesMode("");
+    sendUserBubble(support.userText);
+    setQuestionSupportLevel((current) => current + 1);
+
+    transitionTimerRef.current = window.setTimeout(() => {
+      queueClaraMessage(
+        makeMessage("clara", support.text, {
+          kind: "clarification",
+          eyebrow: support.eyebrow,
+        }),
+        "question-thread",
+      );
+      transitionTimerRef.current = null;
+    }, 520);
+  };
+
+  const returnToQuestions = () => {
+    if (claraBusy) return;
+    resetQuestionThread();
+    setChoicesMode("questions");
+  };
+
+  const finishQuestionThread = () => {
+    if (claraBusy) return;
+    returnToQuestions();
+  };
+
   const finishWithUnderstanding = () => {
     if (claraBusy) return;
     setChoicesMode("");
+    resetQuestionThread();
     sendUserBubble(copy.gotItUser);
     setCompleted(true);
     setFinished(false);
@@ -691,7 +819,11 @@ export default function BudgetMasterclassRuntime() {
         <footer className="relative z-20 shrink-0 border-t border-white/[0.07] bg-[#041126]/96 px-4 pb-[max(14px,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
           <div className="mx-auto w-full max-w-3xl">
             <p className="mb-2 px-1 text-[9px] font-black uppercase tracking-[0.14em] text-white/28">
-              {choicesMode === "questions" ? questionUi.pickerLabel : copy.yourReply}
+              {choicesMode === "questions"
+                ? questionUi.pickerLabel
+                : choicesMode === "question-thread"
+                  ? questionUi.clarityLabel
+                  : copy.yourReply}
             </p>
 
             {choicesMode === "intro" ? (
@@ -718,11 +850,35 @@ export default function BudgetMasterclassRuntime() {
                 })}
                 <button
                   type="button"
-                  onClick={() => setChoicesMode(questionReturnMode || "lesson")}
+                  onClick={() => {
+                    resetQuestionThread();
+                    setChoicesMode(questionReturnMode || "lesson");
+                  }}
                   className="mt-1 inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-[14px] border border-white/[0.06] bg-transparent px-3 text-[10.5px] font-bold text-white/42 transition hover:bg-white/[0.035] hover:text-white/66"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" />
                   {questionUi.backLabel}
+                </button>
+              </div>
+            ) : choicesMode === "question-thread" ? (
+              <div className="space-y-2">
+                <div className={`grid gap-2 ${nextQuestionSupport ? "sm:grid-cols-2" : ""}`}>
+                  <QuickReply icon={Check} onClick={finishQuestionThread} primary>
+                    {questionUi.gotItLabel}
+                  </QuickReply>
+                  {nextQuestionSupport ? (
+                    <QuickReply icon={RotateCcw} onClick={showNextQuestionSupport}>
+                      {nextQuestionSupport.buttonLabel}
+                    </QuickReply>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={returnToQuestions}
+                  className="inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-[14px] border border-white/[0.06] bg-transparent px-3 text-[10.5px] font-bold text-white/42 transition hover:bg-white/[0.035] hover:text-white/66"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  {questionUi.backQuestionsLabel}
                 </button>
               </div>
             ) : choicesMode === "finish" ? (
