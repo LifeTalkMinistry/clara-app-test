@@ -1,0 +1,184 @@
+/* CLARA Budgeting Masterclass — premium follow-up composer.
+   Deliberately scoped to the Masterclass form so no other chat/composer is touched. */
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) {
+  position: relative;
+  border-top: 0 !important;
+  background: linear-gradient(180deg, rgba(2, 8, 23, 0.965), rgba(2, 9, 25, 0.995)) !important;
+  padding: 12px 14px max(14px, env(safe-area-inset-bottom)) !important;
+  box-shadow: 0 -18px 44px rgba(0, 0, 0, 0.28) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form)::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgba(36, 107, 253, 0.82) 0 66%,
+    rgba(252, 209, 22, 0.72) 66% 80%,
+    rgba(206, 17, 38, 0.68) 80% 100%
+  );
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) form {
+  position: relative;
+  padding-top: 17px;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) form::before {
+  content: "CLARA · FOLLOW-UP";
+  position: absolute;
+  top: 0;
+  left: 12px;
+  color: rgba(126, 205, 255, 0.58);
+  font-size: 8.5px;
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) form > div {
+  position: relative;
+  display: flex !important;
+  align-items: flex-end !important;
+  gap: 7px !important;
+  min-height: 62px;
+  padding: 7px !important;
+  overflow: hidden;
+  border: 1px solid rgba(91, 166, 255, 0.21) !important;
+  border-radius: 19px !important;
+  background: linear-gradient(105deg, rgba(7, 26, 58, 0.98), rgba(5, 17, 39, 0.99) 68%, rgba(18, 10, 29, 0.97)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 9px 24px rgba(0, 0, 0, 0.24) !important;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) form > div::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 92px;
+  top: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(63, 145, 255, 0.72), rgba(70, 201, 255, 0.34), transparent);
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) form > div:focus-within {
+  border-color: rgba(91, 185, 255, 0.38) !important;
+  background: linear-gradient(105deg, rgba(8, 31, 68, 0.99), rgba(5, 19, 43, 0.995) 68%, rgba(19, 11, 31, 0.98)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 0 0 1px rgba(66, 163, 255, 0.07),
+    0 12px 30px rgba(0, 0, 0, 0.28) !important;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) textarea {
+  min-height: 46px !important;
+  max-height: 112px !important;
+  padding: 12px 11px 10px !important;
+  border: 0 !important;
+  border-radius: 13px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: rgba(244, 249, 255, 0.94) !important;
+  caret-color: #67c9ff;
+  font-size: 13px !important;
+  font-weight: 570 !important;
+  line-height: 1.5 !important;
+  outline: none !important;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) textarea::placeholder {
+  color: rgba(212, 230, 255, 0.35) !important;
+  font-weight: 560 !important;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) button {
+  width: 43px !important;
+  height: 43px !important;
+  min-width: 43px !important;
+  min-height: 43px !important;
+  border-radius: 13px !important;
+  box-shadow: none !important;
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, opacity 140ms ease !important;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) button[type="button"] {
+  border-color: rgba(191, 214, 244, 0.09) !important;
+  background: rgba(255, 255, 255, 0.035) !important;
+  color: rgba(227, 239, 255, 0.48) !important;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) button[type="button"]:hover {
+  border-color: rgba(220, 233, 252, 0.16) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: rgba(242, 248, 255, 0.72) !important;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) button[type="submit"] {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(111, 190, 255, 0.30) !important;
+  background: linear-gradient(145deg, #246bfd 0%, #1f5ee5 58%, #16479f 100%) !important;
+  color: rgba(255, 255, 255, 0.96) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 7px 18px rgba(20, 76, 184, 0.25) !important;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) button[type="submit"]::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, #4fc3ff 0 66%, #fcd116 66% 82%, #ce1126 82% 100%);
+  opacity: 0.92;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) button[type="submit"]:not(:disabled):hover {
+  border-color: rgba(130, 207, 255, 0.44) !important;
+  background: linear-gradient(145deg, #2d74ff 0%, #2467ea 58%, #194ca5 100%) !important;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) button[type="submit"]:disabled {
+  border-color: rgba(122, 154, 197, 0.10) !important;
+  background: rgba(31, 55, 91, 0.34) !important;
+  color: rgba(204, 221, 242, 0.28) !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) button[type="submit"]:disabled::before {
+  opacity: 0.18;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) button:active {
+  transform: scale(0.96) !important;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) button svg {
+  width: 16px !important;
+  height: 16px !important;
+  stroke-width: 2 !important;
+}
+
+@media (max-width: 640px) {
+  body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) form {
+    padding-top: 16px;
+  }
+}
