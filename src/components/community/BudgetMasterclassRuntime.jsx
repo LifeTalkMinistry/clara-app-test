@@ -5,6 +5,7 @@ import {
   CalendarClock,
   Check,
   ChevronRight,
+  Globe2,
   HelpCircle,
   MessageCircleQuestion,
   RotateCcw,
@@ -13,14 +14,11 @@ import {
   X,
 } from "lucide-react";
 import {
-  BUDGET_MASTERCLASS_CLOSING,
-  BUDGET_MASTERCLASS_FINISH,
-  BUDGET_MASTERCLASS_INTRO,
-  BUDGET_MASTERCLASS_STEPS,
-  BUDGET_MASTERCLASS_TITLE,
-  buildFollowUpPrompt,
-  getBudgetMasterclassSupportSequence,
-} from "@/lib/clara-budget-masterclass";
+  BUDGET_MASTERCLASS_LANGUAGE_OPTIONS,
+  buildBudgetMasterclassFollowUpPrompt,
+  getBudgetMasterclassExperience,
+  getBudgetMasterclassSupportSequenceForLanguage,
+} from "@/lib/clara-budget-masterclass-i18n";
 import { requestBudgetMasterclassAi } from "@/lib/clara-budget-masterclass-ai";
 
 const MIN_READ_DELAY_MS = 5200;
@@ -111,6 +109,92 @@ function QuickReply({ children, icon: Icon, onClick, primary = false, disabled =
   );
 }
 
+function LanguageGate({ onSelect, onBack, onClose }) {
+  return (
+    <div className="fixed inset-0 z-[2147483500] flex min-h-[100dvh] flex-col overflow-hidden bg-[#010217] text-white">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_0%,rgba(36,107,253,0.26),transparent_35%),radial-gradient(circle_at_90%_12%,rgba(206,17,38,0.16),transparent_34%),radial-gradient(circle_at_50%_88%,rgba(252,209,22,0.07),transparent_30%)]" />
+
+      <div className="relative z-10 flex items-center justify-between px-5 pt-[max(18px,env(safe-area-inset-top))] sm:px-7">
+        <button
+          type="button"
+          onClick={onBack}
+          className="grid h-11 w-11 place-items-center rounded-full border border-cyan-100/16 bg-[#071a34]/88 text-cyan-50/80 shadow-[0_10px_30px_rgba(0,0,0,0.24)] backdrop-blur-xl transition active:scale-95"
+          aria-label="Back to CLARA Home"
+        >
+          <ArrowLeft className="h-[18px] w-[18px]" />
+        </button>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="grid h-11 w-11 place-items-center rounded-full border border-rose-300/15 bg-[#2a0b1a]/76 text-rose-50/76 shadow-[0_10px_30px_rgba(0,0,0,0.24)] backdrop-blur-xl transition active:scale-95"
+          aria-label="Close Budgeting Masterclass"
+        >
+          <X className="h-[18px] w-[18px]" />
+        </button>
+      </div>
+
+      <div className="relative z-10 flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-5 py-8 sm:px-7">
+        <section
+          className="relative w-full max-w-[560px] overflow-hidden rounded-[32px] border border-cyan-100/14 bg-[linear-gradient(150deg,rgba(7,30,61,0.97),rgba(4,13,36,0.98)_52%,rgba(34,9,31,0.96))] p-5 shadow-[0_30px_90px_rgba(0,0,0,0.46),inset_0_1px_0_rgba(255,255,255,0.06)] sm:p-7"
+          data-budget-masterclass-language-gate="true"
+        >
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,#246bfd_0_56%,#fcd116_56%_70%,#ce1126_70%_100%)]" />
+          <div className="pointer-events-none absolute -right-14 -top-16 h-40 w-40 rounded-full border border-violet-200/10 bg-violet-400/[0.05]" />
+          <div className="pointer-events-none absolute -bottom-20 -left-14 h-44 w-44 rounded-full border border-cyan-200/10 bg-cyan-300/[0.04]" />
+
+          <div className="relative z-10 text-center">
+            <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl border border-cyan-100/18 bg-[linear-gradient(145deg,rgba(36,107,253,0.20),rgba(15,35,73,0.82)_52%,rgba(252,209,22,0.09))] text-cyan-50 shadow-[0_12px_32px_rgba(0,0,0,0.22)]">
+              <Globe2 className="h-6 w-6" />
+            </div>
+
+            <p className="mt-5 text-[9px] font-black uppercase tracking-[0.24em] text-yellow-200/68">
+              CLARA · PREMIUM BUDGETING MASTERCLASS
+            </p>
+            <h1 className="mt-2 text-[27px] font-black tracking-[-0.04em] text-white sm:text-[32px]">
+              Choose your learning language
+            </h1>
+            <p className="mx-auto mt-3 max-w-md text-[12.5px] font-semibold leading-[1.65] text-blue-100/58 sm:text-[13px]">
+              Same curriculum. Same teaching depth. Choose the language that makes the lesson feel most natural to you.
+            </p>
+          </div>
+
+          <div className="relative z-10 mt-6 grid gap-2.5 sm:grid-cols-3">
+            {BUDGET_MASTERCLASS_LANGUAGE_OPTIONS.map((option) => (
+              <button
+                key={option.code}
+                type="button"
+                onClick={() => onSelect(option.code)}
+                className="group flex min-h-[104px] items-center gap-3 rounded-[22px] border border-white/[0.09] bg-white/[0.045] px-4 py-4 text-left transition hover:border-cyan-100/22 hover:bg-cyan-100/[0.07] active:scale-[0.99] sm:flex-col sm:items-start sm:justify-between"
+                aria-label={`Use ${option.label} for the Budgeting Masterclass`}
+              >
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-cyan-100/15 bg-[#081d3c] text-[10px] font-black tracking-[0.14em] text-cyan-100/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                  {option.shortLabel}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-black tracking-[-0.02em] text-white/94">
+                    {option.nativeLabel}
+                  </span>
+                  <span className="mt-1 block text-[10.5px] font-semibold leading-[1.45] text-white/42">
+                    {option.description}
+                  </span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-white/24 transition group-hover:translate-x-0.5 group-hover:text-cyan-100/65 sm:self-end" />
+              </button>
+            ))}
+          </div>
+
+          <div className="relative z-10 mt-5 border-t border-white/[0.07] pt-4 text-center">
+            <p className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-white/30">
+              14 core points · 3 supporting explanations per point
+            </p>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
 function getReadDelay() {
   return Math.round(MIN_READ_DELAY_MS + Math.random() * (MAX_READ_DELAY_MS - MIN_READ_DELAY_MS));
 }
@@ -124,6 +208,7 @@ export default function BudgetMasterclassRuntime() {
   const transitionTimerRef = useRef(null);
   const initializedRef = useRef(false);
 
+  const [language, setLanguage] = useState("");
   const [started, setStarted] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [messages, setMessages] = useState([]);
@@ -145,11 +230,13 @@ export default function BudgetMasterclassRuntime() {
     searchParams.get("view") === "orb" &&
     searchParams.get("masterclass") === "budget";
 
-  const currentStep = BUDGET_MASTERCLASS_STEPS[stepIndex] || BUDGET_MASTERCLASS_STEPS[0];
-  const supportSequence = getBudgetMasterclassSupportSequence(currentStep?.id);
+  const experience = useMemo(() => getBudgetMasterclassExperience(language || "en"), [language]);
+  const copy = experience.ui;
+  const currentStep = experience.steps[stepIndex] || experience.steps[0];
+  const supportSequence = getBudgetMasterclassSupportSequenceForLanguage(language || "en", currentStep?.id);
   const nextSupport = supportSequence[supportLevel] || null;
   const progress = started
-    ? Math.round(((Math.min(stepIndex + 1, BUDGET_MASTERCLASS_STEPS.length)) / BUDGET_MASTERCLASS_STEPS.length) * 100)
+    ? Math.round(((Math.min(stepIndex + 1, experience.steps.length)) / experience.steps.length) * 100)
     : 0;
   const aiBusy = Boolean(aiMode);
   const claraBusy = Boolean(pendingMessage) || aiBusy;
@@ -161,6 +248,23 @@ export default function BudgetMasterclassRuntime() {
     typingTimerRef.current = null;
     readTimerRef.current = null;
     transitionTimerRef.current = null;
+  };
+
+  const resetConversationState = () => {
+    setStarted(false);
+    setStepIndex(0);
+    setMessages([]);
+    setPendingMessage(null);
+    setPendingChoiceMode("");
+    setTypedText("");
+    setChoicesMode("");
+    setComposerOpen(false);
+    setQuestion("");
+    setAiMode("");
+    setFinished(false);
+    setCompleted(false);
+    setSupportLevel(0);
+    setUnresolvedStepIds([]);
   };
 
   const queueClaraMessage = (message, nextChoiceMode = "") => {
@@ -230,46 +334,18 @@ export default function BudgetMasterclassRuntime() {
     if (initializedRef.current) return;
     initializedRef.current = true;
     clearConversationTimers();
-    setStarted(false);
-    setStepIndex(0);
-    setMessages([]);
-    setPendingMessage(null);
-    setPendingChoiceMode("");
-    setTypedText("");
-    setChoicesMode("");
-    setComposerOpen(false);
-    setQuestion("");
-    setAiMode("");
-    setFinished(false);
-    setCompleted(false);
-    setSupportLevel(0);
-    setUnresolvedStepIds([]);
-
-    transitionTimerRef.current = window.setTimeout(() => {
-      queueClaraMessage(
-        makeMessage(
-          "clara",
-          `Want me to teach you how budgeting actually works?\n\n${BUDGET_MASTERCLASS_INTRO}`,
-          {
-            kind: "lesson",
-            title: "Budgeting Masterclass",
-            eyebrow: "CLARA · Let’s learn together",
-          }
-        ),
-        "intro"
-      );
-      transitionTimerRef.current = null;
-    }, 500);
+    setLanguage("");
+    resetConversationState();
   }, [isOpen]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !language) return;
     const id = window.requestAnimationFrame(() => {
       const node = scrollRef.current;
       if (node) node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
     });
     return () => window.cancelAnimationFrame(id);
-  }, [isOpen, messages, pendingMessage, typedText, composerOpen, choicesMode, aiMode]);
+  }, [isOpen, language, messages, pendingMessage, typedText, composerOpen, choicesMode, aiMode]);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -284,27 +360,61 @@ export default function BudgetMasterclassRuntime() {
 
   if (!isOpen) return null;
 
+  const selectLanguage = (nextLanguage) => {
+    if (claraBusy) return;
+    clearConversationTimers();
+    resetConversationState();
+    setLanguage(nextLanguage);
+    const nextExperience = getBudgetMasterclassExperience(nextLanguage);
+
+    transitionTimerRef.current = window.setTimeout(() => {
+      queueClaraMessage(
+        makeMessage(
+          "clara",
+          `${nextExperience.ui.introQuestion}\n\n${nextExperience.intro}`,
+          {
+            kind: "lesson",
+            title: nextExperience.title,
+            eyebrow: nextExperience.ui.introEyebrow,
+          },
+        ),
+        "intro",
+      );
+      transitionTimerRef.current = null;
+    }, 380);
+  };
+
+  if (!language) {
+    return (
+      <LanguageGate
+        onSelect={selectLanguage}
+        onBack={() => navigate("/community?view=home")}
+        onClose={() => navigate("/community?view=orb")}
+      />
+    );
+  }
+
   const sendUserBubble = (text) => {
     setMessages((current) => [...current, makeMessage("user", text)]);
   };
 
   const appendLesson = (index) => {
-    const step = BUDGET_MASTERCLASS_STEPS[index];
+    const step = experience.steps[index];
     if (!step) return;
     queueClaraMessage(
       makeMessage("clara", step.text, {
         kind: "lesson",
         title: step.title,
-        eyebrow: `Budget Masterclass · Point ${index + 1}`,
+        eyebrow: copy.lessonEyebrow(index + 1),
       }),
-      "lesson"
+      "lesson",
     );
   };
 
   const startMasterclass = () => {
     if (claraBusy) return;
     setChoicesMode("");
-    sendUserBubble("Start the Budgeting Masterclass.");
+    sendUserBubble(copy.startUser);
     setStarted(true);
     setFinished(false);
     setCompleted(false);
@@ -320,18 +430,18 @@ export default function BudgetMasterclassRuntime() {
   const continueMasterclass = () => {
     if (claraBusy || composerOpen) return;
     setChoicesMode("");
-    sendUserBubble("Continue.");
+    sendUserBubble(copy.continueUser);
 
     transitionTimerRef.current = window.setTimeout(() => {
-      if (stepIndex >= BUDGET_MASTERCLASS_STEPS.length - 1) {
+      if (stepIndex >= experience.steps.length - 1) {
         setFinished(true);
         queueClaraMessage(
-          makeMessage("clara", BUDGET_MASTERCLASS_FINISH, {
+          makeMessage("clara", experience.finish, {
             kind: "lesson",
-            title: "You made it through the core lesson",
-            eyebrow: "Budget Masterclass · Core complete",
+            title: copy.coreCompleteTitle,
+            eyebrow: copy.coreCompleteEyebrow,
           }),
-          "finish"
+          "finish",
         );
         transitionTimerRef.current = null;
         return;
@@ -340,7 +450,15 @@ export default function BudgetMasterclassRuntime() {
       const nextIndex = stepIndex + 1;
       setStepIndex(nextIndex);
       setSupportLevel(0);
-      appendLesson(nextIndex);
+      const step = experience.steps[nextIndex];
+      queueClaraMessage(
+        makeMessage("clara", step.text, {
+          kind: "lesson",
+          title: step.title,
+          eyebrow: copy.lessonEyebrow(nextIndex + 1),
+        }),
+        "lesson",
+      );
       transitionTimerRef.current = null;
     }, 650);
   };
@@ -358,7 +476,7 @@ export default function BudgetMasterclassRuntime() {
 
     if (exhausted && currentStep?.id) {
       setUnresolvedStepIds((current) =>
-        current.includes(currentStep.id) ? current : [...current, currentStep.id]
+        current.includes(currentStep.id) ? current : [...current, currentStep.id],
       );
     }
 
@@ -368,7 +486,7 @@ export default function BudgetMasterclassRuntime() {
           kind: "clarification",
           eyebrow: support.eyebrow,
         }),
-        exhausted ? "support-exhausted" : "lesson"
+        exhausted ? "support-exhausted" : "lesson",
       );
       transitionTimerRef.current = null;
     }, 650);
@@ -377,7 +495,7 @@ export default function BudgetMasterclassRuntime() {
   const openFollowUp = (fromFinish = false) => {
     if (claraBusy) return;
     setChoicesMode("");
-    sendUserBubble(fromFinish ? "I want to ask more." : "I have a follow-up question.");
+    sendUserBubble(fromFinish ? copy.askMoreUser : copy.followUpUser);
     setQuestion("");
     setComposerOpen(true);
   };
@@ -395,25 +513,36 @@ export default function BudgetMasterclassRuntime() {
     try {
       const result = await requestBudgetMasterclassAi({
         mode: "follow_up_question",
-        prompt: buildFollowUpPrompt({ stepIndex, question: cleanQuestion }),
+        prompt: buildBudgetMasterclassFollowUpPrompt({
+          language,
+          stepIndex,
+          question: cleanQuestion,
+        }),
       });
       setAiMode("");
       queueClaraMessage(
         makeMessage("clara", result.text, {
           kind: "clarification",
-          eyebrow: "CLARA · Follow-up",
+          eyebrow: copy.followUpEyebrow,
         }),
-        finished ? "finish" : supportLevel >= supportSequence.length ? "support-exhausted" : "lesson"
+        finished
+          ? "finish"
+          : supportLevel >= supportSequence.length
+            ? "support-exhausted"
+            : "lesson",
       );
     } catch (error) {
       setAiMode("");
       queueClaraMessage(
-        makeMessage(
-          "clara",
-          error?.message || "I couldn't answer that follow-up right now. You can ask again or keep going with the masterclass.",
-          { kind: "clarification", eyebrow: "CLARA · Follow-up unavailable" }
-        ),
-        finished ? "finish" : supportLevel >= supportSequence.length ? "support-exhausted" : "lesson"
+        makeMessage("clara", error?.message || copy.followUpError, {
+          kind: "clarification",
+          eyebrow: copy.followUpUnavailableEyebrow,
+        }),
+        finished
+          ? "finish"
+          : supportLevel >= supportSequence.length
+            ? "support-exhausted"
+            : "lesson",
       );
     }
   };
@@ -421,19 +550,19 @@ export default function BudgetMasterclassRuntime() {
   const finishWithUnderstanding = () => {
     if (claraBusy) return;
     setChoicesMode("");
-    sendUserBubble("I got it now.");
+    sendUserBubble(copy.gotItUser);
     setCompleted(true);
     setFinished(false);
     setComposerOpen(false);
 
     transitionTimerRef.current = window.setTimeout(() => {
       queueClaraMessage(
-        makeMessage("clara", BUDGET_MASTERCLASS_CLOSING, {
+        makeMessage("clara", experience.closing, {
           kind: "lesson",
-          title: "You got it",
-          eyebrow: "CLARA · Budgeting Masterclass",
+          title: copy.gotItTitle,
+          eyebrow: copy.gotItEyebrow,
         }),
-        "completed"
+        "completed",
       );
       transitionTimerRef.current = null;
     }, 650);
@@ -444,6 +573,7 @@ export default function BudgetMasterclassRuntime() {
 
     const liveContext = {
       source: "budget-masterclass",
+      language,
       stepId: currentStep?.id || "",
       stepIndex,
       stepNumber: stepIndex + 1,
@@ -469,36 +599,8 @@ export default function BudgetMasterclassRuntime() {
 
   const restartMasterclass = () => {
     clearConversationTimers();
-    setStarted(false);
-    setStepIndex(0);
-    setMessages([]);
-    setPendingMessage(null);
-    setPendingChoiceMode("");
-    setTypedText("");
-    setChoicesMode("");
-    setComposerOpen(false);
-    setQuestion("");
-    setAiMode("");
-    setFinished(false);
-    setCompleted(false);
-    setSupportLevel(0);
-    setUnresolvedStepIds([]);
-
-    transitionTimerRef.current = window.setTimeout(() => {
-      queueClaraMessage(
-        makeMessage(
-          "clara",
-          `Want me to teach you how budgeting actually works?\n\n${BUDGET_MASTERCLASS_INTRO}`,
-          {
-            kind: "lesson",
-            title: "Budgeting Masterclass",
-            eyebrow: "CLARA · Let’s learn together",
-          }
-        ),
-        "intro"
-      );
-      transitionTimerRef.current = null;
-    }, 450);
+    resetConversationState();
+    setLanguage("");
   };
 
   const quickRepliesVisible = Boolean(choicesMode) && !claraBusy && !composerOpen;
@@ -514,7 +616,7 @@ export default function BudgetMasterclassRuntime() {
             onClick={() => navigate("/community?view=home")}
             disabled={claraBusy}
             className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-white/68 transition hover:bg-white/[0.09] disabled:opacity-40"
-            aria-label="Back to CLARA Home"
+            aria-label={copy.backHome}
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
@@ -525,10 +627,10 @@ export default function BudgetMasterclassRuntime() {
 
           <div className="min-w-0 flex-1 text-left">
             <p className="truncate text-[9px] font-black uppercase tracking-[0.20em] text-cyan-100/48">
-              Learn with CLARA
+              {copy.learnWithClara}
             </p>
             <h1 className="truncate text-[16px] font-black tracking-[-0.025em] text-white/96">
-              {BUDGET_MASTERCLASS_TITLE}
+              {experience.title}
             </h1>
           </div>
 
@@ -538,6 +640,7 @@ export default function BudgetMasterclassRuntime() {
             disabled={claraBusy}
             className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.045] text-white/52 transition hover:bg-white/[0.09] disabled:opacity-40"
             aria-label="Close Budgeting Masterclass"
+            title={copy.closeMasterclass}
           >
             <X className="h-4 w-4" />
           </button>
@@ -546,7 +649,13 @@ export default function BudgetMasterclassRuntime() {
         {started ? (
           <div className="mx-auto mt-3 w-full max-w-3xl">
             <div className="flex items-center justify-between gap-3 text-[9px] font-black uppercase tracking-[0.14em] text-white/38">
-              <span>{completed ? "Complete" : finished ? "Core complete" : `Point ${stepIndex + 1} of ${BUDGET_MASTERCLASS_STEPS.length}`}</span>
+              <span>
+                {completed
+                  ? copy.complete
+                  : finished
+                    ? copy.coreComplete
+                    : copy.pointOf(stepIndex + 1, experience.steps.length)}
+              </span>
               <span>{completed || finished ? "100%" : `${progress}%`}</span>
             </div>
             <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
@@ -565,7 +674,7 @@ export default function BudgetMasterclassRuntime() {
             <ClaraBubble key={message.id} message={message} />
           ))}
 
-          {aiBusy ? <ClaraTypingIndicator label="CLARA is thinking and typing" /> : null}
+          {aiBusy ? <ClaraTypingIndicator label={copy.typingLabel} /> : null}
 
           {!aiBusy && pendingMessage ? (
             <ClaraBubble message={pendingMessage} displayText={typedText} typing />
@@ -582,7 +691,7 @@ export default function BudgetMasterclassRuntime() {
                 value={question}
                 onChange={(event) => setQuestion(event.target.value.slice(0, 700))}
                 rows={1}
-                placeholder="Ask CLARA your follow-up question…"
+                placeholder={copy.composerPlaceholder}
                 className="max-h-28 min-h-[46px] flex-1 resize-none rounded-[16px] border border-white/[0.07] bg-black/20 px-3.5 py-3 text-[13px] font-semibold leading-5 text-white outline-none placeholder:text-white/28 focus:border-cyan-100/25"
               />
               <button
@@ -595,11 +704,11 @@ export default function BudgetMasterclassRuntime() {
                       ? "finish"
                       : supportLevel >= supportSequence.length
                         ? "support-exhausted"
-                        : "lesson"
+                        : "lesson",
                   );
                 }}
                 className="grid h-11 w-11 shrink-0 place-items-center rounded-[15px] border border-white/[0.07] bg-white/[0.04] text-white/44"
-                aria-label="Cancel follow-up question"
+                aria-label={copy.cancelFollowUp}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -607,7 +716,7 @@ export default function BudgetMasterclassRuntime() {
                 type="submit"
                 disabled={!question.trim() || claraBusy}
                 className="grid h-11 w-11 shrink-0 place-items-center rounded-[15px] border border-cyan-100/20 bg-cyan-300/[0.13] text-cyan-50 transition active:scale-95 disabled:opacity-35"
-                aria-label="Send follow-up question"
+                aria-label={copy.sendFollowUp}
               >
                 <Send className="h-4 w-4" />
               </button>
@@ -620,49 +729,49 @@ export default function BudgetMasterclassRuntime() {
         <footer className="relative z-20 shrink-0 border-t border-white/[0.07] bg-[#041126]/96 px-4 pb-[max(14px,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
           <div className="mx-auto w-full max-w-3xl">
             <p className="mb-2 px-1 text-[9px] font-black uppercase tracking-[0.14em] text-white/28">
-              Your reply
+              {copy.yourReply}
             </p>
 
             {choicesMode === "intro" ? (
               <QuickReply icon={ChevronRight} onClick={startMasterclass} primary>
-                Start the Budgeting Masterclass
+                {copy.startButton}
               </QuickReply>
             ) : choicesMode === "finish" ? (
               <div className="grid gap-2 sm:grid-cols-3">
                 <QuickReply icon={MessageCircleQuestion} onClick={() => openFollowUp(true)} primary>
-                  Ask more
+                  {copy.askMoreButton}
                 </QuickReply>
                 <QuickReply icon={Check} onClick={finishWithUnderstanding}>
-                  I got it now
+                  {copy.gotItButton}
                 </QuickReply>
                 <QuickReply icon={CalendarClock} onClick={scheduleLiveConversation}>
-                  Schedule with CLARA
+                  {copy.scheduleButton}
                 </QuickReply>
               </div>
             ) : choicesMode === "completed" ? (
               <div className="grid gap-2 sm:grid-cols-2">
                 <QuickReply icon={ArrowLeft} onClick={() => navigate("/community?view=home")} primary>
-                  Back to Budget
+                  {copy.backBudgetButton}
                 </QuickReply>
                 <QuickReply icon={RotateCcw} onClick={restartMasterclass}>
-                  Review the masterclass again
+                  {copy.reviewButton}
                 </QuickReply>
               </div>
             ) : choicesMode === "support-exhausted" ? (
               <div className="grid gap-2 sm:grid-cols-2">
                 <QuickReply icon={ChevronRight} onClick={continueMasterclass} primary>
-                  {stepIndex >= BUDGET_MASTERCLASS_STEPS.length - 1
-                    ? "Finish the core Masterclass"
-                    : `Continue to Point ${stepIndex + 2}`}
+                  {stepIndex >= experience.steps.length - 1
+                    ? copy.finishCoreButton
+                    : copy.continuePointButton(stepIndex + 2)}
                 </QuickReply>
                 <QuickReply icon={CalendarClock} onClick={scheduleLiveConversation}>
-                  Talk this through with CLARA
+                  {copy.talkThroughButton}
                 </QuickReply>
               </div>
             ) : (
               <div className="grid gap-2 sm:grid-cols-3">
                 <QuickReply icon={ChevronRight} onClick={continueMasterclass} primary>
-                  Continue
+                  {copy.continueButton}
                 </QuickReply>
                 {nextSupport ? (
                   <QuickReply icon={RotateCcw} onClick={showNextSupportingExplanation}>
@@ -670,7 +779,7 @@ export default function BudgetMasterclassRuntime() {
                   </QuickReply>
                 ) : null}
                 <QuickReply icon={HelpCircle} onClick={() => openFollowUp(false)}>
-                  I have a follow-up question
+                  {copy.followUpButton}
                 </QuickReply>
               </div>
             )}
