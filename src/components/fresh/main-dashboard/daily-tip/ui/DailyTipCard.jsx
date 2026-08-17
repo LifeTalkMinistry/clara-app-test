@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Lock } from "lucide-react";
+import { Lock, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import useDailyTip from "../logic/useDailyTip";
 import useDailyCheckIn from "../logic/useDailyCheckIn";
+import useDailyTipFeedback from "../logic/useDailyTipFeedback";
 import { exitYoungProfessionalCurrentState } from "@/lib/clara-young-professional-current-state";
 import "./daily-tip-premium-flip.css";
 
@@ -41,7 +42,7 @@ export default function DailyTipCard({
   const [activeCurrentState, setActiveCurrentState] = useState(() => readActiveCurrentState());
   const simulationMode = isGuideMode || Boolean(activeCurrentState);
   const userId = providedUserId || user?.id || "guest";
-  const { tip, hasSeenToday, markSeenToday } = useDailyTip({ simulationMode });
+  const { tip, tipId, hasSeenToday, markSeenToday } = useDailyTip({ simulationMode });
   const {
     todayKey,
     checkedInToday,
@@ -53,6 +54,12 @@ export default function DailyTipCard({
     checkInToday,
   } = useDailyCheckIn({ userId, simulationMode });
   const [flipped, setFlipped] = useState(false);
+  const { reaction, saving: feedbackSaving, syncNotice, react } = useDailyTipFeedback({
+    userId,
+    tipId,
+    enabled: !simulationMode && hasCommittedAccess,
+    revealed: flipped,
+  });
   const [isFlipping, setIsFlipping] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationLevel, setCelebrationLevel] = useState("normal");
@@ -254,6 +261,12 @@ export default function DailyTipCard({
     flipUnlockTimerRef.current = window.setTimeout(releaseFlipLock, FLIP_UNLOCK_DELAY_MS);
   };
 
+  const handleTipReaction = (event, requestedReaction) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void react(requestedReaction);
+  };
+
   const handleFlipTransitionEnd = (event) => {
     if (event.target !== event.currentTarget) return;
     if (event.propertyName !== "transform") return;
@@ -441,25 +454,68 @@ export default function DailyTipCard({
             <div className="clara-preserve-flip-face clara-daily-tip-face clara-daily-tip-face--back rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-indigo-500/15 via-slate-950/70 to-cyan-400/10">
               <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_right,rgba(103,232,249,0.12),transparent_44%),radial-gradient(circle_at_bottom_left,rgba(129,140,248,0.12),transparent_48%)]" />
 
-              <div className="relative grid h-full grid-rows-[auto_1fr_auto] px-5 py-3 text-center text-white">
+              <div className="relative grid h-full grid-rows-[auto_1fr_auto] px-3 py-3 text-center text-white">
                 <div className="pt-0.5 text-center">
                   <span className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-200/66">
                     Today’s Money Tip
                   </span>
                 </div>
 
-                <div className="flex items-center justify-center">
+                <div className="flex items-center justify-center px-2">
                   <p className="max-w-[20rem] text-[13px] font-semibold leading-relaxed text-white/90">
                     {tip}
                   </p>
                 </div>
 
-                <div>
-                  <div className="mx-auto h-px w-16 bg-gradient-to-r from-transparent via-cyan-100/25 to-transparent" />
-                  <p className="mt-2 text-[8px] font-bold uppercase tracking-[0.14em] text-white/42">
-                    Tap to return to progress
-                  </p>
-                </div>
+                {simulationMode ? (
+                  <div>
+                    <div className="mx-auto h-px w-16 bg-gradient-to-r from-transparent via-cyan-100/25 to-transparent" />
+                    <p className="mt-2 text-[8px] font-bold uppercase tracking-[0.14em] text-white/42">
+                      Tap to return to progress
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-[44px_1fr_44px] items-end gap-1">
+                    <button
+                      type="button"
+                      aria-label={reaction === "dislike" ? "Remove dislike from this money tip" : "Dislike this money tip"}
+                      aria-pressed={reaction === "dislike"}
+                      disabled={feedbackSaving}
+                      onClick={(event) => handleTipReaction(event, "dislike")}
+                      onKeyDown={(event) => event.stopPropagation()}
+                      className={`flex h-11 w-11 items-center justify-center rounded-full border transition-[background-color,border-color,color,transform,opacity] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200/80 disabled:opacity-55 ${
+                        reaction === "dislike"
+                          ? "border-rose-300/55 bg-rose-400/18 text-rose-100"
+                          : "border-white/12 bg-white/[0.055] text-white/48 hover:border-rose-300/32 hover:bg-rose-400/10 hover:text-rose-100/88"
+                      }`}
+                    >
+                      <ThumbsDown className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+                    </button>
+
+                    <div className="self-center px-1">
+                      <div className="mx-auto h-px w-16 bg-gradient-to-r from-transparent via-cyan-100/25 to-transparent" />
+                      <p className="mt-2 text-[8px] font-bold uppercase tracking-[0.14em] text-white/42" aria-live="polite">
+                        {syncNotice || "Tap to return to progress"}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      aria-label={reaction === "like" ? "Remove like from this money tip" : "Like this money tip"}
+                      aria-pressed={reaction === "like"}
+                      disabled={feedbackSaving}
+                      onClick={(event) => handleTipReaction(event, "like")}
+                      onKeyDown={(event) => event.stopPropagation()}
+                      className={`flex h-11 w-11 items-center justify-center rounded-full border transition-[background-color,border-color,color,transform,opacity] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/80 disabled:opacity-55 ${
+                        reaction === "like"
+                          ? "border-cyan-200/55 bg-cyan-300/16 text-cyan-100"
+                          : "border-white/12 bg-white/[0.055] text-white/48 hover:border-cyan-200/32 hover:bg-cyan-300/10 hover:text-cyan-100/88"
+                      }`}
+                    >
+                      <ThumbsUp className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
