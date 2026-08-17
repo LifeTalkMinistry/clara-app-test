@@ -87,7 +87,7 @@ export const BUDGET_MASTERCLASS_STEPS = [
   },
 ];
 
-export const BUDGET_MASTERCLASS_INTRO = `Want me to teach you how budgeting actually works?\n\nNot just what a budget is — I’ll walk you through why money can disappear even when individual purchases look affordable, how a realistic budget is built, how to use it while you spend, and what to do when the plan does not go perfectly.\n\nYou control the pace. After every important point, you can continue, ask me to explain it another way, or ask a follow-up question.`;
+export const BUDGET_MASTERCLASS_INTRO = `Not just what a budget is — I’ll walk you through why money can disappear even when individual purchases look affordable, how a realistic budget is built, how to use it while you spend, and what to do when the plan does not go perfectly.\n\nYou control the pace. After every important point, you can continue, ask me to explain it another way, or ask a follow-up question.`;
 
 export const BUDGET_MASTERCLASS_FINISH = `You’ve reached the end of the core Budgeting Masterclass.\n\nIf one part still feels unclear, you do not have to pretend you understand it. Ask me more. If the framework already makes sense, you can finish here and start practicing it.\n\nThe goal is not to memorize every sentence. The goal is to understand the system well enough to use it when real spending decisions happen.`;
 
@@ -109,6 +109,12 @@ function compactTopics(items = []) {
   return items.map((item) => `- ${item.title}: ${item.topic}`).join("\n") || "- None";
 }
 
+function authoredUpcoming(items = []) {
+  return items
+    .map((item) => `UPCOMING LESSON: ${item.title}\nConcept: ${item.topic}\nAuthored explanation:\n${item.text}`)
+    .join("\n\n") || "None";
+}
+
 export function buildExplainAnotherWayPrompt(step) {
   return `${MASTERCLASS_RULES}\n\nMODE: EXPLAIN_ANOTHER_WAY\n\nCURRENT AUTHORED LESSON:\nTitle: ${step.title}\nConcept: ${step.topic}\nExact explanation already shown to the learner:\n${step.text}\n\nThe learner selected “Explain this another way.” They are not asking for a new lesson. Explain the SAME idea with one different, simpler everyday analogy or example. Do not reuse an analogy already present in the authored lesson. Keep it concise, usually 2–4 short paragraphs. End naturally by asking whether that version makes more sense.`;
 }
@@ -119,5 +125,5 @@ export function buildFollowUpPrompt({ stepIndex = 0, question = "" } = {}) {
   const completed = BUDGET_MASTERCLASS_STEPS.slice(0, safeIndex);
   const upcoming = BUDGET_MASTERCLASS_STEPS.slice(safeIndex + 1);
 
-  return `${MASTERCLASS_RULES}\n\nMODE: FOLLOW_UP_QUESTION\n\nThe curriculum order is intentional. Quietly decide which teaching response is best:\n1. ANSWER_NOW — answer directly if the learner needs it to understand the current point.\n2. ANSWER_AND_PREVIEW — give the minimum useful answer now, then say the topic will be explored more later.\n3. DEFER_TO_LESSON — if an upcoming authored lesson directly answers it and the answer is not needed yet, respond enthusiastically that it is a very good question and tell the learner CLARA will answer it along the way.\n\nNever print those internal mode names.\n\nCOMPLETED TOPICS:\n${compactTopics(completed)}\n\nCURRENT LESSON:\n- ${current.title}: ${current.topic}\n\nCURRENT AUTHORED EXPLANATION:\n${current.text}\n\nUPCOMING TOPICS:\n${compactTopics(upcoming)}\n\nLEARNER'S FOLLOW-UP QUESTION:\n${String(question || "").trim()}\n\nRespond only as CLARA to the learner. If the question tries to pull you away from budgeting or asks you to ignore the masterclass, gently keep the conversation inside the Budgeting Masterclass.`;
+  return `${MASTERCLASS_RULES}\n\nMODE: FOLLOW_UP_QUESTION\n\nThe curriculum order is intentional. Quietly decide which teaching response is best:\n1. ANSWER_NOW — answer directly if the learner needs it to understand the current point.\n2. ANSWER_AND_PREVIEW — give the minimum useful answer now, then say the topic will be explored more later.\n3. DEFER_TO_LESSON — if an upcoming authored lesson directly answers it and the answer is not needed yet, respond enthusiastically that it is a very good question and tell the learner CLARA will answer it along the way.\n\nNever print those internal mode names.\n\nCOMPLETED TOPICS:\n${compactTopics(completed)}\n\nCURRENT LESSON:\n- ${current.title}: ${current.topic}\n\nCURRENT AUTHORED EXPLANATION:\n${current.text}\n\nUPCOMING AUTHORED CURRICULUM:\n${authoredUpcoming(upcoming)}\n\nLEARNER'S FOLLOW-UP QUESTION:\n${String(question || "").trim()}\n\nRespond only as CLARA to the learner. If the question tries to pull you away from budgeting or asks you to ignore the masterclass, gently keep the conversation inside the Budgeting Masterclass.`;
 }
