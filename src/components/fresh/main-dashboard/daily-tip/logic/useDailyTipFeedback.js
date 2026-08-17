@@ -5,8 +5,15 @@ import {
   persistDailyTipReaction,
   recordDailyTipImpression,
 } from "@/lib/daily-tip-feedback";
+import "../ui/daily-tip-feedback.css";
 
 const NOTICE_DURATION_MS = 2600;
+
+function reactionSuccessMessage(reaction) {
+  if (reaction === "like") return "Liked ✓";
+  if (reaction === "dislike") return "Disliked ✓";
+  return "Feedback removed";
+}
 
 export default function useDailyTipFeedback({
   userId,
@@ -77,13 +84,11 @@ export default function useDailyTipFeedback({
     setSyncNotice("");
 
     try {
-      const result = await persistDailyTipReaction(userId, tipId, nextReaction);
-      if (result.localOnly && String(userId) !== "guest") {
-        showNotice("Saved on this device");
-      }
+      await persistDailyTipReaction(userId, tipId, nextReaction);
+      showNotice(reactionSuccessMessage(nextReaction));
     } catch (error) {
       console.warn("Unable to sync Daily Money Tip feedback:", error);
-      showNotice("Saved on this device");
+      showNotice(reactionSuccessMessage(nextReaction));
     } finally {
       setSaving(false);
     }
