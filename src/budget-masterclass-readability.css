@@ -48,21 +48,24 @@ body:has([aria-label="Close Budgeting Masterclass"]) header button {
   box-shadow: none !important;
 }
 
-body:has([aria-label="Close Budgeting Masterclass"]) header .min-w-0.flex-1 p {
-  font-size: 0 !important;
-  margin-bottom: 1px !important;
+/* Title-only Masterclass header: remove the target icon and CLARA LEARNING eyebrow. */
+body:has([aria-label="Close Budgeting Masterclass"]) header > div:first-child > div:nth-child(2) {
+  display: none !important;
 }
 
-body:has([aria-label="Close Budgeting Masterclass"]) header .min-w-0.flex-1 p::after {
-  content: "CLARA LEARNING";
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.20em;
-  color: rgba(126, 211, 255, 0.56);
+body:has([aria-label="Close Budgeting Masterclass"]) header .min-w-0.flex-1 {
+  display: flex !important;
+  min-height: 38px;
+  align-items: center;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) header .min-w-0.flex-1 p {
+  display: none !important;
 }
 
 body:has([aria-label="Close Budgeting Masterclass"]) header h1 {
-  font-size: 15.5px !important;
+  margin: 0 !important;
+  font-size: 16px !important;
   font-weight: 760 !important;
   letter-spacing: -0.018em !important;
 }
