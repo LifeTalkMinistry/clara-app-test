@@ -1,0 +1,27 @@
+/* Budget Masterclass readability pass.
+   Keep the CLARA Orb as atmosphere, while making teaching bubbles the visual authority. */
+
+body:has([aria-label="Close Budgeting Masterclass"]) [data-clara-orb-composition="true"] {
+  opacity: 0.12 !important;
+  filter: saturate(0.58) brightness(0.52) !important;
+  pointer-events: none !important;
+  transition: opacity 220ms ease, filter 220ms ease;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) main .rounded-bl-\[8px\] {
+  background: linear-gradient(145deg, #071c36 0%, #06152d 58%, #17112d 100%) !important;
+  border-color: rgba(164, 219, 255, 0.14) !important;
+  box-shadow:
+    0 16px 36px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.045) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) main .rounded-bl-\[8px\] p {
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+
+body:has([aria-label="Close Budgeting Masterclass"]) main .rounded-bl-\[8px\] h3 {
+  color: #ffffff !important;
+}
