@@ -61,13 +61,17 @@ export function createDailyTipOrder(catalog, userId, cycleNumber, previousTipId 
   return ids;
 }
 
-export function resolveDailyTipAssignment({ storage, userId, dayKey, tips }) {
+export function resolveDailyTipAssignment({ storage, userId, dayKey, tips, excludedTipIds = [] }) {
   const catalog = buildDailyTipCatalog(tips);
   if (!catalog.length) return emptyAssignment(dayKey);
 
   const resolvedUserId = normalizeDailyTipUserId(userId);
   const storageKey = dailyTipCycleStorageKey(resolvedUserId);
   const catalogSignature = catalog.map((tip) => tip.id).join("|");
+  const validIds = new Set(catalog.map((tip) => tip.id));
+  const excludedIds = new Set(
+    (Array.isArray(excludedTipIds) ? excludedTipIds : []).filter((tipId) => validIds.has(tipId)),
+  );
   let cycle = safeParse(safeGet(storage, storageKey));
 
   if (!isValidCycle(cycle, { userId: resolvedUserId, catalog, catalogSignature })) {
@@ -96,11 +100,14 @@ export function resolveDailyTipAssignment({ storage, userId, dayKey, tips }) {
   }
 
   const usedIds = new Set(cycle.usedTipIds);
-  const pendingTipId =
-    cycle.pending && !usedIds.has(cycle.pending.tipId) && cycle.order.includes(cycle.pending.tipId)
-      ? cycle.pending.tipId
-      : cycle.order.find((tipId) => !usedIds.has(tipId));
-  const tipId = pendingTipId || cycle.order[0];
+  const unusedTipIds = cycle.order.filter((tipId) => !usedIds.has(tipId));
+  const preferredTipIds = unusedTipIds.filter((tipId) => !excludedIds.has(tipId));
+  const selectableTipIds = preferredTipIds.length ? preferredTipIds : unusedTipIds;
+  const pendingIsSelectable =
+    cycle.pending &&
+    !usedIds.has(cycle.pending.tipId) &&
+    selectableTipIds.includes(cycle.pending.tipId);
+  const tipId = pendingIsSelectable ? cycle.pending.tipId : selectableTipIds[0] || cycle.order[0];
   const cycleDay = cycle.usedTipIds.length + 1;
 
   cycle = {
