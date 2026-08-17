@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CircleStop, PieChart, Target } from "lucide-react";
+import { CircleStop, PieChart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import useBudgetCardLogic from "@/components/financial-carousel/cards/budget/logic/useBudgetCardLogic";
@@ -76,13 +76,6 @@ export default function BudgetCard({
   });
 
   const openBudgetPlanPage = () => navigate("/budget-plan");
-  const openBudgetAchievement = () =>
-    navigate("/community?view=orb&focus=budget&panel=achievement", {
-      state: {
-        claraFinancialFocus: "budget",
-        claraFinancialPanel: "achievement",
-      },
-    });
   const openBudgetCategoryOnPlanPage = (item) => {
     const id = item?.id || item?.key || item?.budget?.id || null;
     navigate("/budget-plan", {
@@ -171,18 +164,6 @@ export default function BudgetCard({
               budgetPace={budgetPace}
               openBudgetModal={openBudgetPlanPage}
             />
-
-            {!expanded ? (
-              <button
-                type="button"
-                onClick={openBudgetAchievement}
-                className="absolute bottom-[82px] right-7 z-40 grid h-10 w-10 place-items-center rounded-full border border-yellow-100/[0.18] bg-[linear-gradient(145deg,rgba(252,209,22,0.14),rgba(0,56,168,0.34)_52%,rgba(206,17,38,0.12))] text-yellow-100/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.09),0_10px_24px_rgba(0,0,0,0.20),0_0_20px_rgba(252,209,22,0.06)] backdrop-blur-md transition hover:border-yellow-100/[0.30] hover:brightness-110 active:scale-95"
-                aria-label="Open Budget achievement with CLARA"
-                title="Budget achievement with CLARA"
-              >
-                <Target className="h-[18px] w-[18px]" strokeWidth={2.2} />
-              </button>
-            ) : null}
 
             {expanded && canEndBudget ? (
               <button
