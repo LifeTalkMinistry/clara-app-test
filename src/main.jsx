@@ -68,6 +68,7 @@ import "./clara-quick-actions-safe-footer.css";
 import "./clara-onboarding-country-spacing.css";
 import "./budget-masterclass-readability.css";
 import "./budget-masterclass-followup-premium.css";
+import "./clara-tutorial-juan-character.css";
 
 const App = React.lazy(() => import("./App.jsx"));
 
