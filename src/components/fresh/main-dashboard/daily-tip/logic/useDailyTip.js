@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getEligibleDayKey } from "../../../../../lib/challenge-schedule.js";
+import { getDislikedDailyTipIds } from "@/lib/daily-tip-feedback";
 import {
   commitDailyTipAssignment,
   dailyTipCycleStorageKey,
@@ -63,6 +64,7 @@ export default function useDailyTip({ simulationMode = false, userId: providedUs
         userId,
         dayKey: todayKey,
         tips: DAILY_TIPS,
+        excludedTipIds: getDislikedDailyTipIds(userId),
       });
       setAssignment(nextAssignment);
       setHasSeenToday(nextAssignment.committed);
