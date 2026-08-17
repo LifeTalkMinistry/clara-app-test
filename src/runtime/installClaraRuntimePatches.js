@@ -39,6 +39,9 @@ import "./installCommunityMessageNotificationSplit";
 // Budgeting Masterclass emphasis uses the official CL / A / RA color sequence
 // whenever CLARA appears as a title, eyebrow, or intentional emphasis.
 import "./installBudgetMasterclassClaraWordmark";
+// Budgeting Masterclass live-conversation escalation reuses CLARA's existing
+// coaching scheduler instead of creating a second booking flow.
+import "./installBudgetMasterclassLiveSchedulingBridge";
 
 // Retired context data cleanup. This only erases obsolete Memory-system storage;
 // it does not read or personalize CLARA responses.
