@@ -1,3 +1,7 @@
+import { getVaultMappingForAccount } from "@/lib/account-vault-directory";
+import { resolveAccountLocalVault } from "@/lib/accountLinking/resolveAccountLocalVault";
+import { resetLocalClaraJourney } from "@/lib/reset-local-clara-journey";
+
 const DEFAULT_API_URL = "https://api.clarapmc.com";
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 const OFFLINE_MEMBERSHIP_SNAPSHOT_MAX_AGE_MS = 72 * 60 * 60 * 1000;
@@ -5,6 +9,7 @@ const BACKEND_UNAVAILABLE_STATUS_CODES = new Set([404, 502, 503, 504]);
 const TOKEN_KEY = "clara_backend_access_token_v1";
 const USER_KEY = "clara_backend_user_v1";
 const USER_VERIFIED_AT_KEY = "clara_backend_user_verified_at_v1";
+const JOURNEY_VERSION_KEY_PREFIX = "clara_backend_journey_version_v1:";
 const VALID_STATUSES = new Set(["active", "pending", "inactive"]);
 const VALID_PLANS = new Set(["free", "supporter", "builder", "champion"]);
 
@@ -85,6 +90,11 @@ function normalizePlan(value) {
   return VALID_PLANS.has(normalized) ? normalized : "free";
 }
 
+function normalizeVersion(value) {
+  const version = Number(value || 0);
+  return Number.isSafeInteger(version) && version >= 0 ? version : 0;
+}
+
 export function normalizeUser(payload = {}) {
   const user = extractUserPayload(payload);
   const id = user?.id ?? user?.user_id ?? user?.userId ?? null;
@@ -99,9 +109,55 @@ export function normalizeUser(payload = {}) {
     role: normalizeRole(user.role || user.user_role),
     status: normalizeStatus(user.status || user.account_status),
     plan: normalizePlan(user.plan || user.subscription_plan),
+    auth_version: normalizeVersion(user.auth_version ?? user.authVersion),
+    journey_version: normalizeVersion(user.journey_version ?? user.journeyVersion),
     created_at: user.created_at || user.createdAt || null,
     updated_at: user.updated_at || user.updatedAt || null,
   };
+}
+
+function journeyVersionKey(accountId) {
+  return `${JOURNEY_VERSION_KEY_PREFIX}${String(accountId || "").trim()}`;
+}
+
+function readAcknowledgedJourneyVersion(accountId) {
+  return normalizeVersion(getStorage()?.getItem(journeyVersionKey(accountId)));
+}
+
+function acknowledgeJourneyVersion(accountId, version) {
+  const id = String(accountId || "").trim();
+  if (!id) return;
+  getStorage()?.setItem(journeyVersionKey(id), String(normalizeVersion(version)));
+}
+
+async function reconcileJourneyReset({
+  accountId,
+  accountEmail,
+  journeyVersion,
+  ensureMapping = false,
+} = {}) {
+  const id = String(accountId || "").trim();
+  const version = normalizeVersion(journeyVersion);
+  if (!id || version <= readAcknowledgedJourneyVersion(id)) return false;
+
+  let mapping = getVaultMappingForAccount(id);
+  if (!mapping && ensureMapping) {
+    const resolved = await resolveAccountLocalVault({
+      accountUserId: id,
+      accountEmail: String(accountEmail || "").trim().toLowerCase(),
+    });
+    mapping = resolved?.vaultId ? { vaultId: resolved.vaultId } : null;
+  }
+
+  if (mapping?.vaultId) {
+    await resetLocalClaraJourney({
+      localUserId: mapping.vaultId,
+      preserveEntitlement: true,
+    });
+  }
+
+  acknowledgeJourneyVersion(id, version);
+  return true;
 }
 
 function decodeBase64Url(value) {
@@ -203,11 +259,19 @@ export function getStoredBackendUser() {
   }
 }
 
-function saveBackendSession({ token, user }) {
+async function saveBackendSession({ token, user }) {
   const normalizedUser = normalizeUser(user);
   if (!token || !normalizedUser) {
     throw new Error("CLARA returned an incomplete authentication response.");
   }
+
+  await reconcileJourneyReset({
+    accountId: normalizedUser.id,
+    accountEmail: normalizedUser.email,
+    journeyVersion: normalizedUser.journey_version,
+    ensureMapping: true,
+  });
+
   getStorage()?.setItem(TOKEN_KEY, token);
   writeVerifiedUser(normalizedUser);
   return { token, user: normalizedUser };
@@ -220,6 +284,23 @@ export function clearBackendSession() {
   storage?.removeItem(USER_VERIFIED_AT_KEY);
 }
 
+async function handleRevokedSession(payload = {}) {
+  const details = isObject(payload.details) ? payload.details : {};
+  const cachedUser = getStoredBackendUser();
+  await reconcileJourneyReset({
+    accountId: details.userId || cachedUser?.id,
+    accountEmail: cachedUser?.email,
+    journeyVersion: details.journeyVersion,
+    ensureMapping: false,
+  });
+  clearBackendSession();
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("clara-session-revoked", { detail: details }));
+    window.setTimeout(() => window.location.reload(), 0);
+  }
+}
+
 async function parseResponse(response) {
   let payload = null;
   try {
@@ -229,9 +310,13 @@ async function parseResponse(response) {
   }
 
   if (!response.ok) {
+    if (payload?.code === "SESSION_REVOKED") {
+      await handleRevokedSession(payload);
+    }
     const error = new Error(payload?.message || `CLARA request failed with status ${response.status}.`);
     error.status = response.status;
-    error.code = `HTTP_${response.status}`;
+    error.code = payload?.code || `HTTP_${response.status}`;
+    error.details = payload?.details || null;
     throw error;
   }
   return payload;
@@ -382,4 +467,5 @@ export {
   TOKEN_KEY,
   USER_KEY,
   USER_VERIFIED_AT_KEY,
+  JOURNEY_VERSION_KEY_PREFIX,
 };
