@@ -1,7 +1,6 @@
-import { Suspense, lazy, useCallback, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { CalendarDays, LoaderCircle } from "lucide-react";
-import DailyTipCard from "../daily-tip";
 import {
   openCommittedVersionModal,
   useCommittedFeatureAccess,
@@ -63,18 +62,13 @@ function LearningHubOpeningPlaceholder() {
   );
 }
 
-export default function LearningHub() {
+export default function LearningHub({ hubOpen = false, onOpenHub, onCloseHub }) {
   const navigate = useNavigate();
-  const [shouldLoadHub, setShouldLoadHub] = useState(false);
   const hasCommittedAccess = useCommittedFeatureAccess();
   const isLocked = !hasCommittedAccess;
 
-  const handleCloseHub = useCallback(() => {
-    setShouldLoadHub(false);
-  }, []);
-
   useEffect(() => {
-    if (isLocked || shouldLoadHub || typeof window === "undefined") {
+    if (isLocked || hubOpen || typeof window === "undefined") {
       return undefined;
     }
 
@@ -96,7 +90,7 @@ export default function LearningHub() {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [isLocked, shouldLoadHub]);
+  }, [hubOpen, isLocked]);
 
   const handleOpenHub = () => {
     if (isLocked) {
@@ -105,7 +99,11 @@ export default function LearningHub() {
     }
 
     void preloadLearningHub();
-    setShouldLoadHub(true);
+    onOpenHub?.();
+  };
+
+  const handleCloseHub = () => {
+    onCloseHub?.();
   };
 
   return (
@@ -114,17 +112,7 @@ export default function LearningHub() {
       className="clara-budget-focus-shift clara-budget-focus-hub w-full"
     >
       <div className="relative flex w-full flex-col gap-[var(--clara-hub-rail-gap,14px)] overflow-visible px-1 py-0">
-        {!shouldLoadHub ? (
-          <div className="relative overflow-visible">
-            <DailyTipCard
-              hasCommittedAccess={hasCommittedAccess}
-              onOpenCommitmentBooklet={openCommittedVersionModal}
-              flushSpacing
-            />
-          </div>
-        ) : null}
-
-        {!shouldLoadHub ? (
+        {!hubOpen ? (
           <div
             data-clara-learning-hub-bridge="true"
             className="relative grid w-full items-center"
