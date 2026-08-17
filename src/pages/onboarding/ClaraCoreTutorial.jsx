@@ -199,44 +199,19 @@ function JuanHeader({ compact = false }) {
   );
 }
 
-function MoneySnapshot() {
-  const rows = [
-    ["Income", JUAN.income],
-    ["Available now", JUAN.wallet],
-    ["Next payday", JUAN.nextPayday],
-    ["Emergency fund", JUAN.emergencyFund],
-  ];
-
-  return (
-    <div className="clara-tour-snapshot">
-      {rows.map(([label, value]) => (
-        <div key={label}>
-          <span>{label}</span>
-          <strong>{value}</strong>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function MeetStep() {
   return (
     <div className="clara-tour-story-step">
       <section className="clara-tour-copy-block">
         <span className="clara-tour-eyebrow">MEET JUAN</span>
-        <h1>Let&apos;s learn CLARA by watching someone actually use it.</h1>
+        <h1>This is Juan.</h1>
         <p>
-          Juan earns ₱22,000 a month. He has bills, family responsibilities, goals, and everyday wants. He is not financially perfect — he is simply trying to make better decisions with what he already has.
+          Juan is a full-time earner making ₱22,000 a month. Let&apos;s simply follow him and see how he uses CLARA in real life.
         </p>
       </section>
 
       <div className="clara-tour-stage-card">
         <JuanHeader />
-        <MoneySnapshot />
-        <div className="clara-tour-stage-note">
-          <Sparkles />
-          <p>We&apos;ll use Juan&apos;s same information throughout the whole walkthrough so every CLARA feature has a reason to exist.</p>
-        </div>
       </div>
     </div>
   );
@@ -410,7 +385,7 @@ function StepContent({ step }) {
 
 function nextLabelFor(step, isLast) {
   if (isLast) return "Start using CLARA";
-  if (step.type === "meet") return "Meet Juan";
+  if (step.type === "meet") return "See Juan use CLARA";
   if (step.type === "feature") return "Back to Juan";
   return "Continue";
 }
