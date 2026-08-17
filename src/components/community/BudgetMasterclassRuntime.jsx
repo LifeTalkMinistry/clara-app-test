@@ -9,21 +9,40 @@ import {
   HelpCircle,
   MessageCircleQuestion,
   RotateCcw,
-  Send,
   Target,
   X,
 } from "lucide-react";
 import {
   BUDGET_MASTERCLASS_LANGUAGE_OPTIONS,
-  buildBudgetMasterclassFollowUpPrompt,
   getBudgetMasterclassExperience,
   getBudgetMasterclassSupportSequenceForLanguage,
 } from "@/lib/clara-budget-masterclass-i18n";
-import { requestBudgetMasterclassAi } from "@/lib/clara-budget-masterclass-ai";
+import { getBudgetMasterclassPointQuestions } from "@/lib/clara-budget-masterclass-questions";
 
 const MIN_READ_DELAY_MS = 5200;
 const MAX_READ_DELAY_MS = 8200;
 const LIVE_SESSION_CONTEXT_KEY = "clara_budget_masterclass_live_context_v1";
+
+const POINT_QUESTION_UI = {
+  en: {
+    pickerLabel: "Choose a question",
+    buttonLabel: "Questions about this point",
+    backLabel: "Back to point options",
+    answerEyebrow: "CLARA · KEY QUESTION",
+  },
+  tl: {
+    pickerLabel: "Pumili ng tanong",
+    buttonLabel: "Mga tanong tungkol sa point na ito",
+    backLabel: "Bumalik sa point options",
+    answerEyebrow: "CLARA · MAHALAGANG TANONG",
+  },
+  es: {
+    pickerLabel: "Elige una pregunta",
+    buttonLabel: "Preguntas sobre este punto",
+    backLabel: "Volver a las opciones del punto",
+    answerEyebrow: "CLARA · PREGUNTA CLAVE",
+  },
+};
 
 function makeMessage(role, text, extra = {}) {
   return {
@@ -66,22 +85,6 @@ function ClaraBubble({ message, displayText, typing = false }) {
             <span className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[2px] animate-pulse rounded-full bg-cyan-100/75" />
           ) : null}
         </p>
-      </div>
-    </div>
-  );
-}
-
-function ClaraTypingIndicator({ label = "CLARA is typing" }) {
-  return (
-    <div className="flex justify-start" aria-label={label}>
-      <div className="flex items-center gap-1.5 rounded-[20px] rounded-bl-[8px] border border-white/[0.08] bg-white/[0.045] px-4 py-3.5 shadow-[0_12px_30px_rgba(0,0,0,0.16)]">
-        {[0, 1, 2].map((index) => (
-          <span
-            key={index}
-            className="h-2 w-2 animate-bounce rounded-full bg-cyan-100/65"
-            style={{ animationDelay: `${index * 140}ms`, animationDuration: "900ms" }}
-          />
-        ))}
       </div>
     </div>
   );
@@ -207,9 +210,7 @@ export default function BudgetMasterclassRuntime() {
   const [pendingChoiceMode, setPendingChoiceMode] = useState("");
   const [typedText, setTypedText] = useState("");
   const [choicesMode, setChoicesMode] = useState("");
-  const [composerOpen, setComposerOpen] = useState(false);
-  const [question, setQuestion] = useState("");
-  const [aiMode, setAiMode] = useState("");
+  const [questionReturnMode, setQuestionReturnMode] = useState("lesson");
   const [finished, setFinished] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [supportLevel, setSupportLevel] = useState(0);
@@ -223,14 +224,15 @@ export default function BudgetMasterclassRuntime() {
 
   const experience = useMemo(() => getBudgetMasterclassExperience(language || "en"), [language]);
   const copy = experience.ui;
+  const questionUi = POINT_QUESTION_UI[language] || POINT_QUESTION_UI.en;
   const currentStep = experience.steps[stepIndex] || experience.steps[0];
   const supportSequence = getBudgetMasterclassSupportSequenceForLanguage(language || "en", currentStep?.id);
+  const pointQuestions = getBudgetMasterclassPointQuestions(language || "en", currentStep?.id);
   const nextSupport = supportSequence[supportLevel] || null;
   const progress = started
     ? Math.round(((Math.min(stepIndex + 1, experience.steps.length)) / experience.steps.length) * 100)
     : 0;
-  const aiBusy = Boolean(aiMode);
-  const claraBusy = Boolean(pendingMessage) || aiBusy;
+  const claraBusy = Boolean(pendingMessage);
 
   const clearConversationTimers = () => {
     if (typingTimerRef.current) window.clearInterval(typingTimerRef.current);
@@ -249,9 +251,7 @@ export default function BudgetMasterclassRuntime() {
     setPendingChoiceMode("");
     setTypedText("");
     setChoicesMode("");
-    setComposerOpen(false);
-    setQuestion("");
-    setAiMode("");
+    setQuestionReturnMode("lesson");
     setFinished(false);
     setCompleted(false);
     setSupportLevel(0);
@@ -336,7 +336,7 @@ export default function BudgetMasterclassRuntime() {
       if (node) node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
     });
     return () => window.cancelAnimationFrame(id);
-  }, [isOpen, language, messages, pendingMessage, typedText, composerOpen, choicesMode, aiMode]);
+  }, [isOpen, language, messages, pendingMessage, typedText, choicesMode]);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -419,7 +419,7 @@ export default function BudgetMasterclassRuntime() {
   };
 
   const continueMasterclass = () => {
-    if (claraBusy || composerOpen) return;
+    if (claraBusy) return;
     setChoicesMode("");
     sendUserBubble(copy.continueUser);
 
@@ -441,6 +441,7 @@ export default function BudgetMasterclassRuntime() {
       const nextIndex = stepIndex + 1;
       setStepIndex(nextIndex);
       setSupportLevel(0);
+      setQuestionReturnMode("lesson");
       const step = experience.steps[nextIndex];
       queueClaraMessage(
         makeMessage("clara", step.text, {
@@ -455,7 +456,7 @@ export default function BudgetMasterclassRuntime() {
   };
 
   const showNextSupportingExplanation = () => {
-    if (claraBusy || composerOpen || finished || !nextSupport) return;
+    if (claraBusy || finished || !nextSupport) return;
 
     const support = nextSupport;
     const nextLevel = supportLevel + 1;
@@ -483,59 +484,33 @@ export default function BudgetMasterclassRuntime() {
     }, 650);
   };
 
-  const openFollowUp = (fromFinish = false) => {
-    if (claraBusy) return;
-    setChoicesMode("");
-    sendUserBubble(fromFinish ? copy.askMoreUser : copy.followUpUser);
-    setQuestion("");
-    setComposerOpen(true);
+  const openPointQuestions = (returnMode = "") => {
+    if (claraBusy || pointQuestions.length === 0) return;
+    const fallbackMode = finished
+      ? "finish"
+      : supportLevel >= supportSequence.length
+        ? "support-exhausted"
+        : "lesson";
+    setQuestionReturnMode(returnMode || choicesMode || fallbackMode);
+    setChoicesMode("questions");
   };
 
-  const submitFollowUp = async (event) => {
-    event?.preventDefault?.();
-    const cleanQuestion = String(question || "").trim().slice(0, 700);
-    if (!cleanQuestion || claraBusy) return;
+  const answerPointQuestion = (item) => {
+    if (claraBusy || !item?.question || !item?.answer) return;
+    const returnMode = questionReturnMode || (finished ? "finish" : "lesson");
+    setChoicesMode("");
+    sendUserBubble(item.question);
 
-    sendUserBubble(cleanQuestion);
-    setQuestion("");
-    setComposerOpen(false);
-    setAiMode("followup");
-
-    try {
-      const result = await requestBudgetMasterclassAi({
-        mode: "follow_up_question",
-        prompt: buildBudgetMasterclassFollowUpPrompt({
-          language,
-          stepIndex,
-          question: cleanQuestion,
-        }),
-      });
-      setAiMode("");
+    transitionTimerRef.current = window.setTimeout(() => {
       queueClaraMessage(
-        makeMessage("clara", result.text, {
+        makeMessage("clara", item.answer, {
           kind: "clarification",
-          eyebrow: copy.followUpEyebrow,
+          eyebrow: questionUi.answerEyebrow,
         }),
-        finished
-          ? "finish"
-          : supportLevel >= supportSequence.length
-            ? "support-exhausted"
-            : "lesson",
+        returnMode,
       );
-    } catch (error) {
-      setAiMode("");
-      queueClaraMessage(
-        makeMessage("clara", error?.message || copy.followUpError, {
-          kind: "clarification",
-          eyebrow: copy.followUpUnavailableEyebrow,
-        }),
-        finished
-          ? "finish"
-          : supportLevel >= supportSequence.length
-            ? "support-exhausted"
-            : "lesson",
-      );
-    }
+      transitionTimerRef.current = null;
+    }, 520);
   };
 
   const finishWithUnderstanding = () => {
@@ -544,7 +519,6 @@ export default function BudgetMasterclassRuntime() {
     sendUserBubble(copy.gotItUser);
     setCompleted(true);
     setFinished(false);
-    setComposerOpen(false);
 
     transitionTimerRef.current = window.setTimeout(() => {
       queueClaraMessage(
@@ -594,7 +568,7 @@ export default function BudgetMasterclassRuntime() {
     setLanguage("");
   };
 
-  const quickRepliesVisible = Boolean(choicesMode) && !claraBusy && !composerOpen;
+  const quickRepliesVisible = Boolean(choicesMode) && !claraBusy;
 
   return (
     <div className="fixed inset-0 z-[2147483500] flex flex-col overflow-hidden bg-[#010217] text-white">
@@ -665,71 +639,47 @@ export default function BudgetMasterclassRuntime() {
             <ClaraBubble key={message.id} message={message} />
           ))}
 
-          {aiBusy ? <ClaraTypingIndicator label={copy.typingLabel} /> : null}
-
-          {!aiBusy && pendingMessage ? (
+          {pendingMessage ? (
             <ClaraBubble message={pendingMessage} displayText={typedText} typing />
           ) : null}
         </div>
       </main>
 
-      {composerOpen ? (
-        <footer className="relative z-20 shrink-0 border-t border-white/[0.07] bg-[#041126]/96 px-4 pb-[max(14px,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
-          <form onSubmit={submitFollowUp} className="mx-auto w-full max-w-3xl">
-            <div className="flex items-end gap-2 rounded-[22px] border border-cyan-100/13 bg-white/[0.045] p-2.5 shadow-[0_-10px_28px_rgba(0,0,0,0.14)]">
-              <textarea
-                autoFocus
-                value={question}
-                onChange={(event) => setQuestion(event.target.value.slice(0, 700))}
-                rows={1}
-                placeholder={copy.composerPlaceholder}
-                className="max-h-28 min-h-[46px] flex-1 resize-none rounded-[16px] border border-white/[0.07] bg-black/20 px-3.5 py-3 text-[13px] font-semibold leading-5 text-white outline-none placeholder:text-white/28 focus:border-cyan-100/25"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  setComposerOpen(false);
-                  setQuestion("");
-                  setChoicesMode(
-                    finished
-                      ? "finish"
-                      : supportLevel >= supportSequence.length
-                        ? "support-exhausted"
-                        : "lesson",
-                  );
-                }}
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-[15px] border border-white/[0.07] bg-white/[0.04] text-white/44"
-                aria-label={copy.cancelFollowUp}
-              >
-                <X className="h-4 w-4" />
-              </button>
-              <button
-                type="submit"
-                disabled={!question.trim() || claraBusy}
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-[15px] border border-cyan-100/20 bg-cyan-300/[0.13] text-cyan-50 transition active:scale-95 disabled:opacity-35"
-                aria-label={copy.sendFollowUp}
-              >
-                <Send className="h-4 w-4" />
-              </button>
-            </div>
-          </form>
-        </footer>
-      ) : null}
-
       {quickRepliesVisible ? (
         <footer className="relative z-20 shrink-0 border-t border-white/[0.07] bg-[#041126]/96 px-4 pb-[max(14px,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
           <div className="mx-auto w-full max-w-3xl">
             <p className="mb-2 px-1 text-[9px] font-black uppercase tracking-[0.14em] text-white/28">
-              {copy.yourReply}
+              {choicesMode === "questions" ? questionUi.pickerLabel : copy.yourReply}
             </p>
 
             {choicesMode === "intro" ? (
               <QuickReply icon={ChevronRight} onClick={startMasterclass} primary>
                 {copy.startButton}
               </QuickReply>
+            ) : choicesMode === "questions" ? (
+              <div className="space-y-2">
+                {pointQuestions.map((item, index) => (
+                  <QuickReply
+                    key={`${currentStep?.id || "point"}-question-${index}`}
+                    icon={MessageCircleQuestion}
+                    onClick={() => answerPointQuestion(item)}
+                    primary={index === 0}
+                  >
+                    {item.question}
+                  </QuickReply>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setChoicesMode(questionReturnMode || "lesson")}
+                  className="mt-1 inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-[14px] border border-white/[0.06] bg-transparent px-3 text-[10.5px] font-bold text-white/42 transition hover:bg-white/[0.035] hover:text-white/66"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  {questionUi.backLabel}
+                </button>
+              </div>
             ) : choicesMode === "finish" ? (
               <div className="grid gap-2 sm:grid-cols-3">
-                <QuickReply icon={MessageCircleQuestion} onClick={() => openFollowUp(true)} primary>
+                <QuickReply icon={MessageCircleQuestion} onClick={() => openPointQuestions("finish")} primary>
                   {copy.askMoreButton}
                 </QuickReply>
                 <QuickReply icon={Check} onClick={finishWithUnderstanding}>
@@ -749,11 +699,14 @@ export default function BudgetMasterclassRuntime() {
                 </QuickReply>
               </div>
             ) : choicesMode === "support-exhausted" ? (
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid gap-2 sm:grid-cols-3">
                 <QuickReply icon={ChevronRight} onClick={continueMasterclass} primary>
                   {stepIndex >= experience.steps.length - 1
                     ? copy.finishCoreButton
                     : copy.continuePointButton(stepIndex + 2)}
+                </QuickReply>
+                <QuickReply icon={HelpCircle} onClick={() => openPointQuestions("support-exhausted")}>
+                  {questionUi.buttonLabel}
                 </QuickReply>
                 <QuickReply icon={CalendarClock} onClick={scheduleLiveConversation}>
                   {copy.talkThroughButton}
@@ -769,8 +722,8 @@ export default function BudgetMasterclassRuntime() {
                     {nextSupport.buttonLabel}
                   </QuickReply>
                 ) : null}
-                <QuickReply icon={HelpCircle} onClick={() => openFollowUp(false)}>
-                  {copy.followUpButton}
+                <QuickReply icon={HelpCircle} onClick={() => openPointQuestions("lesson")}>
+                  {questionUi.buttonLabel}
                 </QuickReply>
               </div>
             )}
