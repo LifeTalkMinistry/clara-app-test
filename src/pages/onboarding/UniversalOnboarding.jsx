@@ -150,9 +150,9 @@ export default function UniversalOnboarding() {
 
         .clara-onboarding-tour-entry {
           position: absolute;
-          z-index: 4;
+          z-index: 25;
           left: 50%;
-          bottom: 16px;
+          bottom: 82px;
           width: min(calc(100% - 54px), 392px);
           min-height: 64px;
           transform: translateX(-50%);
@@ -164,9 +164,9 @@ export default function UniversalOnboarding() {
           border: 1px solid rgba(77, 130, 220, 0.28);
           border-radius: 18px;
           background:
-            linear-gradient(135deg, rgba(16, 35, 70, 0.94), rgba(7, 18, 40, 0.95));
+            linear-gradient(135deg, rgba(16, 35, 70, 0.97), rgba(7, 18, 40, 0.98));
           box-shadow:
-            0 18px 42px rgba(0, 0, 0, 0.24),
+            0 18px 42px rgba(0, 0, 0, 0.34),
             inset 0 1px 0 rgba(255, 255, 255, 0.035);
           color: #eef5ff;
           text-align: left;
@@ -260,7 +260,7 @@ export default function UniversalOnboarding() {
 
         @media (max-height: 700px) {
           .clara-onboarding-tour-entry {
-            bottom: 9px;
+            bottom: 72px;
             min-height: 56px;
             padding-block: 7px;
           }
