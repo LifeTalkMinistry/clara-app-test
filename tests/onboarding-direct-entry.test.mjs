@@ -8,10 +8,15 @@ const betaWelcomeSource = readFileSync(
   new URL("../src/pages/onboarding/FoundingBetaWelcome.jsx", import.meta.url),
   "utf8"
 );
-const onboardingSource = readFileSync(
+const onboardingShellSource = readFileSync(
   new URL("../src/pages/onboarding/UniversalOnboarding.jsx", import.meta.url),
   "utf8"
 );
+const onboardingScreensSource = readFileSync(
+  new URL("../src/pages/onboarding/UniversalOnboardingScreens.jsx", import.meta.url),
+  "utf8"
+);
+const onboardingSource = `${onboardingShellSource}\n${onboardingScreensSource}`;
 
 test("mission onboarding is available as an authenticated app route", () => {
   assert.match(
@@ -62,8 +67,8 @@ test("onboarding is mission-led instead of a financial diagnosis questionnaire",
   assert.doesNotMatch(onboardingSource, /spending_guidance_style/);
   assert.match(onboardingSource, /Filipinos work hard for every peso\./);
   assert.match(onboardingSource, /Ask before you spend\./);
-  assert.match(onboardingSource, /CLARA is free to start\. You are never forced to pay to begin\./);
-  assert.match(onboardingSource, /Supporting CLARA doesn&apos;t buy discipline\./);
+  assert.match(onboardingSource, /Your support matters to us\./);
+  assert.match(onboardingSource, /Make it your commitment/);
 });
 
 test("support exploration hands off to the existing CLARA support bubble", () => {
