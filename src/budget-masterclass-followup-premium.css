@@ -27,20 +27,13 @@ body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form)::before {
 
 body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) form {
   position: relative;
-  padding-top: 17px;
+  padding-top: 0;
 }
 
+/* Keep the composer pure: no extra label above or inside the writing surface. */
 body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) form::before {
-  content: "CLARA · FOLLOW-UP";
-  position: absolute;
-  top: 0;
-  left: 12px;
-  color: rgba(126, 205, 255, 0.58);
-  font-size: 8.5px;
-  font-weight: 850;
-  line-height: 1;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  content: none !important;
+  display: none !important;
 }
 
 body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) form > div {
@@ -96,9 +89,10 @@ body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) textarea {
   outline: none !important;
 }
 
+/* The input opens clean and empty; the interaction itself explains what it is. */
 body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) textarea::placeholder {
-  color: rgba(212, 230, 255, 0.35) !important;
-  font-weight: 560 !important;
+  color: transparent !important;
+  opacity: 0 !important;
 }
 
 body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) button {
@@ -179,6 +173,6 @@ body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) button svg
   }
 
   body:has([aria-label="Close Budgeting Masterclass"]) footer:has(form) form {
-    padding-top: 16px;
+    padding-top: 0;
   }
 }
