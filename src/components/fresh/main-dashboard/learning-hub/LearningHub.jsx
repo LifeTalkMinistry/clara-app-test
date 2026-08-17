@@ -114,13 +114,15 @@ export default function LearningHub() {
       className="clara-budget-focus-shift clara-budget-focus-hub w-full"
     >
       <div className="relative flex w-full flex-col gap-[var(--clara-hub-rail-gap,14px)] overflow-visible px-1 py-0">
-        <div className="relative overflow-visible">
-          <DailyTipCard
-            hasCommittedAccess={hasCommittedAccess}
-            onOpenCommitmentBooklet={openCommittedVersionModal}
-            flushSpacing
-          />
-        </div>
+        {!shouldLoadHub ? (
+          <div className="relative overflow-visible">
+            <DailyTipCard
+              hasCommittedAccess={hasCommittedAccess}
+              onOpenCommitmentBooklet={openCommittedVersionModal}
+              flushSpacing
+            />
+          </div>
+        ) : null}
 
         {!shouldLoadHub ? (
           <div
