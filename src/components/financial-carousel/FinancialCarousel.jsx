@@ -220,6 +220,20 @@ html:not(.clara-guide-finance-carousel-active) #root .clara-production-guide-mat
         })}
       </CarouselViewport>
       <CarouselDots items={items} activeIndex={activeIndex} onSelect={isTerminalGuideLocked ? undefined : scrollToIndex} dashboardScale={dashboardScale} selectedDashboardTheme={selectedDashboardTheme} themeInactiveDotClass={themeInactiveDotClass} />
+
+      {!isGuideMode ? (
+        <div
+          data-clara-financial-success-belief="true"
+          className="mx-auto mt-3 max-w-[420px] px-5 text-center"
+        >
+          <p className="text-[11px] font-black tracking-[-0.01em] text-white/70">
+            What you have deserves direction.
+          </p>
+          <p className="mx-auto mt-1 max-w-[360px] text-[9.5px] font-semibold leading-[1.45] text-white/38">
+            Your income isn&apos;t your scoreboard. How intentionally you protect and use it matters more.
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }
