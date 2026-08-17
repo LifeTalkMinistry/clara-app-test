@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import ClaraLogo from "@/components/ClaraLogo";
 import ClaraBrandName from "@/components/ClaraBrandName";
+import ClaraTutorialOrbDemo from "./ClaraTutorialOrbDemo";
 import "./ClaraCoreTutorial.css";
 
 const JUAN = {
@@ -24,7 +25,6 @@ const JUAN = {
   nextPayday: "August 30",
   wallet: "₱4,600",
   protectedBudget: "₱2,200",
-  familySupport: "Supports his family",
   emergencyFund: "₱3,000 of ₱8,000",
   savingsGoal: "Laptop · ₱6,500 of ₱18,000",
   obligation: "Phone installment · ₱900 due Aug 24",
@@ -242,68 +242,6 @@ function MeetStep() {
   );
 }
 
-function ChatHeader() {
-  return (
-    <div className="clara-tour-chat-header">
-      <div className="clara-tour-orb-mini">
-        <ClaraLogo variant="icon" theme="dark" />
-      </div>
-      <div>
-        <small>CLARA ORB</small>
-        <strong>Ask before you spend</strong>
-      </div>
-    </div>
-  );
-}
-
-function OrbStep() {
-  return (
-    <div className="clara-tour-story-step">
-      <section className="clara-tour-copy-block">
-        <span className="clara-tour-eyebrow">START WITH THE ORB</span>
-        <h1>Juan is thinking about buying shoes for ₱1,800.</h1>
-        <p>Instead of deciding from gut feeling, Juan opens the CLARA ORB and asks before he spends.</p>
-      </section>
-
-      <div className="clara-tour-chat-shell">
-        <ChatHeader />
-        <div className="clara-tour-chat-body">
-          <div className="clara-tour-bubble clara-tour-bubble--juan">
-            <small>JUAN</small>
-            <p>CLARA, I want to buy shoes for ₱1,800. Kaya ba?</p>
-          </div>
-
-          <div className="clara-tour-bubble clara-tour-bubble--clara">
-            <small>CLARA</small>
-            <p>
-              You can pay for it, Juan, but I&apos;d wait if the shoes are not urgent. You currently have <strong>{JUAN.wallet}</strong>, but <strong>{JUAN.protectedBudget}</strong> still needs to cover food and transport until your next payday on <strong>{JUAN.nextPayday}</strong>.
-            </p>
-            <p>
-              You&apos;re also supporting your family and still building your emergency fund. Waiting keeps your essentials and safety buffer stronger.
-            </p>
-          </div>
-        </div>
-        <div className="clara-tour-orb-how">
-          <div><span>01</span><strong>Open the ORB</strong></div>
-          <ArrowRight />
-          <div><span>02</span><strong>Tell CLARA what you want to spend</strong></div>
-          <ArrowRight />
-          <div><span>03</span><strong>Ask follow-ups before deciding</strong></div>
-        </div>
-      </div>
-
-      <div className="clara-tour-callback-card">
-        <Sparkles />
-        <div>
-          <small>NOW THE IMPORTANT PART</small>
-          <strong>How did CLARA know all of that?</strong>
-          <p>Continue. We&apos;ll pause this conversation and trace every important piece of information back to where Juan set it up.</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function ConversationPaused({ feature }) {
   return (
     <div className="clara-tour-paused-chat">
@@ -363,50 +301,6 @@ function FeatureStep({ featureKey }) {
       <div className="clara-tour-return-note">
         <ArrowLeft />
         <span>Next, we return to Juan&apos;s conversation and uncover the next piece CLARA used.</span>
-      </div>
-    </div>
-  );
-}
-
-function PayoffStep() {
-  return (
-    <div className="clara-tour-story-step">
-      <section className="clara-tour-copy-block">
-        <span className="clara-tour-eyebrow">BACK TO JUAN & CLARA</span>
-        <h1>Now the original answer makes sense.</h1>
-        <p>CLARA was not guessing. Juan had already built a financial picture that CLARA could use when the spending decision arrived.</p>
-      </section>
-
-      <div className="clara-tour-chat-shell clara-tour-chat-shell--payoff">
-        <ChatHeader />
-        <div className="clara-tour-chat-body">
-          <div className="clara-tour-bubble clara-tour-bubble--juan">
-            <small>JUAN</small>
-            <p>So even if I technically have ₱4,600, that doesn&apos;t mean all ₱4,600 is safe to spend?</p>
-          </div>
-          <div className="clara-tour-bubble clara-tour-bubble--clara">
-            <small>CLARA</small>
-            <p>
-              Exactly. Your Wallet tells me what exists. Your Budget, obligations, emergency fund, goals, income timing, and Money Profile tell me what that money still needs to protect.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="clara-tour-connected-map">
-        {[
-          ["Profile", "Who Juan is"],
-          ["Income", "What is coming"],
-          ["Wallet", "What is available"],
-          ["Budget", "What has a job"],
-          ["Emergency", "What stays protected"],
-          ["Goals & obligations", "What the future needs"],
-        ].map(([title, detail]) => (
-          <div key={title}>
-            <strong>{title}</strong>
-            <span>{detail}</span>
-          </div>
-        ))}
       </div>
     </div>
   );
@@ -508,9 +402,7 @@ function ReadyStep() {
 
 function StepContent({ step }) {
   if (step.type === "meet") return <MeetStep />;
-  if (step.type === "orb") return <OrbStep />;
   if (step.type === "feature") return <FeatureStep featureKey={step.feature} />;
-  if (step.type === "payoff") return <PayoffStep />;
   if (step.type === "habit") return <HabitStep />;
   if (step.type === "learn") return <LearnStep />;
   return <ReadyStep />;
@@ -519,7 +411,6 @@ function StepContent({ step }) {
 function nextLabelFor(step, isLast) {
   if (isLast) return "Start using CLARA";
   if (step.type === "meet") return "Meet Juan";
-  if (step.type === "orb") return "Show me where CLARA knew that";
   if (step.type === "feature") return "Back to Juan";
   return "Continue";
 }
@@ -546,6 +437,17 @@ export default function ClaraCoreTutorial({ onFinish, onSkip }) {
     if (isFirst) return;
     setStepIndex((current) => Math.max(current - 1, 0));
   };
+
+  if (step.type === "orb" || step.type === "payoff") {
+    return (
+      <ClaraTutorialOrbDemo
+        phase={step.type === "payoff" ? "payoff" : "initial"}
+        onBack={back}
+        onContinue={next}
+        onSkip={onSkip}
+      />
+    );
+  }
 
   return (
     <div className="clara-core-tour">
