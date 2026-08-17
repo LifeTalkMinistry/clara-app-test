@@ -209,10 +209,6 @@ function MeetStep() {
           Juan is a full-time earner making ₱22,000 a month. Let&apos;s simply follow him and see how he uses CLARA in real life.
         </p>
       </section>
-
-      <div className="clara-tour-stage-card">
-        <JuanHeader />
-      </div>
     </div>
   );
 }
