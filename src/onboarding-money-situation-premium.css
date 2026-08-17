@@ -80,6 +80,20 @@
   font-weight: 620 !important;
 }
 
+/* Keep the selector close action visually owned by the sheet corner. */
+.clara-onboarding-situation-sheet-header {
+  position: relative !important;
+  padding-right: 64px !important;
+}
+
+.clara-onboarding-situation-sheet-close {
+  position: absolute !important;
+  top: 14px !important;
+  right: 14px !important;
+  margin: 0 !important;
+  flex: none !important;
+}
+
 @media (max-height: 760px) {
   .clara-onboarding-situation-board-section {
     padding: 14px 16px 15px !important;
@@ -95,5 +109,10 @@
   .clara-onboarding-situation-board-section--clara::before {
     top: 13px;
     bottom: 13px;
+  }
+
+  .clara-onboarding-situation-sheet-close {
+    top: 12px !important;
+    right: 12px !important;
   }
 }
