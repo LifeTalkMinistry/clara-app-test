@@ -109,16 +109,21 @@ export default function LearningHub({ hubOpen = false, onOpenHub, onCloseHub }) 
   return (
     <>
       <style>{`
-        .clara-community-home-view {
-          overflow-x: hidden !important;
-          scrollbar-width: none;
-          -ms-overflow-style: none;
+        .clara-community-learning-page-hero {
+          box-sizing: border-box !important;
+          width: calc(100% - 24px) !important;
+          max-width: calc(100% - 24px) !important;
+          margin-left: 12px !important;
+          margin-right: 12px !important;
         }
 
-        .clara-community-home-view::-webkit-scrollbar {
-          display: none;
-          width: 0;
-          height: 0;
+        @media (min-width: 640px) {
+          .clara-community-learning-page-hero {
+            width: calc(100% - 40px) !important;
+            max-width: calc(100% - 40px) !important;
+            margin-left: 20px !important;
+            margin-right: 20px !important;
+          }
         }
       `}</style>
 
