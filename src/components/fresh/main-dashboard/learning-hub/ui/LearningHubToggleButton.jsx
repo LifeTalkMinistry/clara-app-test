@@ -30,7 +30,6 @@ export default function LearningHubToggleButton({
   onTouchEnd,
   className = "",
   flushSpacing = false,
-  guideTarget = false,
 }) {
   const collapseMainHub = useContext(LearningHubCollapseContext);
   const touchStartYRef = useRef(null);
@@ -74,7 +73,6 @@ export default function LearningHubToggleButton({
     <button
       type="button"
       data-clara-learning-hub-toggle="true"
-      data-clara-guide-learning-hub-toggle={guideTarget ? "true" : undefined}
       aria-expanded={isLocked ? false : isExpanded}
       aria-label={
         isLocked
