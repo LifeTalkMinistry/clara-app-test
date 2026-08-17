@@ -29,18 +29,21 @@ const POINT_QUESTION_UI = {
     buttonLabel: "Questions about this point",
     backLabel: "Back to point options",
     answerEyebrow: "CLARA · KEY QUESTION",
+    askedLabel: "Asked",
   },
   tl: {
     pickerLabel: "Pumili ng tanong",
     buttonLabel: "Mga tanong tungkol sa point na ito",
     backLabel: "Bumalik sa point options",
     answerEyebrow: "CLARA · MAHALAGANG TANONG",
+    askedLabel: "Naitanong na",
   },
   es: {
     pickerLabel: "Elige una pregunta",
     buttonLabel: "Preguntas sobre este punto",
     backLabel: "Volver a las opciones del punto",
     answerEyebrow: "CLARA · PREGUNTA CLAVE",
+    askedLabel: "Ya preguntada",
   },
 };
 
@@ -90,24 +93,42 @@ function ClaraBubble({ message, displayText, typing = false }) {
   );
 }
 
-function QuickReply({ children, icon: Icon, onClick, primary = false, disabled = false }) {
+function QuickReply({
+  children,
+  icon: Icon,
+  onClick,
+  primary = false,
+  disabled = false,
+  used = false,
+  statusLabel = "",
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       className={[
-        "flex min-h-11 w-full items-center justify-between gap-3 rounded-[18px] border px-4 py-2.5 text-left text-[12px] font-black transition active:scale-[0.992] disabled:cursor-not-allowed disabled:opacity-45",
-        primary
-          ? "border-cyan-100/22 bg-[linear-gradient(135deg,rgba(34,211,238,0.18),rgba(37,99,235,0.16)_55%,rgba(139,92,246,0.15))] text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_22px_rgba(0,0,0,0.16)]"
-          : "border-white/[0.09] bg-white/[0.045] text-white/78 hover:border-white/[0.16] hover:bg-white/[0.07]",
+        "flex min-h-11 w-full items-center justify-between gap-3 rounded-[18px] border px-4 py-2.5 text-left text-[12px] font-black transition disabled:cursor-not-allowed",
+        used
+          ? "border-white/[0.045] bg-white/[0.022] text-white/28 shadow-none"
+          : primary
+            ? "border-cyan-100/22 bg-[linear-gradient(135deg,rgba(34,211,238,0.18),rgba(37,99,235,0.16)_55%,rgba(139,92,246,0.15))] text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_22px_rgba(0,0,0,0.16)] active:scale-[0.992]"
+            : "border-white/[0.09] bg-white/[0.045] text-white/78 hover:border-white/[0.16] hover:bg-white/[0.07] active:scale-[0.992] disabled:opacity-45",
       ].join(" ")}
     >
       <span className="flex min-w-0 items-center gap-2.5">
-        {Icon ? <Icon className="h-4 w-4 shrink-0 text-cyan-100/72" /> : null}
+        {Icon ? (
+          <Icon className={`h-4 w-4 shrink-0 ${used ? "text-white/18" : "text-cyan-100/72"}`} />
+        ) : null}
         <span>{children}</span>
       </span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-white/28" />
+      {statusLabel ? (
+        <span className="shrink-0 rounded-full border border-white/[0.06] bg-white/[0.025] px-2 py-1 text-[8px] font-black uppercase tracking-[0.12em] text-white/28">
+          {statusLabel}
+        </span>
+      ) : (
+        <ChevronRight className="h-4 w-4 shrink-0 text-white/28" />
+      )}
     </button>
   );
 }
@@ -211,6 +232,7 @@ export default function BudgetMasterclassRuntime() {
   const [typedText, setTypedText] = useState("");
   const [choicesMode, setChoicesMode] = useState("");
   const [questionReturnMode, setQuestionReturnMode] = useState("lesson");
+  const [askedPointQuestions, setAskedPointQuestions] = useState({});
   const [finished, setFinished] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [supportLevel, setSupportLevel] = useState(0);
@@ -228,6 +250,7 @@ export default function BudgetMasterclassRuntime() {
   const currentStep = experience.steps[stepIndex] || experience.steps[0];
   const supportSequence = getBudgetMasterclassSupportSequenceForLanguage(language || "en", currentStep?.id);
   const pointQuestions = getBudgetMasterclassPointQuestions(language || "en", currentStep?.id);
+  const askedQuestionIndexes = askedPointQuestions[currentStep?.id] || [];
   const nextSupport = supportSequence[supportLevel] || null;
   const progress = started
     ? Math.round(((Math.min(stepIndex + 1, experience.steps.length)) / experience.steps.length) * 100)
@@ -252,6 +275,7 @@ export default function BudgetMasterclassRuntime() {
     setTypedText("");
     setChoicesMode("");
     setQuestionReturnMode("lesson");
+    setAskedPointQuestions({});
     setFinished(false);
     setCompleted(false);
     setSupportLevel(0);
@@ -411,6 +435,7 @@ export default function BudgetMasterclassRuntime() {
     setCompleted(false);
     setStepIndex(0);
     setSupportLevel(0);
+    setAskedPointQuestions({});
     setUnresolvedStepIds([]);
     transitionTimerRef.current = window.setTimeout(() => {
       appendLesson(0);
@@ -495,9 +520,26 @@ export default function BudgetMasterclassRuntime() {
     setChoicesMode("questions");
   };
 
-  const answerPointQuestion = (item) => {
-    if (claraBusy || !item?.question || !item?.answer) return;
-    const returnMode = questionReturnMode || (finished ? "finish" : "lesson");
+  const answerPointQuestion = (item, questionIndex) => {
+    if (
+      claraBusy ||
+      !currentStep?.id ||
+      askedQuestionIndexes.includes(questionIndex) ||
+      !item?.question ||
+      !item?.answer
+    ) {
+      return;
+    }
+
+    setAskedPointQuestions((current) => {
+      const existing = current[currentStep.id] || [];
+      if (existing.includes(questionIndex)) return current;
+      return {
+        ...current,
+        [currentStep.id]: [...existing, questionIndex],
+      };
+    });
+
     setChoicesMode("");
     sendUserBubble(item.question);
 
@@ -507,7 +549,7 @@ export default function BudgetMasterclassRuntime() {
           kind: "clarification",
           eyebrow: questionUi.answerEyebrow,
         }),
-        returnMode,
+        "questions",
       );
       transitionTimerRef.current = null;
     }, 520);
@@ -658,16 +700,22 @@ export default function BudgetMasterclassRuntime() {
               </QuickReply>
             ) : choicesMode === "questions" ? (
               <div className="space-y-2">
-                {pointQuestions.map((item, index) => (
-                  <QuickReply
-                    key={`${currentStep?.id || "point"}-question-${index}`}
-                    icon={MessageCircleQuestion}
-                    onClick={() => answerPointQuestion(item)}
-                    primary={index === 0}
-                  >
-                    {item.question}
-                  </QuickReply>
-                ))}
+                {pointQuestions.map((item, index) => {
+                  const wasAsked = askedQuestionIndexes.includes(index);
+                  return (
+                    <QuickReply
+                      key={`${currentStep?.id || "point"}-question-${index}`}
+                      icon={MessageCircleQuestion}
+                      onClick={() => answerPointQuestion(item, index)}
+                      primary={index === 0 && !wasAsked}
+                      disabled={wasAsked}
+                      used={wasAsked}
+                      statusLabel={wasAsked ? questionUi.askedLabel : ""}
+                    >
+                      {item.question}
+                    </QuickReply>
+                  );
+                })}
                 <button
                   type="button"
                   onClick={() => setChoicesMode(questionReturnMode || "lesson")}
