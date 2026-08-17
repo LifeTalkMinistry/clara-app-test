@@ -188,7 +188,7 @@ function CommunityShellHeader({ activeView, unreadCount }) {
 
 export default function Community() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user: appUser, isAdmin = false } = useUserRole();
   const [notifications, setNotifications] = useState([]);
   const token = getStoredBackendToken();
@@ -198,6 +198,21 @@ export default function Community() {
   const activeView = ["orb", "home", "feed", "schedule", "circles", "challenges", "messages", "notifications", "profile", "settings"].includes(requestedView)
     ? requestedView
     : "feed";
+  const hubOpen = activeView === "home" && searchParams.get("learning") === "hub";
+
+  const handleOpenLearningHub = useCallback(() => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("view", "home");
+    nextParams.set("learning", "hub");
+    setSearchParams(nextParams);
+  }, [searchParams, setSearchParams]);
+
+  const handleCloseLearningHub = useCallback(() => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("view", "home");
+    nextParams.delete("learning");
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const loadNotifications = useCallback(async () => {
     if (!token) return;
@@ -298,9 +313,6 @@ export default function Community() {
         .clara-community-profile-view > div {
           min-height: 100% !important;
         }
-        .clara-community-home-learning-hub [data-clara-learning-hub-section="true"] > div > div:has([data-clara-daily-tip-card="true"]) {
-          display: none !important;
-        }
 
         .clara-community-home-legacy-selector-shield {
           min-height: 1rem !important;
@@ -340,15 +352,21 @@ export default function Community() {
           aria-label="CLARA Home"
         >
           <div className="mx-auto w-full max-w-3xl">
-            <div className="relative z-10">
-              <FreeDailyTipCard flushSpacing />
-            </div>
+            {!hubOpen ? (
+              <div className="relative z-10">
+                <FreeDailyTipCard flushSpacing />
+              </div>
+            ) : null}
             <div
               aria-hidden="true"
               className="clara-community-home-legacy-selector-shield h-4 w-full sm:h-5"
             />
             <div className="clara-community-home-learning-hub relative z-[60] pb-2 pt-1 sm:pt-1.5">
-              <LearningHub />
+              <LearningHub
+                hubOpen={hubOpen}
+                onOpenHub={handleOpenLearningHub}
+                onCloseHub={handleCloseLearningHub}
+              />
             </div>
             <CommunityHomeFinancialCarousel />
           </div>
