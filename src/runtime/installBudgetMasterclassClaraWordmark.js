@@ -1,7 +1,7 @@
 const WORDMARK_CLASS = "clara-official-wordmark-inline";
 const MASTERCLASS_CLOSE_SELECTOR = '[aria-label="Close Budgeting Masterclass"]';
 const EMPHASIS_SELECTOR = "h1, h2, h3, p.uppercase, strong, b";
-const LESSON_POINT_PATTERN = /^Budget Masterclass\s*·\s*Point\s+\d+$/i;
+const LESSON_EYEBROW_PATTERN = /^Budget Masterclass(?:\s*·\s*Point\s+\d+)?$/i;
 
 function createClaraWordmark() {
   const wordmark = document.createElement("span");
@@ -92,11 +92,11 @@ function getMasterclassRoot() {
   return closeButton.closest("div.fixed") || closeButton.parentElement?.parentElement?.parentElement || null;
 }
 
-function removeRedundantLessonPointLabels(root) {
-  root.querySelectorAll("p.uppercase").forEach((element) => {
+function removeRedundantLessonEyebrows(root) {
+  root.querySelectorAll("main p.uppercase").forEach((element) => {
     const value = String(element.textContent || "").trim();
-    if (!LESSON_POINT_PATTERN.test(value)) return;
-    element.textContent = "Budget Masterclass";
+    if (!LESSON_EYEBROW_PATTERN.test(value)) return;
+    element.remove();
   });
 }
 
@@ -104,7 +104,7 @@ function applyMasterclassClaraWordmarks() {
   const root = getMasterclassRoot();
   if (!root) return;
 
-  removeRedundantLessonPointLabels(root);
+  removeRedundantLessonEyebrows(root);
 
   root.querySelectorAll(EMPHASIS_SELECTOR).forEach((element) => {
     if (!String(element.textContent || "").includes("CLARA")) return;
