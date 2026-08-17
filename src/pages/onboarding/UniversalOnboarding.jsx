@@ -5,6 +5,7 @@ import { ArrowRight, ChevronLeft, Compass, Sparkles } from "lucide-react";
 import ClaraBrandName from "@/components/ClaraBrandName";
 import { useAuth } from "@/context/AuthContext";
 import ClaraCoreTutorial from "./ClaraCoreTutorial";
+import FinancialSuccessScreen from "./FinancialSuccessScreen";
 import MoneySituationScreen from "./MoneySituationScreen";
 import { getUniversalOnboardingStyles } from "./UniversalOnboardingStyles";
 import {
@@ -28,6 +29,9 @@ const SUPPORT_BUBBLE_EPOCH_KEY = "clara_support_bubble_cycle_epoch_v2";
 const OPEN_SUPPORT_AFTER_ONBOARDING_KEY = "clara_open_support_after_onboarding_v1";
 const MISSION_ONBOARDING_COMPLETE_PREFIX = "clara_mission_onboarding_complete_v1";
 const CORE_TUTORIAL_STATUS_PREFIX = "clara_core_tutorial_status_v1";
+const ONBOARDING_SCREEN_IDS = SCREEN_IDS.flatMap((screenId) =>
+  screenId === "money-situation" ? [screenId, "financial-success"] : [screenId],
+);
 
 function completionKey(user) {
   const identity = user?.id || user?.email || "local";
@@ -67,13 +71,15 @@ export default function UniversalOnboarding() {
   const [screenIndex, setScreenIndex] = useState(0);
   const [tutorialActive, setTutorialActive] = useState(false);
   const firstName = useMemo(() => firstNameFrom(profile, user), [profile, user]);
-  const activeScreen = SCREEN_IDS[screenIndex];
+  const activeScreen = ONBOARDING_SCREEN_IDS[screenIndex];
   const isFirst = screenIndex === 0;
-  const isLast = screenIndex === SCREEN_IDS.length - 1;
+  const isLast = screenIndex === ONBOARDING_SCREEN_IDS.length - 1;
 
   const goNext = () => {
     if (isLast) return;
-    setScreenIndex((current) => Math.min(current + 1, SCREEN_IDS.length - 1));
+    setScreenIndex((current) =>
+      Math.min(current + 1, ONBOARDING_SCREEN_IDS.length - 1),
+    );
   };
 
   const goBack = () => {
@@ -128,6 +134,9 @@ export default function UniversalOnboarding() {
       return <SpendingImpactScreen reduceMotion={reduceMotion} />;
     }
     if (activeScreen === "money-situation") return <MoneySituationScreen />;
+    if (activeScreen === "financial-success") {
+      return <FinancialSuccessScreen user={user} profile={profile} />;
+    }
     if (activeScreen === "before") return <BeforeScreen />;
     if (activeScreen === "personal") return <PersonalScreen firstName={firstName} />;
     if (activeScreen === "clara") {
@@ -142,7 +151,7 @@ export default function UniversalOnboarding() {
 
   return (
     <div className="clara-mission-onboarding">
-      <style>{`${getUniversalOnboardingStyles(SCREEN_IDS.length)}
+      <style>{`${getUniversalOnboardingStyles(ONBOARDING_SCREEN_IDS.length)}
         .clara-onboarding-transition {
           overflow-y: auto;
           position: relative;
@@ -282,11 +291,11 @@ export default function UniversalOnboarding() {
         <div className="clara-onboarding-header-row">
           <ClaraWordmark />
           <span className="clara-onboarding-counter">
-            {String(screenIndex + 1).padStart(2, "0")} / {String(SCREEN_IDS.length).padStart(2, "0")}
+            {String(screenIndex + 1).padStart(2, "0")} / {String(ONBOARDING_SCREEN_IDS.length).padStart(2, "0")}
           </span>
         </div>
         <div className="clara-onboarding-progress" aria-hidden="true">
-          {SCREEN_IDS.map((screenId, index) => (
+          {ONBOARDING_SCREEN_IDS.map((screenId, index) => (
             <span
               key={screenId}
               className={`clara-onboarding-progress-segment ${
@@ -357,6 +366,8 @@ export default function UniversalOnboarding() {
             <span>
               {isLast ? (
                 <>Start with <ClaraBrandName /></>
+              ) : activeScreen === "financial-success" ? (
+                "Protect What I Have"
               ) : (
                 "Continue"
               )}
