@@ -1,0 +1,123 @@
+/* Canonical Juan visual treatment for the fresh CLARA guided tour.
+   The same /juan-character.svg identity is reused wherever Juan appears. */
+
+/* On step 01, the disabled Back control uniquely marks the first tutorial scene. */
+.clara-core-tour:has(.clara-core-tour-back:disabled) .clara-tour-story-step {
+  justify-content: center;
+  gap: 6px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* The character now carries the sense of entering a story, so the temporary
+   explanatory WATCH / REVEAL / LEARN card is intentionally hidden. */
+.clara-core-tour:has(.clara-core-tour-back:disabled)
+  .clara-tour-story-step
+  > [aria-label="How the CLARA guided tour works"] {
+  display: none !important;
+}
+
+.clara-core-tour:has(.clara-core-tour-back:disabled) .clara-tour-story-step::before {
+  content: "";
+  display: block;
+  width: min(64vw, 246px);
+  height: min(39dvh, 292px);
+  min-height: 228px;
+  margin: -8px auto -14px;
+  flex: 0 0 auto;
+  background-image: url("/juan-character.svg");
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: contain;
+  filter: drop-shadow(0 22px 36px rgba(0, 0, 0, 0.28));
+  pointer-events: none;
+}
+
+.clara-core-tour:has(.clara-core-tour-back:disabled) .clara-tour-copy-block::before {
+  content: "CLARA GUIDED TOUR";
+  display: block;
+  width: fit-content;
+  margin: 0 auto 10px;
+  color: #ffd34e;
+  font-size: 7.5px;
+  font-weight: 950;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.clara-core-tour:has(.clara-core-tour-back:disabled) .clara-tour-copy-block .clara-tour-eyebrow {
+  min-height: 24px;
+  padding-inline: 10px;
+  font-size: 7px;
+}
+
+.clara-core-tour:has(.clara-core-tour-back:disabled) .clara-tour-copy-block h1 {
+  margin-top: 10px;
+  font-size: clamp(27px, 7vw, 34px);
+}
+
+.clara-core-tour:has(.clara-core-tour-back:disabled) .clara-tour-copy-block p {
+  max-width: 390px;
+  margin-top: 8px;
+  line-height: 1.55;
+}
+
+/* Any compact Juan identity card uses the exact same canonical character,
+   cropped to a portrait instead of falling back to a generic letter avatar. */
+.clara-core-tour .clara-tour-juan-avatar {
+  overflow: hidden;
+  color: transparent !important;
+  font-size: 0 !important;
+  background-color: #081a3b !important;
+  background-image:
+    radial-gradient(circle at 50% 24%, rgba(59, 130, 246, 0.2), transparent 56%),
+    url("/juan-character.svg") !important;
+  background-repeat: no-repeat !important;
+  background-position: center 17%, center 17% !important;
+  background-size: cover, 96px auto !important;
+}
+
+.clara-core-tour .clara-tour-juan.is-compact .clara-tour-juan-avatar {
+  background-size: cover, 82px auto !important;
+}
+
+@media (max-height: 760px) {
+  .clara-core-tour:has(.clara-core-tour-back:disabled) .clara-tour-story-step::before {
+    width: min(53vw, 196px);
+    height: min(31dvh, 222px);
+    min-height: 182px;
+    margin-top: -4px;
+    margin-bottom: -12px;
+  }
+
+  .clara-core-tour:has(.clara-core-tour-back:disabled) .clara-tour-copy-block::before {
+    margin-bottom: 7px;
+  }
+
+  .clara-core-tour:has(.clara-core-tour-back:disabled) .clara-tour-copy-block h1 {
+    margin-top: 7px;
+  }
+}
+
+@media (max-width: 390px) {
+  .clara-core-tour:has(.clara-core-tour-back:disabled) .clara-tour-story-step::before {
+    width: min(63vw, 220px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .clara-core-tour:has(.clara-core-tour-back:disabled) .clara-tour-story-step::before {
+    animation: claraJuanEnter 480ms cubic-bezier(.22, 1, .36, 1) both;
+  }
+}
+
+@keyframes claraJuanEnter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
