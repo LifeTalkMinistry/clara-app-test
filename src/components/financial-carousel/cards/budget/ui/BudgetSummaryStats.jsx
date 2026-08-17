@@ -1,4 +1,4 @@
-import { Target } from "lucide-react";
+import { Info } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { fmt } from "@/components/financial-carousel/cards/budget/logic/useBudgetCardLogic";
 
@@ -42,30 +42,32 @@ export default function BudgetSummaryStats({
 
   return (
     <>
-      <div className="relative mb-3 min-h-[68px] pr-14">
-        <p
-          className={`text-[clamp(1.95rem,8vw,2.25rem)] font-black leading-none tracking-[-0.055em] drop-shadow-[0_10px_26px_rgba(0,0,0,0.22)] ${
-            hasDeclaredBudget
-              ? remainingAmountColor
-              : "text-teal-50 drop-shadow-[0_0_16px_rgba(153,246,228,0.13)]"
-          }`}
-        >
-          {fmt(remaining)}{hasDeclaredBudget ? " Left" : ""}
-        </p>
+      <div className="mb-3 flex min-h-[68px] items-center justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <p
+            className={`text-[clamp(1.95rem,8vw,2.25rem)] font-black leading-none tracking-[-0.055em] drop-shadow-[0_10px_26px_rgba(0,0,0,0.22)] ${
+              hasDeclaredBudget
+                ? remainingAmountColor
+                : "text-teal-50 drop-shadow-[0_0_16px_rgba(153,246,228,0.13)]"
+            }`}
+          >
+            {fmt(remaining)}{hasDeclaredBudget ? " Left" : ""}
+          </p>
 
-        <p className="mt-2 max-w-full text-[13px] font-semibold leading-snug text-white/72">
-          {remainingMessage}
-        </p>
+          <p className="mt-2 max-w-full text-[13px] font-semibold leading-snug text-white/72">
+            {remainingMessage}
+          </p>
+        </div>
 
         {hasDeclaredBudget ? (
           <button
             type="button"
             onClick={openBudgetMasterclass}
-            className="absolute right-0 top-1 grid h-10 w-10 place-items-center rounded-full border border-yellow-100/[0.18] bg-[linear-gradient(145deg,rgba(252,209,22,0.13),rgba(0,56,168,0.34)_58%,rgba(206,17,38,0.10))] text-yellow-100/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.09),0_9px_20px_rgba(0,0,0,0.20),0_0_16px_rgba(252,209,22,0.045)] backdrop-blur-md transition hover:border-yellow-100/[0.30] hover:brightness-110 active:scale-95"
-            aria-label="Open CLARA Budgeting Masterclass"
-            title="Learn budgeting with CLARA"
+            className="grid h-10 w-10 shrink-0 place-items-center self-center rounded-full border border-cyan-100/[0.18] bg-[linear-gradient(145deg,rgba(34,211,238,0.11),rgba(37,99,235,0.18)_58%,rgba(139,92,246,0.10))] text-cyan-50/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_9px_20px_rgba(0,0,0,0.18),0_0_14px_rgba(34,211,238,0.045)] backdrop-blur-md transition hover:border-cyan-100/[0.30] hover:brightness-110 active:scale-95"
+            aria-label="Learn how budgeting works with CLARA"
+            title="How budgeting works"
           >
-            <Target className="h-[18px] w-[18px]" strokeWidth={2.2} />
+            <Info className="h-[18px] w-[18px]" strokeWidth={2.15} />
           </button>
         ) : null}
       </div>
