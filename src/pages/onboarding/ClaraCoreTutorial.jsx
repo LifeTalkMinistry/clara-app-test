@@ -17,6 +17,7 @@ import {
 import ClaraLogo from "@/components/ClaraLogo";
 import ClaraBrandName from "@/components/ClaraBrandName";
 import ClaraTutorialOrbDemo from "./ClaraTutorialOrbDemo";
+import JuanCharacter from "./JuanCharacter";
 import "./ClaraCoreTutorial.css";
 
 const JUAN = {
@@ -189,7 +190,9 @@ function Wordmark() {
 function JuanHeader({ compact = false }) {
   return (
     <div className={`clara-tour-juan ${compact ? "is-compact" : ""}`}>
-      <div className="clara-tour-juan-avatar">J</div>
+      <div className="clara-tour-juan-avatar" aria-hidden="true">
+        <JuanCharacter pose="phone" compact decorative />
+      </div>
       <div className="clara-tour-juan-copy">
         <small>OUR EXAMPLE USER</small>
         <strong>Juan</strong>
@@ -201,7 +204,9 @@ function JuanHeader({ compact = false }) {
 
 function MeetStep() {
   return (
-    <div className="clara-tour-story-step">
+    <div className="clara-tour-story-step clara-tour-story-step--meet">
+      <JuanCharacter pose="phone" className="clara-tour-juan-hero" />
+
       <section className="clara-tour-copy-block">
         <span className="clara-tour-eyebrow">MEET JUAN</span>
         <h1>This is Juan.</h1>
@@ -209,16 +214,6 @@ function MeetStep() {
           Juan is a full-time earner making ₱22,000 a month. Follow one of his real spending decisions and see how CLARA helps him decide with context.
         </p>
       </section>
-
-      <div className="clara-tour-stage-card">
-        <JuanHeader />
-        <div className="clara-tour-stage-note">
-          <Sparkles />
-          <p>
-            Juan&apos;s financial picture will unfold naturally as the story moves — you do not need to learn everything at once.
-          </p>
-        </div>
-      </div>
     </div>
   );
 }
