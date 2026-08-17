@@ -199,127 +199,26 @@ function JuanHeader({ compact = false }) {
   );
 }
 
-function TutorialEntranceRhythm() {
-  const steps = [
-    ["01", "WATCH", "Juan uses CLARA"],
-    ["02", "REVEAL", "See what CLARA knew"],
-    ["03", "LEARN", "Walk through the feature"],
-  ];
-
-  return (
-    <div
-      aria-label="How the CLARA guided tour works"
-      style={{
-        width: "min(100%, 440px)",
-        margin: "0 auto",
-        padding: "17px 16px 16px",
-        border: "1px solid rgba(76, 132, 224, 0.22)",
-        borderRadius: "22px",
-        background:
-          "radial-gradient(circle at 50% 0%, rgba(38, 103, 255, 0.15), transparent 48%), linear-gradient(180deg, rgba(10, 28, 61, 0.88), rgba(4, 13, 31, 0.9))",
-        boxShadow: "0 24px 58px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.035)",
-      }}
-    >
-      <div style={{ textAlign: "center" }}>
-        <span
-          style={{
-            display: "inline-block",
-            color: "#ffd34e",
-            fontSize: "8px",
-            fontWeight: 950,
-            letterSpacing: ".2em",
-          }}
-        >
-          CLARA GUIDED TOUR
-        </span>
-        <strong
-          style={{
-            display: "block",
-            marginTop: "7px",
-            color: "#f7fbff",
-            fontSize: "15px",
-            fontWeight: 900,
-            letterSpacing: "-.018em",
-          }}
-        >
-          One story. Every core feature, in context.
-        </strong>
-      </div>
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-          gap: "8px",
-          marginTop: "15px",
-        }}
-      >
-        {steps.map(([number, label, detail]) => (
-          <div
-            key={number}
-            style={{
-              minWidth: 0,
-              padding: "11px 7px 10px",
-              border: "1px solid rgba(85, 126, 188, 0.14)",
-              borderRadius: "14px",
-              background: "rgba(3, 13, 31, 0.64)",
-              textAlign: "center",
-            }}
-          >
-            <span
-              style={{
-                display: "block",
-                color: "#5f8ed8",
-                fontSize: "7px",
-                fontWeight: 950,
-                letterSpacing: ".12em",
-              }}
-            >
-              {number}
-            </span>
-            <strong
-              style={{
-                display: "block",
-                marginTop: "5px",
-                color: "#dceaff",
-                fontSize: "9px",
-                fontWeight: 900,
-                letterSpacing: ".08em",
-              }}
-            >
-              {label}
-            </strong>
-            <span
-              style={{
-                display: "block",
-                marginTop: "4px",
-                color: "#7187a7",
-                fontSize: "7.5px",
-                fontWeight: 650,
-                lineHeight: 1.35,
-              }}
-            >
-              {detail}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function MeetStep() {
   return (
     <div className="clara-tour-story-step">
-      <TutorialEntranceRhythm />
-
       <section className="clara-tour-copy-block">
         <span className="clara-tour-eyebrow">MEET JUAN</span>
         <h1>This is Juan.</h1>
         <p>
-          Juan is a full-time earner making ₱22,000 a month. Follow him and see how he uses CLARA in real life.
+          Juan is a full-time earner making ₱22,000 a month. Follow one of his real spending decisions and see how CLARA helps him decide with context.
         </p>
       </section>
+
+      <div className="clara-tour-stage-card">
+        <JuanHeader />
+        <div className="clara-tour-stage-note">
+          <Sparkles />
+          <p>
+            Juan&apos;s financial picture will unfold naturally as the story moves — you do not need to learn everything at once.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
