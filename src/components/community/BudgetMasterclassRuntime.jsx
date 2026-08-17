@@ -149,14 +149,11 @@ function LanguageGate({ onSelect, onBack, onClose }) {
             </div>
 
             <p className="mt-5 text-[9px] font-black uppercase tracking-[0.24em] text-yellow-200/68">
-              CLARA · PREMIUM BUDGETING MASTERCLASS
+              BUDGETING MASTERCLASS
             </p>
             <h1 className="mt-2 text-[27px] font-black tracking-[-0.04em] text-white sm:text-[32px]">
               Choose your learning language
             </h1>
-            <p className="mx-auto mt-3 max-w-md text-[12.5px] font-semibold leading-[1.65] text-blue-100/58 sm:text-[13px]">
-              Same curriculum. Same teaching depth. Choose the language that makes the lesson feel most natural to you.
-            </p>
           </div>
 
           <div className="relative z-10 mt-6 grid gap-2.5 sm:grid-cols-3">
@@ -182,12 +179,6 @@ function LanguageGate({ onSelect, onBack, onClose }) {
                 <ChevronRight className="h-4 w-4 shrink-0 text-white/24 transition group-hover:translate-x-0.5 group-hover:text-cyan-100/65 sm:self-end" />
               </button>
             ))}
-          </div>
-
-          <div className="relative z-10 mt-5 border-t border-white/[0.07] pt-4 text-center">
-            <p className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-white/30">
-              14 core points · 3 supporting explanations per point
-            </p>
           </div>
         </section>
       </div>
