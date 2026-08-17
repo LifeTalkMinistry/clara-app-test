@@ -1,3 +1,5 @@
+import { Target } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { fmt } from "@/components/financial-carousel/cards/budget/logic/useBudgetCardLogic";
 
 export default function BudgetSummaryStats({
@@ -9,6 +11,7 @@ export default function BudgetSummaryStats({
   remainingAmountColor,
   hasDeclaredBudget = false,
 }) {
+  const navigate = useNavigate();
   const roundedProgress = Math.round(progress);
   const statusLabel = status?.label || (hasDeclaredBudget ? "Healthy" : "No Plan");
   const remainingMessage = hasDeclaredBudget
@@ -31,9 +34,15 @@ export default function BudgetSummaryStats({
     },
   ];
 
+  const openBudgetMasterclass = (event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    navigate("/community?view=orb&masterclass=budget");
+  };
+
   return (
     <>
-      <div className="mb-3">
+      <div className="relative mb-3 min-h-[68px] pr-14">
         <p
           className={`text-[clamp(1.95rem,8vw,2.25rem)] font-black leading-none tracking-[-0.055em] drop-shadow-[0_10px_26px_rgba(0,0,0,0.22)] ${
             hasDeclaredBudget
@@ -44,9 +53,21 @@ export default function BudgetSummaryStats({
           {fmt(remaining)}{hasDeclaredBudget ? " Left" : ""}
         </p>
 
-        <p className="mt-2 max-w-[92%] text-[13px] font-semibold leading-snug text-white/72">
+        <p className="mt-2 max-w-full text-[13px] font-semibold leading-snug text-white/72">
           {remainingMessage}
         </p>
+
+        {hasDeclaredBudget ? (
+          <button
+            type="button"
+            onClick={openBudgetMasterclass}
+            className="absolute right-0 top-1 grid h-10 w-10 place-items-center rounded-full border border-yellow-100/[0.18] bg-[linear-gradient(145deg,rgba(252,209,22,0.13),rgba(0,56,168,0.34)_58%,rgba(206,17,38,0.10))] text-yellow-100/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.09),0_9px_20px_rgba(0,0,0,0.20),0_0_16px_rgba(252,209,22,0.045)] backdrop-blur-md transition hover:border-yellow-100/[0.30] hover:brightness-110 active:scale-95"
+            aria-label="Open CLARA Budgeting Masterclass"
+            title="Learn budgeting with CLARA"
+          >
+            <Target className="h-[18px] w-[18px]" strokeWidth={2.2} />
+          </button>
+        ) : null}
       </div>
 
       <div className="mb-1 overflow-hidden rounded-[22px] border border-cyan-100/[0.10] bg-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.075),0_14px_28px_rgba(0,0,0,0.16),0_0_24px_rgba(103,232,249,0.035)] backdrop-blur-xl">
