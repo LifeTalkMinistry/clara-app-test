@@ -102,7 +102,11 @@ export default function ClaraLifeProfilePortal({
       ) : null}
       {createPortal(
         <>
-          <ProfileTrigger onOpen={openLifeProfile} previewOnly={previewOnly} />
+          {previewOnly ? (
+            <ProfileTrigger onOpen={openLifeProfile} previewOnly />
+          ) : (
+            <ProfileTrigger onOpen={openLifeProfile} />
+          )}
           {targets.board ? <CloseTrigger onClose={onClose} /> : null}
         </>,
         target,
