@@ -3,7 +3,7 @@ import { getStoredBackendToken } from "./clara-backend-client.js";
 const MASTERCLASS_ENDPOINT = "/api/clara-masterclass-gemini";
 const MASTERCLASS_PRODUCTION_ENDPOINT = "https://clara-app-test.vercel.app/api/clara-masterclass-gemini";
 const MASTERCLASS_TIMEOUT_MS = 30000;
-const SUPPORTED_MASTERCLASS_IDS = new Set(["budget", "emergency-fund"]);
+const SUPPORTED_MASTERCLASS_IDS = new Set(["budget", "emergency-fund", "savings-goals"]);
 const SUPPORTED_MODES = new Set(["explain_another_way", "follow_up_question"]);
 
 function cleanText(value = "") { return String(value || "").replace(/\s+/g, " ").trim(); }

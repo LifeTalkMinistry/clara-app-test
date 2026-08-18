@@ -1,0 +1,60 @@
+name: Verify Savings Goals Masterclass
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "api/clara-masterclass-gemini.js"
+      - "src/components/SavingsCardRefined.jsx"
+      - "src/components/community/BudgetMasterclassRuntime.jsx"
+      - "src/components/community/masterclass/**"
+      - "src/components/financial-carousel/shared/FinanceCardEmptyStateGuard.jsx"
+      - "src/components/financial-carousel/shared/FinanceCardSetupEmptyState.jsx"
+      - "src/lib/clara-masterclass-*"
+      - "src/lib/clara-savings-goals-masterclass*"
+      - "tests/savings-goal-card-flow-regression.test.mjs"
+      - "tests/savings-goal-masterclass-architecture.test.mjs"
+      - ".github/workflows/verify-savings-goals-masterclass.yml"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Savings Goals focused regressions
+        run: |
+          node --test \
+            tests/savings-goal-card-flow-regression.test.mjs \
+            tests/savings-goal-masterclass-architecture.test.mjs
+
+      - name: Lint Savings Goals Masterclass integration
+        run: |
+          npx eslint \
+            api/clara-masterclass-gemini.js \
+            src/components/SavingsCardRefined.jsx \
+            src/components/community/BudgetMasterclassRuntime.jsx \
+            src/components/community/masterclass/ClaraMasterclassLanguageGate.jsx \
+            src/components/community/masterclass/ClaraMasterclassPrimitives.jsx \
+            src/components/community/masterclass/ClaraMasterclassRuntime.jsx \
+            src/components/financial-carousel/shared/FinanceCardEmptyStateGuard.jsx \
+            src/components/financial-carousel/shared/FinanceCardSetupEmptyState.jsx \
+            src/lib/clara-masterclass-ai.js \
+            src/lib/clara-masterclass-registry.js \
+            src/lib/clara-savings-goals-masterclass*.js \
+            tests/savings-goal-card-flow-regression.test.mjs \
+            tests/savings-goal-masterclass-architecture.test.mjs
+
+      - name: Build production bundle
+        run: npx vite build --base=./

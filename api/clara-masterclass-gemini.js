@@ -10,6 +10,7 @@ const ALLOWED_MODES = new Set(["explain_another_way", "follow_up_question"]);
 const MASTERCLASS_PROMPT_AUTHORITIES = new Map([
   ["budget", "CLARA BUDGETING MASTERCLASS"],
   ["emergency-fund", "CLARA EMERGENCY FUND MASTERCLASS"],
+  ["savings-goals", "CLARA SAVINGS GOALS MASTERCLASS"],
 ]);
 const rateBuckets = globalThis.__CLARA_MASTERCLASS_RATE_BUCKETS__ || new Map();
 globalThis.__CLARA_MASTERCLASS_RATE_BUCKETS__ = rateBuckets;
