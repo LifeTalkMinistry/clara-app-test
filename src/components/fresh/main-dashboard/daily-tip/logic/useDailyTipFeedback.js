@@ -15,14 +15,21 @@ function reactionSuccessMessage(reaction) {
   return "Feedback removed";
 }
 
+function normalizeRevision(value) {
+  const revision = Number(value);
+  return Number.isInteger(revision) && revision > 0 ? revision : 1;
+}
+
 export default function useDailyTipFeedback({
   userId,
   tipId,
+  tipRevision = 1,
   enabled = true,
   revealed = false,
 } = {}) {
+  const revision = normalizeRevision(tipRevision);
   const [reaction, setReaction] = useState(() =>
-    enabled ? getLocalDailyTipReaction(userId, tipId) : null,
+    enabled ? getLocalDailyTipReaction(userId, tipId, revision) : null,
   );
   const [saving, setSaving] = useState(false);
   const [syncNotice, setSyncNotice] = useState("");
@@ -41,7 +48,7 @@ export default function useDailyTipFeedback({
 
   useEffect(() => {
     setSyncNotice("");
-    setReaction(enabled ? getLocalDailyTipReaction(userId, tipId) : null);
+    setReaction(enabled ? getLocalDailyTipReaction(userId, tipId, revision) : null);
     if (!enabled || !tipId) return undefined;
 
     const requestVersion = actionVersionRef.current;
@@ -50,7 +57,9 @@ export default function useDailyTipFeedback({
     hydrateDailyTipFeedback(userId)
       .then((feedback) => {
         if (cancelled || requestVersion !== actionVersionRef.current) return;
-        const hydrated = feedback?.[tipId]?.reaction;
+        const state = feedback?.[tipId];
+        const hydratedRevision = normalizeRevision(state?.revision);
+        const hydrated = hydratedRevision === revision ? state?.reaction : null;
         setReaction(hydrated === "like" || hydrated === "dislike" ? hydrated : null);
       })
       .catch((error) => {
@@ -60,14 +69,14 @@ export default function useDailyTipFeedback({
     return () => {
       cancelled = true;
     };
-  }, [enabled, tipId, userId]);
+  }, [enabled, revision, tipId, userId]);
 
   useEffect(() => {
     if (!enabled || !revealed || !tipId) return;
-    recordDailyTipImpression(userId, tipId).catch((error) => {
+    recordDailyTipImpression(userId, tipId, revision).catch((error) => {
       console.warn("Unable to record Daily Money Tip impression:", error);
     });
-  }, [enabled, revealed, tipId, userId]);
+  }, [enabled, revealed, revision, tipId, userId]);
 
   useEffect(() => () => {
     if (typeof window !== "undefined" && noticeTimerRef.current) {
@@ -84,7 +93,7 @@ export default function useDailyTipFeedback({
     setSyncNotice("");
 
     try {
-      await persistDailyTipReaction(userId, tipId, nextReaction);
+      await persistDailyTipReaction(userId, tipId, revision, nextReaction);
       showNotice(reactionSuccessMessage(nextReaction));
     } catch (error) {
       console.warn("Unable to sync Daily Money Tip feedback:", error);
@@ -92,7 +101,7 @@ export default function useDailyTipFeedback({
     } finally {
       setSaving(false);
     }
-  }, [enabled, reaction, saving, showNotice, tipId, userId]);
+  }, [enabled, reaction, revision, saving, showNotice, tipId, userId]);
 
   return { reaction, saving, syncNotice, react };
 }
