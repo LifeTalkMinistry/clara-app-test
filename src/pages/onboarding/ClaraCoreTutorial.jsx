@@ -2,20 +2,21 @@ import { useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
-  BookOpen,
   BrainCircuit,
   Check,
   CircleDollarSign,
   Compass,
   LayoutDashboard,
   ShieldCheck,
-  Sparkles,
   Target,
   WalletCards,
   X,
 } from "lucide-react";
 import ClaraLogo from "@/components/ClaraLogo";
 import ClaraBrandName from "@/components/ClaraBrandName";
+import DailyTipCard from "@/components/fresh/main-dashboard/daily-tip/ui/DailyTipCard";
+import LearningHubCarousel from "@/components/fresh/main-dashboard/learning-hub/ui/LearningHubCarousel";
+import { learningHubCategories } from "@/components/fresh/main-dashboard/learning-hub/logic/learningHubData";
 import ClaraTutorialOrbDemo from "./ClaraTutorialOrbDemo";
 import ClaraTutorialOrbIntro from "./ClaraTutorialOrbIntro";
 import JuanCharacter from "./JuanCharacter";
@@ -31,6 +32,15 @@ const JUAN = {
   savingsGoal: "Laptop · ₱6,500 of ₱18,000",
   obligation: "Phone installment · ₱900 due Aug 24",
 };
+
+const TUTORIAL_LEARNING_ITEMS = learningHubCategories.map((category) => ({
+  ...category,
+  kind: "category",
+  type: "category",
+  categoryId: category.id,
+  sourceType: category.sourceType || category.type,
+  coverLabel: category.coverLabel || category.badge || "Explore",
+}));
 
 const FEATURE_STEPS = {
   profile: {
@@ -288,25 +298,20 @@ function HabitStep() {
     <div className="clara-tour-story-step">
       <section className="clara-tour-copy-block">
         <span className="clara-tour-eyebrow">DAILY ACCOUNTABILITY</span>
-        <h1>But CLARA only helps if Juan remembers to pause.</h1>
-        <p>The Daily Money Tip and streak keep that behavior visible. The goal is not perfection — it is repetition.</p>
+        <h1>Build the pause into a habit.</h1>
+        <p>This is the same Daily Money Tip surface Juan sees in CLARA. The streak keeps the behavior visible without turning every purchase into a lecture.</p>
       </section>
 
-      <div className="clara-tour-habit-card">
-        <div className="clara-tour-habit-top">
-          <small>JUAN&apos;S DAILY CHECK-IN</small>
-          <strong>Pause before the small purchase too.</strong>
-          <p>A ₱150 decision still deserves context when it becomes a daily pattern.</p>
-        </div>
-        <div className="clara-tour-streak-row">
-          {["M", "T", "W", "T", "F", "S", "S"].map((day, index) => (
-            <span key={`${day}-${index}`} className={index < 5 ? "is-done" : ""}>{day}</span>
-          ))}
-        </div>
-        <div className="clara-tour-habit-bottom">
-          <Sparkles />
-          <span>Juan is not being trained to never spend. He is being trained to stop deciding blindly.</span>
-        </div>
+      <div className="w-full" data-clara-tutorial-real-surface="daily-money-tip">
+        <DailyTipCard
+          userId="juan-tutorial"
+          hasCommittedAccess
+          isGuideMode
+          guideStep={0}
+          isDailyTipGuideActive
+          onGuideDailyTipTap={() => {}}
+          flushSpacing
+        />
       </div>
     </div>
   );
@@ -317,29 +322,19 @@ function LearnStep() {
     <div className="clara-tour-story-step">
       <section className="clara-tour-copy-block">
         <span className="clara-tour-eyebrow">LEARN WITH CLARA</span>
-        <h1>Sometimes Juan wants to understand the “why” behind the advice.</h1>
-        <p>That is where the Learning Hub and Budgeting Masterclass come in. The ORB helps in the moment; the Learning Hub builds Juan&apos;s understanding over time.</p>
+        <h1>When Juan wants the “why,” he opens the real Learning Hub.</h1>
+        <p>The ORB helps in the moment. The Learning Hub helps Juan understand the pattern behind the advice over time.</p>
       </section>
 
-      <div className="clara-tour-learning-stack">
-        <div className="clara-tour-learning-card is-primary">
-          <BookOpen />
-          <div>
-            <small>LEARNING HUB</small>
-            <strong>Explore money concepts in one place.</strong>
-            <p>Short explanations, guided lessons, and practical financial learning.</p>
-          </div>
-          <ArrowRight />
-        </div>
-        <div className="clara-tour-learning-card">
-          <BrainCircuit />
-          <div>
-            <small>BUDGETING MASTERCLASS</small>
-            <strong>Understand why the system works.</strong>
-            <p>Go deeper when Juan — or you — wants more than a quick answer.</p>
-          </div>
-          <ArrowRight />
-        </div>
+      <div className="w-full" data-clara-tutorial-real-surface="learning-hub">
+        <LearningHubCarousel
+          items={TUTORIAL_LEARNING_ITEMS}
+          hasCommittedAccess
+          initialExpanded
+          flushSpacing
+          disableAutoScroll
+          disableInteractions
+        />
       </div>
     </div>
   );
