@@ -53,7 +53,7 @@ function ClaraImpactBoard({ impact, onClose }) {
       data-clara-impact-board="true"
       className="relative mx-1 mt-3 shrink-0 overflow-hidden rounded-[28px] border border-blue-200/18 bg-[linear-gradient(150deg,rgba(5,22,46,0.96),rgba(4,12,29,0.98)_58%,rgba(22,9,35,0.94))] px-4 pb-4 pt-4 text-left shadow-[0_24px_70px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-2xl"
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,#1769ff_0%,#1769ff_42%,#ffd84a_42%,#ffd84a_56%,#e53945_56%,#e53945_56%,#e53945_100%)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,#1769ff_0%,#1769ff_42%,#ffd84a_42%,#ffd84a_56%,#e53945_56%,#e53945_100%)]" />
       <div className="pointer-events-none absolute -left-16 -top-16 h-40 w-40 rounded-full bg-blue-500/12 blur-3xl" />
       <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-red-500/[0.08] blur-3xl" />
 
