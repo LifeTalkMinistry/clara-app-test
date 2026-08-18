@@ -344,7 +344,7 @@ export default function BudgetCardContent(props) {
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.024),transparent_30%,rgba(0,56,168,0.10)_100%)]" />
         </div>
 
-        <div className="relative flex min-h-0 flex-col gap-4">
+        <div className="relative flex min-h-0 flex-col gap-[clamp(0.625rem,1.6svh,0.875rem)]">
           <div className="flex min-h-0 flex-col rounded-[28px] border border-blue-100/[0.05] bg-[#0038A8]/[0.07] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-[2px]">
             <BudgetHeader
               badgeLabel={badgeLabel}
