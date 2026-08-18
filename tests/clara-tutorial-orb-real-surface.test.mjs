@@ -74,7 +74,10 @@ test("tutorial uses the real Buy Check composer, send button, and thinking row",
   assert.match(orbDemo, /stage === ["']thinking["']/);
   assert.match(orbDemo, /text: ["']["']/);
   assert.match(orbDemo, /window\.setTimeout\(\(\) => \{[\s\S]*setStage\(["']answered["']\)[\s\S]*1250/);
-  assert.match(orbDemo, /This is Juan&apos;s real CLARA chat\./);
+  assert.match(orbDemo, /Now tap Send to help Juan ask CLARA first before he spends\./);
+  assert.doesNotMatch(orbDemo, /This is Juan&apos;s real CLARA chat\./);
+  assert.doesNotMatch(orbDemo, /His question is already prepared below/);
+  assert.doesNotMatch(orbDemo, /Tap Send ↓/);
   assert.doesNotMatch(orbDemo, /data-clara-buy-check-react-form[^\n]*display:\s*none/);
 
   assert.match(assistantOverlay, /composerPresetDraft = ["']["']/);
