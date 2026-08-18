@@ -52,7 +52,12 @@ test("tutorial simulation remains on the injected guide-preview path", () => {
   assert.match(orbDemo, /onCheckAnother=\{\(\) => \{\}\}/);
 
   assert.match(assistantOverlay, /const isGuidePreview = layoutVariant === ["']guide-preview["']/);
-  assert.match(assistantOverlay, /if \(!isGuidePreview\)[\s\S]*ownedFlow\.startSession/);
+  assert.match(
+    assistantOverlay,
+    /useEffect\(\(\) => \{\s*if \(isGuidePreview\) return;[\s\S]*ownedFlow\.startSession/
+  );
+  assert.match(assistantOverlay, /const activeState = isGuidePreview \? buyCheckState : ownedFlow\.state/);
+  assert.match(assistantOverlay, /const activeMessages = isGuidePreview \? messages : ownedFlow\.messages/);
 });
 
 test("Juan leads to ORB before financial feature walkthroughs", () => {
