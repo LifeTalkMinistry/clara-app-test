@@ -18,7 +18,11 @@ export default function ClaraTutorialOrbIntro({ onBack, onContinue, onSkip }) {
   }
 
   return (
-    <div className="clara-tutorial-orb-intro-screen" data-clara-tutorial-orb-intro="true">
+    <div
+      className="clara-tutorial-orb-intro-screen"
+      data-clara-tutorial-orb-intro="true"
+      data-clara-tutorial-orb-name="Juan"
+    >
       <style>{`
         .clara-tutorial-orb-intro-screen {
           position: fixed;
