@@ -221,7 +221,7 @@ function MoneyLeftOrbVisual({ launching = false }) {
   );
 }
 
-export default function ClaraOrbPage() {
+export default function ClaraOrbPage({ onActivate, activationDelayMs = 0 }) {
   const [launching, setLaunching] = useState(false);
 
   useEffect(() => {
@@ -234,16 +234,27 @@ export default function ClaraOrbPage() {
     if (launching || typeof window === "undefined") return;
 
     setLaunching(true);
-    const requestId = `clara-orb-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-    window.dispatchEvent(
-      new CustomEvent(CLARA_PAUSE_OPEN_REQUEST_EVENT, {
-        detail: {
-          requestId,
-          source: "clara-orb-page",
-        },
-      })
-    );
+    const activate = () => {
+      if (typeof onActivate === "function") {
+        onActivate();
+        return;
+      }
+
+      const requestId = `clara-orb-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      window.dispatchEvent(
+        new CustomEvent(CLARA_PAUSE_OPEN_REQUEST_EVENT, {
+          detail: {
+            requestId,
+            source: "clara-orb-page",
+          },
+        })
+      );
+    };
+
+    const delay = Math.max(0, Number(activationDelayMs) || 0);
+    if (delay > 0) window.setTimeout(activate, delay);
+    else activate();
 
     window.setTimeout(() => setLaunching(false), 700);
   };
