@@ -2,29 +2,28 @@
 
 This folder is the canonical source for Juan's high-detail guided-tour artwork.
 
-## Required first asset
+## Current introduction asset
 
-Upload the introduction pose exactly as:
+The production introduction pose is:
 
-`public/characters/juan/juan-phone.webp`
+`public/characters/juan/juan-phone.png`
 
 Recommended source artwork:
-- transparent background
 - portrait/vertical composition
 - waist-up or upper-body framing
 - Juan holding or looking at a smartphone
 - at least 1200 px tall before export
-- WebP preferred for production size and quality
-- keep generous transparent breathing room around the head, shoulders, arms, and phone
+- transparent background is preferred when available
+- keep generous breathing room around the head, shoulders, arms, and phone
 
-The app already looks for this file. Until it exists, `JuanCharacter` automatically falls back to the existing vector so production remains safe.
+`JuanCharacter` loads this PNG directly and automatically falls back to the existing vector only if the uploaded artwork cannot be loaded.
 
 ## Future canonical poses
 
 Add new poses here and register them in `src/pages/onboarding/JuanCharacter.jsx`, for example:
 
-- `juan-neutral.webp`
-- `juan-thinking.webp`
-- `juan-pointing.webp`
+- `juan-neutral.png`
+- `juan-thinking.png`
+- `juan-pointing.png`
 
 Every pose must preserve the same Juan identity: same face, hairstyle, skin tone, clothing identity, proportions, age range, and visual treatment.
