@@ -21,7 +21,6 @@ const FRAMEWORK = [
   { label: "Grow", icon: TrendingUp },
 ];
 
-const REFLECTION_WORDS = ["Salary", "Lifestyle", "Savings", "Assets"];
 const SLIDE_COUNT = 3;
 
 function toPositiveNumber(value) {
@@ -99,30 +98,9 @@ function formatMonthlyIncome(value) {
 function ReflectionSlide() {
   return (
     <div className="clara-financial-success-slide-content">
-      <span className="clara-financial-success-kicker clara-financial-success-kicker--muted">
-        01 · A question worth asking
-      </span>
-
-      <h1 className="clara-financial-success-title clara-financial-success-title--question">
+      <h1 className="clara-financial-success-title clara-financial-success-title--question clara-financial-success-title--reflection-only">
         What really defines financial success?
       </h1>
-
-      <p className="clara-financial-success-copy clara-financial-success-copy--lead">
-        Is it how much we earn? What we own? How much we save? Or how our life looks from the outside?
-      </p>
-
-      <div className="clara-financial-success-reflection-words" aria-label="Common ideas associated with financial success">
-        {REFLECTION_WORDS.map((word, index) => (
-          <span key={word}>
-            {word}
-            {index < REFLECTION_WORDS.length - 1 ? <i aria-hidden="true" /> : null}
-          </span>
-        ))}
-      </div>
-
-      <p className="clara-financial-success-reflection-note">
-        Most of us see a picture of success long before we ever define it for ourselves.
-      </p>
     </div>
   );
 }
@@ -360,6 +338,10 @@ export default function FinancialSuccessScreen({ user, profile }) {
           max-width: 360px;
           font-size: clamp(2.02rem, 8.6vw, 2.62rem);
           line-height: .99;
+        }
+
+        .clara-financial-success-title--reflection-only {
+          margin-top: 0;
         }
 
         .clara-financial-success-title--clara {
@@ -653,6 +635,7 @@ export default function FinancialSuccessScreen({ user, profile }) {
           .clara-financial-success-viewport { min-height: 385px; }
           .clara-financial-success-title { margin-top: 12px; font-size: clamp(1.62rem, 7vw, 2.08rem); }
           .clara-financial-success-title--question { font-size: clamp(1.82rem, 7.8vw, 2.28rem); }
+          .clara-financial-success-title--reflection-only { margin-top: 0; }
           .clara-financial-success-copy { margin-top: 10px; line-height: 1.45; }
           .clara-financial-success-reflection-words { margin-top: 18px; }
           .clara-financial-success-reflection-note { margin-top: 19px; padding-top: 12px; }
