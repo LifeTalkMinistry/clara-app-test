@@ -10,8 +10,12 @@ const FILTERS = [
 const TEST_HIDDEN_ATTR = "data-clara-test-race-hidden";
 const FRAMEWORK_HIDDEN_ATTR = "data-clara-thirty-framework-hidden";
 const FRAMEWORK_METRICS_ID = "clara-thirty-framework-metrics";
+const FRAMEWORK_CALENDAR_ID = "clara-thirty-framework-calendar";
 const RACE_BOARD_HOST_ID = "clara-live-race-board-host";
 const FRAMEWORK_SHELL_ATTR = "data-clara-thirty-framework-shell";
+const CHALLENGE_PROGRESS_STORAGE_KEY = "clara-challenge-progress-v1";
+const THIRTY_DAY_CHALLENGE_ID = "thirty-day-discipline";
+const WEEKDAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
 
 function initials(name = "") {
   const parts = String(name || "CLARA Member").trim().split(/\s+/).filter(Boolean);
@@ -33,6 +37,134 @@ function prettyDate(value) {
   return new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric", year: "numeric" }).format(
     new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
   );
+}
+
+function localDateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function currentWeekWindow(now = new Date()) {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dayIndex = (today.getDay() + 6) % 7;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - dayIndex);
+
+  const days = WEEKDAY_LABELS.map((label, index) => {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + index);
+    return { key: localDateKey(date), date, label, index };
+  });
+
+  return {
+    todayKey: localDateKey(today),
+    dayIndex,
+    days,
+  };
+}
+
+function readThirtyDayProgress() {
+  try {
+    const raw = window.localStorage.getItem(CHALLENGE_PROGRESS_STORAGE_KEY) || "{}";
+    const parsed = JSON.parse(raw);
+    return parsed?.[THIRTY_DAY_CHALLENGE_ID] || null;
+  } catch {
+    return null;
+  }
+}
+
+function makeCalendarCheckIcon() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  svg.classList.add("h-3", "w-3");
+
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", "m9 12 2 2 4-4");
+  svg.appendChild(path);
+  return svg;
+}
+
+function syncThirtyDayCalendar(metrics) {
+  if (!metrics) return;
+
+  const entry = readThirtyDayProgress();
+  const windowState = currentWeekWindow();
+  const checkIns = new Set(
+    (Array.isArray(entry?.checkIns) ? entry.checkIns : []).filter((key) => /^\d{4}-\d{2}-\d{2}$/.test(String(key || "")))
+  );
+  const joinedAt = entry?.joinedAt ? new Date(entry.joinedAt) : null;
+  const joinedKey = joinedAt && !Number.isNaN(joinedAt.getTime()) ? localDateKey(joinedAt) : null;
+  const signature = `${windowState.todayKey}:${joinedKey || ""}:${[...checkIns].sort().join(",")}`;
+
+  let calendar = document.getElementById(FRAMEWORK_CALENDAR_ID);
+  if (!calendar) {
+    calendar = document.createElement("div");
+    calendar.id = FRAMEWORK_CALENDAR_ID;
+    calendar.className = "mt-4 grid grid-cols-7 gap-1.5";
+  }
+
+  const parent = metrics.parentElement;
+  const siblings = parent ? Array.from(parent.children) : [];
+  const metricsIndex = siblings.indexOf(metrics);
+  const statusRow = metricsIndex >= 0
+    ? siblings.slice(metricsIndex + 1).find((node) => node !== calendar && node.matches?.("div.flex.flex-wrap"))
+    : null;
+  const anchor = statusRow || metrics;
+  if (anchor.nextElementSibling !== calendar) {
+    anchor.insertAdjacentElement("afterend", calendar);
+  }
+
+  if (calendar.dataset.signature === signature) return;
+  calendar.dataset.signature = signature;
+  calendar.replaceChildren();
+
+  windowState.days.forEach((day) => {
+    const isChecked = checkIns.has(day.key);
+    const isToday = day.key === windowState.todayKey;
+    const isPastMissed = Boolean(
+      joinedKey &&
+      day.index < windowState.dayIndex &&
+      day.key >= joinedKey &&
+      !isChecked
+    );
+
+    const cell = document.createElement("div");
+    cell.className = `flex min-w-0 flex-col items-center rounded-[13px] border px-1 py-2 ${
+      isChecked
+        ? "border-[#22c7b8]/25 bg-[#22c7b8]/10"
+        : isPastMissed
+          ? "border-[#fb7185]/14 bg-[#fb7185]/[0.035]"
+          : isToday
+            ? "border-[#facc15]/25 bg-[#facc15]/[0.055]"
+            : "border-white/[0.07] bg-white/[0.018]"
+    }`;
+
+    const label = document.createElement("span");
+    label.className = `text-[8px] font-black ${isToday ? "text-[#fde68a]" : "text-white/35"}`;
+    label.textContent = day.label;
+
+    const value = document.createElement("span");
+    value.className = `mt-1 flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-black ${
+      isChecked
+        ? "bg-[#22c7b8]/18 text-[#99f6e4]"
+        : isPastMissed
+          ? "text-[#fb7185]/55"
+          : "text-white/22"
+    }`;
+    if (isChecked) value.appendChild(makeCalendarCheckIcon());
+    else value.textContent = String(day.date.getDate());
+
+    cell.append(label, value);
+    calendar.appendChild(cell);
+  });
 }
 
 function restoreTestHiddenCards() {
@@ -150,6 +282,7 @@ function hideFrameworkLegacy(section) {
 
 function restoreFrameworkPresentation() {
   document.getElementById(FRAMEWORK_METRICS_ID)?.remove();
+  document.getElementById(FRAMEWORK_CALENDAR_ID)?.remove();
 
   document.querySelectorAll(`[${FRAMEWORK_HIDDEN_ATTR}="true"]`).forEach((section) => {
     section.style.display = section.dataset.claraThirtyFrameworkPreviousDisplay || "";
@@ -205,6 +338,8 @@ function syncFrameworkPresentation() {
       makeMetric("Race status", raceStatus, "", false, true),
     );
   }
+
+  syncThirtyDayCalendar(metrics);
 
   if (record) hideFrameworkLegacy(record);
   challengeSections().forEach((section) => {
