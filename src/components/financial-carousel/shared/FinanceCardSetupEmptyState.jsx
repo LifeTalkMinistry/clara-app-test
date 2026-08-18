@@ -5,6 +5,8 @@ import FinanceCardExpandButton from "./FinanceCardExpandButton";
 export default function FinanceCardSetupEmptyState({
   title,
   info,
+  infoLabel,
+  onInfo,
   cta,
   Icon,
   iconClass = "border-cyan-200/18 bg-cyan-300/[0.08] text-cyan-100",
@@ -17,6 +19,16 @@ export default function FinanceCardSetupEmptyState({
   expandedLabel,
 }) {
   const [infoOpen, setInfoOpen] = useState(false);
+  const hasInfoAction = typeof onInfo === "function";
+
+  const handleInfoClick = () => {
+    if (hasInfoAction) {
+      onInfo();
+      return;
+    }
+
+    setInfoOpen((value) => !value);
+  };
 
   return (
     <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
@@ -42,11 +54,11 @@ export default function FinanceCardSetupEmptyState({
               </h3>
               <button
                 type="button"
-                onClick={() => setInfoOpen((value) => !value)}
-                aria-label={`About ${title}`}
-                aria-expanded={infoOpen}
+                onClick={handleInfoClick}
+                aria-label={infoLabel || (hasInfoAction ? `Open ${title} learning` : `About ${title}`)}
+                aria-expanded={hasInfoAction ? undefined : infoOpen}
                 className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition ${
-                  infoOpen
+                  !hasInfoAction && infoOpen
                     ? "border-cyan-200/30 bg-cyan-300/[0.14] text-cyan-100"
                     : "border-white/12 bg-white/[0.055] text-white/58 hover:border-cyan-200/24 hover:text-cyan-100"
                 }`}
@@ -63,7 +75,7 @@ export default function FinanceCardSetupEmptyState({
               {cta}
             </button>
 
-            {infoOpen ? (
+            {!hasInfoAction && infoOpen ? (
               <div className="mt-3 w-full rounded-2xl border border-cyan-200/12 bg-[#071a31] px-3.5 py-2.5 text-[11px] font-semibold leading-5 text-white/64 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
                 {info}
               </div>
