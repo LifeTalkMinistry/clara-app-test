@@ -107,13 +107,15 @@ function readMetric(section, label) {
   return finiteInteger(labelNode?.previousElementSibling?.textContent, 0);
 }
 
-function daysToNextEntry(streakDays) {
-  if (streakDays <= 0) return 30;
-  const remainder = streakDays % 30;
-  return remainder === 0 ? 30 : 30 - remainder;
+function readRaceStatus(challengeCard) {
+  const text = String(challengeCard?.textContent || "");
+  if (text.includes("Qualified · official race")) return "Qualified";
+  if (text.includes("Check in today to qualify")) return "Pending";
+  if (text.includes("Not qualified · current race")) return "Not qualified";
+  return "Not joined";
 }
 
-function makeMetric(label, value, suffix = "", accent = false) {
+function makeMetric(label, value, suffix = "", accent = false, compactValue = false) {
   const cell = document.createElement("div");
   cell.className = accent
     ? "rounded-[17px] border border-[#facc15]/12 bg-[#facc15]/[0.035] px-2.5 py-3"
@@ -127,8 +129,12 @@ function makeMetric(label, value, suffix = "", accent = false) {
 
   const valueNode = document.createElement("p");
   valueNode.className = accent
-    ? "mt-1 text-lg font-black text-[#fde68a]"
-    : "mt-1 text-lg font-black text-white";
+    ? compactValue
+      ? "mt-1 text-[11px] font-black leading-4 text-[#fde68a]"
+      : "mt-1 text-lg font-black text-[#fde68a]"
+    : compactValue
+      ? "mt-1 text-[11px] font-black leading-4 text-white"
+      : "mt-1 text-lg font-black text-white";
   valueNode.textContent = `${value}${suffix}`;
 
   cell.append(labelNode, valueNode);
@@ -175,7 +181,8 @@ function syncFrameworkPresentation() {
   const record = findThirtyDayRecord();
   const streakDays = readMetric(record, "Streak days");
   const activeEntries = readMetric(record, "Active entries");
-  const signature = `${streakDays}:${activeEntries}`;
+  const raceStatus = readRaceStatus(challengeCard);
+  const signature = `${streakDays}:${activeEntries}:${raceStatus}`;
 
   let metrics = document.getElementById(FRAMEWORK_METRICS_ID);
   if (!metrics) {
@@ -195,7 +202,7 @@ function syncFrameworkPresentation() {
     metrics.replaceChildren(
       makeMetric("Active streak", streakDays, " days"),
       makeMetric("Draw entries", activeEntries, "", true),
-      makeMetric("Next entry", daysToNextEntry(streakDays), " days"),
+      makeMetric("Race status", raceStatus, "", false, true),
     );
   }
 
