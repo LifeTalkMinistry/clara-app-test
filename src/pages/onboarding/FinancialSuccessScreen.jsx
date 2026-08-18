@@ -61,9 +61,6 @@ function WorthSlide() {
         <h1 className="clara-financial-success-title clara-financial-success-title--statement clara-financial-success-title--flush">
           Someone having more doesn&apos;t make what you have worth less.
         </h1>
-        <p className="clara-financial-success-copy clara-financial-success-copy--emphasis">
-          Whatever your income is, it already matters.
-        </p>
       </div>
     </FinancialSuccessCard>
   );
