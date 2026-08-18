@@ -1,6 +1,6 @@
 const JUAN_POSE_ASSETS = Object.freeze({
   phone: {
-    primary: "characters/juan/juan-phone.webp",
+    primary: "characters/juan/juan-phone.png",
     fallback: "juan-character.svg",
   },
 });
