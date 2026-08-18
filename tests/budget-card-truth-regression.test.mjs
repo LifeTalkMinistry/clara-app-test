@@ -22,6 +22,7 @@ const budgetEngine = readSource("src/components/fresh/main-dashboard/budget/useD
 const carouselCore = readSource("src/components/financial-carousel/logic/financeCarouselDataHelpersCore.js");
 const formProgress = readSource("src/components/fresh/main-dashboard/budget/useDashboardBudgetFormProgress.js");
 const budgetCard = readSource("src/components/BudgetCard.jsx");
+const budgetCardContent = readSource("src/components/financial-carousel/cards/budget/ui/BudgetCardContent.jsx");
 const budgetCardView = readSource("src/components/financial-carousel/cards/budget/ui/BudgetCardView.jsx");
 const carouselItemCard = readSource("src/components/financial-carousel/ui/CarouselItemCard.jsx");
 const setupEmptyState = readSource("src/components/financial-carousel/shared/FinanceCardSetupEmptyState.jsx");
@@ -333,6 +334,15 @@ test("budget card exposes completion and reuse through the live finance controll
   assert.match(budgetCard, /Complete budget/);
   assert.match(budgetCard, /Complete this budget\?/);
   assert.match(budgetCard, /Budget completed\. Your history and reusable setup are saved\./);
+  assert.match(budgetCard, /const completionVisible = Boolean\(hasDeclaredBudget && hasActivePlan\)/);
+  assert.match(budgetCard, /const isExhausted = completionVisible && remaining <= 0/);
+  assert.match(budgetCard, /data-budget-completion-action="true"/);
+  assert.match(budgetCard, /Budget exhausted/);
+  assert.match(budgetCard, /completionAction=\{completionAction\}/);
+  assert.doesNotMatch(budgetCard, /expanded && canCompleteBudget \? \(/);
+  assert.doesNotMatch(budgetCard, /absolute right-7 top-\[30px\]/);
+  assert.match(budgetCardContent, /completionAction = null/);
+  assert.match(budgetCardContent, /\{completionAction\}\s*<ExpandButtonRow expanded=\{expanded\}/);
   assert.match(setupEmptyState, /secondaryCta/);
   assert.match(setupEmptyState, /onSecondarySetup/);
 });
