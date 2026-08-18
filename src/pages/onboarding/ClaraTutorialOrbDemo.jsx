@@ -3,6 +3,7 @@ import ClaraAiEnvironmentOverlayV2 from "@/components/fresh/main-dashboard/assis
 import ClaraBuyCheckImpactPortal from "@/components/fresh/main-dashboard/assistant/ClaraBuyCheckImpactPortal";
 import ClaraBuyCheckUsagePortal from "@/components/fresh/main-dashboard/assistant/ClaraBuyCheckUsagePortal";
 import ClaraLifeProfilePortal from "@/components/fresh/main-dashboard/assistant/ClaraLifeProfilePortal";
+import "@/clara-ai-overlay-soft-anchor.css";
 
 const JUAN_PURCHASE_QUESTION = "CLARA, I want to buy shoes for ₱1,800. Kaya ba?";
 const JUAN_PURCHASE_REPLY =
