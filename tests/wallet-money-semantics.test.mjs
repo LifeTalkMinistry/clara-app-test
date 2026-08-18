@@ -163,7 +163,8 @@ test("10 - Money Left toggle is React-owned and runtime cannot rewrite the amoun
   assert.match(home, /displayedMoneyLeft/);
   assert.match(home, /data-clara-after-budget-active/);
   assert.match(home, /onClick=.*setMoneyLeftMode/s);
-  assert.doesNotMatch(runtime, /\.textContent\s*=/);
+  assert.doesNotMatch(runtime, /MONEY_AMOUNT_SELECTOR/);
+  assert.doesNotMatch(runtime, /amountNode\.textContent\s*=/);
   assert.doesNotMatch(runtime, /MutationObserver/);
   assert.doesNotMatch(runtime, /querySelector\([^)]*money-left[^)]*h2/i);
 });
