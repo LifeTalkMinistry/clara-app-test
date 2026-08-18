@@ -97,7 +97,10 @@ test("Savings Goals owns the complete top shell without a mount-time class", () 
   assert.match(topShell, /#root:has\(\.savings-goals-premium\)/);
   assert.match(topShell, /\.theme-page-shell:has\(\.savings-goals-premium\)/);
   assert.match(topShell, /main:has\(\.savings-goals-premium\)/);
-  assert.match(topShell, /background: #061426 !important/);
+  assert.match(
+    topShell,
+    /linear-gradient\(180deg, #051126 0%, #030817 58%, #050714 100%\) !important/
+  );
   assert.match(topShell, /padding-top: 0 !important/);
   assert.match(topShell, /min-height: 100dvh/);
 });
