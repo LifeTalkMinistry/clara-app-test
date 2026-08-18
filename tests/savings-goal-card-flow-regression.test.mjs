@@ -7,6 +7,13 @@ const page = read("src/pages/SavingsGoalsIntegrated.jsx");
 const wrapper = read("src/pages/SavingsGoals.jsx");
 const topShell = read("src/pages/SavingsGoalsTopShell.css");
 const card = read("src/components/SavingsCardRefined.jsx");
+const emptyStateGuard = read(
+  "src/components/financial-carousel/shared/FinanceCardEmptyStateGuard.jsx"
+);
+const setupEmptyState = read(
+  "src/components/financial-carousel/shared/FinanceCardSetupEmptyState.jsx"
+);
+const masterclassRoute = read("src/lib/clara-savings-goals-masterclass-route.js");
 const dashboardPreview = read(
   "src/components/fresh/main-dashboard/finance-content/useDashboardSavingsPreviewState.js"
 );
@@ -90,9 +97,56 @@ test("Savings Goals owns the complete top shell without a mount-time class", () 
   assert.match(topShell, /#root:has\(\.savings-goals-premium\)/);
   assert.match(topShell, /\.theme-page-shell:has\(\.savings-goals-premium\)/);
   assert.match(topShell, /main:has\(\.savings-goals-premium\)/);
-  assert.match(topShell, /background: #061426 !important/);
+  assert.match(
+    topShell,
+    /linear-gradient\(180deg, #051126 0%, #030817 58%, #050714 100%\) !important/
+  );
   assert.match(topShell, /padding-top: 0 !important/);
   assert.match(topShell, /min-height: 100dvh/);
+});
+
+test("Savings configured card launches the canonical Masterclass with safe display context", () => {
+  assert.match(masterclassRoute, /\/community\?view=orb&masterclass=savings-goals/);
+  assert.match(card, /SAVINGS_GOALS_MASTERCLASS_ROUTE/);
+  assert.match(card, /aria-label="Open Savings Goals Masterclass"/);
+  assert.match(card, /title="Savings Goals Masterclass"/);
+  assert.match(card, /const mainGoal = activePrimaryGoal \|\| goals\[0\] \|\| null/);
+  assert.match(card, /goalCount: goals\.length/);
+  assert.match(card, /totalSaved: saved/);
+  assert.match(card, /totalTarget: target/);
+  assert.match(card, /focusGoalTitle: getTitle\(mainGoal\)/);
+  assert.match(card, /focusGoalSaved/);
+  assert.match(card, /focusGoalTarget/);
+  assert.match(card, /focusGoalRemaining/);
+  assert.match(card, /focusGoalProgress/);
+  assert.doesNotMatch(card, /requestClaraMasterclassAi/);
+});
+
+test("zero-goal info launches education while setup CTA keeps real Savings setup authority", () => {
+  assert.match(emptyStateGuard, /type === "savingsGoals" \? "Open Savings Goals Masterclass"/);
+  assert.match(emptyStateGuard, /onInfo=\{type === "savingsGoals" \? openSavingsGoalsMasterclass : undefined\}/);
+  assert.match(emptyStateGuard, /masterclassId: "savings-goals"/);
+  assert.match(emptyStateGuard, /setupRequired: true/);
+  assert.match(emptyStateGuard, /onSaveSavingsGoal\?\.\(\)/);
+  assert.match(emptyStateGuard, /cta: "Set up a savings goal"/);
+  assert.doesNotMatch(emptyStateGuard, /requestClaraMasterclassAi/);
+});
+
+test("Savings setup learning action bypasses the old inline info toggle without changing other cards", () => {
+  assert.match(setupEmptyState, /const hasInfoAction = typeof onInfo === "function"/);
+  assert.match(setupEmptyState, /if \(hasInfoAction\) \{\s*onInfo\(\);\s*return;/s);
+  assert.match(setupEmptyState, /!hasInfoAction && infoOpen/);
+  assert.match(emptyStateGuard, /type !== "savingsGoals"/);
+  assert.doesNotMatch(emptyStateGuard, /setInfoOpen/);
+});
+
+test("Savings financial authority markers remain while education is read-only", () => {
+  assert.match(page, /protectedSavingsByWallet/);
+  assert.match(page, /walletAvailableBalances/);
+  assert.match(page, /source_type: "savings_goal_funding"/);
+  assert.match(page, /source_type: "savings_goal_usage"/);
+  assert.match(page, /releaseSavings/);
+  assert.match(card, /navigate\("\/savings-goals"/);
 });
 
 test("Savings Goal flow regression runs in npm test", () => {

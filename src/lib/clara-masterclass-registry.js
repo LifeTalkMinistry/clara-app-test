@@ -15,6 +15,15 @@ import {
 } from "./clara-emergency-fund-masterclass-i18n";
 import { getEmergencyFundMasterclassPointQuestions } from "./clara-emergency-fund-masterclass-questions";
 import { getEmergencyFundMasterclassQuestionSupports } from "./clara-emergency-fund-masterclass-question-supports";
+import {
+  SAVINGS_GOALS_MASTERCLASS_LANGUAGE_OPTIONS,
+  buildSavingsGoalsMasterclassFollowUpPrompt,
+  getSavingsGoalsMasterclassCompletionExample,
+  getSavingsGoalsMasterclassExperience,
+  getSavingsGoalsMasterclassSupportSequenceForLanguage,
+} from "./clara-savings-goals-masterclass-i18n";
+import { getSavingsGoalsMasterclassPointQuestions } from "./clara-savings-goals-masterclass-questions";
+import { getSavingsGoalsMasterclassQuestionSupports } from "./clara-savings-goals-masterclass-question-supports";
 
 const MASTERCLASS_DEFINITIONS = Object.freeze({
   budget: Object.freeze({
@@ -58,6 +67,28 @@ const MASTERCLASS_DEFINITIONS = Object.freeze({
       storageKey: "clara_emergency_fund_masterclass_live_context_v1",
       source: "emergency-fund-masterclass",
       stateKey: "emergencyFundMasterclass",
+    }),
+  }),
+  "savings-goals": Object.freeze({
+    id: "savings-goals",
+    subjectLabel: "SAVINGS GOALS MASTERCLASS",
+    languageOptions: SAVINGS_GOALS_MASTERCLASS_LANGUAGE_OPTIONS,
+    getExperience: getSavingsGoalsMasterclassExperience,
+    getSupportSequence: getSavingsGoalsMasterclassSupportSequenceForLanguage,
+    getPointQuestions: getSavingsGoalsMasterclassPointQuestions,
+    getQuestionSupports: getSavingsGoalsMasterclassQuestionSupports,
+    buildFollowUpPrompt: buildSavingsGoalsMasterclassFollowUpPrompt,
+    getCompletionExample: getSavingsGoalsMasterclassCompletionExample,
+    backRoute: "/community?view=home",
+    closeRoute: "/community?view=orb",
+    completedRoute: "/community?view=home",
+    closeAriaLabel: "Close Savings Goals Masterclass",
+    preserveBudgetLanguageGateMarker: true,
+    useLegacyBudgetStyleHooks: true,
+    liveSession: Object.freeze({
+      storageKey: "clara_savings_goals_masterclass_live_context_v1",
+      source: "savings-goals-masterclass",
+      stateKey: "savingsGoalsMasterclass",
     }),
   }),
 });

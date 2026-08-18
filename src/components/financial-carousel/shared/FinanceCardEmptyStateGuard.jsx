@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   CircleDollarSign,
   PiggyBank,
@@ -13,6 +14,7 @@ import {
   getIncomeHubLocalUserId,
   getIncomeSources,
 } from "@/lib/incomeHubRepository";
+import { SAVINGS_GOALS_MASTERCLASS_ROUTE } from "@/lib/clara-savings-goals-masterclass-route";
 import FinanceCardSetupEmptyState from "./FinanceCardSetupEmptyState";
 import FinanceCardShell from "./FinanceCardShell";
 
@@ -126,6 +128,7 @@ export default function FinanceCardEmptyStateGuard({
   children,
 }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const config = CARD_CONFIG[type];
   const setupRootRef = useRef(null);
   const [remoteConfigured, setRemoteConfigured] = useState(null);
@@ -281,6 +284,18 @@ export default function FinanceCardEmptyStateGuard({
     }
   };
 
+  const openSavingsGoalsMasterclass = () => {
+    if (type !== "savingsGoals") return;
+    navigate(SAVINGS_GOALS_MASTERCLASS_ROUTE, {
+      state: {
+        claraMasterclassContext: {
+          masterclassId: "savings-goals",
+          setupRequired: true,
+        },
+      },
+    });
+  };
+
   return (
     <FinanceCardShell
       cardKey={config.cardKey}
@@ -292,6 +307,10 @@ export default function FinanceCardEmptyStateGuard({
       <FinanceCardSetupEmptyState
         title={config.title}
         info={config.info}
+        infoLabel={
+          type === "savingsGoals" ? "Open Savings Goals Masterclass" : undefined
+        }
+        onInfo={type === "savingsGoals" ? openSavingsGoalsMasterclass : undefined}
         cta={config.cta}
         Icon={config.Icon}
         iconClass={config.iconClass}
