@@ -175,38 +175,13 @@ export default function ClaraTutorialOrbDemo({
           pointer-events: none;
         }
 
-        .clara-tutorial-chat-guide small {
-          display: block;
-          color: rgba(255, 216, 74, 0.82);
-          font-size: 8px;
-          font-weight: 900;
-          letter-spacing: 0.16em;
-          text-transform: uppercase;
-        }
-
         .clara-tutorial-chat-guide strong {
           display: block;
-          margin-top: 5px;
+          margin: 0;
           color: #f8fbff;
-          font-size: 14px;
-          font-weight: 900;
-          line-height: 1.35;
-        }
-
-        .clara-tutorial-chat-guide p {
-          margin: 5px 0 0;
-          color: rgba(210, 224, 246, 0.74);
-          font-size: 11px;
-          font-weight: 650;
-          line-height: 1.5;
-        }
-
-        .clara-tutorial-chat-guide span {
-          display: block;
-          margin-top: 7px;
-          color: rgba(125, 174, 255, 0.96);
-          font-size: 10px;
-          font-weight: 900;
+          font-size: 13px;
+          font-weight: 800;
+          line-height: 1.45;
         }
 
         .clara-tutorial-chat-continue {
@@ -233,10 +208,6 @@ export default function ClaraTutorialOrbDemo({
           .clara-tutorial-chat-guide {
             bottom: calc(max(env(safe-area-inset-bottom), 10px) + 80px);
             padding: 10px 12px;
-          }
-
-          .clara-tutorial-chat-guide p {
-            line-height: 1.35;
           }
 
           .clara-tutorial-chat-continue {
@@ -278,10 +249,7 @@ export default function ClaraTutorialOrbDemo({
 
       {showInstruction ? (
         <aside className="clara-tutorial-chat-guide" data-clara-tutorial-chat-instruction="true">
-          <small>ASK BEFORE YOU SPEND</small>
-          <strong>This is Juan&apos;s real CLARA chat.</strong>
-          <p>His question is already prepared below. Tap the blue Send arrow to ask CLARA before Juan spends.</p>
-          <span>Tap Send ↓</span>
+          <strong>Now tap Send to help Juan ask CLARA first before he spends.</strong>
         </aside>
       ) : null}
 
