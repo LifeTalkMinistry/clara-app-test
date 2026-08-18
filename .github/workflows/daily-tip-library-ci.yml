@@ -1,0 +1,46 @@
+name: Verify Daily Tip Library
+
+on:
+  pull_request:
+    paths:
+      - "src/lib/daily-tip-library.js"
+      - "src/lib/daily-tip-feedback.js"
+      - "src/components/fresh/main-dashboard/daily-tip/**"
+      - "tests/daily-tip-cycle.test.mjs"
+      - ".github/workflows/daily-tip-library-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "src/lib/daily-tip-library.js"
+      - "src/lib/daily-tip-feedback.js"
+      - "src/components/fresh/main-dashboard/daily-tip/**"
+      - "tests/daily-tip-cycle.test.mjs"
+      - ".github/workflows/daily-tip-library-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run Daily Tip cycle regression
+        run: node --test tests/daily-tip-cycle.test.mjs
+      - name: Lint Daily Tip library changes
+        run: >-
+          npx eslint
+          src/lib/daily-tip-library.js
+          src/lib/daily-tip-feedback.js
+          src/components/fresh/main-dashboard/daily-tip/logic/dailyTipCycle.js
+          src/components/fresh/main-dashboard/daily-tip/logic/useDailyTip.js
+          src/components/fresh/main-dashboard/daily-tip/logic/useDailyTipFeedback.js
+          tests/daily-tip-cycle.test.mjs
+      - name: Build production web bundle
+        run: npm run build:web
