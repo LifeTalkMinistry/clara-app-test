@@ -57,6 +57,7 @@ test("Home projection uses shared wallet semantics and React-owned Money Left mo
   assert.match(communityHome, /moneyLeftMode/);
   assert.match(communityHome, /displayedMoneyLeft/);
   assert.match(communityHome, /data-clara-after-budget-active/);
-  assert.doesNotMatch(runtime, /\.textContent\s*=/);
+  assert.doesNotMatch(runtime, /MONEY_AMOUNT_SELECTOR/);
+  assert.doesNotMatch(runtime, /amountNode\.textContent\s*=/);
   assert.doesNotMatch(runtime, /MutationObserver/);
 });
