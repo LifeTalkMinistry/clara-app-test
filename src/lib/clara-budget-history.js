@@ -50,9 +50,13 @@ function cycleIdentity(row = {}) {
 function sameCycle(row = {}, header = {}) {
   const a = cycleIdentity(row);
   const b = cycleIdentity(header);
-  if (a.draftId && b.draftId && a.draftId === b.draftId) return true;
-  if (a.cycleStart && b.cycleStart && a.cycleStart === b.cycleStart) return true;
-  if (a.month && b.month && a.month === b.month) return true;
+
+  // Prefer the strongest available identity. Two explicit draft ids or cycle
+  // starts that disagree must never fall through to the broad month match, or
+  // separate completed budgets from the same month can contaminate history.
+  if (a.draftId && b.draftId) return a.draftId === b.draftId;
+  if (a.cycleStart && b.cycleStart) return a.cycleStart === b.cycleStart;
+  if (a.month && b.month) return a.month === b.month;
   return false;
 }
 
