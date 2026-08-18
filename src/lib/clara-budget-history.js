@@ -292,8 +292,61 @@ function activeSavingsGoalIds(goals = []) {
 function hasActiveEmergencyFund(emergencyFund) {
   if (!emergencyFund || typeof emergencyFund !== "object") return false;
   if (emergencyFund?.resetAt || emergencyFund?.reset_at) return false;
-  const status = lower(emergencyFund?.status || emergencyFund?.state || "active");
-  return !["reset", "inactive", "archived", "deleted", "not setup", "not set"].includes(status);
+
+  const status = lower(
+    emergencyFund?.status || emergencyFund?.state || emergencyFund?.setup_status || "",
+  );
+  if (["reset", "inactive", "archived", "deleted", "not setup", "not set"].includes(status)) {
+    return false;
+  }
+
+  const hasSetupFlag = Boolean(
+    emergencyFund?.is_setup === true ||
+      emergencyFund?.isSetup === true ||
+      emergencyFund?.setup_complete === true ||
+      emergencyFund?.setupComplete === true ||
+      emergencyFund?.setupCompleted === true ||
+      emergencyFund?.is_configured === true ||
+      emergencyFund?.isConfigured === true,
+  );
+  const hasSetupStatus = ["active", "setup", "configured", "complete", "completed", "ready"].includes(
+    status,
+  );
+  const target = Math.max(
+    0,
+    numberFrom(
+      emergencyFund?.target_amount,
+      emergencyFund?.targetAmount,
+      emergencyFund?.target,
+      emergencyFund?.goal_amount,
+    ),
+  );
+  const survival = Math.max(
+    0,
+    numberFrom(
+      emergencyFund?.monthly_survival_cost,
+      emergencyFund?.monthlySurvivalCost,
+      emergencyFund?.survival_expense,
+      emergencyFund?.survivalExpense,
+      emergencyFund?.monthlyExpense,
+      emergencyFund?.monthly_expense,
+      emergencyFund?.monthly_survival_expense,
+    ),
+  );
+  const walletId = text(
+    emergencyFund?.linkedWalletId ||
+      emergencyFund?.linked_wallet_id ||
+      emergencyFund?.reserveWalletId ||
+      emergencyFund?.reserve_wallet_id ||
+      emergencyFund?.sourceWalletId ||
+      emergencyFund?.source_wallet_id ||
+      emergencyFund?.storageWalletId ||
+      emergencyFund?.storage_wallet_id ||
+      emergencyFund?.walletId ||
+      emergencyFund?.wallet_id,
+  );
+
+  return hasSetupFlag || hasSetupStatus || target > 0 || survival > 0 || Boolean(walletId);
 }
 
 export function buildReusableBudgetDraft(historyEntry, {
