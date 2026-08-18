@@ -3,87 +3,7 @@ import "./installMoneyLeftAnalyticsShortcut";
 const HOME_MONEY_LEFT_SELECTOR =
   '.clara-community-root[data-community-view="home"] .clara-community-home-money-left';
 const PROJECTION_SELECTOR = '[data-clara-after-budget-total="true"]';
-const MONEY_AMOUNT_SELECTOR = '[data-clara-summary-card="money-left"] h2';
 const STYLE_ID = 'clara-money-left-after-budget-toggle-style';
-const PROJECTED_AMOUNT_LABEL =
-  /^(?:Projected money left after the monthly budget is fully spent|Projected spendable money after protected funds, remaining budget, and unpaid obligations):/i;
-
-let afterBudgetActive = false;
-let lastProjectedText = '';
-let baseMoneyLeftText = '';
-let observer = null;
-let applying = false;
-
-function normalize(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim();
-}
-
-function isMaskedAmount(value) {
-  return /[•*]/.test(String(value || ''));
-}
-
-function setAttrIfChanged(node, name, value) {
-  if (!node) return;
-  if (node.getAttribute(name) !== String(value)) node.setAttribute(name, String(value));
-}
-
-function captureProjectedAmount(toggle) {
-  if (!toggle) return '';
-
-  const sourceLabel = normalize(toggle.getAttribute('aria-label'));
-  if (PROJECTED_AMOUNT_LABEL.test(sourceLabel)) {
-    const projected = normalize(sourceLabel.replace(/^.*?:\s*/i, ''));
-    if (projected) toggle.dataset.claraAfterBudgetProjectedAmount = projected;
-  }
-
-  const strong = toggle.querySelector(':scope > strong');
-  const strongText = normalize(strong?.textContent);
-  if (strongText && !isMaskedAmount(strongText)) {
-    toggle.dataset.claraAfterBudgetProjectedAmount = strongText;
-  }
-
-  return normalize(toggle.dataset.claraAfterBudgetProjectedAmount);
-}
-
-function createToggleIcon() {
-  const wrap = document.createElement('span');
-  wrap.dataset.claraAfterBudgetIcon = 'true';
-  wrap.setAttribute('aria-hidden', 'true');
-  wrap.innerHTML = `
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M20 7H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2Z" />
-      <path d="M16 13h4" />
-      <path d="M6 7V5a2 2 0 0 1 2-2h8" />
-      <path d="M8 13h4" />
-    </svg>`;
-  return wrap;
-}
-
-function restoreMoneyLeft(amountNode) {
-  if (!amountNode || isMaskedAmount(amountNode.textContent)) return;
-  if (baseMoneyLeftText && normalize(amountNode.textContent) !== baseMoneyLeftText) {
-    amountNode.textContent = baseMoneyLeftText;
-  }
-  lastProjectedText = '';
-}
-
-function toggleAfterBudget(event) {
-  event?.preventDefault?.();
-  event?.stopPropagation?.();
-  afterBudgetActive = !afterBudgetActive;
-  applyAfterBudgetToggle();
-}
-
-function wireToggle(toggle) {
-  if (!toggle || toggle.dataset.claraAfterBudgetWired === 'true') return;
-  toggle.dataset.claraAfterBudgetWired = 'true';
-
-  toggle.addEventListener('click', toggleAfterBudget);
-  toggle.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') return;
-    toggleAfterBudget(event);
-  });
-}
 
 function installStyles() {
   if (typeof document === 'undefined' || document.getElementById(STYLE_ID)) return;
@@ -158,87 +78,15 @@ function installStyles() {
   document.head.appendChild(style);
 }
 
+// Compatibility exports remain because the runtime module is already imported
+// by the app shell. Display ownership now lives entirely in React.
 export function applyAfterBudgetToggle() {
-  if (typeof document === 'undefined' || applying) return;
-  const home = document.querySelector(HOME_MONEY_LEFT_SELECTOR);
-  if (!home) return;
-
-  const toggle = home.querySelector(PROJECTION_SELECTOR);
-  const amountNode = home.querySelector(MONEY_AMOUNT_SELECTOR);
-  if (!toggle || !amountNode) return;
-
-  applying = true;
-  try {
-    const projectedAmount = captureProjectedAmount(toggle);
-    const currentAmount = normalize(amountNode.textContent);
-
-    if (
-      !afterBudgetActive &&
-      currentAmount &&
-      !isMaskedAmount(currentAmount) &&
-      (!lastProjectedText || currentAmount !== lastProjectedText)
-    ) {
-      baseMoneyLeftText = currentAmount;
-    }
-
-    if (afterBudgetActive && currentAmount && !isMaskedAmount(currentAmount)) {
-      if (!lastProjectedText || currentAmount !== lastProjectedText) {
-        baseMoneyLeftText = currentAmount;
-      }
-      if (projectedAmount && currentAmount !== projectedAmount) {
-        amountNode.textContent = projectedAmount;
-      }
-      lastProjectedText = projectedAmount;
-    } else if (!afterBudgetActive) {
-      restoreMoneyLeft(amountNode);
-    }
-
-    wireToggle(toggle);
-    setAttrIfChanged(toggle, 'role', 'button');
-    setAttrIfChanged(toggle, 'tabindex', '0');
-    setAttrIfChanged(toggle, 'aria-pressed', afterBudgetActive ? 'true' : 'false');
-    setAttrIfChanged(toggle, 'data-clara-after-budget-active', afterBudgetActive ? 'true' : 'false');
-    setAttrIfChanged(
-      toggle,
-      'aria-label',
-      afterBudgetActive
-        ? 'Show current Money Left'
-        : 'Show spendable Money Left after protected funds, budget, and unpaid obligations',
-    );
-    setAttrIfChanged(
-      toggle,
-      'title',
-      afterBudgetActive ? 'Current Money Left' : 'Spendable after commitments',
-    );
-
-    if (!toggle.querySelector('[data-clara-after-budget-icon="true"]')) {
-      toggle.replaceChildren(createToggleIcon());
-    }
-  } finally {
-    applying = false;
-  }
+  installStyles();
 }
 
 export function installMoneyLeftAfterBudgetToggle() {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
   installStyles();
-  applyAfterBudgetToggle();
-
-  if (observer) return;
-  observer = new MutationObserver(() => {
-    window.requestAnimationFrame(applyAfterBudgetToggle);
-  });
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-    characterData: true,
-    attributes: true,
-    attributeFilter: ['aria-label'],
-  });
-
-  window.addEventListener('clara-finance-updated', applyAfterBudgetToggle);
-  window.addEventListener('clara-wallets-updated', applyAfterBudgetToggle);
-  window.addEventListener('clara-budgets-updated', applyAfterBudgetToggle);
 }
 
 installMoneyLeftAfterBudgetToggle();
