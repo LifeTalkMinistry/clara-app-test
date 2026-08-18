@@ -1,6 +1,6 @@
 /* Canonical Juan visual treatment for the fresh CLARA guided tour.
    Juan is rendered by the reusable JuanCharacter React component and backed by
-   one local vector identity. New poses should extend that component, not fork it. */
+   one local character identity. New poses should extend that component, not fork it. */
 
 .clara-juan-character {
   display: grid;
@@ -21,12 +21,14 @@
   -webkit-user-drag: none;
 }
 
-/* Step 01 is intentionally a simple story opening: Juan, then his introduction. */
+/* Step 01 is intentionally a simple story opening: Juan, then his introduction.
+   The persistent footer has strong visual weight, so the composition reserves
+   responsive breathing room below and centers within the remaining visual field. */
 .clara-tour-story-step--meet {
   justify-content: center;
   gap: 8px;
   padding-top: 0;
-  padding-bottom: 0;
+  padding-bottom: clamp(80px, 14dvh, 120px);
 }
 
 .clara-tour-juan-hero {
@@ -41,14 +43,13 @@
   filter: drop-shadow(0 22px 36px rgba(0, 0, 0, 0.28));
 }
 
+/* "This is Juan." is already the introduction. Avoid repeating it with a badge. */
 .clara-tour-story-step--meet .clara-tour-copy-block .clara-tour-eyebrow {
-  min-height: 24px;
-  padding-inline: 10px;
-  font-size: 7px;
+  display: none;
 }
 
 .clara-tour-story-step--meet .clara-tour-copy-block h1 {
-  margin-top: 10px;
+  margin-top: 4px;
   font-size: clamp(27px, 7vw, 34px);
 }
 
@@ -78,6 +79,7 @@
 @media (max-height: 760px) {
   .clara-tour-story-step--meet {
     gap: 5px;
+    padding-bottom: clamp(52px, 9dvh, 72px);
   }
 
   .clara-tour-juan-hero {
@@ -92,7 +94,7 @@
   }
 
   .clara-tour-story-step--meet .clara-tour-copy-block h1 {
-    margin-top: 7px;
+    margin-top: 3px;
   }
 
   .clara-tour-story-step--meet .clara-tour-copy-block p {
@@ -102,6 +104,10 @@
 }
 
 @media (max-height: 640px) {
+  .clara-tour-story-step--meet {
+    padding-bottom: clamp(28px, 6dvh, 40px);
+  }
+
   .clara-tour-juan-hero {
     width: min(46vw, 166px);
     max-height: 24dvh;
