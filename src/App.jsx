@@ -261,6 +261,8 @@ function AppRoutes() {
 
   const isPublicAuthRoute =
     location.pathname === "/login" || location.pathname === "/reset-password";
+  const shouldRenderSupportBubble = location.pathname !== "/onboarding";
+
   if (!authReady || roleLoading || (loading && !isPublicAuthRoute)) {
     return <FullScreenLoader message="Restoring your CLARA account..." />;
   }
@@ -455,7 +457,7 @@ function AppRoutes() {
                     <Route path="*" element={<PageNotFound />} />
                   </Routes>
                 </Layout>
-                <SupportClaraBubble user={user} />
+                {shouldRenderSupportBubble ? <SupportClaraBubble user={user} /> : null}
               </>
             ) : (
               <Navigate to="/login" replace state={{ from: location }} />
