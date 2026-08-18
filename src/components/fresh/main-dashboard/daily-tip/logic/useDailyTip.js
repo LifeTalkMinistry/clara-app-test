@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getEligibleDayKey } from "../../../../../lib/challenge-schedule.js";
 import { getDislikedDailyTipIds } from "@/lib/daily-tip-feedback";
+import { fetchDailyTipLibrary } from "@/lib/daily-tip-library";
 import {
   commitDailyTipAssignment,
   dailyTipCycleStorageKey,
@@ -17,10 +18,31 @@ export default function useDailyTip({ simulationMode = false, userId: providedUs
   const { user } = useAuth();
   const userId = providedUserId || user?.id || "guest";
   const [todayKey, setTodayKey] = useState(() => getEligibleDayKey());
+  const [tips, setTips] = useState(() => DAILY_TIPS);
   const [assignment, setAssignment] = useState(() =>
     simulationMode ? createSimulationAssignment() : createEmptyAssignment(todayKey)
   );
   const [hasSeenToday, setHasSeenToday] = useState(false);
+
+  useEffect(() => {
+    if (simulationMode) return undefined;
+    let cancelled = false;
+
+    fetchDailyTipLibrary()
+      .then((library) => {
+        if (!cancelled && Array.isArray(library) && library.length > 0) {
+          setTips(library);
+        }
+      })
+      .catch((error) => {
+        // The bundled catalog remains a deliberate offline/startup fallback.
+        console.warn("Unable to load Daily Money Tip library; using bundled fallback:", error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [simulationMode]);
 
   useEffect(() => {
     if (simulationMode || typeof window === "undefined") return undefined;
@@ -63,8 +85,8 @@ export default function useDailyTip({ simulationMode = false, userId: providedUs
         storage,
         userId,
         dayKey: todayKey,
-        tips: DAILY_TIPS,
-        excludedTipIds: getDislikedDailyTipIds(userId),
+        tips,
+        excludedTipIds: getDislikedDailyTipIds(userId, tips),
       });
       setAssignment(nextAssignment);
       setHasSeenToday(nextAssignment.committed);
@@ -80,7 +102,7 @@ export default function useDailyTip({ simulationMode = false, userId: providedUs
 
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
-  }, [simulationMode, todayKey, userId]);
+  }, [simulationMode, tips, todayKey, userId]);
 
   const markSeenToday = useCallback(() => {
     if (simulationMode) {
@@ -92,16 +114,17 @@ export default function useDailyTip({ simulationMode = false, userId: providedUs
       storage: getStorage(),
       userId,
       dayKey: todayKey,
-      tips: DAILY_TIPS,
+      tips,
     });
     setAssignment(nextAssignment);
     setHasSeenToday(nextAssignment.committed);
-  }, [simulationMode, todayKey, userId]);
+  }, [simulationMode, tips, todayKey, userId]);
 
   return {
     tip: assignment.text,
     index: assignment.index,
     tipId: assignment.tipId,
+    tipRevision: assignment.tipRevision || 1,
     cycleNumber: assignment.cycleNumber,
     cycleDay: assignment.cycleDay,
     hasSeenToday,
@@ -112,6 +135,7 @@ export default function useDailyTip({ simulationMode = false, userId: providedUs
 function createSimulationAssignment() {
   return {
     tipId: "daily-money-tip-simulation",
+    tipRevision: 1,
     text: SIMULATION_DAILY_MONEY_TIP,
     index: 0,
     cycleNumber: 0,
@@ -123,6 +147,7 @@ function createSimulationAssignment() {
 function createEmptyAssignment(dayKey) {
   return {
     tipId: null,
+    tipRevision: 1,
     text: "",
     index: 0,
     dayKey,
