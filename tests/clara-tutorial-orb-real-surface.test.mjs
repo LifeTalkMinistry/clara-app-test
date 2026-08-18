@@ -85,6 +85,21 @@ test("tutorial uses the real Buy Check composer, send button, and thinking row",
   assert.match(assistantOverlay, /aria-label=["']Send Ask Before You Spend answer["']/);
 });
 
+test("tutorial opening Buy Check reuses the production shell instead of tutorial chrome", () => {
+  assert.match(orbDemo, /import ClaraLifeProfilePortal from/);
+  assert.match(orbDemo, /import ClaraBuyCheckUsagePortal from/);
+  assert.match(orbDemo, /import ClaraBuyCheckImpactPortal from/);
+  assert.match(orbDemo, /import ["']@\/clara-ai-overlay-soft-anchor\.css["']/);
+  assert.match(orbDemo, /classList\.add\(["']clara-ai-environment-active["']\)/);
+  assert.match(orbDemo, /<ClaraLifeProfilePortal[\s\S]*previewOnly[\s\S]*onClose=\{onBack\}/);
+  assert.match(orbDemo, /<ClaraBuyCheckUsagePortal[\s\S]*previewUsage=\{JUAN_PREVIEW_USAGE\}/);
+  assert.match(
+    orbDemo,
+    /<ClaraBuyCheckImpactPortal[\s\S]*previewImpact=\{JUAN_PREVIEW_IMPACT\}[\s\S]*previewReadOnly/
+  );
+  assert.doesNotMatch(orbDemo, /clara-tutorial-chat-skip/);
+});
+
 test("guide-preview remains isolated from the real Buy Check session", () => {
   assert.match(assistantOverlay, /const isGuidePreview = layoutVariant === ["']guide-preview["']/);
   assert.match(

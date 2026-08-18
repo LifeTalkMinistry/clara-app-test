@@ -1,5 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
+import { MemoryRouter } from "react-router-dom";
 import ClaraOrbPage from "../../src/components/community/ClaraOrbPage";
 import ClaraTutorialOrbIntro from "../../src/pages/onboarding/ClaraTutorialOrbIntro";
 import "../../src/index.css";
@@ -51,5 +52,7 @@ const params = new URLSearchParams(window.location.search);
 const mode = params.get("mode") === "production" ? "production" : "tutorial";
 
 createRoot(document.getElementById("root")).render(
-  mode === "production" ? <ProductionOrbSpecimen /> : <TutorialOrbSpecimen />
+  <MemoryRouter>
+    {mode === "production" ? <ProductionOrbSpecimen /> : <TutorialOrbSpecimen />}
+  </MemoryRouter>
 );

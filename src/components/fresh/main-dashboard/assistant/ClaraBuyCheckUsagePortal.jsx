@@ -24,10 +24,15 @@ function getUsageTierLabel(tier = "") {
   return getSupportTier(normalized)?.name || "CLARA access";
 }
 
-export default function ClaraBuyCheckUsagePortal({ isActive = false, disabled = false }) {
+export default function ClaraBuyCheckUsagePortal({
+  isActive = false,
+  disabled = false,
+  previewUsage = null,
+}) {
   const [targets, setTargets] = useState({ question: null, board: null });
-  const [usage, setUsage] = useState(null);
+  const [usage, setUsage] = useState(() => (validUsage(previewUsage) ? previewUsage : null));
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const hasPreviewUsage = validUsage(previewUsage);
 
   useEffect(() => {
     if (!isActive || disabled || typeof document === "undefined") {
@@ -59,7 +64,12 @@ export default function ClaraBuyCheckUsagePortal({ isActive = false, disabled = 
   }, [disabled, isActive]);
 
   useEffect(() => {
-    if (!isActive || disabled || typeof window === "undefined") return undefined;
+    if (!hasPreviewUsage) return;
+    setUsage(previewUsage);
+  }, [hasPreviewUsage, previewUsage]);
+
+  useEffect(() => {
+    if (!isActive || disabled || hasPreviewUsage || typeof window === "undefined") return undefined;
 
     const controller = new AbortController();
     let cancelled = false;
@@ -84,7 +94,7 @@ export default function ClaraBuyCheckUsagePortal({ isActive = false, disabled = 
       controller.abort();
       window.removeEventListener(CLARA_AI_USAGE_UPDATED_EVENT, handleUsageUpdate);
     };
-  }, [disabled, isActive]);
+  }, [disabled, hasPreviewUsage, isActive]);
 
   useEffect(() => {
     if (!detailsOpen || typeof window === "undefined") return undefined;
@@ -138,6 +148,7 @@ export default function ClaraBuyCheckUsagePortal({ isActive = false, disabled = 
             <button
               type="button"
               data-clara-buy-check-usage-button="true"
+              data-clara-buy-check-usage-preview={hasPreviewUsage ? "true" : undefined}
               className="absolute bottom-3 left-3 z-30 inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-blue-300/32 bg-[#07152d]/92 text-[11px] font-black tabular-nums tracking-[-0.02em] text-blue-100 shadow-[0_12px_30px_rgba(23,105,255,0.20),inset_0_1px_0_rgba(255,255,255,0.06)] transition duration-150 hover:border-blue-200/55 hover:bg-[#0a1c3a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/55 active:scale-[0.96]"
               aria-label={`${remaining} CLARA replies remaining today. Tap for allowance details.`}
               aria-haspopup="dialog"
