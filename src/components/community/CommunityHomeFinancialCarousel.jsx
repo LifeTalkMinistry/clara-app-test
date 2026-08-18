@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import FinancialCarousel from "@/components/financial-carousel/FinancialCarousel";
 import WalletProviderPicker from "@/components/financial-carousel/cards/wallet/ui/WalletProviderPicker";
-import { syncProtectedAllocations } from "@/components/financial-carousel/cards/wallet/ui/WalletCardContentSynced";
 import {
   buildWalletProviderPayload,
   getWalletProvider,
@@ -32,6 +31,7 @@ import { completeMonthlyBudgetCycle } from "@/lib/clara-budget-cycle-reset";
 import { buildBudgetCompletionSnapshot } from "@/lib/clara-budget-history";
 import { isDebtCommitment } from "@/lib/clara-derived-budget";
 import { buildHomeSpendableMoneyProjection } from "@/lib/clara-home-spendable-money";
+import { getTotalWalletSpendableBalance } from "@/lib/clara-wallet-money-semantics";
 import { useTheme } from "@/theme/ThemeProvider";
 import {
   firstPositiveNumber,
@@ -118,6 +118,7 @@ export default function CommunityHomeFinancialCarousel() {
   const [walletModal, setWalletModal] = useState(EMPTY_WALLET_MODAL);
   const [walletForm, setWalletForm] = useState(createWalletForm);
   const [walletActionLoading, setWalletActionLoading] = useState(false);
+  const [moneyLeftMode, setMoneyLeftMode] = useState("current");
 
   const financeCardController = useFinancialData(user);
   const {
@@ -169,18 +170,15 @@ export default function CommunityHomeFinancialCarousel() {
     user,
   });
 
-  const spendableWalletBalance = useMemo(() => {
-    const protectedWallets = syncProtectedAllocations({
-      rows: wallets,
-      allWallets: wallets,
-      emergencyFund,
-      savingsGoals,
-    });
-
-    return protectedWallets
-      .filter(isManageableWallet)
-      .reduce((sum, wallet) => sum + getWalletSpendableBalance(wallet), 0);
-  }, [emergencyFund, savingsGoals, wallets]);
+  const spendableWalletBalance = useMemo(
+    () =>
+      getTotalWalletSpendableBalance({
+        wallets,
+        emergencyFund,
+        savingsGoals,
+      }),
+    [emergencyFund, savingsGoals, wallets]
+  );
 
   const debtBudgetRemaining = useMemo(
     () => getDebtBudgetRemaining(monthlyBudgetPlan),
@@ -211,6 +209,8 @@ export default function CommunityHomeFinancialCarousel() {
 
   const afterMonthlyBudgetMoney =
     spendableMoneyProjection.projectedSpendableMoney;
+  const displayedMoneyLeft =
+    moneyLeftMode === "projected" ? afterMonthlyBudgetMoney : totalWalletBalance;
 
   const {
     walletPreviewTransactions = [],
@@ -720,24 +720,49 @@ export default function CommunityHomeFinancialCarousel() {
             toggleMoneySummaryVisibility={toggleMoneySummaryVisibility}
             moneyLeftSummaryHandlers={moneyLeftSummaryHandlers}
             handleMoneyLeftOrbClick={openTransactions}
-            walletMoney={totalWalletBalance}
+            walletMoney={displayedMoneyLeft}
             thisMonthSpent={thisMonthSpent}
             fmt={formatPhpCurrency}
           />
-          <div
+          <button
+            type="button"
             data-clara-after-budget-total="true"
-            aria-label={`Projected spendable money after protected funds, remaining budget, and unpaid obligations: ${formatPhpCurrency(
-              afterMonthlyBudgetMoney
-            )}`}
-            title="Spendable after commitments"
+            data-clara-after-budget-active={moneyLeftMode === "projected" ? "true" : "false"}
+            aria-pressed={moneyLeftMode === "projected"}
+            aria-label={
+              moneyLeftMode === "projected"
+                ? "Show current Money Left"
+                : `Show spendable Money Left after protected funds, budget, and unpaid obligations. Projected amount: ${formatPhpCurrency(
+                    afterMonthlyBudgetMoney
+                  )}`
+            }
+            title={moneyLeftMode === "projected" ? "Current Money Left" : "Spendable after commitments"}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setMoneyLeftMode((current) =>
+                current === "projected" ? "current" : "projected"
+              );
+            }}
           >
-            <span>After commitments</span>
-            <strong>
-              {moneySummaryVisible
-                ? formatPhpCurrency(afterMonthlyBudgetMoney)
-                : "₱••••"}
-            </strong>
-          </div>
+            <span data-clara-after-budget-icon="true" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M20 7H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2Z" />
+                <path d="M16 13h4" />
+                <path d="M6 7V5a2 2 0 0 1 2-2h8" />
+                <path d="M8 13h4" />
+              </svg>
+            </span>
+          </button>
         </div>
 
         <span className="sr-only">
