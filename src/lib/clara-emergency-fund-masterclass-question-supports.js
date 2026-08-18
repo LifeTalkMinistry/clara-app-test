@@ -20,7 +20,7 @@ export function getEmergencyFundMasterclassQuestionSupports(language = "en", ste
   const [anotherWay, realLife, simplest] = copy;
   return {
     anotherWay: `${anotherWay}\n\nFor your question — “${question}” — the key answer is: ${answer}`,
-    realLife,
-    simplest,
+    realLife: `${realLife}\n\nApplied to “${question}”: ${answer}`,
+    simplest: `${simplest}\n\nDirect answer: ${answer}`,
   };
 }
