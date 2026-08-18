@@ -94,10 +94,11 @@ function findActiveHeader(budgets = [], headerHint = null) {
 
   const hintedId = normalizeString(headerHint?.id);
   if (hintedId) {
-    const exactIdMatch = activeHeaders.find(
-      (header) => normalizeString(header?.id) === hintedId
+    // A persisted ID is authoritative. If that exact header is no longer active,
+    // fail closed instead of weakening the lookup and completing a sibling plan.
+    return (
+      activeHeaders.find((header) => normalizeString(header?.id) === hintedId) || null
     );
-    if (exactIdMatch) return exactIdMatch;
   }
 
   const hintedDraftId = normalizeString(
@@ -127,7 +128,7 @@ function findActiveHeader(budgets = [], headerHint = null) {
   const hintedMonth = normalizeString(
     headerHint?.month || headerHint?.month_key || headerHint?.budget_month
   );
-  const hasStrongHint = Boolean(hintedId || hintedDraftId || hintedCycleStart);
+  const hasStrongHint = Boolean(hintedDraftId || hintedCycleStart);
   if (hintedMonth && !hasStrongHint) {
     const monthMatch = activeHeaders.find(
       (header) =>
@@ -138,8 +139,7 @@ function findActiveHeader(budgets = [], headerHint = null) {
   }
 
   // The newest live header is only a compatibility fallback for callers that
-  // supplied no usable lifecycle identity at all. A stale authoritative ID
-  // must never silently close another same-month Budget.
+  // supplied no usable lifecycle identity at all.
   if (!hasStrongHint && !hintedMonth) return activeHeaders[0];
   return null;
 }
