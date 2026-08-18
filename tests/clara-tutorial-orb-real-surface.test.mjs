@@ -40,12 +40,8 @@ test("Juan owns the tutorial ORB greeting without reading the signed-in profile"
   assert.match(orbGreetingRuntime, /TUTORIAL_GREETING_SELECTOR/);
   assert.match(orbGreetingRuntime, /dataset\.claraTutorialOrbName/);
   assert.match(orbGreetingRuntime, /loaded = Boolean\(tutorialIdentity\)/);
+  assert.match(orbGreetingRuntime, /if \(!activeLabel \|\| loaded \|\| request\) return;/);
   assert.match(orbGreetingRuntime, /firstName \? `Hi \$\{firstName\}!` : ["']Hi!["']/);
-  assert.ok(
-    orbGreetingRuntime.indexOf("resolveTutorialIdentity") <
-      orbGreetingRuntime.indexOf("fetchCanonicalClaraProfile"),
-    "tutorial identity resolution must exist before canonical profile fallback"
-  );
 });
 
 test("tutorial ORB receives the authentic production idle blink and glow controller", () => {
