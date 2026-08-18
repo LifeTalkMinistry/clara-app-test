@@ -8,6 +8,9 @@ const orbIntro = read("src/pages/onboarding/ClaraTutorialOrbIntro.jsx");
 const orbPage = read("src/components/community/ClaraOrbPage.jsx");
 const orbDemo = read("src/pages/onboarding/ClaraTutorialOrbDemo.jsx");
 const coreTutorial = read("src/pages/onboarding/ClaraCoreTutorial.jsx");
+const assistantOverlay = read(
+  "src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx"
+);
 
 test("tutorial ORB intro mounts the canonical production ORB page", () => {
   assert.match(orbIntro, /import ClaraOrbPage from ["']@\/components\/community\/ClaraOrbPage["']/);
@@ -41,10 +44,15 @@ test("canonical ORB preserves production activation while allowing controlled tu
 
 test("tutorial simulation remains on the injected guide-preview path", () => {
   assert.match(orbDemo, /layoutVariant=["']guide-preview["']/);
-  assert.match(orbDemo, /tutorialState=\{tutorialState\}/);
-  assert.match(orbDemo, /onSubmit=\{\(\) => \{\}\}/);
-  assert.match(orbDemo, /onConfirm=\{\(\) => \{\}\}/);
-  assert.match(orbDemo, /onRecordExpense=\{\(\) => \{\}\}/);
+  assert.match(orbDemo, /buyCheckState=\{tutorialState\(phase\)\}/);
+  assert.match(orbDemo, /onSubmitBuyCheckAnswer=\{\(\) => \{\}\}/);
+  assert.match(orbDemo, /onConfirmBuyCheck=\{\(\) => \{\}\}/);
+  assert.match(orbDemo, /onDeclineBuyCheck=\{\(\) => \{\}\}/);
+  assert.match(orbDemo, /onAskMoreBuyCheck=\{\(\) => \{\}\}/);
+  assert.match(orbDemo, /onCheckAnother=\{\(\) => \{\}\}/);
+
+  assert.match(assistantOverlay, /const isGuidePreview = layoutVariant === ["']guide-preview["']/);
+  assert.match(assistantOverlay, /if \(!isGuidePreview\)[\s\S]*ownedFlow\.startSession/);
 });
 
 test("Juan leads to ORB before financial feature walkthroughs", () => {
@@ -55,4 +63,22 @@ test("Juan leads to ORB before financial feature walkthroughs", () => {
   assert.ok(meetIndex >= 0, "Juan step must exist");
   assert.ok(orbIndex > meetIndex, "ORB must follow Juan");
   assert.ok(profileIndex > orbIndex, "feature walkthroughs must follow ORB activation");
+});
+
+test("later safe tutorial steps reuse real product surfaces", () => {
+  assert.match(
+    coreTutorial,
+    /import DailyTipCard from ["']@\/components\/fresh\/main-dashboard\/daily-tip\/ui\/DailyTipCard["']/
+  );
+  assert.match(
+    coreTutorial,
+    /import LearningHubCarousel from ["']@\/components\/fresh\/main-dashboard\/learning-hub\/ui\/LearningHubCarousel["']/
+  );
+  assert.match(coreTutorial, /<DailyTipCard[\s\S]*isGuideMode[\s\S]*isDailyTipGuideActive/);
+  assert.match(
+    coreTutorial,
+    /<LearningHubCarousel[\s\S]*disableAutoScroll[\s\S]*disableInteractions/
+  );
+  assert.doesNotMatch(coreTutorial, /clara-tour-habit-card/);
+  assert.doesNotMatch(coreTutorial, /clara-tour-learning-card/);
 });
