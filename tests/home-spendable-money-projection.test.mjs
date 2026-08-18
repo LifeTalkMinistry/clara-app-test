@@ -42,15 +42,21 @@ test("paid or completed obligation pressure of zero adds no extra debt reserve",
   assert.equal(result.projectedSpendableMoney, 4500);
 });
 
-test("Home projection is wired to wallet protection and debt pressure authorities", () => {
+test("Home projection uses shared wallet semantics and React-owned Money Left mode", () => {
   const communityHome = readSource(
     "src/components/community/CommunityHomeFinancialCarousel.jsx"
   );
+  const runtime = readSource(
+    "src/runtime/installMoneyLeftAfterBudgetToggle.js"
+  );
 
-  assert.match(communityHome, /syncProtectedAllocations/);
-  assert.match(communityHome, /getWalletSpendableBalance/);
+  assert.match(communityHome, /getTotalWalletSpendableBalance/);
   assert.match(communityHome, /monthlyObligationPressure/);
   assert.match(communityHome, /getDebtBudgetRemaining/);
   assert.match(communityHome, /buildHomeSpendableMoneyProjection/);
-  assert.match(communityHome, /After commitments/);
+  assert.match(communityHome, /moneyLeftMode/);
+  assert.match(communityHome, /displayedMoneyLeft/);
+  assert.match(communityHome, /data-clara-after-budget-active/);
+  assert.doesNotMatch(runtime, /\.textContent\s*=/);
+  assert.doesNotMatch(runtime, /MutationObserver/);
 });
