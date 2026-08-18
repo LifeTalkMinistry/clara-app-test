@@ -12,6 +12,7 @@ export default function BudgetCardView({
   onEditBudgetCategory,
   onDeleteBudgetCategory,
   onResetBudget,
+  onCompleteBudget,
   financeCardController,
 }) {
   return (
@@ -40,6 +41,7 @@ export default function BudgetCardView({
         onEditBudgetCategory={onEditBudgetCategory}
         onDeleteBudgetCategory={onDeleteBudgetCategory}
         onResetBudget={onResetBudget}
+        onCompleteBudget={onCompleteBudget}
         financeCardController={financeCardController}
       />
     </div>
