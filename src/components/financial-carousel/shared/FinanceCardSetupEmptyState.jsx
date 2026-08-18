@@ -8,18 +8,22 @@ export default function FinanceCardSetupEmptyState({
   infoLabel,
   onInfo,
   cta,
+  secondaryCta,
   Icon,
   iconClass = "border-cyan-200/18 bg-cyan-300/[0.08] text-cyan-100",
   buttonClass = "border-cyan-200/20 bg-cyan-300/[0.11] text-cyan-100 hover:bg-cyan-300/[0.16]",
+  secondaryButtonClass = "border-white/[0.08] bg-white/[0.035] text-white/68 hover:border-white/[0.14] hover:bg-white/[0.055]",
   detailKey,
   expanded = false,
   onSetup,
+  onSecondarySetup,
   onToggleDetails,
   collapsedLabel,
   expandedLabel,
 }) {
   const [infoOpen, setInfoOpen] = useState(false);
   const hasInfoAction = typeof onInfo === "function";
+  const hasSecondaryAction = Boolean(secondaryCta && typeof onSecondarySetup === "function");
 
   const handleInfoClick = () => {
     if (hasInfoAction) {
@@ -74,6 +78,16 @@ export default function FinanceCardSetupEmptyState({
             >
               {cta}
             </button>
+
+            {hasSecondaryAction ? (
+              <button
+                type="button"
+                onClick={onSecondarySetup}
+                className={`mt-2.5 flex w-full items-center justify-center rounded-2xl border px-4 py-3 text-xs font-black transition ${secondaryButtonClass}`}
+              >
+                {secondaryCta}
+              </button>
+            ) : null}
 
             {!hasInfoAction && infoOpen ? (
               <div className="mt-3 w-full rounded-2xl border border-cyan-200/12 bg-[#071a31] px-3.5 py-2.5 text-[11px] font-semibold leading-5 text-white/64 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
