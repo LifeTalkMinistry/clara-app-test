@@ -11,11 +11,12 @@ import { closeMonthlyBudgetCycle } from "@/lib/clara-budget-cycle-reset";
 
 const BUDGET_GLOW_LAYERS = [];
 
-function EmptyBudgetState({ expanded = false, onToggleDetails, onSetup }) {
+function EmptyBudgetState({ expanded = false, onToggleDetails, onSetup, onInfo }) {
   return (
     <FinanceCardSetupEmptyState
       title="Budget"
-      info="Set up a budget first. Once it exists, CLARA will show your available balance, spending status, and budget diagnostics here."
+      infoLabel="Open Budgeting Masterclass"
+      onInfo={onInfo}
       cta="Set up my budget"
       Icon={PieChart}
       iconClass="border-blue-100/[0.13] bg-[#0A2D67]/[0.72] text-blue-100/82"
@@ -76,6 +77,7 @@ export default function BudgetCard({
   });
 
   const openBudgetPlanPage = () => navigate("/budget-plan");
+  const openBudgetMasterclass = () => navigate("/community?view=orb&masterclass=budget");
   const openBudgetCategoryOnPlanPage = (item) => {
     const id = item?.id || item?.key || item?.budget?.id || null;
     navigate("/budget-plan", {
@@ -132,6 +134,7 @@ export default function BudgetCard({
             expanded={expanded}
             onToggleDetails={onToggleDetails}
             onSetup={openBudgetPlanPage}
+            onInfo={openBudgetMasterclass}
           />
         ) : (
           <>
