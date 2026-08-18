@@ -1,9 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import ClaraAiEnvironmentOverlayV2 from "@/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2";
+import ClaraBuyCheckImpactPortal from "@/components/fresh/main-dashboard/assistant/ClaraBuyCheckImpactPortal";
+import ClaraBuyCheckUsagePortal from "@/components/fresh/main-dashboard/assistant/ClaraBuyCheckUsagePortal";
+import ClaraLifeProfilePortal from "@/components/fresh/main-dashboard/assistant/ClaraLifeProfilePortal";
 
 const JUAN_PURCHASE_QUESTION = "CLARA, I want to buy shoes for ₱1,800. Kaya ba?";
 const JUAN_PURCHASE_REPLY =
   "You can pay for it, Juan, but I’d wait if the shoes are not urgent. You currently have ₱4,600, but ₱2,200 still needs to cover food and transport until your next payday on August 30.\n\nYou’re also supporting your family and still building your emergency fund. Waiting keeps your essentials and safety buffer stronger.";
+
+const JUAN_PREVIEW_USAGE = Object.freeze({
+  available: true,
+  limit: 30,
+  used: 18,
+  remaining: 12,
+  tier: "free",
+  timeZone: "Asia/Manila",
+});
+
+const JUAN_PREVIEW_IMPACT = Object.freeze({
+  total: 2700,
+  count: 3,
+  monthLabel: "August 2026",
+  entries: [],
+});
 
 const JUAN_INITIAL_USER_MESSAGE = {
   id: "tutorial-juan-buy-shoes",
@@ -47,12 +66,41 @@ export default function ClaraTutorialOrbDemo({
   phase = "initial",
   onBack,
   onContinue,
-  onSkip,
 }) {
   const payoff = phase === "payoff";
   const interactive = !payoff;
   const [stage, setStage] = useState(interactive ? "ready" : "answered");
   const replyTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+
+    const root = document.documentElement;
+    const body = document.body;
+    const rootHadActiveClass = root.classList.contains("clara-ai-environment-active");
+    const bodyHadActiveClass = body?.classList.contains("clara-ai-environment-active");
+    const previousRootMode = root.dataset.claraAiMode;
+    const previousBodyMode = body?.dataset.claraAiMode;
+
+    root.classList.add("clara-ai-environment-active");
+    root.dataset.claraAiMode = "active";
+    if (body) {
+      body.classList.add("clara-ai-environment-active");
+      body.dataset.claraAiMode = "active";
+    }
+
+    return () => {
+      if (!rootHadActiveClass) root.classList.remove("clara-ai-environment-active");
+      if (previousRootMode === undefined) delete root.dataset.claraAiMode;
+      else root.dataset.claraAiMode = previousRootMode;
+
+      if (body) {
+        if (!bodyHadActiveClass) body.classList.remove("clara-ai-environment-active");
+        if (previousBodyMode === undefined) delete body.dataset.claraAiMode;
+        else body.dataset.claraAiMode = previousBodyMode;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -104,8 +152,10 @@ export default function ClaraTutorialOrbDemo({
           background: #020714;
         }
 
-        .clara-tutorial-production-orb-demo [data-clara-ai-layout-variant="guide-preview"] {
-          z-index: 1;
+        body.clara-ai-environment-active
+          .clara-tutorial-production-orb-demo
+          [data-clara-ai-layout-variant="guide-preview"] {
+          z-index: 1 !important;
         }
 
         .clara-tutorial-chat-guide {
@@ -178,23 +228,6 @@ export default function ClaraTutorialOrbDemo({
           cursor: pointer;
         }
 
-        .clara-tutorial-chat-skip {
-          position: fixed;
-          z-index: 7;
-          right: 18px;
-          top: calc(max(env(safe-area-inset-top), 10px) + 88px);
-          border: 0;
-          padding: 6px 8px;
-          background: transparent;
-          color: rgba(191, 210, 239, 0.44);
-          font: inherit;
-          font-size: 9px;
-          font-weight: 800;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          cursor: pointer;
-        }
-
         @media (max-height: 640px) {
           .clara-tutorial-chat-guide {
             bottom: calc(max(env(safe-area-inset-bottom), 10px) + 80px);
@@ -227,6 +260,21 @@ export default function ClaraTutorialOrbDemo({
         composerPresetLocked={showInstruction}
       />
 
+      <ClaraLifeProfilePortal
+        isActive
+        previewOnly
+        onClose={onBack}
+      />
+      <ClaraBuyCheckUsagePortal
+        isActive
+        previewUsage={JUAN_PREVIEW_USAGE}
+      />
+      <ClaraBuyCheckImpactPortal
+        isActive
+        previewImpact={JUAN_PREVIEW_IMPACT}
+        previewReadOnly
+      />
+
       {showInstruction ? (
         <aside className="clara-tutorial-chat-guide" data-clara-tutorial-chat-instruction="true">
           <small>ASK BEFORE YOU SPEND</small>
@@ -241,10 +289,6 @@ export default function ClaraTutorialOrbDemo({
           {payoff ? "Continue the tour" : "Show me where CLARA knew that"}
         </button>
       ) : null}
-
-      <button type="button" className="clara-tutorial-chat-skip" onClick={onSkip}>
-        Skip tour
-      </button>
     </div>
   );
 }
