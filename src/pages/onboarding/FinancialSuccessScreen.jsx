@@ -95,13 +95,35 @@ function formatMonthlyIncome(value) {
   }).format(value);
 }
 
+function FinancialSuccessCard({ slideNumber, children }) {
+  return (
+    <section
+      className={`clara-financial-success-card is-slide-${slideNumber}`}
+      aria-label={`CLARA financial success idea ${slideNumber} of ${SLIDE_COUNT}`}
+    >
+      <div className="clara-financial-success-card-header">
+        <span className="clara-financial-success-card-brand">
+          <ClaraBrandName />
+        </span>
+        <span className="clara-financial-success-card-index">
+          {String(slideNumber).padStart(2, "0")} / {String(SLIDE_COUNT).padStart(2, "0")}
+        </span>
+      </div>
+
+      <div className="clara-financial-success-card-body">{children}</div>
+    </section>
+  );
+}
+
 function ReflectionSlide() {
   return (
-    <div className="clara-financial-success-slide-content">
-      <h1 className="clara-financial-success-title clara-financial-success-title--question clara-financial-success-title--reflection-only">
-        What really defines financial success?
-      </h1>
-    </div>
+    <FinancialSuccessCard slideNumber={1}>
+      <div className="clara-financial-success-slide-content clara-financial-success-slide-content--reflection">
+        <h1 className="clara-financial-success-title clara-financial-success-title--question clara-financial-success-title--reflection-only">
+          What really defines financial success?
+        </h1>
+      </div>
+    </FinancialSuccessCard>
   );
 }
 
@@ -109,40 +131,50 @@ function ComparisonSlide({ knownMonthlyIncome }) {
   const hasKnownMonthlyIncome = knownMonthlyIncome > 0;
 
   return (
-    <div className="clara-financial-success-slide-content">
-      <span className="clara-financial-success-kicker clara-financial-success-kicker--soft-red">
-        02 · The pressure we absorb
-      </span>
+    <FinancialSuccessCard slideNumber={2}>
+      <div className="clara-financial-success-slide-content">
+        <span className="clara-financial-success-kicker clara-financial-success-kicker--soft-red">
+          The pressure we absorb
+        </span>
 
-      <h1 className="clara-financial-success-title">
-        Sometimes success quietly turns into comparison.
-      </h1>
+        <h1 className="clara-financial-success-title">
+          Sometimes success quietly turns into comparison.
+        </h1>
 
-      <p className="clara-financial-success-copy">
-        We see someone earning more, owning more, or living differently — and what we have can suddenly feel small.
-      </p>
+        <p className="clara-financial-success-copy">
+          We see someone earning more, owning more, or living differently — and what we have can suddenly feel small.
+        </p>
 
-      <div className="clara-financial-success-comparison" aria-label="Your income compared with someone who has more">
-        <div className="clara-financial-success-comparison-side is-you">
-          <span>Your income</span>
-          <strong>{hasKnownMonthlyIncome ? formatMonthlyIncome(knownMonthlyIncome) : "What you earn"}</strong>
+        <div
+          className="clara-financial-success-comparison"
+          aria-label="Your income compared with someone who has more"
+        >
+          <div className="clara-financial-success-comparison-side is-you">
+            <span>Your income</span>
+            <strong>
+              {hasKnownMonthlyIncome
+                ? formatMonthlyIncome(knownMonthlyIncome)
+                : "What you earn"}
+            </strong>
+          </div>
+          <div className="clara-financial-success-comparison-vs">vs.</div>
+          <div className="clara-financial-success-comparison-side is-other">
+            <span>Someone else</span>
+            <strong>More</strong>
+          </div>
         </div>
-        <div className="clara-financial-success-comparison-vs">vs.</div>
-        <div className="clara-financial-success-comparison-side is-other">
-          <span>Someone else</span>
-          <strong>More</strong>
-        </div>
+
+        <p className="clara-financial-success-comparison-truth">
+          Nothing about what you worked for became less valuable.
+          <strong>Only the comparison got louder.</strong>
+        </p>
+
+        <p className="clara-financial-success-note">
+          Wanting to grow isn&apos;t the problem. Letting someone else&apos;s life
+          decide whether yours already matters is.
+        </p>
       </div>
-
-      <p className="clara-financial-success-comparison-truth">
-        Nothing about what you worked for became less valuable.
-        <strong>Only the comparison got louder.</strong>
-      </p>
-
-      <p className="clara-financial-success-note">
-        Wanting to grow isn&apos;t the problem. Letting someone else&apos;s life decide whether yours already matters is.
-      </p>
-    </div>
+    </FinancialSuccessCard>
   );
 }
 
@@ -150,35 +182,42 @@ function ClaraBeliefSlide({ knownMonthlyIncome }) {
   const hasKnownMonthlyIncome = knownMonthlyIncome > 0;
 
   return (
-    <div className="clara-financial-success-slide-content">
-      <span className="clara-financial-success-kicker">
-        <Sparkles strokeWidth={1.8} /> 03 · What <ClaraBrandName /> believes
-      </span>
+    <FinancialSuccessCard slideNumber={3}>
+      <div className="clara-financial-success-slide-content">
+        <span className="clara-financial-success-kicker">
+          <Sparkles strokeWidth={1.8} /> What <ClaraBrandName /> believes
+        </span>
 
-      <h1 className="clara-financial-success-title clara-financial-success-title--clara">
-        {hasKnownMonthlyIncome
-          ? `${formatMonthlyIncome(knownMonthlyIncome)} already matters.`
-          : "What you have already matters."}
-      </h1>
+        <h1 className="clara-financial-success-title clara-financial-success-title--clara">
+          {hasKnownMonthlyIncome
+            ? `${formatMonthlyIncome(knownMonthlyIncome)} already matters.`
+            : "What you have already matters."}
+        </h1>
 
-      <p className="clara-financial-success-copy clara-financial-success-copy--clara">
-        <ClaraBrandName /> doesn&apos;t teach that success starts once you have more. It teaches you to recognize what you have, protect it, direct it intentionally, and grow from there.
-      </p>
+        <p className="clara-financial-success-copy clara-financial-success-copy--clara">
+          <ClaraBrandName /> doesn&apos;t teach that success starts once you have
+          more. It teaches you to recognize what you have, protect it, direct it
+          intentionally, and grow from there.
+        </p>
 
-      <div className="clara-financial-success-framework" aria-label="Recognize, Protect, Direct, Grow">
-        {FRAMEWORK.map(({ label, icon: Icon }) => (
-          <div key={label} className="clara-financial-success-step">
-            <Icon strokeWidth={1.9} aria-hidden="true" />
-            <span>{label}</span>
-          </div>
-        ))}
+        <div
+          className="clara-financial-success-framework"
+          aria-label="Recognize, Protect, Direct, Grow"
+        >
+          {FRAMEWORK.map(({ label, icon: Icon }) => (
+            <div key={label} className="clara-financial-success-step">
+              <Icon strokeWidth={1.9} aria-hidden="true" />
+              <span>{label}</span>
+            </div>
+          ))}
+        </div>
+
+        <p className="clara-financial-success-closing">
+          <strong>Growth still matters.</strong>
+          But comparison is no longer the definition of success.
+        </p>
       </div>
-
-      <p className="clara-financial-success-closing">
-        <strong>Growth still matters.</strong>
-        But comparison is no longer the definition of success.
-      </p>
-    </div>
+    </FinancialSuccessCard>
   );
 }
 
@@ -252,9 +291,9 @@ export default function FinancialSuccessScreen({ user, profile }) {
 
   const navLabel =
     slideIndex === 0
-      ? "Swipe when you're ready"
+      ? "Swipe to continue"
       : slideIndex === 1
-        ? "One more idea"
+        ? "Keep exploring"
         : "CLARA's way";
 
   return (
@@ -273,10 +312,11 @@ export default function FinancialSuccessScreen({ user, profile }) {
         }
 
         .clara-financial-success-viewport {
-          width: min(100%, 410px);
-          min-height: 420px;
+          width: min(100%, 420px);
+          min-height: 455px;
           display: flex;
           align-items: center;
+          justify-content: center;
           overflow: hidden;
           touch-action: pan-y;
         }
@@ -284,11 +324,95 @@ export default function FinancialSuccessScreen({ user, profile }) {
         .clara-financial-success-slide {
           width: 100%;
           flex: 0 0 100%;
+          display: flex;
+          justify-content: center;
           cursor: grab;
         }
 
         .clara-financial-success-slide:active {
           cursor: grabbing;
+        }
+
+        .clara-financial-success-card {
+          position: relative;
+          width: min(calc(100% - 24px), 386px);
+          min-height: 390px;
+          overflow: hidden;
+          border: 1px solid rgba(93, 153, 238, .22);
+          border-radius: 28px;
+          background:
+            radial-gradient(circle at 86% 0%, rgba(57, 125, 232, .12), transparent 32%),
+            linear-gradient(155deg, rgba(13, 31, 62, .94), rgba(5, 14, 32, .985) 62%, rgba(7, 18, 39, .97));
+          box-shadow:
+            0 28px 68px rgba(0, 0, 0, .34),
+            inset 0 1px 0 rgba(255, 255, 255, .045),
+            0 0 0 1px rgba(45, 103, 190, .04);
+          isolation: isolate;
+        }
+
+        .clara-financial-success-card::before {
+          content: "";
+          position: absolute;
+          inset: 0 0 auto 0;
+          height: 2px;
+          background: linear-gradient(
+            90deg,
+            rgba(59, 130, 246, .95),
+            rgba(96, 165, 250, .8) 42%,
+            rgba(250, 204, 21, .74) 70%,
+            rgba(248, 113, 113, .72)
+          );
+          opacity: .72;
+          pointer-events: none;
+        }
+
+        .clara-financial-success-card::after {
+          content: "";
+          position: absolute;
+          z-index: -1;
+          width: 210px;
+          height: 210px;
+          right: -115px;
+          top: -110px;
+          border-radius: 999px;
+          background: rgba(59, 130, 246, .1);
+          filter: blur(34px);
+          pointer-events: none;
+        }
+
+        .clara-financial-success-card-header {
+          min-height: 48px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 18px;
+          padding: 15px 18px 12px;
+          border-bottom: 1px solid rgba(106, 155, 225, .1);
+        }
+
+        .clara-financial-success-card-brand {
+          display: inline-flex;
+          align-items: center;
+          color: rgba(236, 244, 255, .92);
+          font-size: 10px;
+          font-weight: 920;
+          letter-spacing: .13em;
+          text-transform: uppercase;
+        }
+
+        .clara-financial-success-card-index {
+          color: rgba(151, 183, 228, .55);
+          font-size: 8px;
+          font-weight: 850;
+          letter-spacing: .12em;
+        }
+
+        .clara-financial-success-card-body {
+          min-height: 340px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 26px 22px 30px;
         }
 
         .clara-financial-success-slide-content {
@@ -299,19 +423,20 @@ export default function FinancialSuccessScreen({ user, profile }) {
           text-align: center;
         }
 
+        .clara-financial-success-slide-content--reflection {
+          min-height: 245px;
+          justify-content: center;
+        }
+
         .clara-financial-success-kicker {
           display: inline-flex;
           align-items: center;
           gap: 7px;
           color: rgba(250, 204, 21, .82);
-          font-size: 9px;
+          font-size: 8.5px;
           font-weight: 930;
-          letter-spacing: .15em;
+          letter-spacing: .14em;
           text-transform: uppercase;
-        }
-
-        .clara-financial-success-kicker--muted {
-          color: rgba(144, 181, 239, .72);
         }
 
         .clara-financial-success-kicker--soft-red {
@@ -324,10 +449,10 @@ export default function FinancialSuccessScreen({ user, profile }) {
         }
 
         .clara-financial-success-title {
-          max-width: 390px;
-          margin-top: 16px;
+          max-width: 345px;
+          margin-top: 15px;
           color: #f8fbff;
-          font-size: clamp(1.8rem, 7.8vw, 2.38rem);
+          font-size: clamp(1.72rem, 7vw, 2.18rem);
           font-weight: 950;
           line-height: 1.02;
           letter-spacing: -.043em;
@@ -335,8 +460,8 @@ export default function FinancialSuccessScreen({ user, profile }) {
         }
 
         .clara-financial-success-title--question {
-          max-width: 360px;
-          font-size: clamp(2.02rem, 8.6vw, 2.62rem);
+          max-width: 330px;
+          font-size: clamp(2rem, 8.35vw, 2.5rem);
           line-height: .99;
         }
 
@@ -345,101 +470,55 @@ export default function FinancialSuccessScreen({ user, profile }) {
         }
 
         .clara-financial-success-title--clara {
-          font-size: clamp(2rem, 8.4vw, 2.58rem);
+          font-size: clamp(1.9rem, 7.8vw, 2.38rem);
         }
 
         .clara-financial-success-copy {
-          max-width: 360px;
-          margin-top: 15px;
+          max-width: 330px;
+          margin-top: 14px;
           color: rgba(205, 220, 242, .66);
-          font-size: 12.5px;
+          font-size: 12px;
           font-weight: 620;
-          line-height: 1.58;
+          line-height: 1.55;
           text-wrap: balance;
-        }
-
-        .clara-financial-success-copy--lead {
-          max-width: 345px;
-          color: rgba(218, 230, 248, .72);
-          font-size: 13px;
-          line-height: 1.62;
         }
 
         .clara-financial-success-copy--clara {
           color: rgba(214, 226, 244, .72);
-          font-size: 13px;
-        }
-
-        .clara-financial-success-reflection-words {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          justify-content: center;
-          gap: 7px 10px;
-          margin-top: 24px;
-          color: rgba(151, 190, 244, .66);
-          font-size: 10px;
-          font-weight: 840;
-          letter-spacing: .08em;
-          text-transform: uppercase;
-        }
-
-        .clara-financial-success-reflection-words span {
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .clara-financial-success-reflection-words i {
-          width: 3px;
-          height: 3px;
-          border-radius: 999px;
-          background: rgba(103, 161, 242, .34);
-        }
-
-        .clara-financial-success-reflection-note {
-          max-width: 335px;
-          margin-top: 25px;
-          padding-top: 16px;
-          border-top: 1px solid rgba(111, 157, 222, .11);
-          color: rgba(183, 204, 233, .52);
-          font-size: 10.5px;
-          font-weight: 620;
-          line-height: 1.58;
-          text-wrap: balance;
+          font-size: 12.5px;
         }
 
         .clara-financial-success-comparison {
-          width: min(100%, 370px);
+          width: min(100%, 335px);
           display: grid;
-          grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr);
+          grid-template-columns: minmax(0, 1fr) 30px minmax(0, 1fr);
           align-items: stretch;
-          gap: 7px;
-          margin-top: 20px;
+          gap: 6px;
+          margin-top: 18px;
         }
 
         .clara-financial-success-comparison-side {
           display: flex;
           min-width: 0;
-          min-height: 80px;
+          min-height: 74px;
           flex-direction: column;
           align-items: center;
           justify-content: center;
           gap: 6px;
-          padding: 10px 8px;
+          padding: 9px 7px;
           border: 1px solid rgba(105, 151, 219, .14);
-          border-radius: 17px;
-          background: rgba(12, 29, 57, .38);
+          border-radius: 16px;
+          background: rgba(12, 29, 57, .42);
         }
 
         .clara-financial-success-comparison-side.is-other {
           border-color: rgba(248, 148, 148, .13);
-          background: rgba(55, 23, 34, .18);
+          background: rgba(55, 23, 34, .19);
         }
 
         .clara-financial-success-comparison-side span {
           color: rgba(169, 192, 226, .56);
-          font-size: 8px;
+          font-size: 7.5px;
           font-weight: 840;
           letter-spacing: .12em;
           text-transform: uppercase;
@@ -449,7 +528,7 @@ export default function FinancialSuccessScreen({ user, profile }) {
           overflow: hidden;
           max-width: 100%;
           color: #f5f8ff;
-          font-size: 14px;
+          font-size: 13.5px;
           font-weight: 920;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -463,18 +542,18 @@ export default function FinancialSuccessScreen({ user, profile }) {
           display: grid;
           place-items: center;
           color: rgba(168, 190, 223, .4);
-          font-size: 9px;
+          font-size: 8.5px;
           font-weight: 900;
           text-transform: uppercase;
         }
 
         .clara-financial-success-comparison-truth {
-          max-width: 345px;
-          margin-top: 17px;
+          max-width: 320px;
+          margin-top: 15px;
           color: rgba(220, 231, 247, .66);
-          font-size: 11.5px;
+          font-size: 11px;
           font-weight: 660;
-          line-height: 1.52;
+          line-height: 1.48;
           text-wrap: balance;
         }
 
@@ -482,28 +561,28 @@ export default function FinancialSuccessScreen({ user, profile }) {
           display: block;
           margin-top: 2px;
           color: #f7fbff;
-          font-size: 12.5px;
+          font-size: 12px;
           font-weight: 900;
         }
 
         .clara-financial-success-note {
-          max-width: 355px;
-          margin-top: 17px;
-          padding-top: 14px;
+          max-width: 325px;
+          margin-top: 15px;
+          padding-top: 12px;
           border-top: 1px solid rgba(113, 157, 222, .11);
           color: rgba(190, 209, 235, .54);
-          font-size: 10.25px;
+          font-size: 9.75px;
           font-weight: 620;
-          line-height: 1.55;
+          line-height: 1.5;
           text-wrap: balance;
         }
 
         .clara-financial-success-framework {
-          width: min(100%, 390px);
+          width: min(100%, 340px);
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 6px;
-          margin-top: 21px;
+          margin-top: 19px;
         }
 
         .clara-financial-success-step {
@@ -511,10 +590,14 @@ export default function FinancialSuccessScreen({ user, profile }) {
           display: grid;
           justify-items: center;
           gap: 7px;
-          padding: 11px 5px 10px;
+          padding: 10px 4px 9px;
           border: 1px solid rgba(96, 165, 250, .15);
-          border-radius: 15px;
-          background: linear-gradient(180deg, rgba(25, 49, 88, .34), rgba(8, 20, 43, .46));
+          border-radius: 14px;
+          background: linear-gradient(
+            180deg,
+            rgba(25, 49, 88, .34),
+            rgba(8, 20, 43, .46)
+          );
           box-shadow: inset 0 1px 0 rgba(255, 255, 255, .028);
         }
 
@@ -535,20 +618,20 @@ export default function FinancialSuccessScreen({ user, profile }) {
         .clara-financial-success-step span {
           overflow: hidden;
           color: rgba(235, 243, 255, .78);
-          font-size: 9px;
+          font-size: 8.5px;
           font-weight: 850;
           text-overflow: ellipsis;
         }
 
         .clara-financial-success-closing {
-          max-width: 350px;
-          margin-top: 20px;
-          padding-top: 15px;
+          max-width: 320px;
+          margin-top: 18px;
+          padding-top: 13px;
           border-top: 1px solid rgba(121, 170, 255, .14);
           color: rgba(225, 235, 249, .62);
-          font-size: 11px;
+          font-size: 10.5px;
           font-weight: 650;
-          line-height: 1.5;
+          line-height: 1.48;
           text-wrap: balance;
         }
 
@@ -556,17 +639,17 @@ export default function FinancialSuccessScreen({ user, profile }) {
           display: block;
           margin-bottom: 3px;
           color: #f6f9ff;
-          font-size: 13px;
+          font-size: 12.5px;
           font-weight: 880;
         }
 
         .clara-financial-success-mini-nav {
-          width: min(100%, 390px);
+          width: min(calc(100% - 24px), 386px);
           display: grid;
           grid-template-columns: 34px 1fr 34px;
           align-items: center;
           gap: 12px;
-          margin-top: 4px;
+          margin-top: 12px;
         }
 
         .clara-financial-success-mini-arrow {
@@ -574,15 +657,16 @@ export default function FinancialSuccessScreen({ user, profile }) {
           width: 34px;
           height: 34px;
           place-items: center;
-          border: 1px solid rgba(112, 161, 230, .16);
+          border: 1px solid rgba(112, 161, 230, .18);
           border-radius: 999px;
-          background: rgba(17, 38, 72, .34);
-          color: rgba(185, 211, 247, .7);
+          background: rgba(17, 38, 72, .38);
+          color: rgba(185, 211, 247, .76);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, .025);
           transition: opacity .2s ease, background .2s ease, transform .2s ease;
         }
 
         .clara-financial-success-mini-arrow:disabled {
-          opacity: .18;
+          opacity: .16;
         }
 
         .clara-financial-success-mini-arrow:not(:disabled):active {
@@ -624,27 +708,41 @@ export default function FinancialSuccessScreen({ user, profile }) {
         }
 
         .clara-financial-success-nav-label {
-          color: rgba(145, 172, 211, .45);
+          color: rgba(155, 184, 225, .5);
           font-size: 8px;
-          font-weight: 780;
+          font-weight: 800;
           letter-spacing: .11em;
           text-transform: uppercase;
         }
 
+        @media (max-width: 360px) {
+          .clara-financial-success-card,
+          .clara-financial-success-mini-nav {
+            width: min(calc(100% - 16px), 386px);
+          }
+
+          .clara-financial-success-card-body {
+            padding-inline: 17px;
+          }
+        }
+
         @media (max-height: 760px) {
-          .clara-financial-success-viewport { min-height: 385px; }
-          .clara-financial-success-title { margin-top: 12px; font-size: clamp(1.62rem, 7vw, 2.08rem); }
-          .clara-financial-success-title--question { font-size: clamp(1.82rem, 7.8vw, 2.28rem); }
+          .clara-financial-success-viewport { min-height: 405px; }
+          .clara-financial-success-card { min-height: 350px; border-radius: 24px; }
+          .clara-financial-success-card-header { min-height: 43px; padding: 12px 16px 10px; }
+          .clara-financial-success-card-body { min-height: 305px; padding: 20px 18px 23px; }
+          .clara-financial-success-slide-content--reflection { min-height: 215px; }
+          .clara-financial-success-title { margin-top: 11px; font-size: clamp(1.55rem, 6.8vw, 1.98rem); }
+          .clara-financial-success-title--question { font-size: clamp(1.82rem, 7.7vw, 2.22rem); }
           .clara-financial-success-title--reflection-only { margin-top: 0; }
-          .clara-financial-success-copy { margin-top: 10px; line-height: 1.45; }
-          .clara-financial-success-reflection-words { margin-top: 18px; }
-          .clara-financial-success-reflection-note { margin-top: 19px; padding-top: 12px; }
-          .clara-financial-success-comparison { margin-top: 14px; }
-          .clara-financial-success-comparison-side { min-height: 70px; }
-          .clara-financial-success-comparison-truth { margin-top: 12px; }
-          .clara-financial-success-note { margin-top: 12px; padding-top: 10px; }
-          .clara-financial-success-framework { margin-top: 14px; }
-          .clara-financial-success-closing { margin-top: 13px; padding-top: 10px; }
+          .clara-financial-success-copy { margin-top: 9px; line-height: 1.42; }
+          .clara-financial-success-comparison { margin-top: 12px; }
+          .clara-financial-success-comparison-side { min-height: 66px; }
+          .clara-financial-success-comparison-truth { margin-top: 10px; }
+          .clara-financial-success-note { margin-top: 10px; padding-top: 9px; }
+          .clara-financial-success-framework { margin-top: 12px; }
+          .clara-financial-success-closing { margin-top: 11px; padding-top: 9px; }
+          .clara-financial-success-mini-nav { margin-top: 8px; }
         }
       `}</style>
 
@@ -682,7 +780,10 @@ export default function FinancialSuccessScreen({ user, profile }) {
         </AnimatePresence>
       </div>
 
-      <div className="clara-financial-success-mini-nav" aria-label="Financial success belief slides">
+      <div
+        className="clara-financial-success-mini-nav"
+        aria-label="Financial success belief slides"
+      >
         <button
           type="button"
           className="clara-financial-success-mini-arrow"
