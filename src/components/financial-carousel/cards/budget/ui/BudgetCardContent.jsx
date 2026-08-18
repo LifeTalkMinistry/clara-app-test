@@ -322,6 +322,7 @@ export default function BudgetCardContent(props) {
     badgeLabel,
     budgetPace,
     openBudgetModal,
+    completionAction = null,
   } = props;
 
   const [showDriftModal, setShowDriftModal] = useState(false);
@@ -409,6 +410,8 @@ export default function BudgetCardContent(props) {
               </p>
             </div>
           </div>
+
+          {completionAction}
 
           <ExpandButtonRow expanded={expanded} onToggleDetails={onToggleDetails} />
 
