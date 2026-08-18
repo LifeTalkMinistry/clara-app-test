@@ -18,6 +18,7 @@ const lifeProfileSource = readFileSync(
 test("onboarding does not eagerly install account-backed Community polling", () => {
   assert.match(runtimeRegistrySource, /ACCOUNT_RUNTIME_SUSPENDED_PATHS/);
   assert.match(runtimeRegistrySource, /"\/onboarding"/);
+  assert.match(runtimeRegistrySource, /"\/program-onboarding"/);
   assert.match(runtimeRegistrySource, /function installDeferredAccountRuntimes\(\)/);
   assert.match(runtimeRegistrySource, /import\("\.\/installCommunityBackendOwnership"\)/);
   assert.match(runtimeRegistrySource, /import\("\.\/installMessagesProfilePhotos"\)/);
@@ -43,6 +44,7 @@ test("onboarding does not eagerly install account-backed Community polling", () 
 test("support polling stays asleep on onboarding and wakes after route change", () => {
   assert.match(supportHookSource, /SUPPORT_RUNTIME_SUSPENDED_PATHS/);
   assert.match(supportHookSource, /"\/onboarding"/);
+  assert.match(supportHookSource, /"\/program-onboarding"/);
   assert.match(supportHookSource, /if \(!isSupportRuntimeRouteAllowed\(\)\)/);
   assert.match(supportHookSource, /window\.addEventListener\("hashchange", sync\);/);
 });
