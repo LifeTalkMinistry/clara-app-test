@@ -62,7 +62,7 @@ const CHALLENGES = {
     eyebrow: "30-day challenge",
     title: "30-Day CLARA Streak",
     description:
-      "Every official CLARA 30-Day Race starts together on the 1st of the month. Finish the race, earn your badge and Monthly Draw entry, then keep your streak alive to keep building your chances.",
+      "Start your CLARA streak anytime. Official prize races still begin on the 1st; starting late never blocks the habit, but that race is already out of reach.",
     goal: THIRTY_DAY_BLOCK,
     unit: "days",
     cadence: "daily",
@@ -227,8 +227,23 @@ function daysToNextEntry(streakDays) {
   return remainder === 0 ? THIRTY_DAY_BLOCK : THIRTY_DAY_BLOCK - remainder;
 }
 
+function activeStreakDaysFrom(startKey, streak) {
+  if (!startKey || !streak?.alive || !streak.startKey || !streak.lastKey) return 0;
+
+  const startOffset = daysBetweenKeys(streak.startKey, startKey);
+  const daysSinceStart = daysBetweenKeys(startKey, streak.lastKey);
+  if (!Number.isFinite(startOffset) || !Number.isFinite(daysSinceStart)) return 0;
+  if (startOffset < 0 || daysSinceStart < 0) return 0;
+  return daysSinceStart + 1;
+}
+
 function getRewardState(entry, streak) {
-  if (!streak.alive || !streak.startKey) {
+  const rewardAnchorKey =
+    entry?.rewardAnchorKey ||
+    (entry?.raceEligible === false ? null : entry?.raceStartKey || null);
+  const eligibleDays = activeStreakDaysFrom(rewardAnchorKey, streak);
+
+  if (!eligibleDays || !streak.alive || !streak.startKey) {
     return {
       activeEntries: 0,
       earnedEntries: 0,
@@ -236,18 +251,21 @@ function getRewardState(entry, streak) {
       earnedMilestones: 0,
       milestoneOffset: 0,
       ledgerMatchesStreak: false,
+      eligibleDays: 0,
     };
   }
 
   const ledger = entry?.rewardLedger || {};
-  const ledgerMatchesStreak = ledger.streakStartKey === streak.startKey;
+  const ledgerMatchesStreak =
+    ledger.streakStartKey === streak.startKey &&
+    (!ledger.rewardAnchorKey || ledger.rewardAnchorKey === rewardAnchorKey);
   const milestoneOffset = ledgerMatchesStreak
     ? Math.max(0, Number(ledger.milestoneOffset) || 0)
     : 0;
   const boostEntries = ledgerMatchesStreak
     ? Math.max(0, Number(ledger.boostEntries) || 0)
     : 0;
-  const earnedMilestones = Math.floor(streak.days / THIRTY_DAY_BLOCK);
+  const earnedMilestones = Math.floor(eligibleDays / THIRTY_DAY_BLOCK);
   const earnedEntries = Math.max(0, earnedMilestones - milestoneOffset);
 
   return {
@@ -257,6 +275,7 @@ function getRewardState(entry, streak) {
     earnedMilestones,
     milestoneOffset,
     ledgerMatchesStreak,
+    eligibleDays,
   };
 }
 
@@ -331,7 +350,7 @@ function RaceBoard({ race, raceActive }) {
           <p className="text-[9px] font-black uppercase tracking-[0.15em] text-[#5eead4]/60">Race in progress</p>
           <p className="mt-1 text-sm font-black text-white">{race.currentLabel} 30-Day Race</p>
           <p className="mt-1 text-[11px] font-semibold leading-5 text-white/42">
-            You started with the community on the 1st. Keep checking in every day.
+            You're qualified for this official race. Keep the streak moving every day.
           </p>
         </div>
       </section>
@@ -350,7 +369,7 @@ function RaceBoard({ race, raceActive }) {
             <p className="text-[9px] font-black uppercase tracking-[0.15em] text-[#facc15]/70">Race day</p>
             <p className="mt-1 text-base font-black text-white">The {race.currentLabel} race starts today.</p>
             <p className="mt-1 text-[11px] font-semibold leading-5 text-white/45">
-              Official 30-Day Races only open on the 1st. Join today so your Day 1 begins with everyone else.
+              Your personal streak never has to wait. Check in today to secure official Race Day 1 and prize eligibility.
             </p>
           </div>
         </div>
@@ -369,7 +388,7 @@ function RaceBoard({ race, raceActive }) {
           <p className="text-[9px] font-black uppercase tracking-[0.17em] text-[#facc15]/65">Next 30-Day Race</p>
           <h3 className="mt-1 text-xl font-black tracking-[-0.035em] text-white">Starts {race.nextLabel}</h3>
           <p className="mt-1.5 text-[11px] font-semibold leading-5 text-white/45">
-            Everyone starts together on the 1st. This month's race has already started, so CLARA will hold your place for the next one.
+            You do not have to wait. Start or continue your CLARA streak now; the date only controls official prize eligibility.
           </p>
           <div className="mt-3 inline-flex items-center rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[10px] font-black text-white/55">
             {race.daysUntilNextStart} {race.daysUntilNextStart === 1 ? "day" : "days"} until the next race
@@ -381,9 +400,10 @@ function RaceBoard({ race, raceActive }) {
 }
 
 function MonthlyDrawCard({ streak, rewardState, draw }) {
-  const qualified = streak.days >= THIRTY_DAY_BLOCK;
-  const blockProgress = milestoneProgress(streak.days);
-  const nextEntryDays = daysToNextEntry(streak.days);
+  const qualified = rewardState.earnedMilestones > 0;
+  const rewardDays = rewardState.eligibleDays || 0;
+  const blockProgress = milestoneProgress(rewardDays);
+  const nextEntryDays = daysToNextEntry(rewardDays);
   const progressPercent = Math.min(100, Math.round((blockProgress / THIRTY_DAY_BLOCK) * 100));
 
   return (
@@ -408,10 +428,10 @@ function MonthlyDrawCard({ streak, rewardState, draw }) {
             <h3 className="mt-2 text-xl font-black tracking-[-0.035em] text-white">
               {qualified
                 ? `${rewardState.activeEntries} active ${rewardState.activeEntries === 1 ? "entry" : "entries"}`
-                : "Your first entry starts at Day 30"}
+                : "Your first entry starts at Official Day 30"}
             </h3>
             <p className="mt-1.5 text-[11px] font-semibold leading-5 text-white/45">
-              Entries carry forward while your streak stays alive. If you are not picked this month, your chances stay with you and can keep growing.
+              Entries carry forward while your qualified streak stays alive. Personal streak days before official eligibility never create prize entries.
             </p>
           </div>
         </div>
@@ -440,7 +460,7 @@ function MonthlyDrawCard({ streak, rewardState, draw }) {
               <p className="mt-1 text-xs font-black text-white">
                 {qualified
                   ? `${nextEntryDays} ${nextEntryDays === 1 ? "day" : "days"} until your next earned entry`
-                  : `${Math.max(0, THIRTY_DAY_BLOCK - streak.days)} days until your first entry`}
+                  : `${Math.max(0, THIRTY_DAY_BLOCK - rewardDays)} official days until your first entry`}
               </p>
             </div>
             <span className="text-[10px] font-black text-[#fde68a]">{blockProgress}/{THIRTY_DAY_BLOCK}</span>
@@ -565,29 +585,29 @@ export default function Challenges() {
   const race = useMemo(() => monthlyRaceWindow(), []);
 
   const currentThirtyEntry = progress[CHALLENGES.thirty.id] || null;
+  const thirtyDayJoined = Boolean(currentThirtyEntry?.joinedAt);
   const hasCurrentOfficialRace =
-    currentThirtyEntry?.raceStartKey === race.currentStartKey;
+    currentThirtyEntry?.raceStartKey === race.currentStartKey &&
+    currentThirtyEntry?.raceEligible !== false;
   const joined = isThirtyDay
-    ? hasCurrentOfficialRace
+    ? thirtyDayJoined
     : Boolean(entry?.joinedAt);
 
   const currentThirtyStreak = activeDailyStreak(currentThirtyEntry);
   const currentThirtyReward = getRewardState(currentThirtyEntry, currentThirtyStreak);
   const currentThirtyBest = longestDailyStreak(currentThirtyEntry);
-  const thirtyDayQualified = currentThirtyStreak.days >= THIRTY_DAY_BLOCK;
+  const thirtyDayQualified = currentThirtyReward.earnedMilestones > 0;
   const draw = useMemo(() => nextMonthlyDraw(), []);
 
   const currentCheckInKey = checkInKey(challenge.cadence);
   const alreadyCheckedIn = checkIns.includes(currentCheckInKey);
 
   const progressCount = isThirtyDay
-    ? hasCurrentOfficialRace
-      ? milestoneProgress(currentThirtyStreak.days)
-      : 0
+    ? milestoneProgress(currentThirtyStreak.days)
     : Math.min(checkIns.length, challenge.goal);
   const progressPercent = Math.min(100, Math.round((progressCount / challenge.goal) * 100));
   const completed = isThirtyDay
-    ? hasCurrentOfficialRace && currentThirtyStreak.days >= challenge.goal
+    ? currentThirtyStreak.days >= challenge.goal
     : progressCount >= challenge.goal;
 
   const summary = useMemo(() => {
@@ -618,26 +638,26 @@ export default function Challenges() {
   }, [progress]);
 
   const joinChallenge = () => {
-    if (isThirtyDay && !race.isStartDay) return;
-
     setProgress((current) => {
       const currentEntry = current[challenge.id] || {};
-      const firstOfficialRace =
-        isThirtyDay && !currentEntry.officialRaceStartedAt;
+      const nowIso = new Date().toISOString();
 
       return {
         ...current,
         [challenge.id]: {
           ...currentEntry,
-          joinedAt: isThirtyDay
-            ? new Date().toISOString()
-            : currentEntry.joinedAt || new Date().toISOString(),
-          checkIns: firstOfficialRace ? [] : safeCheckIns(currentEntry),
+          joinedAt: currentEntry.joinedAt || nowIso,
+          checkIns: safeCheckIns(currentEntry),
           ...(isThirtyDay
             ? {
-                officialRaceStartedAt:
-                  currentEntry.officialRaceStartedAt || new Date().toISOString(),
                 raceStartKey: race.currentStartKey,
+                raceEligible: race.isStartDay,
+                officialRaceStartedAt: race.isStartDay
+                  ? nowIso
+                  : currentEntry.officialRaceStartedAt || null,
+                rewardAnchorKey: race.isStartDay
+                  ? currentEntry.rewardAnchorKey || race.currentStartKey
+                  : currentEntry.rewardAnchorKey || null,
               }
             : {}),
         },
@@ -649,7 +669,6 @@ export default function Challenges() {
     if (
       !joined ||
       alreadyCheckedIn ||
-      (isThirtyDay && !hasCurrentOfficialRace) ||
       (!challenge.repeatable && completed)
     ) {
       return;
@@ -671,14 +690,38 @@ export default function Challenges() {
       };
 
       if (challenge.id === CHALLENGES.thirty.id) {
+        const enteringNewRace = currentEntry.raceStartKey !== race.currentStartKey;
+        if (enteringNewRace) {
+          nextEntry.raceStartKey = race.currentStartKey;
+          nextEntry.raceEligible = race.isStartDay;
+          if (race.isStartDay) {
+            nextEntry.officialRaceStartedAt = new Date().toISOString();
+          }
+        }
+
         const nextStreak = activeDailyStreak(nextEntry);
+        const existingAnchor = nextEntry.rewardAnchorKey || null;
+        const anchorStillActive = activeStreakDaysFrom(existingAnchor, nextStreak) > 0;
+
+        if (
+          nextEntry.raceEligible !== false &&
+          nextEntry.raceStartKey === race.currentStartKey &&
+          (!existingAnchor || !anchorStillActive)
+        ) {
+          nextEntry.rewardAnchorKey = nextEntry.raceStartKey;
+        }
+
         const existingLedger = currentEntry.rewardLedger || {};
-        const sameStreak = existingLedger.streakStartKey === nextStreak.startKey;
+        const rewardAnchorKey = nextEntry.rewardAnchorKey || null;
+        const sameStreak =
+          existingLedger.streakStartKey === nextStreak.startKey &&
+          (!existingLedger.rewardAnchorKey || existingLedger.rewardAnchorKey === rewardAnchorKey);
 
         nextEntry.rewardLedger = sameStreak
           ? existingLedger
           : {
               streakStartKey: nextStreak.startKey,
+              rewardAnchorKey,
               boostEntries: 0,
               milestoneOffset: 0,
               lifetimeBoostWins: Number(existingLedger.lifetimeBoostWins) || 0,
@@ -699,15 +742,27 @@ export default function Challenges() {
     });
   };
 
-  const progressLabel =
-    isThirtyDay && !hasCurrentOfficialRace
-      ? "Official race progress"
-      : isThirtyDay && currentThirtyStreak.days >= THIRTY_DAY_BLOCK
-        ? "Progress to next entry"
-        : "Your progress";
+  const progressLabel = isThirtyDay ? "Your streak progress" : "Your progress";
 
   const actionLabel =
     isThirtyDay && completed ? "Keep My Streak Alive" : "Log My Check-In";
+
+  const thirtyDayStatus = !isThirtyDay || !joined
+    ? null
+    : hasCurrentOfficialRace
+      ? {
+          label: "Qualified · official race",
+          className: "border-[#22c7b8]/20 bg-[#22c7b8]/[0.06] text-[#99f6e4]",
+        }
+      : race.isStartDay
+        ? {
+            label: "Check in today to qualify",
+            className: "border-[#facc15]/20 bg-[#facc15]/[0.06] text-[#fde68a]",
+          }
+        : {
+            label: "Not qualified · current race",
+            className: "border-[#fb7185]/18 bg-[#fb7185]/[0.045] text-[#fecdd3]/75",
+          };
 
   return (
     <div className="relative z-[80] flex min-h-full w-full flex-col overflow-visible bg-[#06111f] text-white">
@@ -801,7 +856,15 @@ export default function Challenges() {
                 <h3 className="mt-4 text-[22px] font-black tracking-[-0.035em] text-white">{challenge.title}</h3>
                 <p className="mt-2 text-sm font-semibold leading-6 text-white/47">{challenge.description}</p>
 
-                {isThirtyDay && hasCurrentOfficialRace && currentThirtyStreak.days >= THIRTY_DAY_BLOCK ? (
+                {thirtyDayStatus ? (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[9px] font-black ${thirtyDayStatus.className}`}>
+                      {thirtyDayStatus.label}
+                    </span>
+                  </div>
+                ) : null}
+
+                {isThirtyDay && thirtyDayQualified ? (
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-[#facc15]/18 bg-[#facc15]/[0.055] px-2.5 py-1 text-[9px] font-black text-[#fde68a]/80">
                       <Medal className="h-3 w-3" /> 30-Day Finisher · Active
@@ -819,7 +882,7 @@ export default function Challenges() {
                       <p className="mt-1 text-2xl font-black tracking-[-0.04em]">
                         {progressCount}<span className="text-sm text-white/30">/{challenge.goal} {challenge.unit}</span>
                       </p>
-                      {isThirtyDay && hasCurrentOfficialRace ? (
+                      {isThirtyDay ? (
                         <p className="mt-1 text-[10px] font-semibold text-white/34">
                           Active streak: {currentThirtyStreak.days} days{currentThirtyBest > currentThirtyStreak.days ? ` · Best: ${currentThirtyBest}` : ""}
                         </p>
@@ -837,11 +900,7 @@ export default function Challenges() {
               </div>
 
               <div className="p-4">
-                {isThirtyDay && !hasCurrentOfficialRace && !race.isStartDay ? (
-                  <div className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#facc15]/16 bg-[#facc15]/[0.045] px-4 py-3 text-center text-sm font-black text-[#fde68a]">
-                    <CalendarDays className="h-4 w-4 shrink-0" /> Next race starts {race.nextLabel}
-                  </div>
-                ) : !joined ? (
+                {!joined ? (
                   <button
                     type="button"
                     onClick={joinChallenge}
@@ -851,7 +910,7 @@ export default function Challenges() {
                         : "bg-[#22c7b8] text-[#042f2e]"
                     }`}
                   >
-                    <Trophy className="h-4 w-4" /> {isThirtyDay ? `Join ${race.currentLabel} Race` : "Join Challenge"}
+                    <Trophy className="h-4 w-4" /> {isThirtyDay ? "Start 30-Day Streak" : "Join Challenge"}
                   </button>
                 ) : !challenge.repeatable && completed ? (
                   <div className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#5eead4]/25 bg-[#22c7b8]/10 text-sm font-black text-[#ccfbf1]">
@@ -886,7 +945,7 @@ export default function Challenges() {
                   <div className="mt-3 flex items-start gap-2.5 rounded-[17px] border border-[#facc15]/13 bg-[#facc15]/[0.035] px-3 py-3">
                     <Ticket className="mt-0.5 h-4 w-4 shrink-0 text-[#facc15]/65" />
                     <p className="text-[10px] font-semibold leading-4 text-white/42">
-                      The official race always starts on the 1st. Once you are in, every 30 consecutive active days can build another Monthly Draw entry while your streak stays alive.
+                      Start or continue your streak any day. Official prize eligibility is separate: races begin on the 1st, and a late start is simply marked not qualified for that race.
                     </p>
                   </div>
                 ) : null}
@@ -908,7 +967,7 @@ export default function Challenges() {
             </div>
             {isThirtyDay ? (
               <div className="grid grid-cols-3 gap-2">
-                <ChallengeMetric icon={Flame} value={hasCurrentOfficialRace ? currentThirtyStreak.days : 0} label="Streak days" />
+                <ChallengeMetric icon={Flame} value={currentThirtyStreak.days} label="Streak days" />
                 <ChallengeMetric icon={Ticket} value={currentThirtyReward.activeEntries} label="Active entries" tone="gold" />
                 <ChallengeMetric icon={Award} value={currentThirtyBest} label="Best streak" />
               </div>
@@ -947,10 +1006,10 @@ export default function Challenges() {
                 title="30-Day Finisher"
                 description={
                   thirtyDayQualified
-                    ? "Active badge. Keep your streak alive to keep this status and your entries."
+                    ? "Active badge. Keep your qualified streak alive to keep this status and your entries."
                     : currentThirtyBest >= THIRTY_DAY_BLOCK
-                      ? `Previously reached ${currentThirtyBest} days. Rebuild a 30-day active streak to reactivate.`
-                      : "Complete 30 consecutive days in an official race to activate this badge and your first draw entry."
+                      ? `You reached ${currentThirtyBest} streak days. Official prize status still requires a qualified 30-day race finish.`
+                      : "Complete 30 official race days to activate this prize badge and your first draw entry."
                 }
                 unlocked={thirtyDayQualified}
                 accent="gold"
