@@ -1,85 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import ClaraBrandName from "@/components/ClaraBrandName";
-import {
-  getIncomeHubLocalUserId,
-  getIncomeSources,
-} from "@/lib/incomeHubRepository";
 
 const SLIDE_COUNT = 7;
-
-function toPositiveNumber(value) {
-  const number = Number(String(value ?? "").replace(/[^0-9.-]/g, ""));
-  return Number.isFinite(number) && number > 0 ? number : 0;
-}
-
-function firstPositive(...values) {
-  for (const value of values) {
-    const number = toPositiveNumber(value);
-    if (number > 0) return number;
-  }
-  return 0;
-}
-
-function knownMonthlyIncomeFromProfile(profile, user) {
-  return firstPositive(
-    profile?.monthlyIncome,
-    profile?.monthly_income,
-    profile?.expectedMonthlyIncome,
-    profile?.expected_monthly_income,
-    user?.user_metadata?.monthlyIncome,
-    user?.user_metadata?.monthly_income,
-    user?.user_metadata?.expectedMonthlyIncome,
-    user?.user_metadata?.expected_monthly_income,
-  );
-}
-
-function monthlyIncomeFromSource(source = {}) {
-  const explicitMonthlyAmount = firstPositive(
-    source.expectedMonthlyIncome,
-    source.expected_monthly_income,
-    source.monthlyAmount,
-    source.monthly_amount,
-  );
-  if (explicitMonthlyAmount > 0) return explicitMonthlyAmount;
-
-  const expectedPaydayAmount = firstPositive(
-    source.minimumStableIncome,
-    source.minimum_stable_income,
-    source.minimumExpectedIncome,
-    source.minimum_expected_income,
-    source.expectedAmount,
-    source.expected_amount,
-  );
-  if (expectedPaydayAmount <= 0) return 0;
-
-  const recurrence =
-    source.incomeRecurrence ||
-    source.income_recurrence ||
-    source.recurrenceRule ||
-    source.recurrence_rule ||
-    {};
-  const type = String(
-    recurrence.type || recurrence.recurrence || recurrence.frequency || "",
-  )
-    .trim()
-    .toLowerCase();
-
-  if (type === "monthly") return expectedPaydayAmount;
-  if (type === "twice_monthly") return expectedPaydayAmount * 2;
-  if (type === "weekly") return expectedPaydayAmount * (52 / 12);
-  if (type === "biweekly") return expectedPaydayAmount * (26 / 12);
-  return 0;
-}
-
-function formatMonthlyIncome(value) {
-  return new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: "PHP",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
 
 function FinancialSuccessCard({ slideNumber, children }) {
   return (
@@ -130,27 +54,22 @@ function PressureSlide() {
   );
 }
 
-function WorthSlide({ knownMonthlyIncome }) {
-  const hasKnownMonthlyIncome = knownMonthlyIncome > 0;
+function WorthSlide() {
   return (
     <FinancialSuccessCard slideNumber={3}>
       <div className="clara-financial-success-slide-content">
         <h1 className="clara-financial-success-title clara-financial-success-title--statement clara-financial-success-title--flush">
           Someone having more doesn&apos;t make what you have worth less.
         </h1>
-        <span className="clara-financial-success-income-label">Your income</span>
-        <strong className="clara-financial-success-income-value">
-          {hasKnownMonthlyIncome
-            ? formatMonthlyIncome(knownMonthlyIncome)
-            : "What you earn"}
-        </strong>
+        <p className="clara-financial-success-copy clara-financial-success-copy--emphasis">
+          Whatever your income is, it already matters.
+        </p>
       </div>
     </FinancialSuccessCard>
   );
 }
 
-function BeliefSlide({ knownMonthlyIncome }) {
-  const hasKnownMonthlyIncome = knownMonthlyIncome > 0;
+function BeliefSlide() {
   return (
     <FinancialSuccessCard slideNumber={4}>
       <div className="clara-financial-success-slide-content">
@@ -158,9 +77,7 @@ function BeliefSlide({ knownMonthlyIncome }) {
           What <ClaraBrandName /> believes
         </span>
         <h1 className="clara-financial-success-title clara-financial-success-title--belief">
-          {hasKnownMonthlyIncome
-            ? `${formatMonthlyIncome(knownMonthlyIncome)} already matters.`
-            : "What you have already matters."}
+          What you have already matters.
         </h1>
         <p className="clara-financial-success-copy">
           Financial success doesn&apos;t begin when you finally have more.
@@ -192,9 +109,6 @@ function FrameworkSlide() {
         <h1 className="clara-financial-success-title clara-financial-success-title--statement clara-financial-success-title--framework clara-financial-success-title--flush">
           Protect it. Direct it. Grow from there.
         </h1>
-        <p className="clara-financial-success-path" aria-label="Protect, Direct, Grow">
-          Protect <span aria-hidden="true">→</span> Direct <span aria-hidden="true">→</span> Grow
-        </p>
       </div>
     </FinancialSuccessCard>
   );
@@ -221,57 +135,10 @@ function GrowthSlide() {
   );
 }
 
-export default function FinancialSuccessScreen({ user, profile }) {
+export default function FinancialSuccessScreen() {
   const reduceMotion = useReducedMotion();
-  const profileMonthlyIncome = useMemo(
-    () => knownMonthlyIncomeFromProfile(profile, user),
-    [profile, user],
-  );
-  const [knownMonthlyIncome, setKnownMonthlyIncome] = useState(profileMonthlyIncome);
   const [slideIndex, setSlideIndex] = useState(0);
   const [direction, setDirection] = useState(1);
-
-  useEffect(() => {
-    let cancelled = false;
-    const localUserId = getIncomeHubLocalUserId(user);
-
-    const readKnownIncome = async () => {
-      if (profileMonthlyIncome > 0) {
-        if (!cancelled) setKnownMonthlyIncome(profileMonthlyIncome);
-        return;
-      }
-
-      try {
-        const sources = await getIncomeSources(localUserId);
-        const monthlyTotal = (Array.isArray(sources) ? sources : [])
-          .filter(
-            (source) =>
-              !source?.isArchived &&
-              !source?.is_archived &&
-              !source?.deletedAt &&
-              !source?.deleted_at,
-          )
-          .reduce((sum, source) => sum + monthlyIncomeFromSource(source), 0);
-
-        if (!cancelled) setKnownMonthlyIncome(monthlyTotal > 0 ? monthlyTotal : 0);
-      } catch {
-        if (!cancelled) setKnownMonthlyIncome(0);
-      }
-    };
-
-    void readKnownIncome();
-    const handleIncomeUpdate = () => void readKnownIncome();
-    if (typeof window !== "undefined") {
-      window.addEventListener("clara-income-hub-updated", handleIncomeUpdate);
-    }
-
-    return () => {
-      cancelled = true;
-      if (typeof window !== "undefined") {
-        window.removeEventListener("clara-income-hub-updated", handleIncomeUpdate);
-      }
-    };
-  }, [profileMonthlyIncome, user]);
 
   const goToSlide = (nextIndex) => {
     const boundedIndex = Math.max(0, Math.min(nextIndex, SLIDE_COUNT - 1));
@@ -287,9 +154,9 @@ export default function FinancialSuccessScreen({ user, profile }) {
       case 1:
         return <PressureSlide />;
       case 2:
-        return <WorthSlide knownMonthlyIncome={knownMonthlyIncome} />;
+        return <WorthSlide />;
       case 3:
-        return <BeliefSlide knownMonthlyIncome={knownMonthlyIncome} />;
+        return <BeliefSlide />;
       case 4:
         return <RecognizeSlide />;
       case 5:
@@ -502,31 +369,16 @@ export default function FinancialSuccessScreen({ user, profile }) {
           text-wrap: balance;
         }
 
+        .clara-financial-success-copy--emphasis {
+          max-width: 290px;
+          color: rgba(229, 238, 251, .78);
+          font-size: 13px;
+          font-weight: 720;
+        }
+
         .clara-financial-success-copy--closing {
           max-width: 310px;
           font-size: 12.5px;
-        }
-
-        .clara-financial-success-income-label {
-          margin-top: 24px;
-          color: rgba(169, 192, 226, .58);
-          font-size: 8.5px;
-          font-weight: 860;
-          letter-spacing: .14em;
-          text-transform: uppercase;
-        }
-
-        .clara-financial-success-income-value {
-          max-width: 100%;
-          margin-top: 7px;
-          overflow: hidden;
-          color: #f8fbff;
-          font-size: clamp(2rem, 9.4vw, 2.85rem);
-          font-weight: 950;
-          line-height: 1;
-          letter-spacing: -.045em;
-          text-overflow: ellipsis;
-          white-space: nowrap;
         }
 
         .clara-financial-success-path {
@@ -658,8 +510,6 @@ export default function FinancialSuccessScreen({ user, profile }) {
           .clara-financial-success-title--belief { font-size: clamp(1.8rem, 7.4vw, 2.2rem); }
           .clara-financial-success-title--flush { margin-top: 0; }
           .clara-financial-success-copy { margin-top: 10px; line-height: 1.45; }
-          .clara-financial-success-income-label { margin-top: 18px; }
-          .clara-financial-success-income-value { font-size: clamp(1.9rem, 8.7vw, 2.55rem); }
           .clara-financial-success-path { margin-top: 16px; }
           .clara-financial-success-path--full { margin-top: 17px; }
           .clara-financial-success-mini-nav { margin-top: 8px; }
