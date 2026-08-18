@@ -2,7 +2,8 @@
  * CLARA Orb idle-life runtime.
  *
  * CSS-only SVG animation proved unreliable in the Android/WebView path. This
- * controller owns only the main Community Orb launcher and animates the SVG's
+ * controller owns the main Community Orb launcher plus the canonical Orb when
+ * it is mounted inside Juan's controlled tutorial. It animates the SVG's
  * existing halo and center bars directly, leaving page background, geometry,
  * navigation, and tap/launch behavior untouched.
  *
@@ -12,9 +13,21 @@
  */
 
 const RUNTIME_KEY = "__claraOrbIdleLifeRuntime__";
-const LAUNCHER_SELECTOR =
+const PRODUCTION_LAUNCHER_SELECTOR =
   '.clara-community-root[data-community-view="orb"] [data-clara-orb-launcher="true"]';
+const TUTORIAL_LAUNCHER_SELECTOR =
+  '[data-clara-tutorial-orb-intro="true"] [data-clara-orb-launcher="true"]';
 const CHAT_ACTIVE_CLASS = "clara-ai-environment-active";
+
+function resolveLauncher() {
+  // Tutorial takes precedence if both surfaces happen to coexist in the DOM.
+  // This keeps the visible Juan experience alive without animating a hidden
+  // production launcher underneath it.
+  return (
+    document.querySelector(TUTORIAL_LAUNCHER_SELECTOR) ||
+    document.querySelector(PRODUCTION_LAUNCHER_SELECTOR)
+  );
+}
 
 function numberAttr(node, name, fallback = 0) {
   const value = Number.parseFloat(node?.getAttribute?.(name) ?? "");
@@ -216,7 +229,7 @@ function installClaraOrbIdleLife() {
 
   const sync = () => {
     syncQueued = false;
-    const launcher = document.querySelector(LAUNCHER_SELECTOR);
+    const launcher = resolveLauncher();
     const shouldRun = shouldRunController(launcher);
 
     if (launcher === activeLauncher && shouldRun === controllerRunning) return;
