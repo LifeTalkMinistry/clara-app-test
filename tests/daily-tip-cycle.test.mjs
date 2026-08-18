@@ -133,11 +133,12 @@ test("the first quote of a new cycle never immediately repeats the previous cycl
   assert.notEqual(nextCycle.tipId, lastCommitted.tipId);
 });
 
-test("editing quote copy does not reset an in-progress cycle", () => {
+test("editing quote copy and revision preserves an in-progress logical tip cycle", () => {
   const storage = new MemoryStorage();
   const stableTips = Array.from({ length: 30 }, (_, index) => ({
     id: `daily-money-tip-${String(index + 1).padStart(3, "0")}`,
     text: `Original tip ${index + 1}`,
+    revision: 1,
   }));
 
   for (let day = 1; day <= 7; day += 1) {
@@ -150,7 +151,9 @@ test("editing quote copy does not reset an in-progress cycle", () => {
   }
 
   const editedTips = stableTips.map((tip, index) =>
-    index === 4 ? { ...tip, text: "A clearer, more reflective version." } : tip,
+    index === 4
+      ? { ...tip, text: "A clearer, more reflective version.", revision: 2 }
+      : tip,
   );
   const next = resolveDailyTipAssignment({
     storage,
@@ -162,6 +165,24 @@ test("editing quote copy does not reset an in-progress cycle", () => {
 
   assert.equal(next.cycleDay, 8);
   assert.equal(stored.usedTipIds.length, 7);
+  assert.equal(stored.version, 5);
+});
+
+test("assignment exposes the current quote revision", () => {
+  const storage = new MemoryStorage();
+  const revisionedTips = [
+    { id: "daily-money-tip-001", text: "Updated wording", revision: 3 },
+  ];
+  const assignment = resolveDailyTipAssignment({
+    storage,
+    userId: "u1",
+    dayKey: "revision-day",
+    tips: revisionedTips,
+  });
+
+  assert.equal(assignment.tipId, "daily-money-tip-001");
+  assert.equal(assignment.tipRevision, 3);
+  assert.equal(assignment.text, "Updated wording");
 });
 
 test("version 3 cycle state migrates without losing already-read quote IDs", () => {
@@ -200,7 +221,7 @@ test("version 3 cycle state migrates without losing already-read quote IDs", () 
   const migrated = JSON.parse(storage.getItem(dailyTipCycleStorageKey("u1")));
 
   assert.equal(next.cycleDay, 6);
-  assert.equal(migrated.version, 4);
+  assert.equal(migrated.version, 5);
   assert.deepEqual(migrated.usedTipIds, usedTipIds);
 });
 
