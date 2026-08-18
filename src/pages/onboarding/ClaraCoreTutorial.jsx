@@ -17,6 +17,7 @@ import {
 import ClaraLogo from "@/components/ClaraLogo";
 import ClaraBrandName from "@/components/ClaraBrandName";
 import ClaraTutorialOrbDemo from "./ClaraTutorialOrbDemo";
+import ClaraTutorialOrbIntro from "./ClaraTutorialOrbIntro";
 import JuanCharacter from "./JuanCharacter";
 import "./ClaraCoreTutorial.css";
 
@@ -414,10 +415,20 @@ export default function ClaraCoreTutorial({ onFinish, onSkip }) {
     setStepIndex((current) => Math.max(current - 1, 0));
   };
 
-  if (step.type === "orb" || step.type === "payoff") {
+  if (step.type === "orb") {
+    return (
+      <ClaraTutorialOrbIntro
+        onBack={back}
+        onContinue={next}
+        onSkip={onSkip}
+      />
+    );
+  }
+
+  if (step.type === "payoff") {
     return (
       <ClaraTutorialOrbDemo
-        phase={step.type === "payoff" ? "payoff" : "initial"}
+        phase="payoff"
         onBack={back}
         onContinue={next}
         onSkip={onSkip}
