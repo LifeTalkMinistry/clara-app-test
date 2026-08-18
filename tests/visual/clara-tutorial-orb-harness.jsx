@@ -13,6 +13,8 @@ function setHarnessState(name) {
 function ProductionOrbSpecimen() {
   return (
     <div
+      className="clara-community-root"
+      data-community-view="orb"
       style={{
         position: "fixed",
         inset: 0,
