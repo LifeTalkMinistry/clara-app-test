@@ -8,13 +8,15 @@ function money(value = 0) {
   return `₱${amount.toLocaleString("en-PH", { maximumFractionDigits: 0 })}`;
 }
 
-function ImpactTrigger({ open, impact, onToggle }) {
+function ImpactTrigger({ open, impact, onToggle, previewReadOnly = false }) {
   return (
     <button
       type="button"
-      onClick={onToggle}
+      onClick={previewReadOnly ? undefined : onToggle}
       data-clara-impact-trigger="true"
+      data-clara-impact-preview={previewReadOnly ? "true" : undefined}
       aria-expanded={open}
+      aria-disabled={previewReadOnly ? "true" : undefined}
       aria-label={`${open ? "Close" : "Open"} CLARA Impact. ${money(impact.total)} protected this month.`}
       className={`absolute bottom-3 right-3 z-30 grid h-11 w-11 place-items-center rounded-full border transition active:scale-95 ${open
         ? "border-[#ffd84a]/55 bg-[#ffd84a]/12 text-[#ffe783] shadow-[0_10px_30px_rgba(255,216,74,0.14),0_0_0_4px_rgba(23,105,255,0.08)]"
@@ -51,7 +53,7 @@ function ClaraImpactBoard({ impact, onClose }) {
       data-clara-impact-board="true"
       className="relative mx-1 mt-3 shrink-0 overflow-hidden rounded-[28px] border border-blue-200/18 bg-[linear-gradient(150deg,rgba(5,22,46,0.96),rgba(4,12,29,0.98)_58%,rgba(22,9,35,0.94))] px-4 pb-4 pt-4 text-left shadow-[0_24px_70px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-2xl"
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,#1769ff_0%,#1769ff_42%,#ffd84a_42%,#ffd84a_56%,#e53945_56%,#e53945_100%)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,#1769ff_0%,#1769ff_42%,#ffd84a_42%,#ffd84a_56%,#e53945_56%,#e53945_56%,#e53945_100%)]" />
       <div className="pointer-events-none absolute -left-16 -top-16 h-40 w-40 rounded-full bg-blue-500/12 blur-3xl" />
       <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-red-500/[0.08] blur-3xl" />
 
@@ -118,10 +120,15 @@ function ClaraImpactBoard({ impact, onClose }) {
   );
 }
 
-export default function ClaraBuyCheckImpactPortal({ isActive = false, disabled = false }) {
+export default function ClaraBuyCheckImpactPortal({
+  isActive = false,
+  disabled = false,
+  previewImpact = null,
+  previewReadOnly = false,
+}) {
   const [open, setOpen] = useState(false);
   const [targets, setTargets] = useState({ board: null, host: null });
-  const [impact, setImpact] = useState(() => getCurrentMonthImpact());
+  const [impact, setImpact] = useState(() => previewImpact || getCurrentMonthImpact());
 
   useEffect(() => {
     if (!isActive || disabled) {
@@ -145,6 +152,11 @@ export default function ClaraBuyCheckImpactPortal({ isActive = false, disabled =
 
   useEffect(() => {
     if (!isActive || disabled) return undefined;
+    if (previewImpact) {
+      setImpact(previewImpact);
+      return undefined;
+    }
+
     const refresh = () => setImpact(getCurrentMonthImpact());
     refresh();
     window.addEventListener("clara:buy-check-impact-updated", refresh);
@@ -155,7 +167,7 @@ export default function ClaraBuyCheckImpactPortal({ isActive = false, disabled =
       window.removeEventListener("clara:buy-check-decision-memory", refresh);
       window.removeEventListener("storage", refresh);
     };
-  }, [disabled, isActive]);
+  }, [disabled, isActive, previewImpact]);
 
   useEffect(() => {
     const host = targets.host;
@@ -188,7 +200,12 @@ export default function ClaraBuyCheckImpactPortal({ isActive = false, disabled =
   return (
     <>
       {createPortal(
-        <ImpactTrigger open={open} impact={impact} onToggle={() => setOpen((current) => !current)} />,
+        <ImpactTrigger
+          open={open}
+          impact={impact}
+          previewReadOnly={previewReadOnly}
+          onToggle={() => setOpen((current) => !current)}
+        />,
         targets.board,
       )}
       {open ? createPortal(<ClaraImpactBoard impact={impact} onClose={() => setOpen(false)} />, targets.host) : null}
