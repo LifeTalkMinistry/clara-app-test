@@ -8,6 +8,8 @@ const orbIntro = read("src/pages/onboarding/ClaraTutorialOrbIntro.jsx");
 const orbPage = read("src/components/community/ClaraOrbPage.jsx");
 const orbDemo = read("src/pages/onboarding/ClaraTutorialOrbDemo.jsx");
 const coreTutorial = read("src/pages/onboarding/ClaraCoreTutorial.jsx");
+const orbGreetingRuntime = read("src/runtime/installClaraOrbGreeting.js");
+const orbIdleLifeRuntime = read("src/runtime/installClaraOrbIdleLife.js");
 const assistantOverlay = read(
   "src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx"
 );
@@ -31,6 +33,26 @@ test("tutorial-only ORB presentation chrome is removed", () => {
   assert.doesNotMatch(orbIntro, /clara-tour-progress/);
   assert.doesNotMatch(orbIntro, /clara-tour-footer/);
   assert.match(orbIntro, /clara-tutorial-orb-intro-nav/);
+});
+
+test("Juan owns the tutorial ORB greeting without reading the signed-in profile", () => {
+  assert.match(orbIntro, /data-clara-tutorial-orb-name=["']Juan["']/);
+  assert.match(orbGreetingRuntime, /TUTORIAL_GREETING_SELECTOR/);
+  assert.match(orbGreetingRuntime, /dataset\.claraTutorialOrbName/);
+  assert.match(orbGreetingRuntime, /loaded = Boolean\(tutorialIdentity\)/);
+  assert.match(orbGreetingRuntime, /if \(!activeLabel \|\| loaded \|\| request\) return;/);
+  assert.match(orbGreetingRuntime, /firstName \? `Hi \$\{firstName\}!` : ["']Hi!["']/);
+});
+
+test("tutorial ORB receives the authentic production idle blink and glow controller", () => {
+  assert.match(orbIdleLifeRuntime, /TUTORIAL_LAUNCHER_SELECTOR/);
+  assert.match(
+    orbIdleLifeRuntime,
+    /document\.querySelector\(TUTORIAL_LAUNCHER_SELECTOR\)[\s\S]*document\.querySelector\(PRODUCTION_LAUNCHER_SELECTOR\)/
+  );
+  assert.match(orbIdleLifeRuntime, /const applyBlink = \(progress\) =>/);
+  assert.match(orbIdleLifeRuntime, /scheduleBlink\(700\)/);
+  assert.match(orbIdleLifeRuntime, /animateGlow/);
 });
 
 test("canonical ORB preserves production activation while allowing controlled tutorial activation", () => {

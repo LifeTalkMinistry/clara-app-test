@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import ClaraOrbPage from "../../src/components/community/ClaraOrbPage";
 import ClaraTutorialOrbIntro from "../../src/pages/onboarding/ClaraTutorialOrbIntro";
 import "../../src/index.css";
+import "../../src/runtime/installClaraOrbGreeting";
+import "../../src/runtime/installClaraOrbIdleLife";
 
 function setHarnessState(name) {
   document.documentElement.dataset[name] = "true";
@@ -11,6 +13,8 @@ function setHarnessState(name) {
 function ProductionOrbSpecimen() {
   return (
     <div
+      className="clara-community-root"
+      data-community-view="orb"
       style={{
         position: "fixed",
         inset: 0,

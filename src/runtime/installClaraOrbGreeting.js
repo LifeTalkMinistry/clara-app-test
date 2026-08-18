@@ -4,7 +4,27 @@ import "./installClaraOrbViewportOwnershipGuard";
 import { fetchCanonicalClaraProfile, resolveCanonicalFirstName } from "@/lib/canonical-clara-profile";
 
 const RUNTIME_KEY = "__claraOrbGreetingRuntime__";
-const GREETING_SELECTOR = '.clara-community-root[data-community-view="orb"] [data-clara-orb-visual-offset] > div:first-child > p';
+const PRODUCTION_GREETING_SELECTOR =
+  '.clara-community-root[data-community-view="orb"] [data-clara-orb-visual-offset] > div:first-child > p';
+const TUTORIAL_GREETING_SELECTOR =
+  '[data-clara-tutorial-orb-intro="true"] [data-clara-orb-visual-offset] > div:first-child > p';
+const TUTORIAL_ROOT_SELECTOR = '[data-clara-tutorial-orb-intro="true"]';
+
+function resolveGreetingLabel() {
+  return (
+    document.querySelector(TUTORIAL_GREETING_SELECTOR) ||
+    document.querySelector(PRODUCTION_GREETING_SELECTOR)
+  );
+}
+
+function resolveTutorialIdentity(label) {
+  const tutorialRoot = label?.closest?.(TUTORIAL_ROOT_SELECTOR);
+  if (!tutorialRoot) return null;
+
+  return {
+    firstName: String(tutorialRoot.dataset.claraTutorialOrbName || "").trim(),
+  };
+}
 
 function installClaraOrbGreeting() {
   if (typeof window === "undefined" || typeof document === "undefined") return;
@@ -17,21 +37,27 @@ function installClaraOrbGreeting() {
   let destroyed = false;
 
   const render = () => {
-    const label = document.querySelector(GREETING_SELECTOR);
+    const label = resolveGreetingLabel();
     if (!label) {
       activeLabel = null;
       firstName = "";
       loaded = false;
       return null;
     }
+
     if (label !== activeLabel) {
       activeLabel = label;
-      firstName = "";
-      loaded = false;
+      const tutorialIdentity = resolveTutorialIdentity(label);
+      firstName = tutorialIdentity?.firstName || "";
+      // A tutorial identity is intentionally self-contained. Never fall through
+      // to the signed-in user's canonical profile while Juan's demo is active.
+      loaded = Boolean(tutorialIdentity);
     }
+
     const nextText = firstName ? `Hi ${firstName}!` : "Hi!";
     if (label.textContent !== nextText) label.textContent = nextText;
     label.dataset.claraOrbUserGreeting = "true";
+    label.dataset.claraOrbGreetingScope = resolveTutorialIdentity(label) ? "tutorial" : "production";
     label.style.fontSize = "18px";
     label.style.fontWeight = "900";
     label.style.lineHeight = "1.1";
@@ -57,13 +83,16 @@ function installClaraOrbGreeting() {
         loaded = true;
         render();
       })
-      .finally(() => { request = null; });
+      .finally(() => {
+        request = null;
+      });
   };
 
   const sync = () => {
     queued = false;
     if (render()) load();
   };
+
   const queueSync = () => {
     if (queued || destroyed) return;
     queued = true;

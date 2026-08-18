@@ -56,6 +56,48 @@ async function assertViewportContained(page, viewport) {
   );
 }
 
+async function readOrbEyeHeights(page) {
+  return page.evaluate(() => {
+    const svg = document.querySelector(".clara-orb-vector");
+    if (!svg) return [];
+    return Array.from(svg.children)
+      .filter((node) => node.tagName?.toLowerCase() === "rect")
+      .slice(0, 4)
+      .map((node) => Number.parseFloat(node.getAttribute("height") || "0"));
+  });
+}
+
+async function assertOrbActuallyBlinks(page, label) {
+  const initial = await readOrbEyeHeights(page);
+  assert.equal(initial.length, 4, `ORB eye bars must be measurable at ${label}`);
+
+  const minimums = [...initial];
+  const maximums = [...initial];
+  const deadline = Date.now() + 5500;
+
+  while (Date.now() < deadline) {
+    await page.waitForTimeout(40);
+    const sample = await readOrbEyeHeights(page);
+    if (sample.length !== 4) continue;
+
+    sample.forEach((height, index) => {
+      minimums[index] = Math.min(minimums[index], height);
+      maximums[index] = Math.max(maximums[index], height);
+    });
+
+    const blinkObserved = maximums.some(
+      (height, index) => height > 0 && maximums[index] - minimums[index] >= height * 0.45
+    );
+    if (blinkObserved) return;
+  }
+
+  assert.fail(
+    `Canonical ORB did not visibly blink at ${label}; eye height ranges were ${maximums
+      .map((height, index) => `${minimums[index].toFixed(2)}-${height.toFixed(2)}`)
+      .join(", ")}`
+  );
+}
+
 fs.mkdirSync(artifactDir, { recursive: true });
 
 const browser = await chromium.launch({ headless: true });
@@ -78,7 +120,12 @@ try {
     const tutorialGeometry = await getOrbGeometry(tutorial);
     await assertViewportContained(tutorial, viewport);
 
-    for (const retiredCopy of ["MEET CLARA", "This is the CLARA ORB.", "Tap the ORB above to continue"]) {
+    for (const retiredCopy of [
+      "CLARA ORB",
+      "MEET CLARA",
+      "This is the CLARA ORB.",
+      "Tap the ORB above to continue",
+    ]) {
       assert.equal(
         await tutorial.getByText(retiredCopy, { exact: true }).count(),
         0,
@@ -86,9 +133,19 @@ try {
       );
     }
 
+    await tutorial.getByText("Hi Juan!", { exact: true }).waitFor({ state: "visible" });
     await tutorial.getByText("Tap CLARA to start", { exact: true }).waitFor({ state: "visible" });
     await tutorial.getByRole("button", { name: "Back to Juan" }).waitFor({ state: "visible" });
     await tutorial.getByRole("button", { name: "Skip tutorial" }).waitFor({ state: "visible" });
+
+    const greetingScope = await tutorial
+      .locator('[data-clara-orb-user-greeting="true"]')
+      .getAttribute("data-clara-orb-greeting-scope");
+    assert.equal(greetingScope, "tutorial", `Juan greeting must stay tutorial-scoped at ${label}`);
+
+    if (viewport.width === 320 && viewport.height === 568) {
+      await assertOrbActuallyBlinks(tutorial, label);
+    }
 
     const centerX = tutorialGeometry.launcherBox.x + tutorialGeometry.launcherBox.width / 2;
     within(centerX, viewport.width / 2, 1.5, `ORB horizontal center at ${label}`);
@@ -140,6 +197,7 @@ try {
     await tutorial.getByRole("button", { name: "Back", exact: true }).click();
     await tutorial.locator('[data-clara-tutorial-orb-intro="true"]').waitFor({ state: "visible" });
     await tutorial.locator('[data-clara-orb-launcher="true"]').waitFor({ state: "visible" });
+    await tutorial.getByText("Hi Juan!", { exact: true }).waitFor({ state: "visible" });
 
     await tutorial.getByRole("button", { name: "Skip tutorial" }).click();
     assert.equal(
@@ -155,4 +213,6 @@ try {
   await browser.close();
 }
 
-console.log(`Verified canonical tutorial ORB across ${viewports.length} mobile viewports.`);
+console.log(
+  `Verified Juan greeting, canonical ORB blink, and tutorial interaction across ${viewports.length} mobile viewports.`
+);
