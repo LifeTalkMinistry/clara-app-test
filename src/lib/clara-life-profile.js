@@ -34,6 +34,17 @@ export function getClaraLocalUserId(user) {
   return String(value || "local-user").trim() || "local-user";
 }
 
+export function getClaraLifeProfileRecordId(userOrLocalUserId) {
+  const localUserId =
+    userOrLocalUserId &&
+    typeof userOrLocalUserId === "object" &&
+    !Array.isArray(userOrLocalUserId)
+      ? getClaraLocalUserId(userOrLocalUserId)
+      : String(userOrLocalUserId || "local-user").trim() || "local-user";
+
+  return `${CLARA_LIFE_PROFILE_ID}:${localUserId}`;
+}
+
 export function normalizeClaraLifeProfile(profile = {}) {
   const safeProfile = profile && typeof profile === "object" ? profile : {};
   const embedded =
@@ -52,7 +63,7 @@ export function normalizeClaraLifeProfile(profile = {}) {
   };
 }
 
-function newestActiveProfile(records = []) {
+function newestActiveProfile(records = [], preferredRecordId = "") {
   const activeRecords = (Array.isArray(records) ? records : [])
     .filter((record) => record && !record.deletedAt && !record.deleted_at)
     .sort((a, b) => {
@@ -61,16 +72,22 @@ function newestActiveProfile(records = []) {
       return bTime - aTime;
     });
 
-  return activeRecords.find((record) => record.id === CLARA_LIFE_PROFILE_ID) || activeRecords[0] || null;
+  if (preferredRecordId) {
+    const preferred = activeRecords.find((record) => record.id === preferredRecordId);
+    if (preferred) return preferred;
+  }
+
+  return activeRecords[0] || null;
 }
 
 export async function readClaraLifeProfile(user) {
   const localUserId = getClaraLocalUserId(user);
+  const recordId = getClaraLifeProfileRecordId(localUserId);
   const records = await getLocalRecordsByUser(LOCAL_FINANCE_STORES.lifeProfile, {
     localUserId,
   });
 
-  return normalizeClaraLifeProfile(newestActiveProfile(records) || {});
+  return normalizeClaraLifeProfile(newestActiveProfile(records, recordId) || {});
 }
 
 export async function readLatestClaraLifeProfileOnDevice() {
@@ -89,6 +106,7 @@ export async function readLatestClaraLifeProfileOnDevice() {
 
 export async function saveClaraLifeProfile(user, profile) {
   const localUserId = getClaraLocalUserId(user);
+  const recordId = getClaraLifeProfileRecordId(localUserId);
   const normalized = normalizeClaraLifeProfile(profile);
   const timestamp = new Date().toISOString();
 
@@ -96,7 +114,7 @@ export async function saveClaraLifeProfile(user, profile) {
     LOCAL_FINANCE_STORES.lifeProfile,
     {
       ...normalized,
-      id: CLARA_LIFE_PROFILE_ID,
+      id: recordId,
       profile: normalized,
       updatedAt: timestamp,
       updated_at: timestamp,

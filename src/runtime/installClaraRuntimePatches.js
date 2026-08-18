@@ -11,6 +11,47 @@
  * - manual dashboard/billing/supabase smoke tests
  */
 
+const ACCOUNT_RUNTIME_SUSPENDED_PATHS = new Set([
+  "/login",
+  "/reset-password",
+  "/app-preview",
+  "/beta-welcome",
+  "/onboarding",
+  "/program-onboarding",
+]);
+
+function currentHashPathname() {
+  if (typeof window === "undefined") return "";
+  const rawHash = String(window.location.hash || "").replace(/^#/, "").trim();
+  if (!rawHash || rawHash === "/") return "";
+  return rawHash.split("?")[0] || "";
+}
+
+function shouldLoadAccountRuntimes() {
+  const pathname = currentHashPathname();
+  return Boolean(pathname && !ACCOUNT_RUNTIME_SUSPENDED_PATHS.has(pathname));
+}
+
+function installDeferredAccountRuntimes() {
+  if (typeof window === "undefined" || !shouldLoadAccountRuntimes()) return;
+  if (window.__CLARA_DEFERRED_ACCOUNT_RUNTIMES_INSTALLED__) return;
+
+  window.__CLARA_DEFERRED_ACCOUNT_RUNTIMES_INSTALLED__ = true;
+  Promise.all([
+    import("./installCommunityBackendOwnership"),
+    import("./installMessagesProfilePhotos"),
+    import("./installCommunityMessageNotificationSplit"),
+  ]).catch((error) => {
+    window.__CLARA_DEFERRED_ACCOUNT_RUNTIMES_INSTALLED__ = false;
+    console.warn("[CLARA account runtime] deferred install failed safely:", error);
+  });
+}
+
+if (typeof window !== "undefined") {
+  installDeferredAccountRuntimes();
+  window.addEventListener("hashchange", installDeferredAccountRuntimes);
+}
+
 // Password reset email compatibility. Canonicalizes legacy query-string reset
 // links into the HashRouter reset-password route before React mounts.
 import "./installPasswordResetRouteBridge";
@@ -26,16 +67,16 @@ import "./installCommunityProfileScrollOwnership";
 
 // Community/social data is online account data owned by the self-hosted CLARA
 // backend. Financial records remain under their existing local/device ownership.
-import "./installCommunityBackendOwnership";
+// Network-backed Community ownership, profile photos, and unread notification
+// polling are intentionally deferred until HashRouter resolves an authenticated
+// app surface. Onboarding/public surfaces must not wake the account server.
 import "./installMessagesSearchCancel";
-import "./installMessagesProfilePhotos";
 import "./installCommunityGuideLauncherBridge";
 // Post/reaction notification routing must stay inside the Community shell so
 // opening the exact post never hides or scrolls away the shared top navigation.
 import "./installCommunityNotificationPostNavigationGuard";
 // Private-message unread state belongs to the Message icon. General Community
 // activity remains on the bell, with each badge clearing independently.
-import "./installCommunityMessageNotificationSplit";
 // Budgeting Masterclass emphasis uses the official CL / A / RA color sequence
 // whenever CLARA appears as a title, eyebrow, or intentional emphasis.
 import "./installBudgetMasterclassClaraWordmark";

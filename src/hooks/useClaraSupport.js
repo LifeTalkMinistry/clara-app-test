@@ -14,6 +14,27 @@ const CANONICAL_ACCOUNT_PLANS = new Set([
   "champion",
 ]);
 
+const SUPPORT_RUNTIME_SUSPENDED_PATHS = new Set([
+  "/login",
+  "/reset-password",
+  "/app-preview",
+  "/beta-welcome",
+  "/onboarding",
+  "/program-onboarding",
+]);
+
+function currentHashPathname() {
+  if (typeof window === "undefined") return "";
+  const rawHash = String(window.location.hash || "").replace(/^#/, "").trim();
+  if (!rawHash || rawHash === "/") return "";
+  return rawHash.split("?")[0] || "";
+}
+
+function isSupportRuntimeRouteAllowed() {
+  const pathname = currentHashPathname();
+  return Boolean(pathname && !SUPPORT_RUNTIME_SUSPENDED_PATHS.has(pathname));
+}
+
 function normalizeAccountPlan(value) {
   const normalized = String(value || "").trim().toLowerCase();
   return CANONICAL_ACCOUNT_PLANS.has(normalized) ? normalized : null;
@@ -37,6 +58,11 @@ export default function useClaraSupport(user) {
   const clearError = useCallback(() => setError(""), []);
 
   const refresh = useCallback(async () => {
+    if (!isSupportRuntimeRouteAllowed()) {
+      setLoading(false);
+      return null;
+    }
+
     if (!user?.id) {
       setBackendRecord(null);
       setLiveAccount(null);
@@ -89,9 +115,11 @@ export default function useClaraSupport(user) {
       if (document.visibilityState === "visible") refresh();
     };
     window.addEventListener("focus", sync);
+    window.addEventListener("hashchange", sync);
     document.addEventListener("visibilitychange", sync);
     return () => {
       window.removeEventListener("focus", sync);
+      window.removeEventListener("hashchange", sync);
       document.removeEventListener("visibilitychange", sync);
     };
   }, [refresh]);
