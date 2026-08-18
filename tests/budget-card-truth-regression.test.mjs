@@ -24,6 +24,7 @@ const formProgress = readSource("src/components/fresh/main-dashboard/budget/useD
 const budgetCard = readSource("src/components/BudgetCard.jsx");
 const budgetCardView = readSource("src/components/financial-carousel/cards/budget/ui/BudgetCardView.jsx");
 const carouselItemCard = readSource("src/components/financial-carousel/ui/CarouselItemCard.jsx");
+const communityHomeFinancialCarousel = readSource("src/components/community/CommunityHomeFinancialCarousel.jsx");
 const setupEmptyState = readSource("src/components/financial-carousel/shared/FinanceCardSetupEmptyState.jsx");
 
 test("protected Manual Log selections use explicit selected-budget ownership", () => {
@@ -242,6 +243,131 @@ test("completion preserves history, stores a snapshot, and closes the live plan"
   assert.equal(updates.at(-1).patch.completion_snapshot.completedAt, result.completedAt);
 });
 
+test("completion prefers the authoritative header ID and does not cross-complete a same-month plan", async () => {
+  const updates = [];
+  const budgets = [
+    {
+      id: "target-header",
+      is_plan_header: true,
+      plan_type: "monthly_budget",
+      status: "active",
+      is_active: true,
+      month: "2026-08",
+      setup_draft_id: "draft-target",
+      cycle_start: "2026-08-01",
+      updated_at: "2026-08-18T10:00:00.000Z",
+    },
+    {
+      id: "other-header",
+      is_plan_header: true,
+      plan_type: "monthly_budget",
+      status: "active",
+      is_active: true,
+      month: "2026-08",
+      setup_draft_id: "draft-other",
+      cycle_start: "2026-08-15",
+      updated_at: "2026-08-19T10:00:00.000Z",
+    },
+    {
+      id: "target-food",
+      plan_type: "budget_category",
+      status: "active",
+      is_active: true,
+      month: "2026-08",
+      setup_draft_id: "draft-target",
+      cycle_start: "2026-08-01",
+    },
+    {
+      id: "other-food",
+      plan_type: "budget_category",
+      status: "active",
+      is_active: true,
+      month: "2026-08",
+      setup_draft_id: "draft-other",
+      cycle_start: "2026-08-15",
+    },
+  ];
+
+  const result = await completeMonthlyBudgetCycle({
+    budgets,
+    headerHint: budgets[0],
+    completionSnapshot: { version: 1, headerId: "target-header", spent: 3200 },
+    updateBudget: async (id, patch) => {
+      updates.push({ id, patch });
+      return { id, ...patch };
+    },
+  });
+
+  assert.equal(result.completedHeaderId, "target-header");
+  assert.deepEqual(updates.map((entry) => entry.id), ["target-food", "target-header"]);
+  assert.equal(updates.some((entry) => entry.id === "other-header"), false);
+  assert.equal(updates.some((entry) => entry.id === "other-food"), false);
+});
+
+test("a stale authoritative header ID cannot silently fall back to another same-month budget", async () => {
+  const updates = [];
+  const budgets = [
+    {
+      id: "real-header",
+      is_plan_header: true,
+      plan_type: "monthly_budget",
+      status: "active",
+      is_active: true,
+      month: "2026-08",
+      cycle_start: "2026-08-01",
+    },
+  ];
+
+  await assert.rejects(
+    completeMonthlyBudgetCycle({
+      budgets,
+      headerHint: { id: "stale-header", month: "2026-08" },
+      updateBudget: async (id, patch) => {
+        updates.push({ id, patch });
+      },
+    }),
+    /No active budget was found to complete/,
+  );
+  assert.deepEqual(updates, []);
+});
+
+test("legacy month-only declared-total budgets can still complete", async () => {
+  const updates = [];
+  const budgets = [
+    {
+      id: "legacy-header",
+      is_plan_header: true,
+      plan_type: "monthly_budget",
+      status: "active",
+      is_active: true,
+      month: "2026-08",
+      declared_budget: 3200,
+    },
+    {
+      id: "legacy-food",
+      plan_type: "budget_category",
+      status: "active",
+      is_active: true,
+      month: "2026-08",
+      allocated_amount: 3200,
+    },
+  ];
+
+  const result = await completeMonthlyBudgetCycle({
+    budgets,
+    headerHint: { month: "2026-08" },
+    completionSnapshot: { version: 1, declared: 3200, spent: 3200, remaining: 0 },
+    updateBudget: async (id, patch) => {
+      updates.push({ id, patch });
+      return { id, ...patch };
+    },
+  });
+
+  assert.equal(result.completedHeaderId, "legacy-header");
+  assert.deepEqual(updates.map((entry) => entry.id), ["legacy-food", "legacy-header"]);
+  assert.equal(updates.at(-1).patch.completion_snapshot.remaining, 0);
+});
+
 test("completed history can seed a fresh draft without reopening debts or stale protected targets", () => {
   const completedAt = "2026-08-19T01:00:00.000Z";
   const history = getCompletedBudgetHistory([
@@ -323,11 +449,23 @@ test("completed history can seed a fresh draft without reopening debts or stale 
   assert.equal(reuse.draft.reusedFromBudgetId, "aug-header");
 });
 
-test("budget card exposes completion and reuse through the live finance controller", () => {
-  assert.match(carouselItemCard, /financeCardController=\{financeCardController\}/);
-  assert.match(budgetCardView, /financeCardController=\{financeCardController\}/);
-  assert.match(budgetCard, /completeMonthlyBudgetCycle/);
-  assert.match(budgetCard, /buildBudgetCompletionSnapshot/);
+test("Budget card requests completion while Home owns persisted lifecycle authority", () => {
+  assert.match(communityHomeFinancialCarousel, /completeMonthlyBudgetCycle/);
+  assert.match(communityHomeFinancialCarousel, /buildBudgetCompletionSnapshot/);
+  assert.match(communityHomeFinancialCarousel, /header: monthlyBudgetHeader/);
+  assert.match(communityHomeFinancialCarousel, /headerHint: monthlyBudgetHeader/);
+  assert.match(communityHomeFinancialCarousel, /onCompleteBudget=\{completeBudgetFromHome\}/);
+  assert.match(carouselItemCard, /onCompleteBudget=\{onCompleteBudget\}/);
+  assert.match(budgetCardView, /onCompleteBudget=\{onCompleteBudget\}/);
+  assert.doesNotMatch(budgetCard, /completeMonthlyBudgetCycle/);
+  assert.doesNotMatch(budgetCard, /buildBudgetCompletionSnapshot/);
+  assert.match(budgetCard, /const completionVisible = Boolean\(hasDeclaredBudget && hasActivePlan\)/);
+  assert.match(budgetCard, /const completionWriteReady = typeof onCompleteBudget === "function"/);
+  assert.match(budgetCard, /const isExhausted = completionVisible && remaining <= 0/);
+  assert.match(budgetCard, /data-budget-completion-action="true"/);
+  assert.match(budgetCard, /Budget exhausted/);
+  assert.match(budgetCard, /onCompleteBudget\(\{/);
+  assert.doesNotMatch(budgetCard, /absolute right-7 top-\[30px\]/);
   assert.match(budgetCard, /getCompletedBudgetHistory/);
   assert.match(budgetCard, /Reuse last budget/);
   assert.match(budgetCard, /Complete budget/);

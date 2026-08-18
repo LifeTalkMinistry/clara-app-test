@@ -38,9 +38,11 @@ function sameCycle(row = {}, header = {}) {
   const headerDraftId = normalizeString(header.setup_draft_id || header.draft_id);
   const rowDraftId = normalizeString(row.setup_draft_id || row.draft_id);
 
-  if (headerDraftId && rowDraftId && headerDraftId === rowDraftId) return true;
-  if (headerCycleStart && rowCycleStart && headerCycleStart === rowCycleStart) return true;
-  if (headerMonth && rowMonth && headerMonth === rowMonth) return true;
+  // Prefer the strongest shared identity. Explicit identities that disagree
+  // must not fall through to a broad same-month match.
+  if (headerDraftId && rowDraftId) return headerDraftId === rowDraftId;
+  if (headerCycleStart && rowCycleStart) return headerCycleStart === rowCycleStart;
+  if (headerMonth && rowMonth) return headerMonth === rowMonth;
   return false;
 }
 
@@ -90,7 +92,56 @@ function findActiveHeader(budgets = [], headerHint = null) {
   if (!activeHeaders.length) return null;
   if (!headerHint) return activeHeaders[0];
 
-  return activeHeaders.find((header) => sameCycle(header, headerHint)) || activeHeaders[0];
+  const hintedId = normalizeString(headerHint?.id);
+  if (hintedId) {
+    // A persisted ID is authoritative. If that exact header is no longer active,
+    // fail closed instead of weakening the lookup and completing a sibling plan.
+    return (
+      activeHeaders.find((header) => normalizeString(header?.id) === hintedId) || null
+    );
+  }
+
+  const hintedDraftId = normalizeString(
+    headerHint?.setup_draft_id || headerHint?.draft_id
+  );
+  if (hintedDraftId) {
+    const draftMatch = activeHeaders.find(
+      (header) =>
+        normalizeString(header?.setup_draft_id || header?.draft_id) === hintedDraftId
+    );
+    if (draftMatch) return draftMatch;
+  }
+
+  const hintedCycleStart = normalizeString(
+    headerHint?.cycle_start || headerHint?.period_start || headerHint?.budget_cycle_start
+  );
+  if (hintedCycleStart) {
+    const cycleStartMatch = activeHeaders.find(
+      (header) =>
+        normalizeString(
+          header?.cycle_start || header?.period_start || header?.budget_cycle_start
+        ) === hintedCycleStart
+    );
+    if (cycleStartMatch) return cycleStartMatch;
+  }
+
+  const hintedMonth = normalizeString(
+    headerHint?.month || headerHint?.month_key || headerHint?.budget_month
+  );
+  const hasStrongHint = Boolean(hintedDraftId || hintedCycleStart);
+  if (hintedMonth && !hasStrongHint) {
+    const monthMatch = activeHeaders.find(
+      (header) =>
+        normalizeString(header?.month || header?.month_key || header?.budget_month) ===
+        hintedMonth
+    );
+    if (monthMatch) return monthMatch;
+  }
+
+  // The newest live header is only a compatibility fallback for callers that
+  // supplied no usable lifecycle identity at all.
+  if (!hasStrongHint && !hintedMonth) return activeHeaders[0];
+  return null;
 }
 
 export async function completeMonthlyBudgetCycle({

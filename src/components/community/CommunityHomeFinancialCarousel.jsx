@@ -28,6 +28,8 @@ import useMoneySummaryVisibility from "@/components/fresh/main-dashboard/money-s
 import { formatPhpCurrency } from "@/components/fresh/main-dashboard/hooks/usePhpCurrencyFormatter";
 import useUserRole from "@/hooks/useUserRole";
 import useFinancialData from "@/hooks/useFinancialData";
+import { completeMonthlyBudgetCycle } from "@/lib/clara-budget-cycle-reset";
+import { buildBudgetCompletionSnapshot } from "@/lib/clara-budget-history";
 import { isDebtCommitment } from "@/lib/clara-derived-budget";
 import { buildHomeSpendableMoneyProjection } from "@/lib/clara-home-spendable-money";
 import { useTheme } from "@/theme/ThemeProvider";
@@ -131,6 +133,7 @@ export default function CommunityHomeFinancialCarousel() {
     loading = false,
     refreshing = false,
     refreshData,
+    updateBudget: updateBudgetData,
     updateWallet: updateWalletData,
     deleteWallet: deleteWalletData,
     addIncome: addIncomeData,
@@ -257,6 +260,41 @@ export default function CommunityHomeFinancialCarousel() {
       window.dispatchEvent(new CustomEvent("clara-wallets-updated"));
     }
   }, [refreshData]);
+
+  const completeBudgetFromHome = useCallback(
+    async (calculatedBudgetSnapshot = {}) => {
+      if (!monthlyBudgetHeader?.id) {
+        throw new Error("CLARA is still resolving the active budget. Please try again.");
+      }
+      if (typeof updateBudgetData !== "function") {
+        throw new Error("CLARA is still loading this budget. Please try again.");
+      }
+
+      const completionSnapshot = buildBudgetCompletionSnapshot({
+        header: monthlyBudgetHeader,
+        categories: calculatedBudgetSnapshot?.categories,
+        declared: calculatedBudgetSnapshot?.declared,
+        allocated: calculatedBudgetSnapshot?.allocated,
+        spent: calculatedBudgetSnapshot?.spent,
+        remaining: calculatedBudgetSnapshot?.remaining,
+        unallocated: calculatedBudgetSnapshot?.unallocated,
+        unplannedSpent: calculatedBudgetSnapshot?.unplannedSpent,
+        undocumentedSpent: calculatedBudgetSnapshot?.undocumentedSpent,
+        outsidePlanItems: calculatedBudgetSnapshot?.outsidePlanItems,
+      });
+
+      const result = await completeMonthlyBudgetCycle({
+        budgets,
+        headerHint: monthlyBudgetHeader,
+        completionSnapshot,
+        updateBudget: updateBudgetData,
+      });
+
+      await refreshFinanceSection();
+      return result;
+    },
+    [budgets, monthlyBudgetHeader, refreshFinanceSection, updateBudgetData]
+  );
 
   const closeWalletModal = useCallback(() => {
     setWalletModal(EMPTY_WALLET_MODAL);
@@ -658,6 +696,7 @@ export default function CommunityHomeFinancialCarousel() {
           onEditBudgetCategory={openBudgetPlan}
           onDeleteBudgetCategory={openBudgetPlan}
           onResetBudget={openBudgetPlan}
+          onCompleteBudget={completeBudgetFromHome}
           onCreateWallet={openCreateWallet}
           onMoveWallet={moveWalletInline}
           onDeleteWallet={openDeleteWallet}
