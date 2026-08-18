@@ -63,11 +63,15 @@ function archivePatch(now) {
   };
 }
 
-function closePatch(now) {
+function completedPatch(now, budgetId) {
   return {
     is_active: false,
     active: false,
     status: "closed",
+    completion_status: "completed",
+    budget_lifecycle_status: "completed",
+    completed_budget_id: budgetId || null,
+    completed_at: now,
     closed_at: now,
     updated_at: now,
   };
@@ -89,20 +93,21 @@ function findActiveHeader(budgets = [], headerHint = null) {
   return activeHeaders.find((header) => sameCycle(header, headerHint)) || activeHeaders[0];
 }
 
-export async function closeMonthlyBudgetCycle({
+export async function completeMonthlyBudgetCycle({
   budgets = [],
   headerHint = null,
+  completionSnapshot = null,
   updateBudget,
 } = {}) {
   if (typeof updateBudget !== "function") {
-    throw new Error("updateBudget is required to end the budget cycle.");
+    throw new Error("updateBudget is required to complete the budget cycle.");
   }
 
   const safeBudgets = Array.isArray(budgets) ? budgets : [];
   const activeHeader = findActiveHeader(safeBudgets, headerHint);
 
   if (!activeHeader?.id) {
-    throw new Error("No active budget was found to end.");
+    throw new Error("No active budget was found to complete.");
   }
 
   const activeCategories = safeBudgets.filter((budget) => {
@@ -116,24 +121,45 @@ export async function closeMonthlyBudgetCycle({
   });
 
   const now = new Date().toISOString();
-  const patch = closePatch(now);
+  const patch = completedPatch(now, activeHeader.id);
   const closedCategoryIds = [];
 
   // Close categories before the header. If a category write fails, the header
   // remains active and the user can safely retry instead of leaving an active
-  // orphan category under a closed plan.
+  // orphan category under a completed plan.
   for (const category of activeCategories) {
     await updateBudget(String(category.id), patch);
     closedCategoryIds.push(category.id);
   }
 
-  await updateBudget(String(activeHeader.id), patch);
+  const storedSnapshot = completionSnapshot && typeof completionSnapshot === "object"
+    ? {
+        ...completionSnapshot,
+        version: Number(completionSnapshot.version) || 1,
+        headerId: normalizeString(completionSnapshot.headerId || activeHeader.id),
+        completedAt: now,
+      }
+    : null;
+
+  await updateBudget(String(activeHeader.id), {
+    ...patch,
+    completion_snapshot: storedSnapshot,
+    completion_snapshot_version: storedSnapshot?.version || null,
+  });
 
   return {
     closedHeaderId: activeHeader.id,
+    completedHeaderId: activeHeader.id,
     closedCategoryIds,
     closedAt: now,
+    completedAt: now,
+    completionSnapshot: storedSnapshot,
   };
+}
+
+// Backward-compatible name for callers that still use the older "close" wording.
+export async function closeMonthlyBudgetCycle(options = {}) {
+  return completeMonthlyBudgetCycle(options);
 }
 
 function resetBoundaryFrom(payload = {}) {
