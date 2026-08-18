@@ -29,6 +29,9 @@ const SUPPORT_BUBBLE_EPOCH_KEY = "clara_support_bubble_cycle_epoch_v2";
 const OPEN_SUPPORT_AFTER_ONBOARDING_KEY = "clara_open_support_after_onboarding_v1";
 const MISSION_ONBOARDING_COMPLETE_PREFIX = "clara_mission_onboarding_complete_v1";
 const CORE_TUTORIAL_STATUS_PREFIX = "clara_core_tutorial_status_v1";
+// Keep the tutorial implementation intact while temporarily removing it from onboarding.
+// Flip this back on when the guided walkthrough is ready to return.
+const CORE_TUTORIAL_ENABLED = false;
 const ONBOARDING_SCREEN_IDS = SCREEN_IDS.flatMap((screenId) =>
   screenId === "money-situation" ? [screenId, "financial-success"] : [screenId],
 );
@@ -123,7 +126,7 @@ export default function UniversalOnboarding() {
     navigate(CLARA_ORB_PATH, { replace: true });
   };
 
-  if (tutorialActive) {
+  if (CORE_TUTORIAL_ENABLED && tutorialActive) {
     return <ClaraCoreTutorial onFinish={finishTutorial} onSkip={skipTutorial} />;
   }
 
@@ -322,7 +325,7 @@ export default function UniversalOnboarding() {
         </motion.div>
       </AnimatePresence>
 
-      {isLast ? (
+      {isLast && CORE_TUTORIAL_ENABLED ? (
         <button
           type="button"
           onClick={startTutorial}
