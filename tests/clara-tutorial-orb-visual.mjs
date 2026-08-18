@@ -188,6 +188,31 @@ try {
       timeout: 5000,
     });
 
+    const legacyHeaderCopy = tutorial.getByText("CLARA MONEY TOOLS", { exact: true });
+    assert.equal(await legacyHeaderCopy.isVisible(), false, `duplicate Buy Check header must stay hidden at ${label}`);
+    assert.equal(
+      await tutorial.locator(".clara-tutorial-chat-skip").count(),
+      0,
+      `tutorial must not add a separate top Skip control over the live Buy Check shell at ${label}`
+    );
+
+    await tutorial.locator('[data-clara-pause-entry-board="true"]').waitFor({ state: "visible" });
+    await tutorial.locator('[data-clara-life-profile-trigger="true"]').waitFor({ state: "visible" });
+    await tutorial.locator('[data-clara-buy-check-contained-close="true"]').waitFor({ state: "visible" });
+    await tutorial.getByText("Ask before you spend.", { exact: true }).waitFor({ state: "visible" });
+
+    const usageButton = tutorial.locator('[data-clara-buy-check-usage-button="true"]');
+    await usageButton.waitFor({ state: "visible" });
+    assert.equal((await usageButton.textContent())?.trim(), "12", `Juan preview must show 12 replies at ${label}`);
+
+    const impactButton = tutorial.locator('[data-clara-impact-trigger="true"]');
+    await impactButton.waitFor({ state: "visible" });
+    assert.equal(
+      (await impactButton.locator("span").textContent())?.trim(),
+      "3",
+      `Juan preview must show 3 protected decisions at ${label}`
+    );
+
     await tutorial.locator('[data-clara-tutorial-chat-instruction="true"]').waitFor({ state: "visible" });
     const composer = tutorial.locator('[data-clara-buy-check-react-form="true"]');
     await composer.waitFor({ state: "visible" });
@@ -245,5 +270,5 @@ try {
 }
 
 console.log(
-  `Verified Juan greeting, canonical ORB blink, real Buy Check send/thinking/reply flow, and tutorial isolation across ${viewports.length} mobile viewports.`
+  `Verified Juan greeting, canonical ORB blink, production Buy Check shell, real Send/thinking/reply flow, and tutorial isolation across ${viewports.length} mobile viewports.`
 );
