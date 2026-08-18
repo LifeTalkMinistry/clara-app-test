@@ -1,0 +1,42 @@
+name: Verify Tutorial Real ORB
+
+on:
+  pull_request:
+    paths:
+      - "src/components/community/ClaraOrbPage.jsx"
+      - "src/pages/onboarding/ClaraTutorialOrbIntro.jsx"
+      - "src/pages/onboarding/ClaraTutorialOrbDemo.jsx"
+      - "src/pages/onboarding/ClaraCoreTutorial.jsx"
+      - "tests/clara-tutorial-orb-real-surface.test.mjs"
+      - ".github/workflows/verify-tutorial-real-orb.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      VITE_CLARA_RUNTIME_MODE: local_only
+      VITE_CLARA_AUTH_ENABLED: "false"
+      VITE_CLARA_LOCAL_MODE_ENABLED: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify tutorial ORB ownership and isolation
+        run: node --test tests/clara-tutorial-orb-real-surface.test.mjs
+
+      - name: Run repository production build gate
+        run: npm run build
