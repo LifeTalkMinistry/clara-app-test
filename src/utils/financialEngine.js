@@ -33,7 +33,36 @@ const parseDateValue = (value) => {
 };
 
 const getTransactionTime = (transaction) =>
-  parseDateValue(transaction?.created_at || transaction?.updated_at || transaction?.date)?.getTime() ?? 0;
+  parseDateValue(
+    transaction?.created_at ||
+      transaction?.createdAt ||
+      transaction?.updated_at ||
+      transaction?.updatedAt ||
+      transaction?.date
+  )?.getTime() ?? 0;
+
+const isLocalAtomicTransaction = (transaction) => {
+  const source = normalizeType(transaction?.source);
+  const syncStatus = normalizeType(transaction?.syncStatus || transaction?.sync_status);
+
+  return source === "local" || syncStatus.startsWith("local_");
+};
+
+const getTransactionApplicationTime = (transaction) => {
+  const value = isLocalAtomicTransaction(transaction)
+    ? transaction?.updated_at ||
+      transaction?.updatedAt ||
+      transaction?.created_at ||
+      transaction?.createdAt ||
+      transaction?.date
+    : transaction?.created_at ||
+      transaction?.createdAt ||
+      transaction?.updated_at ||
+      transaction?.updatedAt ||
+      transaction?.date;
+
+  return parseDateValue(value)?.getTime() ?? 0;
+};
 
 const getTransactionDetails = (transaction) => {
   const details = transaction?.details;
@@ -141,12 +170,12 @@ const getLatestTransactionNextBalance = (wallet, transactions = [], transfers = 
 };
 
 const getUnappliedDeltaAfterWalletUpdate = (wallet, transactions = [], transfers = []) => {
-  const updatedAt = parseDateValue(wallet?.updated_at)?.getTime();
+  const updatedAt = parseDateValue(wallet?.updated_at || wallet?.updatedAt)?.getTime();
 
   if (!updatedAt) return 0;
 
   return getWalletTransactions(wallet, transactions, transfers)
-    .filter((transaction) => getTransactionTime(transaction) > updatedAt)
+    .filter((transaction) => getTransactionApplicationTime(transaction) > updatedAt)
     .reduce((sum, transaction) => sum + getSignedTransactionAmount(transaction), 0);
 };
 
