@@ -75,6 +75,7 @@ function CarouselItemCard(props) {
     onEditBudgetCategory,
     onDeleteBudgetCategory,
     onResetBudget,
+    onCompleteBudget,
     onCreateWallet,
     onMoveWallet,
     onDeleteWallet,
@@ -156,6 +157,7 @@ function CarouselItemCard(props) {
         onEditBudgetCategory={onEditBudgetCategory}
         onDeleteBudgetCategory={onDeleteBudgetCategory}
         onResetBudget={onResetBudget}
+        onCompleteBudget={onCompleteBudget}
         financeCardController={financeCardController}
       />
     );
