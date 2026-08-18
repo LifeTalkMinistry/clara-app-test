@@ -1,4 +1,4 @@
-import { CheckCircle2, PiggyBank, Plus, Target } from "lucide-react";
+import { CheckCircle2, Info, PiggyBank, Plus, Target } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
 import FinanceCardExpandButton from "@/components/financial-carousel/shared/FinanceCardExpandButton";
@@ -12,6 +12,7 @@ import {
   PremiumFinanceInfoRow,
   PremiumFinanceItemSurface,
 } from "@/components/financial-carousel/shared/PremiumFinanceItemSurface";
+import { SAVINGS_GOALS_MASTERCLASS_ROUTE } from "@/lib/clara-savings-goals-masterclass-route";
 
 const fmt = (value = 0) =>
   new Intl.NumberFormat("en-PH", {
@@ -180,7 +181,21 @@ const SAVINGS_GLOW_LAYERS = [
 
 const starterIdeas = ["Phone", "Travel", "Emergency", "Gift"];
 
-function SavingsHeader({ goals = [], status }) {
+function SavingsLearningButton({ onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Open Savings Goals Masterclass"
+      title="Savings Goals Masterclass"
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.045] text-white/52 transition hover:border-cyan-200/24 hover:bg-cyan-300/[0.07] hover:text-cyan-100 focus:outline-none focus:ring-2 focus:ring-cyan-300/25"
+    >
+      <Info className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
+function SavingsHeader({ goals = [], status, onOpenMasterclass }) {
   const goalCountLabel = goals.length ? `${goals.length} Goal${goals.length > 1 ? "s" : ""}` : "No Goals";
 
   return (
@@ -191,7 +206,10 @@ function SavingsHeader({ goals = [], status }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-base font-semibold tracking-tight text-white">Savings Goals</p>
+            <div className="flex items-center gap-2">
+              <p className="text-base font-semibold tracking-tight text-white">Savings Goals</p>
+              <SavingsLearningButton onClick={onOpenMasterclass} />
+            </div>
             <p className="mt-0.5 text-[11px] font-medium text-white/76">Dedicated money for goals</p>
           </div>
           <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm ${status.badge}`}>
@@ -358,6 +376,44 @@ export default function SavingsCardRefined({
     navigate("/savings-goals");
   };
 
+  const openSavingsGoalsMasterclass = () => {
+    if (!mainGoal) {
+      navigate(SAVINGS_GOALS_MASTERCLASS_ROUTE, {
+        state: {
+          claraMasterclassContext: {
+            masterclassId: "savings-goals",
+            setupRequired: true,
+          },
+        },
+      });
+      return;
+    }
+
+    const focusGoalSaved = getSaved(mainGoal);
+    const focusGoalTarget = getTarget(mainGoal);
+    const focusGoalRemaining = Math.max(focusGoalTarget - focusGoalSaved, 0);
+    const focusGoalProgress =
+      focusGoalTarget > 0
+        ? Math.max(0, Math.min(Math.round((focusGoalSaved / focusGoalTarget) * 100), 100))
+        : 0;
+
+    navigate(SAVINGS_GOALS_MASTERCLASS_ROUTE, {
+      state: {
+        claraMasterclassContext: {
+          masterclassId: "savings-goals",
+          goalCount: goals.length,
+          totalSaved: saved,
+          totalTarget: target,
+          focusGoalTitle: getTitle(mainGoal),
+          focusGoalSaved,
+          focusGoalTarget,
+          focusGoalRemaining,
+          focusGoalProgress,
+        },
+      },
+    });
+  };
+
   return (
     <FinanceCardShell
       cardKey="savingsGoals"
@@ -377,7 +433,7 @@ export default function SavingsCardRefined({
           </div>
           <div className="relative flex min-h-0 flex-col gap-4">
             <div className="min-h-0 rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]">
-              <SavingsHeader goals={goals} status={status} />
+              <SavingsHeader goals={goals} status={status} onOpenMasterclass={openSavingsGoalsMasterclass} />
               <div className="mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3">
                 <SavingsSummaryStats saved={saved} target={target} goals={goals} status={status} />
               </div>
@@ -392,9 +448,12 @@ export default function SavingsCardRefined({
             <div className="absolute bottom-[-130px] right-[-110px] h-60 w-60 rounded-full bg-fuchsia-500/[0.10] blur-3xl" />
           </div>
           <div className="relative flex min-h-0 flex-1 flex-col gap-4">
-            <div className="shrink-0">
-              <p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${status.text}`}>{fmt(saved)}</p>
-              <p className="mt-2 text-xs font-semibold leading-relaxed text-white/68">Saved toward your goals.</p>
+            <div className="flex shrink-0 items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${status.text}`}>{fmt(saved)}</p>
+                <p className="mt-2 text-xs font-semibold leading-relaxed text-white/68">Saved toward your goals.</p>
+              </div>
+              <SavingsLearningButton onClick={openSavingsGoalsMasterclass} />
             </div>
             <ExpandButtonRow expanded={true} onToggleDetails={onToggleDetails} />
 
