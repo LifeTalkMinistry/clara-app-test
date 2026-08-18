@@ -224,7 +224,7 @@ export default function BudgetCard({
   const completionAction = expanded && completionVisible ? (
     <div
       data-budget-completion-footer="true"
-      className="flex shrink-0 justify-end px-4 pb-4 pt-2"
+      className="flex shrink-0 justify-center px-4 pb-4 pt-2"
     >
       <button
         type="button"
@@ -234,11 +234,13 @@ export default function BudgetCard({
         onPointerDown={(event) => event.stopPropagation()}
         onTouchStart={(event) => event.stopPropagation()}
         disabled={completingBudget}
-        className="flex min-h-11 touch-manipulation items-center gap-1.5 rounded-full border border-emerald-200/[0.16] bg-emerald-500/[0.10] px-3.5 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-emerald-100/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-md transition hover:border-emerald-200/25 hover:bg-emerald-500/[0.16] active:scale-[0.98] disabled:cursor-wait disabled:opacity-55"
+        className="group flex min-h-12 w-full max-w-[252px] touch-manipulation items-center justify-center gap-2.5 overflow-hidden rounded-[18px] border border-cyan-100/[0.20] bg-[linear-gradient(135deg,rgba(7,43,88,0.94),rgba(9,66,96,0.90)_52%,rgba(17,91,83,0.76))] px-5 py-3 text-[10px] font-black uppercase tracking-[0.12em] text-cyan-50/95 shadow-[0_12px_28px_rgba(0,0,0,0.24),0_0_22px_rgba(34,211,238,0.08),inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.18)] backdrop-blur-xl transition hover:border-cyan-100/[0.30] hover:brightness-110 active:scale-[0.985] disabled:cursor-wait disabled:opacity-55"
         aria-label="Complete this budget"
       >
-        <CheckCircle2 className="h-3.5 w-3.5" />
-        {completingBudget ? "Completing..." : "Complete budget"}
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-cyan-100/[0.18] bg-cyan-100/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.09)]">
+          <CheckCircle2 className="h-3.5 w-3.5 text-cyan-50/90" />
+        </span>
+        <span>{completingBudget ? "Completing..." : "Complete budget"}</span>
       </button>
     </div>
   ) : null;
