@@ -6,6 +6,7 @@ import { chromium } from "playwright";
 const baseUrl = process.env.CLARA_VISUAL_BASE_URL || "http://127.0.0.1:4173";
 const harnessPath = "/tests/visual/clara-tutorial-orb.html";
 const artifactDir = path.resolve("artifacts/tutorial-orb");
+const preparedQuestion = "CLARA, I want to buy shoes for ₱1,800. Kaya ba?";
 
 const viewports = [
   { width: 320, height: 568 },
@@ -186,15 +187,45 @@ try {
       state: "visible",
       timeout: 5000,
     });
-    const storageAfterTap = await tutorial.evaluate(() => JSON.stringify(window.localStorage));
-    assert.equal(storageAfterTap, storageBeforeTap, `ORB tutorial tap must not mutate localStorage at ${label}`);
+
+    await tutorial.locator('[data-clara-tutorial-chat-instruction="true"]').waitFor({ state: "visible" });
+    const composer = tutorial.locator('[data-clara-buy-check-react-form="true"]');
+    await composer.waitFor({ state: "visible" });
+    assert.equal(
+      await composer.locator("input").inputValue(),
+      preparedQuestion,
+      `Juan's prepared question must be loaded into the real composer at ${label}`
+    );
+
+    const sendButton = tutorial.getByRole("button", { name: "Send Ask Before You Spend answer" });
+    assert.equal(await sendButton.isEnabled(), true, `real Send button must be enabled at ${label}`);
+
+    const storageBeforeSend = await tutorial.evaluate(() => JSON.stringify(window.localStorage));
+    await sendButton.click();
+    await tutorial.locator('[data-clara-buy-check-thinking-row="true"]').waitFor({
+      state: "visible",
+      timeout: 1500,
+    });
+    await tutorial.getByText(preparedQuestion, { exact: true }).waitFor({ state: "visible" });
+
+    await tutorial.getByText(/You can pay for it, Juan, but I’d wait/).waitFor({
+      state: "visible",
+      timeout: 4000,
+    });
+    await tutorial.getByRole("button", { name: "Show me where CLARA knew that" }).waitFor({
+      state: "visible",
+    });
+
+    const storageAfterSend = await tutorial.evaluate(() => JSON.stringify(window.localStorage));
+    assert.equal(storageAfterSend, storageBeforeSend, `tutorial Send must not mutate localStorage at ${label}`);
+    assert.equal(storageAfterSend, storageBeforeTap, `ORB tutorial must remain storage-isolated at ${label}`);
 
     await tutorial.screenshot({
       path: path.join(artifactDir, `simulation-${label}.png`),
       fullPage: true,
     });
 
-    await tutorial.getByRole("button", { name: "Back", exact: true }).click();
+    await tutorial.getByRole("button", { name: "Close CLARA Ask Before You Spend" }).click();
     await tutorial.locator('[data-clara-tutorial-orb-intro="true"]').waitFor({ state: "visible" });
     await tutorial.locator('[data-clara-orb-launcher="true"]').waitFor({ state: "visible" });
     await tutorial.getByText("Hi Juan!", { exact: true }).waitFor({ state: "visible" });
@@ -214,5 +245,5 @@ try {
 }
 
 console.log(
-  `Verified Juan greeting, canonical ORB blink, and tutorial interaction across ${viewports.length} mobile viewports.`
+  `Verified Juan greeting, canonical ORB blink, real Buy Check send/thinking/reply flow, and tutorial isolation across ${viewports.length} mobile viewports.`
 );

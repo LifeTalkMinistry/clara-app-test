@@ -272,15 +272,11 @@ function placeholderFor(step) {
   return "Talk to CLARA naturally about the purchase";
 }
 
-const BuyCheckMessageRow = memo(function BuyCheckMessageRow({ role, text, isGuidePreview }) {
+const BuyCheckMessageRow = memo(function BuyCheckMessageRow({ role, text }) {
   const isUser = role === "user";
   const isThinking = !isUser && !clean(text);
-  const userBubble = isGuidePreview
-    ? "w-fit max-w-[78%] rounded-[22px] border border-blue-300/22 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] px-4 py-2.5 text-[13px] font-semibold leading-5 text-white shadow-[0_12px_28px_rgba(23,105,255,0.20)]"
-    : "max-w-[86%] rounded-[24px] border border-blue-300/22 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] px-4 py-3 text-[13px] font-semibold leading-5 text-white shadow-[0_12px_28px_rgba(23,105,255,0.20)]";
-  const claraBubble = isGuidePreview
-    ? "w-fit max-w-[86%] rounded-[22px] border border-blue-200/14 border-l-2 border-l-[#ffd84a]/45 bg-[#07152d]/88 px-4 py-3 text-[13.5px] leading-[1.55] text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-xl"
-    : "w-[94%] max-w-[94%] rounded-[26px] border border-blue-200/14 border-l-2 border-l-[#ffd84a]/45 bg-[#07152d]/88 px-4 py-4 text-[13.5px] leading-6 text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-xl";
+  const userBubble = "max-w-[86%] rounded-[24px] border border-blue-300/22 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] px-4 py-3 text-[13px] font-semibold leading-5 text-white shadow-[0_12px_28px_rgba(23,105,255,0.20)]";
+  const claraBubble = "w-[94%] max-w-[94%] rounded-[26px] border border-blue-200/14 border-l-2 border-l-[#ffd84a]/45 bg-[#07152d]/88 px-4 py-4 text-[13.5px] leading-6 text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-xl";
 
   if (isThinking) {
     return (
@@ -309,22 +305,28 @@ const BuyCheckComposer = memo(function BuyCheckComposer({
   busy,
   step,
   submitAnswer,
+  presetDraft = "",
+  presetLocked = false,
 }) {
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(() => String(presetDraft || ""));
   const inputRef = useRef(null);
   const hasDraft = Boolean(draft.trim());
 
   useEffect(() => {
-    if (!isActive) setDraft("");
-  }, [isActive]);
+    if (!isActive) {
+      setDraft("");
+      return;
+    }
+    setDraft(String(presetDraft || ""));
+  }, [isActive, presetDraft]);
 
   useEffect(() => {
-    if (!isActive || inputLocked) return undefined;
+    if (!isActive || inputLocked || presetLocked) return undefined;
     const frame = window.requestAnimationFrame(() => {
       if (document.activeElement !== inputRef.current) inputRef.current?.focus?.({ preventScroll: true });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [busy, inputLocked, isActive, step]);
+  }, [busy, inputLocked, isActive, presetLocked, step]);
 
   const submitDraft = (event) => {
     event.preventDefault();
@@ -336,8 +338,9 @@ const BuyCheckComposer = memo(function BuyCheckComposer({
   };
 
   const composerLocked = inputLocked || busy;
+  const editingLocked = composerLocked || presetLocked;
   const blockLockedInput = (event) => {
-    if (composerLocked) event.preventDefault();
+    if (editingLocked) event.preventDefault();
   };
 
   return (
@@ -345,6 +348,7 @@ const BuyCheckComposer = memo(function BuyCheckComposer({
       onSubmit={submitDraft}
       data-clara-buy-check-react-form="true"
       data-clara-buy-check-composer-locked={composerLocked ? "true" : "false"}
+      data-clara-buy-check-composer-preset={presetDraft ? "true" : "false"}
       className="relative z-30 shrink-0 overflow-hidden rounded-[28px] border border-blue-200/16 bg-[#040b1a]/96 p-2.5 shadow-[0_-18px_52px_rgba(0,0,0,0.48),inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-2xl"
     >
       <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-[linear-gradient(90deg,#1769ff_0%,#1769ff_42%,#ffd84a_42%,#ffd84a_56%,#e53945_56%,#e53945_100%)] opacity-80" />
@@ -352,13 +356,15 @@ const BuyCheckComposer = memo(function BuyCheckComposer({
         <input
           ref={inputRef}
           value={draft}
+          readOnly={presetLocked}
           onBeforeInput={blockLockedInput}
           onPaste={blockLockedInput}
           onDrop={blockLockedInput}
           onChange={(event) => {
-            if (!composerLocked) setDraft(event.target.value);
+            if (!editingLocked) setDraft(event.target.value);
           }}
           aria-disabled={composerLocked ? "true" : undefined}
+          aria-readonly={presetLocked ? "true" : undefined}
           className={`min-w-0 flex-1 bg-transparent py-2 text-[14px] font-medium text-white outline-none placeholder:text-slate-400/72 ${composerLocked ? "opacity-55" : ""}`}
           placeholder={placeholderFor(step)}
           inputMode="text"
@@ -391,6 +397,8 @@ export default function ClaraAiEnvironmentOverlay({
   onCheckAnother,
   onClose,
   layoutVariant = "default",
+  composerPresetDraft = "",
+  composerPresetLocked = false,
 }) {
   const previousAcknowledgmentIndexRef = useRef(-1);
   const acknowledgmentSessionRef = useRef({ active: false, sessionId: "", index: -1, message: "" });
@@ -492,7 +500,6 @@ export default function ClaraAiEnvironmentOverlay({
                 key={message.id || `${message.role || "message"}-${index}`}
                 role={message.role}
                 text={clean(message.text || message.content || "")}
-                isGuidePreview={isGuidePreview}
               />
             ))}
 
@@ -535,6 +542,8 @@ export default function ClaraAiEnvironmentOverlay({
           busy={busy}
           step={step}
           submitAnswer={submitAnswer}
+          presetDraft={composerPresetDraft}
+          presetLocked={composerPresetLocked}
         />
       ) : null}
     </div>

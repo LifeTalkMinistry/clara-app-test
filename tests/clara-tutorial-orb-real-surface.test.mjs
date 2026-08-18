@@ -64,15 +64,28 @@ test("canonical ORB preserves production activation while allowing controlled tu
   assert.match(orbPage, /MoneyLeftOrbVisual launching=\{launching\}/);
 });
 
-test("tutorial simulation remains on the injected guide-preview path", () => {
+test("tutorial uses the real Buy Check composer, send button, and thinking row", () => {
   assert.match(orbDemo, /layoutVariant=["']guide-preview["']/);
-  assert.match(orbDemo, /buyCheckState=\{tutorialState\(phase\)\}/);
-  assert.match(orbDemo, /onSubmitBuyCheckAnswer=\{\(\) => \{\}\}/);
-  assert.match(orbDemo, /onConfirmBuyCheck=\{\(\) => \{\}\}/);
-  assert.match(orbDemo, /onDeclineBuyCheck=\{\(\) => \{\}\}/);
-  assert.match(orbDemo, /onAskMoreBuyCheck=\{\(\) => \{\}\}/);
-  assert.match(orbDemo, /onCheckAnother=\{\(\) => \{\}\}/);
+  assert.match(orbDemo, /buyCheckState=\{tutorialState\(phase, payoff \|\| thinking\)\}/);
+  assert.match(orbDemo, /onSubmitBuyCheckAnswer=\{handlePreparedSend\}/);
+  assert.match(orbDemo, /composerPresetDraft=\{showInstruction \? JUAN_PURCHASE_QUESTION : ["']["']\}/);
+  assert.match(orbDemo, /composerPresetLocked=\{showInstruction\}/);
+  assert.match(orbDemo, /stage === ["']ready["']/);
+  assert.match(orbDemo, /stage === ["']thinking["']/);
+  assert.match(orbDemo, /text: ["']["']/);
+  assert.match(orbDemo, /window\.setTimeout\(\(\) => \{[\s\S]*setStage\(["']answered["']\)[\s\S]*1250/);
+  assert.match(orbDemo, /This is Juan&apos;s real CLARA chat\./);
+  assert.doesNotMatch(orbDemo, /data-clara-buy-check-react-form[^\n]*display:\s*none/);
 
+  assert.match(assistantOverlay, /composerPresetDraft = ["']["']/);
+  assert.match(assistantOverlay, /composerPresetLocked = false/);
+  assert.match(assistantOverlay, /presetDraft=\{composerPresetDraft\}/);
+  assert.match(assistantOverlay, /presetLocked=\{composerPresetLocked\}/);
+  assert.match(assistantOverlay, /data-clara-buy-check-thinking-row=["']true["']/);
+  assert.match(assistantOverlay, /aria-label=["']Send Ask Before You Spend answer["']/);
+});
+
+test("guide-preview remains isolated from the real Buy Check session", () => {
   assert.match(assistantOverlay, /const isGuidePreview = layoutVariant === ["']guide-preview["']/);
   assert.match(
     assistantOverlay,
