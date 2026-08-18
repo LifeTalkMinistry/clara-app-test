@@ -1,7 +1,7 @@
 const WORDMARK_CLASS = "clara-official-wordmark-inline";
 const MASTERCLASS_CLOSE_SELECTOR = '[aria-label="Close Budgeting Masterclass"]';
 const EMPHASIS_SELECTOR = "h1, h2, h3, p.uppercase, strong, b";
-const LESSON_EYEBROW_PATTERN = /^Budget Masterclass(?:\s*·\s*Point\s+\d+)?$/i;
+const LESSON_EYEBROW_PATTERN = /^(?:(?:Budget|Emergency Fund) Masterclass\s*·\s*Point\s+\d+|Masterclass de (?:Presupuesto|Fondo de Emergencia)\s*·\s*Punto\s+\d+)$/i;
 
 function createClaraWordmark() {
   const wordmark = document.createElement("span");
