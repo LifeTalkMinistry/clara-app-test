@@ -5,6 +5,10 @@ import {
   persistDailyTipReaction,
   recordDailyTipImpression,
 } from "@/lib/daily-tip-feedback";
+import {
+  fetchDailyTipLibrary,
+  getCachedDailyTipRevision,
+} from "@/lib/daily-tip-library";
 import "../ui/daily-tip-feedback.css";
 
 const NOTICE_DURATION_MS = 2600;
@@ -23,11 +27,17 @@ function normalizeRevision(value) {
 export default function useDailyTipFeedback({
   userId,
   tipId,
-  tipRevision = 1,
+  tipRevision,
   enabled = true,
   revealed = false,
 } = {}) {
-  const revision = normalizeRevision(tipRevision);
+  const explicitRevision = Number.isInteger(Number(tipRevision)) && Number(tipRevision) > 0
+    ? Number(tipRevision)
+    : null;
+  const [resolvedRevision, setResolvedRevision] = useState(() =>
+    normalizeRevision(explicitRevision || getCachedDailyTipRevision(tipId) || 1),
+  );
+  const revision = explicitRevision || resolvedRevision;
   const [reaction, setReaction] = useState(() =>
     enabled ? getLocalDailyTipReaction(userId, tipId, revision) : null,
   );
@@ -35,6 +45,34 @@ export default function useDailyTipFeedback({
   const [syncNotice, setSyncNotice] = useState("");
   const noticeTimerRef = useRef(null);
   const actionVersionRef = useRef(0);
+
+  useEffect(() => {
+    if (explicitRevision || !tipId) {
+      if (explicitRevision) setResolvedRevision(explicitRevision);
+      return undefined;
+    }
+
+    const cached = getCachedDailyTipRevision(tipId);
+    if (cached) {
+      setResolvedRevision(normalizeRevision(cached));
+      return undefined;
+    }
+
+    let cancelled = false;
+    fetchDailyTipLibrary()
+      .then((library) => {
+        if (cancelled) return;
+        const current = library.find((tip) => tip.id === tipId);
+        if (current?.revision) setResolvedRevision(normalizeRevision(current.revision));
+      })
+      .catch(() => {
+        // Revision 1 remains the bundled/offline compatibility default.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [explicitRevision, tipId]);
 
   const showNotice = useCallback((message) => {
     setSyncNotice(message);
