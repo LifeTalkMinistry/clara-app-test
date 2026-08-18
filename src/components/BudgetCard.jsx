@@ -224,7 +224,7 @@ export default function BudgetCard({
   const completionAction = expanded && completionVisible ? (
     <div
       data-budget-completion-footer="true"
-      className="relative z-30 flex shrink-0 justify-end px-4 pb-4 pt-2"
+      className="flex shrink-0 justify-end px-4 pb-4 pt-2"
     >
       <button
         type="button"
