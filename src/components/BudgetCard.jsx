@@ -189,6 +189,60 @@ export default function BudgetCard({
     }
   };
 
+  const budgetContent = (
+    <BudgetCardContent
+      expanded={expanded}
+      onToggleDetails={onToggleDetails}
+      financeActionLoading={financeInteractionLoading}
+      onSaveBudget={openBudgetPlanPage}
+      onEditBudgetCategory={openBudgetCategoryOnPlanPage}
+      onDeleteBudgetCategory={onDeleteBudgetCategory}
+      categories={categories}
+      declared={declared}
+      allocated={allocated}
+      spent={spent}
+      remaining={remaining}
+      unallocated={unallocated}
+      progress={progress}
+      hasDeclaredBudget={hasDeclaredBudget}
+      planIsComplete={planIsComplete}
+      unplannedSpent={unplannedSpent}
+      undocumentedSpent={undocumentedSpent}
+      unplannedItems={unplannedItems}
+      undocumentedItems={undocumentedItems}
+      outsidePlanItems={outsidePlanItems}
+      status={status}
+      message={message}
+      remainingAmountColor={remainingAmountColor}
+      monthKey={monthKey}
+      badgeLabel={displayBadgeLabel}
+      budgetPace={budgetPace}
+      openBudgetModal={openBudgetPlanPage}
+    />
+  );
+
+  const completionAction = expanded && completionVisible ? (
+    <div
+      data-budget-completion-footer="true"
+      className="relative z-30 flex shrink-0 justify-end px-4 pb-4 pt-2"
+    >
+      <button
+        type="button"
+        data-budget-completion-action="true"
+        data-budget-exhausted={isExhausted ? "true" : "false"}
+        onClick={openCompleteBudgetConfirm}
+        onPointerDown={(event) => event.stopPropagation()}
+        onTouchStart={(event) => event.stopPropagation()}
+        disabled={completingBudget}
+        className="flex min-h-11 touch-manipulation items-center gap-1.5 rounded-full border border-emerald-200/[0.16] bg-emerald-500/[0.10] px-3.5 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-emerald-100/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-md transition hover:border-emerald-200/25 hover:bg-emerald-500/[0.16] active:scale-[0.98] disabled:cursor-wait disabled:opacity-55"
+        aria-label="Complete this budget"
+      >
+        <CheckCircle2 className="h-3.5 w-3.5" />
+        {completingBudget ? "Completing..." : "Complete budget"}
+      </button>
+    </div>
+  ) : null;
+
   return (
     <div className="flex h-full min-h-[inherit] flex-col rounded-[inherit]">
       <FinanceCardShell
@@ -206,55 +260,13 @@ export default function BudgetCard({
             onInfo={openBudgetMasterclass}
             onReuse={latestReusableBudget ? reuseLastBudget : undefined}
           />
+        ) : expanded ? (
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="min-h-0 flex-1">{budgetContent}</div>
+            {completionAction}
+          </div>
         ) : (
-          <>
-            <BudgetCardContent
-              expanded={expanded}
-              onToggleDetails={onToggleDetails}
-              financeActionLoading={financeInteractionLoading}
-              onSaveBudget={openBudgetPlanPage}
-              onEditBudgetCategory={openBudgetCategoryOnPlanPage}
-              onDeleteBudgetCategory={onDeleteBudgetCategory}
-              categories={categories}
-              declared={declared}
-              allocated={allocated}
-              spent={spent}
-              remaining={remaining}
-              unallocated={unallocated}
-              progress={progress}
-              hasDeclaredBudget={hasDeclaredBudget}
-              planIsComplete={planIsComplete}
-              unplannedSpent={unplannedSpent}
-              undocumentedSpent={undocumentedSpent}
-              unplannedItems={unplannedItems}
-              undocumentedItems={undocumentedItems}
-              outsidePlanItems={outsidePlanItems}
-              status={status}
-              message={message}
-              remainingAmountColor={remainingAmountColor}
-              monthKey={monthKey}
-              badgeLabel={displayBadgeLabel}
-              budgetPace={budgetPace}
-              openBudgetModal={openBudgetPlanPage}
-            />
-
-            {expanded && completionVisible ? (
-              <button
-                type="button"
-                data-budget-completion-action="true"
-                data-budget-exhausted={isExhausted ? "true" : "false"}
-                onClick={openCompleteBudgetConfirm}
-                onPointerDown={(event) => event.stopPropagation()}
-                onTouchStart={(event) => event.stopPropagation()}
-                disabled={completingBudget}
-                className="absolute right-6 top-6 z-50 flex min-h-11 touch-manipulation items-center gap-1.5 rounded-full border border-emerald-200/[0.16] bg-emerald-500/[0.10] px-3.5 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-emerald-100/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-md transition hover:border-emerald-200/25 hover:bg-emerald-500/[0.16] active:scale-[0.98] disabled:cursor-wait disabled:opacity-55"
-                aria-label="Complete this budget"
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                {completingBudget ? "Completing..." : "Complete budget"}
-              </button>
-            ) : null}
-          </>
+          budgetContent
         )}
       </FinanceCardShell>
 
