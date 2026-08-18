@@ -1,6 +1,6 @@
 const CYCLE_STORAGE_PREFIX = "clara_daily_tip_cycle_v3";
 const LEGACY_CYCLE_STORAGE_KEY = "clara_daily_tip_cycle_v2";
-export const DAILY_TIP_CYCLE_VERSION = 4;
+export const DAILY_TIP_CYCLE_VERSION = 5;
 
 export function normalizeDailyTipUserId(userId) {
   return String(userId || "").trim() || "guest";
@@ -8,6 +8,15 @@ export function normalizeDailyTipUserId(userId) {
 
 export function dailyTipCycleStorageKey(userId) {
   return `${CYCLE_STORAGE_PREFIX}:${encodeURIComponent(normalizeDailyTipUserId(userId))}`;
+}
+
+function normalizeRevision(value) {
+  const revision = Number(value);
+  return Number.isInteger(revision) && revision > 0 ? revision : 1;
+}
+
+function catalogSignature(catalog) {
+  return catalog.map((tip) => `${tip.id}@${tip.revision}`).join("|");
 }
 
 export function buildDailyTipCatalog(tips) {
@@ -27,12 +36,15 @@ export function buildDailyTipCatalog(tips) {
         ? value.id.trim()
         : "";
     const id = explicitId || `daily-money-tip-${String(index + 1).padStart(3, "0")}`;
+    const revision = typeof value === "object" && value !== null
+      ? normalizeRevision(value.revision ?? value.current_revision)
+      : 1;
 
     if (!text || seenTexts.has(text) || seenIds.has(id)) return;
 
     seenIds.add(id);
     seenTexts.add(text);
-    catalog.push({ id, text, index });
+    catalog.push({ id, text, revision, index });
   });
 
   return catalog;
@@ -40,7 +52,8 @@ export function buildDailyTipCatalog(tips) {
 
 export function createDailyTipOrder(catalog, userId, cycleNumber, previousTipId = null) {
   const ids = catalog.map((tip) => tip.id);
-  const signature = catalog.map((tip) => tip.id).join("|");
+  // Quote revisions should not reshuffle an in-progress user's logical tip order.
+  const signature = ids.join("|");
   const seed = hashString(
     `${normalizeDailyTipUserId(userId)}|${Math.max(0, Math.floor(Number(cycleNumber) || 0))}|${signature}`,
   );
@@ -67,19 +80,19 @@ export function resolveDailyTipAssignment({ storage, userId, dayKey, tips, exclu
 
   const resolvedUserId = normalizeDailyTipUserId(userId);
   const storageKey = dailyTipCycleStorageKey(resolvedUserId);
-  const catalogSignature = catalog.map((tip) => tip.id).join("|");
+  const signature = catalogSignature(catalog);
   const validIds = new Set(catalog.map((tip) => tip.id));
   const excludedIds = new Set(
     (Array.isArray(excludedTipIds) ? excludedTipIds : []).filter((tipId) => validIds.has(tipId)),
   );
   let cycle = safeParse(safeGet(storage, storageKey));
 
-  if (!isValidCycle(cycle, { userId: resolvedUserId, catalog, catalogSignature })) {
+  if (!isValidCycle(cycle, { userId: resolvedUserId, catalog, catalogSignature: signature })) {
     cycle = migrateCompatibleCycle(cycle, {
       userId: resolvedUserId,
       catalog,
-      catalogSignature,
-    }) || createCycle(catalog, resolvedUserId, 0, catalogSignature);
+      catalogSignature: signature,
+    }) || createCycle(catalog, resolvedUserId, 0, signature);
   }
 
   const existingAssignment = cycle.assignments.find((assignment) => assignment.dayKey === dayKey);
@@ -94,7 +107,7 @@ export function resolveDailyTipAssignment({ storage, userId, dayKey, tips, exclu
       catalog,
       resolvedUserId,
       cycle.cycleNumber + 1,
-      catalogSignature,
+      signature,
       getLastUsedTipId(cycle),
     );
   }
@@ -132,7 +145,7 @@ export function commitDailyTipAssignment({ storage, userId, dayKey, tips }) {
   if (!cycle || !isValidCycle(cycle, {
     userId: resolvedUserId,
     catalog,
-    catalogSignature: catalog.map((tip) => tip.id).join("|"),
+    catalogSignature: catalogSignature(catalog),
   })) {
     return preview;
   }
@@ -168,13 +181,13 @@ export function commitDailyTipAssignment({ storage, userId, dayKey, tips }) {
   return assignmentResult(assignment, catalog, cycle.cycleNumber, true);
 }
 
-function createCycle(catalog, userId, cycleNumber, catalogSignature, previousTipId = null) {
+function createCycle(catalog, userId, cycleNumber, signature, previousTipId = null) {
   const now = new Date().toISOString();
   return {
     version: DAILY_TIP_CYCLE_VERSION,
     userId,
     cycleNumber,
-    catalogSignature,
+    catalogSignature: signature,
     order: createDailyTipOrder(catalog, userId, cycleNumber, previousTipId),
     usedTipIds: [],
     assignments: [],
@@ -184,7 +197,7 @@ function createCycle(catalog, userId, cycleNumber, catalogSignature, previousTip
   };
 }
 
-function migrateCompatibleCycle(value, { userId, catalog, catalogSignature }) {
+function migrateCompatibleCycle(value, { userId, catalog, catalogSignature: signature }) {
   if (!value || typeof value !== "object") return null;
   if (value.userId !== userId) return null;
   if (!Number.isInteger(value.cycleNumber) || value.cycleNumber < 0) return null;
@@ -222,7 +235,7 @@ function migrateCompatibleCycle(value, { userId, catalog, catalogSignature }) {
     version: DAILY_TIP_CYCLE_VERSION,
     userId,
     cycleNumber: value.cycleNumber,
-    catalogSignature,
+    catalogSignature: signature,
     order,
     usedTipIds,
     assignments,
@@ -232,12 +245,12 @@ function migrateCompatibleCycle(value, { userId, catalog, catalogSignature }) {
   };
 }
 
-function isValidCycle(value, { userId, catalog, catalogSignature }) {
+function isValidCycle(value, { userId, catalog, catalogSignature: signature }) {
   if (!value || typeof value !== "object") return false;
   if (value.version !== DAILY_TIP_CYCLE_VERSION) return false;
   if (value.userId !== userId) return false;
   if (!Number.isInteger(value.cycleNumber) || value.cycleNumber < 0) return false;
-  if (value.catalogSignature !== catalogSignature) return false;
+  if (value.catalogSignature !== signature) return false;
   if (!Array.isArray(value.order) || value.order.length !== catalog.length) return false;
   if (!Array.isArray(value.usedTipIds) || !Array.isArray(value.assignments)) return false;
 
@@ -256,6 +269,7 @@ function assignmentResult(assignment, catalog, cycleNumber, committed) {
   const selectedTip = catalog.find((tip) => tip.id === assignment.tipId) || catalog[0];
   return {
     tipId: selectedTip.id,
+    tipRevision: selectedTip.revision,
     text: selectedTip.text,
     index: selectedTip.index,
     dayKey: assignment.dayKey,
@@ -268,6 +282,7 @@ function assignmentResult(assignment, catalog, cycleNumber, committed) {
 function emptyAssignment(dayKey) {
   return {
     tipId: null,
+    tipRevision: 1,
     text: "",
     index: 0,
     dayKey,
