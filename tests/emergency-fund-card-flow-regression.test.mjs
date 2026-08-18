@@ -9,6 +9,10 @@ const view = readSource("src/components/financial-carousel/cards/emergency-fund/
 const card = readSource("src/components/fresh/main-dashboard/carousel/EmergencyFundCardStorageWalletMoveConfirm.jsx");
 const modals = readSource("src/components/fresh/main-dashboard/carousel/EmergencyFundCardModals.jsx");
 const allocationSync = readSource("src/components/fresh/main-dashboard/carousel/logic/useEmergencyFundAllocationSync.js");
+const registry = readSource("src/lib/clara-masterclass-registry.js");
+const runtime = readSource("src/components/community/masterclass/ClaraMasterclassRuntime.jsx");
+const api = readSource("api/clara-masterclass-gemini.js");
+const emergencyI18n = readSource("src/lib/clara-emergency-fund-masterclass-i18n.js");
 
  test("Emergency Fund receives rollback ownership from the Dashboard controller", () => {
   assert.match(view, /deleteExpense=\{financeCardController\?\.deleteExpense\}/);
@@ -52,4 +56,25 @@ test("missing storage wallets block reserve mutations instead of silently relink
   assert.match(card, /Choose an available storage wallet before using this fund\./);
   assert.match(card, /The linked storage wallet is unavailable/);
   assert.match(card, /disabled=\{!activeStorageWallet \|\| saving \|\| movingFund\}/);
+});
+
+test("Emergency Fund education is routed into the shared CLARA Masterclass engine", () => {
+  assert.match(card, /\/community\?view=orb&masterclass=emergency-fund/);
+  assert.match(card, /masterclassId: "emergency-fund"/);
+  assert.match(card, /monthlySurvivalCost: monthlyExpense/);
+  assert.match(card, /protectedAmount: savedAmount/);
+  assert.match(card, /monthsProtected: months/);
+  assert.doesNotMatch(card, /showInfo/);
+  assert.match(registry, /"emergency-fund": Object\.freeze/);
+  assert.match(registry, /getEmergencyFundMasterclassExperience/);
+  assert.match(runtime, /getClaraMasterclassDefinition\(masterclassId\)/);
+});
+
+test("Emergency Fund Masterclass keeps authored curriculum as authority and personalized values out of Gemini prompts", () => {
+  assert.match(emergencyI18n, /The authored Emergency Fund curriculum is the source of truth/);
+  assert.match(emergencyI18n, /Never pretend to know the learner's private finances/);
+  assert.match(emergencyI18n, /locationState\?\.claraMasterclassContext/);
+  assert.doesNotMatch(emergencyI18n, /monthlySurvivalCost[\s\S]{0,500}LEARNER'S FOLLOW-UP QUESTION/);
+  assert.match(api, /\["emergency-fund", "CLARA EMERGENCY FUND MASTERCLASS"\]/);
+  assert.match(api, /validMasterclassPrompt\(masterclassId, prompt, mode\)/);
 });
