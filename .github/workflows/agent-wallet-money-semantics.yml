@@ -1,0 +1,94 @@
+name: Agent Wallet Money Semantics
+
+on:
+  push:
+    branches:
+      - agent/wallet-money-semantics
+
+permissions:
+  contents: write
+
+concurrency:
+  group: agent-wallet-money-semantics
+  cancel-in-progress: false
+
+jobs:
+  apply-and-verify:
+    if: ${{ !contains(github.event.head_commit.message, '[wallet-semantics-applied]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/wallet-money-semantics
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Apply finance semantics integration
+        run: python scripts/agent-wallet-money-semantics-patch.py
+
+      - name: Normalize projection regression source assertions
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('tests/home-spendable-money-projection.test.mjs')
+          text = path.read_text(encoding='utf-8')
+          pattern = r'test\("Home projection is wired to wallet protection and debt pressure authorities", \(\) => \{.*?\n\}\);'
+          replacement = '''test("Home projection is wired to shared wallet semantics and React-owned Money Left mode", () => {
+            const communityHome = readSource(
+              "src/components/community/CommunityHomeFinancialCarousel.jsx"
+            );
+            const runtime = readSource(
+              "src/runtime/installMoneyLeftAfterBudgetToggle.js"
+            );
+
+            assert.match(communityHome, /getTotalWalletSpendableBalance/);
+            assert.match(communityHome, /monthlyObligationPressure/);
+            assert.match(communityHome, /getDebtBudgetRemaining/);
+            assert.match(communityHome, /buildHomeSpendableMoneyProjection/);
+            assert.match(communityHome, /moneyLeftMode/);
+            assert.match(communityHome, /displayedMoneyLeft/);
+            assert.match(communityHome, /data-clara-after-budget-active/);
+            assert.doesNotMatch(runtime, /\\.textContent\\s*=/);
+            assert.doesNotMatch(runtime, /MutationObserver/);
+          });'''
+          text, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit(f'projection regression replacement count={count}')
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run focused wallet semantics regressions
+        run: node --test tests/wallet-balance-double-deduction.test.mjs tests/home-spendable-money-projection.test.mjs tests/wallet-money-semantics.test.mjs
+
+      - name: Run production build and standard verification
+        run: npm run build
+
+      - name: Check diff integrity
+        run: git diff --check
+
+      - name: Commit verified implementation
+        run: |
+          rm -f scripts/agent-wallet-money-semantics-patch.py
+          rm -f .github/workflows/agent-wallet-money-semantics.yml
+          git config user.name "CLARA Principal Engineer"
+          git config user.email "actions@users.noreply.github.com"
+          git add src tests package.json scripts .github/workflows
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "repair wallet money semantics [wallet-semantics-applied]"
+          git push origin HEAD:agent/wallet-money-semantics
