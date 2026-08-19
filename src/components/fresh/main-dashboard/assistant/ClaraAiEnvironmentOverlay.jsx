@@ -4,6 +4,7 @@ import ClaraAiEnvironmentOverlayV2 from "./ClaraAiEnvironmentOverlayV2.jsx";
 import ClaraWeeklyMoneyCheckOverlay from "./ClaraWeeklyMoneyCheckOverlayV2.jsx";
 import ClaraLogExpenseOverlay from "./ClaraLogExpenseOverlayV2.jsx";
 import ClaraWalletOverlay from "./ClaraWalletOverlayV2.jsx";
+import ClaraMoneyScheduleOverlay from "./ClaraMoneyScheduleOverlay.jsx";
 import ClaraBuyCheckImpactPortal from "./ClaraBuyCheckImpactPortal.jsx";
 import ClaraBuyCheckUsagePortal from "./ClaraBuyCheckUsagePortal.jsx";
 import ClaraLifeProfilePortal from "./ClaraLifeProfilePortal.jsx";
@@ -14,7 +15,7 @@ import { WEEKLY_MONEY_CHECK_UPDATED_EVENT } from "@/lib/weeklyMoneyCheckState";
 
 const WEEKLY_SESSION_STORAGE_PREFIX = "clara_weekly_money_check_v1";
 const WEEKLY_CHAT_FLOW_VERSION = "weekly-money-check-chat-v1";
-const ORB_ENTRY_MODES = new Set(["log-expense", "wallet"]);
+const ORB_ENTRY_MODES = new Set(["log-expense", "wallet", "money-schedule"]);
 
 function restoreReadyStateWhenWeeklyCheckWasNotStarted(user) {
   if (typeof window === "undefined" || !window.localStorage) return;
@@ -58,6 +59,7 @@ export default function ClaraAiEnvironmentOverlay(props) {
   const weeklyMoneyCheckMode = !guidePreview && routeMode === "weekly-money-check";
   const logExpenseMode = !guidePreview && entryMode === "log-expense";
   const walletMode = !guidePreview && entryMode === "wallet";
+  const moneyScheduleMode = !guidePreview && entryMode === "money-schedule";
   const weeklyAutoOpenRef = useRef(false);
   const lifeContext = useClaraBuyCheckLifeContext(props?.claraAssistantContext?.user);
   const enrichedAssistantContext = useMemo(
@@ -141,6 +143,21 @@ export default function ClaraAiEnvironmentOverlay(props) {
         {...props}
         claraAssistantContext={enrichedAssistantContext}
         onClose={closeWallet}
+      />
+    );
+  }
+
+  if (moneyScheduleMode) {
+    const closeMoneySchedule = () => {
+      setEntryMode(null);
+      props?.onClose?.();
+    };
+
+    return (
+      <ClaraMoneyScheduleOverlay
+        {...props}
+        claraAssistantContext={enrichedAssistantContext}
+        onClose={closeMoneySchedule}
       />
     );
   }

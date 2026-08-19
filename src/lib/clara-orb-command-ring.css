@@ -22,6 +22,37 @@
 }
 
 /*
+ * Money Schedule uses the same clock glyph already present in the command ring,
+ * with one restrained peso badge so it reads as scheduled money rather than a
+ * second generic Calendar command. Keep the badge inside the existing 50px
+ * command target so gesture geometry and radial spacing stay untouched.
+ */
+.clara-orb-command-action[data-clara-orb-command-id="money-schedule"]::after {
+  content: "₱";
+  position: absolute;
+  right: 7px;
+  bottom: 6px;
+  display: grid;
+  width: 13px;
+  height: 13px;
+  place-items: center;
+  border: 1px solid rgba(255, 216, 74, 0.42);
+  border-radius: 999px;
+  background: rgba(4, 15, 38, 0.96);
+  color: rgba(255, 232, 139, 0.92);
+  font-size: 8px;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 0 10px rgba(255, 216, 74, 0.12);
+}
+
+.clara-orb-command-action[data-clara-orb-command-id="money-schedule"].is-selected::after {
+  border-color: rgba(255, 226, 119, 0.72);
+  color: #fff0a8;
+  box-shadow: 0 0 12px rgba(255, 216, 74, 0.22);
+}
+
+/*
  * Debt sits at the far-left edge of the ring and Weekly Cross-Check is the next
  * command above it. A wide one-line Debt label can therefore clear the Orb but
  * still slide underneath the Cross-Check circle on compact screens. Keep the
@@ -54,13 +85,14 @@
 }
 
 /*
- * Log Expense is a CLARA chat flow, not a top-stacked form. When the transcript
- * is still short, keep the conversation naturally lower in the available chat
- * viewport with the same kind of breathing room as CLARA's normal opening
- * state. As messages grow beyond the viewport, min-height/overflow ownership
- * remains unchanged and the conversation scrolls normally.
+ * Guided Orb chats are conversation flows, not top-stacked forms. When the
+ * transcript is still short, keep the conversation naturally lower in the
+ * available viewport. As messages grow, normal overflow ownership takes over.
  */
 [data-clara-log-expense-chat="true"]
+  [data-clara-ai-message-viewport="true"]
+  > div,
+[data-clara-money-schedule-chat="true"]
   [data-clara-ai-message-viewport="true"]
   > div {
   justify-content: flex-end;

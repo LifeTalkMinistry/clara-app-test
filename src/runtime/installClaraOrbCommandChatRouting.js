@@ -10,6 +10,7 @@ const CLARA_CALENDAR_PATH = "/community?view=schedule";
 const CHAT_COMMAND_MODES = Object.freeze({
   "log-expense": "log-expense",
   wallet: "wallet",
+  "money-schedule": "money-schedule",
 });
 
 function registerLogExpenseChatKeyboardOwnership() {
