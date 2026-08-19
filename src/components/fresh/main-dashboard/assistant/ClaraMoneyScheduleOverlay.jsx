@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ArrowUp, CalendarDays, CheckCircle2, X } from "lucide-react";
 import { appendClaraMoneyScheduleEvent } from "@/lib/clara-money-schedule-repository";
 
@@ -139,6 +140,7 @@ export default function ClaraMoneyScheduleOverlay({
   claraAssistantContext = {},
   onClose,
 }) {
+  const navigate = useNavigate();
   const user = claraAssistantContext?.user || {};
   const firstName = firstNameFromUser(user);
   const [phase, setPhase] = useState("title");
@@ -317,9 +319,8 @@ export default function ClaraMoneyScheduleOverlay({
   };
 
   const openCalendar = () => {
-    if (typeof window === "undefined") return;
     onClose?.();
-    window.location.assign("/community?view=schedule");
+    navigate("/community?view=schedule");
   };
 
   const closeChat = () => onClose?.();
