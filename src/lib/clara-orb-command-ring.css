@@ -40,13 +40,15 @@
 }
 
 /*
- * On the narrowest supported mobile width, the full Weekly Cross-Check label
- * can graze the Log Expense circle. Shift only that label a few pixels left;
- * the command circle and its directional sector remain unchanged.
+ * At 340px and below, Weekly Cross-Check's local selected label competes with
+ * both the Log Expense circle and the canonical selected-command status above
+ * the Orb. The status already says "Weekly Cross-Check", so remove only the
+ * redundant local copy on compact screens. The command circle and gesture
+ * sector remain unchanged.
  */
 @media (max-width: 340px) {
   .clara-orb-command-action[data-clara-orb-command-id="weekly-cross-check"]
     .clara-orb-command-action-label {
-    left: 38% !important;
+    display: none !important;
   }
 }
