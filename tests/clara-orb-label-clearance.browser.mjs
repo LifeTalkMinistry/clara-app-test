@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import puppeteer from "puppeteer-core";
 
 const baseUrl = process.env.CLARA_ORB_BROWSER_BASE_URL || "http://127.0.0.1:4173/tests/fixtures/clara-orb-command-ring.html";
-const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_BIN || "/usr/bin/google-chrome";
+const executablePath =
+  process.env.PUPPETEER_EXECUTABLE_PATH ||
+  process.env.CHROME_PATH ||
+  process.env.CHROME_BIN ||
+  "/usr/bin/google-chrome";
 
 const browser = await puppeteer.launch({
   executablePath,
@@ -73,7 +77,16 @@ try {
       const nearestY = Math.max(labelRect.top, Math.min(orbCenter.y, labelRect.bottom));
       const nearestDistance = Math.hypot(nearestX - orbCenter.x, nearestY - orbCenter.y);
 
-      return { nearestDistance, protectedRadius, labelRect: { left: labelRect.left, top: labelRect.top, right: labelRect.right, bottom: labelRect.bottom } };
+      return {
+        nearestDistance,
+        protectedRadius,
+        labelRect: {
+          left: labelRect.left,
+          top: labelRect.top,
+          right: labelRect.right,
+          bottom: labelRect.bottom,
+        },
+      };
     }, id);
 
     assert.ok(geometry, `expected selected label for ${id}`);
