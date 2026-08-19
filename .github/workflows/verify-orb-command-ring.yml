@@ -5,11 +5,15 @@ on:
     paths:
       - "src/components/community/ClaraOrbPage.jsx"
       - "src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay.jsx"
+      - "src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx"
       - "src/components/fresh/main-dashboard/assistant/ClaraLogExpenseOverlayV2.jsx"
+      - "src/components/fresh/main-dashboard/assistant/ClaraWeeklyMoneyCheckOverlayV2.jsx"
+      - "src/lib/clara-conversation-pacing.js"
       - "src/lib/clara-orb-command-ring.js"
       - "src/lib/claraHaptics.js"
       - "src/runtime/installClaraOrbGreeting.js"
       - "src/runtime/installClaraOrbCommandChatRouting.js"
+      - "tests/clara-conversation-pacing-regression.test.mjs"
       - "tests/clara-orb-command-ring.browser.mjs"
       - "tests/clara-orb-label-clearance.browser.mjs"
       - "tests/clara-orb-log-expense-routing.test.mjs"
@@ -37,8 +41,8 @@ jobs:
       - name: Install application dependencies
         run: npm ci
 
-      - name: Verify Orb Log Expense chat routing
-        run: node --test tests/clara-orb-log-expense-routing.test.mjs tests/clara-log-expense-flow-source.test.mjs
+      - name: Verify Orb chat routing and canonical pacing
+        run: node --test tests/clara-orb-log-expense-routing.test.mjs tests/clara-log-expense-flow-source.test.mjs tests/clara-conversation-pacing-regression.test.mjs
 
       - name: Install browser driver without changing app dependencies
         run: npm install --no-save --package-lock=false puppeteer-core@24.16.0

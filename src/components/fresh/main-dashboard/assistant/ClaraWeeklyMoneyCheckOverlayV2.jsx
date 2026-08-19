@@ -11,9 +11,14 @@ import {
   readWeeklyMoneyCheckState,
   WEEKLY_MONEY_CHECK_UPDATED_EVENT,
 } from "@/lib/weeklyMoneyCheckState";
+import {
+  getClaraReadDelay,
+  getClaraReplyDelay,
+  getClaraTypingPlan,
+} from "@/lib/clara-conversation-pacing";
 
 const SESSION_STORAGE_PREFIX = "clara_weekly_money_check_v1";
-const FLOW_VERSION = "weekly-money-check-chat-v1";
+const FLOW_VERSION = "weekly-money-check-chat-v2-masterclass-pacing";
 const DIFFERENCE_EPSILON = 0.009;
 const BELOW_MEANS_BADGE_ID = "below_your_means";
 
@@ -292,7 +297,7 @@ function WeeklyHeader({ onClose }) {
   );
 }
 
-function TypewriterText({ text, speed = 19, onComplete, className = "" }) {
+function TypewriterText({ text, onComplete, className = "", delayBeforeTyping = true }) {
   const fullText = displayText(text);
   const [visible, setVisible] = useState("");
   const completeRef = useRef(onComplete);
@@ -302,36 +307,70 @@ function TypewriterText({ text, speed = 19, onComplete, className = "" }) {
   }, [onComplete]);
 
   useEffect(() => {
-    setVisible("");
+    const plan = getClaraTypingPlan(fullText);
     let cancelled = false;
     let index = 0;
     let timerId = 0;
+    let startTimerId = 0;
 
-    const tick = () => {
+    setVisible("");
+
+    const start = () => {
       if (cancelled) return;
-      index = Math.min(fullText.length, index + 2);
-      setVisible(fullText.slice(0, index));
-      if (index >= fullText.length) {
+      if (!plan.source) {
         completeRef.current?.();
         return;
       }
-      const lastChar = fullText[index - 1] || "";
-      const delay = /[.!?]/.test(lastChar) ? 75 : /[,;:]/.test(lastChar) ? 42 : speed;
-      timerId = window.setTimeout(tick, delay);
+      timerId = window.setInterval(() => {
+        if (cancelled) return;
+        index = Math.min(plan.source.length, index + plan.charsPerTick);
+        setVisible(plan.source.slice(0, index));
+        if (index >= plan.source.length) {
+          window.clearInterval(timerId);
+          timerId = 0;
+          completeRef.current?.();
+        }
+      }, plan.tickMs);
     };
 
-    timerId = window.setTimeout(tick, 180);
+    if (delayBeforeTyping) startTimerId = window.setTimeout(start, getClaraReplyDelay());
+    else start();
+
     return () => {
       cancelled = true;
-      window.clearTimeout(timerId);
+      if (startTimerId) window.clearTimeout(startTimerId);
+      if (timerId) window.clearInterval(timerId);
     };
-  }, [fullText, speed]);
+  }, [delayBeforeTyping, fullText]);
 
-  return <span className={className}>{visible}<span className="ml-0.5 inline-block h-[1em] w-[1.5px] animate-pulse bg-white/55 align-[-0.12em]" /></span>;
+  return (
+    <span className={className}>
+      {visible}
+      <span className="ml-0.5 inline-block h-[1em] w-[1.5px] animate-pulse bg-white/55 align-[-0.12em]" />
+    </span>
+  );
 }
 
 function WeeklyEntryBoard({ firstName, onStart, onClose }) {
   const [ready, setReady] = useState(false);
+  const readTimerRef = useRef(null);
+
+  useEffect(
+    () => () => {
+      if (readTimerRef.current) window.clearTimeout(readTimerRef.current);
+      readTimerRef.current = null;
+    },
+    []
+  );
+
+  const finishGreeting = () => {
+    if (readTimerRef.current) window.clearTimeout(readTimerRef.current);
+    readTimerRef.current = window.setTimeout(() => {
+      setReady(true);
+      readTimerRef.current = null;
+    }, getClaraReadDelay());
+  };
+
   return (
     <section
       data-clara-pause-entry-board="true"
@@ -344,7 +383,7 @@ function WeeklyEntryBoard({ firstName, onStart, onClose }) {
         <p className="text-[16px] font-extrabold leading-[1.48] text-white/94">
           <TypewriterText
             text={`Hi ${firstName}! Great job — you remembered your scheduled Weekly Money Check.`}
-            onComplete={() => setReady(true)}
+            onComplete={finishGreeting}
           />
         </p>
       </div>
@@ -384,29 +423,33 @@ function MessageRow({ entry, onTypingComplete }) {
       return undefined;
     }
 
+    const plan = getClaraTypingPlan(fullText);
     setVisibleText("");
     let cancelled = false;
     let index = 0;
     let timerId = 0;
+    let startTimerId = 0;
 
-    const tick = () => {
+    const start = () => {
       if (cancelled) return;
-      index = Math.min(fullText.length, index + 2);
-      setVisibleText(fullText.slice(0, index));
-      bubbleRef.current?.scrollIntoView?.({ block: "end", behavior: "smooth" });
-      if (index >= fullText.length) {
-        completeRef.current?.(entry.id);
-        return;
-      }
-      const char = fullText[index - 1] || "";
-      const delay = /[.!?]/.test(char) ? 72 : /[,;:]/.test(char) ? 38 : 17;
-      timerId = window.setTimeout(tick, delay);
+      timerId = window.setInterval(() => {
+        if (cancelled) return;
+        index = Math.min(plan.source.length, index + plan.charsPerTick);
+        setVisibleText(plan.source.slice(0, index));
+        bubbleRef.current?.scrollIntoView?.({ block: "end", behavior: "smooth" });
+        if (index >= plan.source.length) {
+          window.clearInterval(timerId);
+          timerId = 0;
+          completeRef.current?.(entry.id);
+        }
+      }, plan.tickMs);
     };
 
-    timerId = window.setTimeout(tick, 160);
+    startTimerId = window.setTimeout(start, getClaraReplyDelay());
     return () => {
       cancelled = true;
-      window.clearTimeout(timerId);
+      if (startTimerId) window.clearTimeout(startTimerId);
+      if (timerId) window.clearInterval(timerId);
     };
   }, [entry?.id, fullText, shouldAnimate]);
 
@@ -437,9 +480,10 @@ function Composer({ phase, onSubmit, submitLocked = false }) {
 
   useEffect(() => {
     setDraft("");
+    if (submitLocked) return undefined;
     const frame = window.requestAnimationFrame(() => inputRef.current?.focus?.({ preventScroll: true }));
     return () => window.cancelAnimationFrame(frame);
-  }, [phase]);
+  }, [phase, submitLocked]);
 
   const submit = (event) => {
     event.preventDefault();
@@ -460,7 +504,8 @@ function Composer({ phase, onSubmit, submitLocked = false }) {
           ref={inputRef}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          className="min-w-0 flex-1 bg-transparent py-2 text-[14px] font-medium text-white outline-none placeholder:text-slate-400/72"
+          disabled={submitLocked}
+          className="min-w-0 flex-1 bg-transparent py-2 text-[14px] font-medium text-white outline-none placeholder:text-slate-400/72 disabled:opacity-45"
           placeholder={placeholder}
           inputMode={isMoney ? "decimal" : "text"}
           aria-label={placeholder}
@@ -501,6 +546,18 @@ function ChoiceBar({ phase, snapshot, onChoice, onClose, disabled = false }) {
   return null;
 }
 
+function mergeTrailingAssistant(messages, text) {
+  const list = Array.isArray(messages) ? messages : [];
+  const last = list[list.length - 1];
+  if (last?.role === "assistant") {
+    return [
+      ...list.slice(0, -1),
+      message("assistant", `${displayText(last.text)}\n\n${displayText(text)}`),
+    ];
+  }
+  return [...list, message("assistant", text)];
+}
+
 export default function ClaraWeeklyMoneyCheckOverlayV2({
   isActive = false,
   claraAssistantContext = {},
@@ -530,16 +587,22 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
   const [currentWalletIndex, setCurrentWalletIndex] = useState(0);
   const [reviewWalletIndex, setReviewWalletIndex] = useState(-1);
   const [typingMessageId, setTypingMessageId] = useState(null);
+  const [readLocked, setReadLocked] = useState(false);
   const previousActiveRef = useRef(false);
+  const readTimerRef = useRef(null);
+  const pendingReviewRef = useRef(null);
 
   const currentReviewSnapshot = reviewWalletIndex >= 0 ? snapshots[reviewWalletIndex] : null;
   const showComposer = ["wallet_entry", "forgotten_spend_detail", "other_detail"].includes(phase);
-  const interactionLocked = Boolean(typingMessageId);
+  const interactionLocked = Boolean(typingMessageId) || readLocked;
 
   useEffect(() => {
     const last = messages[messages.length - 1];
     if (last?.role === "assistant" && last?.animate !== false) {
       setTypingMessageId(last.id);
+      setReadLocked(false);
+      if (readTimerRef.current) window.clearTimeout(readTimerRef.current);
+      readTimerRef.current = null;
     } else {
       setTypingMessageId(null);
     }
@@ -578,7 +641,7 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
     const finalCopy = unexplainedAmount > DIFFERENCE_EPSILON
       ? `Done. I saved this Weekly Money Check. ${money(unexplainedAmount)} is still unexplained, and I left it that way instead of guessing. Nothing was deducted again during this check.`
       : `Done. I saved this Weekly Money Check. Everything we needed to cross-check now has an explanation, and nothing was deducted again during this check.`;
-    const completedMessages = [...nextMessages, message("assistant", finalCopy)];
+    const completedMessages = mergeTrailingAssistant(nextMessages, finalCopy);
     const badge = weeklyFlow.belowMeansAchieved
       ? {
           id: BELOW_MEANS_BADGE_ID,
@@ -687,10 +750,10 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
       return;
     }
 
-    const continuationMessages = [
-      ...nextMessages,
-      message("assistant", `Got it. I’ve saved that explanation for this week.\n\n${buildConcernCopy(nextSnapshots[nextIndex])}`),
-    ];
+    const continuationMessages = mergeTrailingAssistant(
+      nextMessages,
+      buildConcernCopy(nextSnapshots[nextIndex])
+    );
     setSnapshots(nextSnapshots);
     setMessages(continuationMessages);
     setReviewWalletIndex(nextIndex);
@@ -741,6 +804,10 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
       setCurrentWalletIndex(0);
       setReviewWalletIndex(-1);
       setTypingMessageId(null);
+      setReadLocked(false);
+      pendingReviewRef.current = null;
+      if (readTimerRef.current) window.clearTimeout(readTimerRef.current);
+      readTimerRef.current = null;
     }
 
     previousActiveRef.current = isActive;
@@ -754,6 +821,15 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
   }, [isActive, onClose]);
+
+  useEffect(
+    () => () => {
+      if (readTimerRef.current) window.clearTimeout(readTimerRef.current);
+      readTimerRef.current = null;
+      pendingReviewRef.current = null;
+    },
+    []
+  );
 
   if (!isActive) return null;
 
@@ -841,10 +917,11 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
       const responseCopy = nextIndex < nextSnapshots.length
         ? `Got it — your actual ${current.walletName} balance is ${money(actualBalance)}.\n\n${nextQuestionCopy(nextSnapshots[nextIndex])}`
         : `Got it — your actual ${current.walletName} balance is ${money(actualBalance)}. I’ve now checked all your wallets. Give me a second to compare the whole picture.`;
+      const responseMessage = message("assistant", responseCopy);
       const answeredMessages = [
         ...messages,
         message("user", money(actualBalance), { animate: false }),
-        message("assistant", responseCopy),
+        responseMessage,
       ];
 
       setSnapshots(nextSnapshots);
@@ -860,7 +937,18 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
           extra: { checkedWallets: nextIndex, totalWallets: nextSnapshots.length },
         });
       } else {
-        window.setTimeout(() => beginReview(nextSnapshots, answeredMessages), 600);
+        pendingReviewRef.current = {
+          messageId: responseMessage.id,
+          snapshots: nextSnapshots,
+          messages: answeredMessages,
+        };
+        persist({
+          phase: "wallet_entry",
+          messages: answeredMessages,
+          snapshots: nextSnapshots,
+          currentWalletIndex: nextIndex,
+          extra: { checkedWallets: nextIndex, totalWallets: nextSnapshots.length },
+        });
       }
       return true;
     }
@@ -946,14 +1034,31 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
     moveToNextDifference(nextSnapshots, [...userMessages, message("assistant", assistantCopy)]);
   };
 
+  const handleTypingComplete = (messageId) => {
+    if (messageId !== typingMessageId) return;
+    setTypingMessageId(null);
+    setReadLocked(true);
+    if (readTimerRef.current) window.clearTimeout(readTimerRef.current);
+    const pendingReview = pendingReviewRef.current;
+    readTimerRef.current = window.setTimeout(() => {
+      setReadLocked(false);
+      readTimerRef.current = null;
+      if (pendingReview?.messageId === messageId) {
+        pendingReviewRef.current = null;
+        beginReview(pendingReview.snapshots, pendingReview.messages);
+      }
+    }, getClaraReadDelay());
+  };
+
   return (
     <div
       className="fixed inset-0 z-[250] mx-auto flex w-full max-w-[430px] flex-col overflow-hidden bg-[#020714]/96 px-2 pb-[max(env(safe-area-inset-bottom),14px)] pt-[max(env(safe-area-inset-top),10px)] text-white"
-      data-clara-ai-brain-version="weekly-money-check-chat-v2-overview-typing"
+      data-clara-ai-brain-version="weekly-money-check-chat-v3-masterclass-pacing"
       data-clara-ai-layout-variant="weekly-money-check"
       data-clara-pause-overlay="true"
       data-clara-buy-check-react-owner="true"
       data-clara-weekly-money-check="true"
+      data-clara-conversation-pacing="masterclass"
     >
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_5%_4%,rgba(23,105,255,0.30),transparent_34%),radial-gradient(circle_at_52%_-8%,rgba(255,216,74,0.07),transparent_24%),radial-gradient(circle_at_96%_8%,rgba(229,57,69,0.18),transparent_34%),linear-gradient(180deg,#06152e_0%,#040b1a_44%,#020714_100%)]" />
 
@@ -976,9 +1081,7 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
               <MessageRow
                 key={entry.id || `${entry.role}-${index}`}
                 entry={entry}
-                onTypingComplete={(messageId) => {
-                  if (messageId === typingMessageId) setTypingMessageId(null);
-                }}
+                onTypingComplete={handleTypingComplete}
               />
             ))}
           </div>

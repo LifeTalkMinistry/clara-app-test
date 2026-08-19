@@ -30,14 +30,24 @@ test("planned spending branch explicitly avoids duplicate logging", () => {
   assert.match(overlaySource, /Show my planned list/);
 });
 
-test("Log Expense replies arrive conversationally instead of dumping static responses", () => {
-  assert.match(overlaySource, /function TypingBubble/);
-  assert.match(overlaySource, /data-clara-log-expense-typing="true"/);
-  assert.match(overlaySource, /runAssistantSequence/);
-  assert.match(overlaySource, /setPhase\("responding"\)/);
-  assert.match(overlaySource, /setAssistantTyping\(true\)/);
-  assert.match(overlaySource, /await wait\(responseDelay/);
-  assert.match(overlaySource, /append\(chatMessage\("user", "Scheduled \/ Planned"\)\)/);
+test("Log Expense uses the Emergency Fund Masterclass conversation rhythm", () => {
+  assert.match(overlaySource, /getClaraReplyDelay/);
+  assert.match(overlaySource, /getClaraTypingPlan/);
+  assert.match(overlaySource, /getClaraReadDelay/);
+  assert.match(overlaySource, /pendingMessage/);
+  assert.match(overlaySource, /typedText/);
+  assert.match(overlaySource, /data-clara-conversation-pacing="masterclass"/);
+  assert.doesNotMatch(overlaySource, /function TypingBubble/);
+  assert.doesNotMatch(overlaySource, /data-clara-log-expense-typing="true"/);
+});
+
+test("Log Expense hides controls until CLARA finishes typing and the reading window ends", () => {
+  assert.match(overlaySource, /setInteractionReady\(false\)/);
+  assert.match(overlaySource, /setInteractionReady\(true\)/);
+  assert.match(overlaySource, /controlsReady = interactionReady/);
+  assert.match(overlaySource, /phase === "planning-choice" && controlsReady/);
+  assert.match(overlaySource, /phase === "amount" && controlsReady/);
+  assert.match(overlaySource, /phase === "confirm" && controlsReady/);
 });
 
 test("unplanned spending reuses the atomic Buy Check expense repository", () => {

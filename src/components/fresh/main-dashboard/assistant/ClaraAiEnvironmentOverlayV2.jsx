@@ -1,8 +1,13 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, X } from "lucide-react";
 import useClaraBuyCheckFlow from "@/components/fresh/main-dashboard/assistant/useClaraBuyCheckFlow";
+import {
+  getClaraReadDelay,
+  getClaraReplyDelay,
+  getClaraTypingPlan,
+} from "@/lib/clara-conversation-pacing";
 
-const CLARA_AI_BRAIN_VERSION = "pause-react-owned-buy-check-v7-continuous-financial-conversation";
+const CLARA_AI_BRAIN_VERSION = "pause-react-owned-buy-check-v8-masterclass-pacing";
 
 const BUY_CHECK_ACKNOWLEDGMENTS = [
   "Good move—you paused before buying. Let’s see if it fits your money.",
@@ -27,6 +32,60 @@ function selectAcknowledgment(previousIndex = -1) {
     index = (index + 1) % BUY_CHECK_ACKNOWLEDGMENTS.length;
   }
   return { index, message: BUY_CHECK_ACKNOWLEDGMENTS[index] };
+}
+
+function CanonicalTypewriter({ text, onComplete, className = "", delayBeforeTyping = true }) {
+  const source = String(text || "");
+  const [visible, setVisible] = useState("");
+  const completeRef = useRef(onComplete);
+
+  useEffect(() => {
+    completeRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    const plan = getClaraTypingPlan(source);
+    let intervalId = 0;
+    let timeoutId = 0;
+    let cancelled = false;
+    let index = 0;
+
+    setVisible("");
+
+    const start = () => {
+      if (cancelled) return;
+      if (!plan.source) {
+        completeRef.current?.();
+        return;
+      }
+      intervalId = window.setInterval(() => {
+        if (cancelled) return;
+        index = Math.min(plan.source.length, index + plan.charsPerTick);
+        setVisible(plan.source.slice(0, index));
+        if (index >= plan.source.length) {
+          window.clearInterval(intervalId);
+          intervalId = 0;
+          completeRef.current?.();
+        }
+      }, plan.tickMs);
+    };
+
+    if (delayBeforeTyping) timeoutId = window.setTimeout(start, getClaraReplyDelay());
+    else start();
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) window.clearTimeout(timeoutId);
+      if (intervalId) window.clearInterval(intervalId);
+    };
+  }, [delayBeforeTyping, source]);
+
+  return (
+    <span className={className}>
+      {visible}
+      <span className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[2px] animate-pulse rounded-full bg-cyan-100/75" />
+    </span>
+  );
 }
 
 function FloatingCloseButton({ onClose }) {
@@ -59,7 +118,34 @@ function BuyCheckHeader({ onClose }) {
   );
 }
 
-function PauseEntryBoard({ acknowledgmentMessage }) {
+function PauseEntryBoard({ acknowledgmentMessage, pacingEnabled = true, onReadyChange }) {
+  const [ready, setReady] = useState(!pacingEnabled);
+  const readTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (!pacingEnabled) {
+      setReady(true);
+      onReadyChange?.(true);
+      return undefined;
+    }
+    setReady(false);
+    onReadyChange?.(false);
+    return () => {
+      if (readTimerRef.current) window.clearTimeout(readTimerRef.current);
+      readTimerRef.current = null;
+    };
+  }, [acknowledgmentMessage, pacingEnabled]);
+
+  const finishAcknowledgment = () => {
+    if (!pacingEnabled) return;
+    if (readTimerRef.current) window.clearTimeout(readTimerRef.current);
+    readTimerRef.current = window.setTimeout(() => {
+      setReady(true);
+      onReadyChange?.(true);
+      readTimerRef.current = null;
+    }, getClaraReadDelay());
+  };
+
   return (
     <section
       data-clara-pause-entry-board="true"
@@ -71,9 +157,17 @@ function PauseEntryBoard({ acknowledgmentMessage }) {
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_12%_0%,rgba(23,105,255,0.24),transparent_38%),radial-gradient(circle_at_94%_18%,rgba(229,57,69,0.13),transparent_38%),radial-gradient(circle_at_50%_100%,rgba(255,216,74,0.05),transparent_32%),linear-gradient(145deg,rgba(3,12,27,0.82),rgba(2,6,23,0.95))]" />
       <p className="text-[9px] font-black uppercase tracking-[0.22em] text-blue-200/52">BUY CHECK</p>
       <div className="mx-auto mt-4 flex min-h-[92px] max-w-[318px] items-center justify-center rounded-[22px] border border-blue-200/12 bg-black/20 px-5 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
-        <p className="text-[16px] font-extrabold leading-[1.48] text-white/94">{acknowledgmentMessage}</p>
+        <p className="text-[16px] font-extrabold leading-[1.48] text-white/94">
+          {pacingEnabled ? (
+            <CanonicalTypewriter text={acknowledgmentMessage} onComplete={finishAcknowledgment} />
+          ) : acknowledgmentMessage}
+        </p>
       </div>
-      <div data-clara-buy-check-active-question="true" aria-live="polite" className="mx-auto mt-5 max-w-[318px] text-center">
+      <div
+        data-clara-buy-check-active-question="true"
+        aria-live="polite"
+        className={`mx-auto mt-5 max-w-[318px] text-center transition-opacity duration-300 ${ready ? "opacity-100" : "pointer-events-none opacity-0"}`}
+      >
         <strong className="block text-[16px] font-black leading-[1.4] text-white/95">What do you want to buy?</strong>
         <span className="mt-1.5 block text-[12px] font-semibold leading-[1.55] text-slate-300/72">Type the exact item for us to start.</span>
         <span className="mt-1 block text-[11.5px] font-extrabold leading-[1.5] text-[#ffd84a]/82">Example: Running shoes</span>
@@ -272,7 +366,7 @@ function placeholderFor(step) {
   return "Talk to CLARA naturally about the purchase";
 }
 
-const BuyCheckMessageRow = memo(function BuyCheckMessageRow({ role, text }) {
+const BuyCheckMessageRow = memo(function BuyCheckMessageRow({ role, text, animate = false, onTypingComplete }) {
   const isUser = role === "user";
   const isThinking = !isUser && !clean(text);
   const userBubble = "max-w-[86%] rounded-[24px] border border-blue-300/22 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] px-4 py-3 text-[13px] font-semibold leading-5 text-white shadow-[0_12px_28px_rgba(23,105,255,0.20)]";
@@ -293,7 +387,11 @@ const BuyCheckMessageRow = memo(function BuyCheckMessageRow({ role, text }) {
   return (
     <div className={`flex min-w-0 w-full ${isUser ? "justify-end" : "justify-start"}`}>
       <div className={`min-w-0 break-words [overflow-wrap:break-word] ${isUser ? userBubble : claraBubble}`}>
-        <span className="whitespace-pre-wrap">{text}</span>
+        <span className="whitespace-pre-wrap">
+          {!isUser && animate ? (
+            <CanonicalTypewriter text={text} onComplete={onTypingComplete} />
+          ) : text}
+        </span>
       </div>
     </div>
   );
@@ -404,7 +502,12 @@ export default function ClaraAiEnvironmentOverlay({
   const acknowledgmentSessionRef = useRef({ active: false, sessionId: "", index: -1, message: "" });
   const previousActiveRef = useRef(false);
   const resultFocusRef = useRef(null);
+  const readTimerRef = useRef(null);
+  const [entryReady, setEntryReady] = useState(false);
+  const [completedAssistantIds, setCompletedAssistantIds] = useState(() => new Set());
+  const [readReady, setReadReady] = useState(true);
   const isGuidePreview = layoutVariant === "guide-preview";
+  const pacingEnabled = !isGuidePreview;
   const ownedFlow = useClaraBuyCheckFlow({ assistantContext: claraAssistantContext });
 
   useEffect(() => {
@@ -431,8 +534,6 @@ export default function ClaraAiEnvironmentOverlay({
   const step = activeState?.step || "conversation";
   const busy = Boolean(activeState?.busy || finalDecision?.busy);
   const finalDecisionLocksConversation = Boolean(finalDecision && ["explain", "resolved"].includes(finalDecision.phase));
-  const inputLocked = Boolean(activeState && (step === "confirm" || finalDecisionLocksConversation));
-  const showComposer = step !== "confirm" && !finalDecisionLocksConversation;
   const resultMode = step === "complete";
 
   if (isActive && (!acknowledgmentSessionRef.current.active || acknowledgmentSessionRef.current.sessionId !== sessionId)) {
@@ -448,6 +549,27 @@ export default function ClaraAiEnvironmentOverlay({
     [activeMessages],
   );
 
+  const lastVisibleMessage = visibleMessages[visibleMessages.length - 1] || null;
+  const lastVisibleText = clean(lastVisibleMessage?.text || lastVisibleMessage?.content || "");
+  const pacingMessageId = pacingEnabled && lastVisibleMessage?.role !== "user" && lastVisibleText && !completedAssistantIds.has(lastVisibleMessage?.id)
+    ? lastVisibleMessage?.id
+    : "";
+  const pacingLocked = pacingEnabled && (Boolean(pacingMessageId) || !readReady);
+  const inputLocked = Boolean(activeState && (step === "confirm" || finalDecisionLocksConversation || pacingLocked));
+  const baseShowComposer = step !== "confirm" && !finalDecisionLocksConversation;
+  const openingReady = !pacingEnabled || entryReady;
+  const showComposer = baseShowComposer && !pacingLocked && (visibleMessages.length > 0 || openingReady);
+
+  useEffect(() => {
+    if (!pacingEnabled) return undefined;
+    if (readTimerRef.current) window.clearTimeout(readTimerRef.current);
+    readTimerRef.current = null;
+    setCompletedAssistantIds(new Set());
+    setReadReady(true);
+    setEntryReady(false);
+    return undefined;
+  }, [isActive, pacingEnabled, sessionId]);
+
   useEffect(() => {
     if (!isActive) return undefined;
     const handleEscape = (event) => {
@@ -459,18 +581,43 @@ export default function ClaraAiEnvironmentOverlay({
   }, [isActive, onClose]);
 
   useEffect(() => {
-    if (!isActive || !resultMode || !finalDecisionLocksConversation) return undefined;
+    if (!isActive || !resultMode || !finalDecisionLocksConversation || pacingLocked) return undefined;
     const activeElement = document.activeElement;
     if (activeElement instanceof HTMLElement) activeElement.blur();
     const frame = window.requestAnimationFrame(() => {
       resultFocusRef.current?.scrollIntoView?.({ behavior: "auto", block: "start" });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [finalDecision?.phase, finalDecisionLocksConversation, isActive, resultMode]);
+  }, [finalDecision?.phase, finalDecisionLocksConversation, isActive, pacingLocked, resultMode]);
+
+  useEffect(
+    () => () => {
+      if (readTimerRef.current) window.clearTimeout(readTimerRef.current);
+      readTimerRef.current = null;
+    },
+    []
+  );
 
   if (!isActive) return null;
 
-  const showFinalDecisionPanel = Boolean(finalDecision && ["explain", "resolved"].includes(finalDecision.phase));
+  const handleAssistantTypingComplete = (messageId) => {
+    setCompletedAssistantIds((current) => {
+      const next = new Set(current);
+      next.add(messageId);
+      return next;
+    });
+    setReadReady(false);
+    if (readTimerRef.current) window.clearTimeout(readTimerRef.current);
+    readTimerRef.current = window.setTimeout(() => {
+      setReadReady(true);
+      readTimerRef.current = null;
+    }, getClaraReadDelay());
+  };
+
+  const showFinalDecisionPanel = Boolean(
+    finalDecision && ["explain", "resolved"].includes(finalDecision.phase) && !pacingLocked
+  );
+  const actionBarVisible = !pacingLocked && (visibleMessages.length > 0 || openingReady);
 
   return (
     <div
@@ -480,6 +627,7 @@ export default function ClaraAiEnvironmentOverlay({
       data-clara-pause-overlay="true"
       data-clara-buy-check-react-owner="true"
       data-clara-buy-check-result-mode={resultMode ? "true" : "false"}
+      data-clara-conversation-pacing={pacingEnabled ? "masterclass" : "preview"}
     >
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_5%_4%,rgba(23,105,255,0.30),transparent_34%),radial-gradient(circle_at_52%_-8%,rgba(255,216,74,0.07),transparent_24%),radial-gradient(circle_at_96%_8%,rgba(229,57,69,0.18),transparent_34%),linear-gradient(180deg,#06152e_0%,#040b1a_44%,#020714_100%)]" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-[54%] bg-[linear-gradient(180deg,rgba(2,7,20,0)_0%,rgba(2,7,20,0.72)_22%,rgba(2,7,20,0.96)_100%)]" />
@@ -495,13 +643,19 @@ export default function ClaraAiEnvironmentOverlay({
             data-clara-ai-message-stack="true"
             className={`flex min-h-full min-w-0 flex-col justify-start gap-3 px-2 pt-1 ${showComposer ? "pb-28" : "pb-5"}`}
           >
-            {visibleMessages.map((message, index) => (
-              <BuyCheckMessageRow
-                key={message.id || `${message.role || "message"}-${index}`}
-                role={message.role}
-                text={clean(message.text || message.content || "")}
-              />
-            ))}
+            {visibleMessages.map((message, index) => {
+              const text = clean(message.text || message.content || "");
+              const animate = Boolean(pacingMessageId && message.id === pacingMessageId);
+              return (
+                <BuyCheckMessageRow
+                  key={message.id || `${message.role || "message"}-${index}`}
+                  role={message.role}
+                  text={text}
+                  animate={animate}
+                  onTypingComplete={() => handleAssistantTypingComplete(message.id)}
+                />
+              );
+            })}
 
             {showFinalDecisionPanel ? (
               <div ref={resultFocusRef} data-clara-buy-check-result-focus="true" className="mt-3 border-t border-blue-200/10 pt-3">
@@ -519,27 +673,33 @@ export default function ClaraAiEnvironmentOverlay({
           </div>
         ) : (
           <div className="flex min-h-full flex-col justify-center px-1 pb-24 pt-3">
-            <PauseEntryBoard acknowledgmentMessage={acknowledgmentSessionRef.current.message || BUY_CHECK_ACKNOWLEDGMENTS[0]} />
+            <PauseEntryBoard
+              acknowledgmentMessage={acknowledgmentSessionRef.current.message || BUY_CHECK_ACKNOWLEDGMENTS[0]}
+              pacingEnabled={pacingEnabled}
+              onReadyChange={setEntryReady}
+            />
           </div>
         )}
       </main>
 
-      <ActionBar
-        step={step}
-        busy={busy}
-        finalDecision={finalDecision}
-        onConfirm={confirmBuyCheck}
-        onDecline={declineBuyCheck}
-        onAskMore={askMoreBuyCheck}
-        onCheckAnother={checkAnother}
-        onClose={onClose}
-      />
+      {actionBarVisible ? (
+        <ActionBar
+          step={step}
+          busy={busy || pacingLocked}
+          finalDecision={finalDecision}
+          onConfirm={confirmBuyCheck}
+          onDecline={declineBuyCheck}
+          onAskMore={askMoreBuyCheck}
+          onCheckAnother={checkAnother}
+          onClose={onClose}
+        />
+      ) : null}
 
       {showComposer ? (
         <BuyCheckComposer
           isActive={isActive}
           inputLocked={inputLocked}
-          busy={busy}
+          busy={busy || pacingLocked}
           step={step}
           submitAnswer={submitAnswer}
           presetDraft={composerPresetDraft}
