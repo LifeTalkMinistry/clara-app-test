@@ -105,11 +105,6 @@ export default function ClaraAiEnvironmentOverlay(props) {
 
     return (
       <>
-        <style>{`
-          [data-clara-weekly-money-check="true"] > header {
-            display: none !important;
-          }
-        `}</style>
         <ClaraWeeklyMoneyCheckOverlay
           {...props}
           claraAssistantContext={enrichedAssistantContext}
