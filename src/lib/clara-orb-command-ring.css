@@ -52,3 +52,17 @@
     display: none !important;
   }
 }
+
+/*
+ * Log Expense is a CLARA chat flow, not a top-stacked form. When the transcript
+ * is still short, keep the conversation naturally lower in the available chat
+ * viewport with the same kind of breathing room as CLARA's normal opening
+ * state. As messages grow beyond the viewport, min-height/overflow ownership
+ * remains unchanged and the conversation scrolls normally.
+ */
+[data-clara-log-expense-chat="true"]
+  [data-clara-ai-message-viewport="true"]
+  > div {
+  justify-content: flex-end;
+  padding-bottom: clamp(72px, 11vh, 96px);
+}
