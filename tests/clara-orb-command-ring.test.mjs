@@ -9,10 +9,11 @@ import {
   getOrbCommandDeadZone,
   getOrbCommandRadius,
   getOrbCommandTarget,
-  getOrbCommandVisualRadiusMultiplier,
 } from "../src/lib/clara-orb-command-ring.js";
 
 const orbPage = fs.readFileSync("src/components/community/ClaraOrbPage.jsx", "utf8");
+const orbCommandRing = fs.readFileSync("src/lib/clara-orb-command-ring.js", "utf8");
+const orbCommandRingCss = fs.readFileSync("src/lib/clara-orb-command-ring.css", "utf8");
 
 test("ORB command ring exposes exactly the nine product command categories", () => {
   assert.deepEqual(
@@ -89,28 +90,13 @@ test("responsive geometry keeps the ring bounded without changing command identi
   assert.ok(radius >= 92 && radius <= 158);
 });
 
-test("command labels receive geometry-derived clearance away from the Orb", () => {
-  const top = getOrbCommandVisualRadiusMultiplier(-90, "Log Expense");
-  const upperRight = getOrbCommandVisualRadiusMultiplier(-50, "Add Income");
-  const right = getOrbCommandVisualRadiusMultiplier(0, "Wallet");
-  const lower = getOrbCommandVisualRadiusMultiplier(90, "Wallet");
-  const wideUpperLeft = getOrbCommandVisualRadiusMultiplier(230, "Weekly Cross-Check");
-
-  assert.ok(top > 1);
-  assert.ok(upperRight > 1);
-  assert.ok(wideUpperLeft > top);
-  assert.ok(right >= 1);
-  assert.equal(lower, 1);
-
-  const logExpense = CLARA_ORB_COMMANDS.find((command) => command.id === "log-expense");
-  const addIncome = CLARA_ORB_COMMANDS.find((command) => command.id === "add-income");
-  const weeklyCrossCheck = CLARA_ORB_COMMANDS.find(
-    (command) => command.id === "weekly-cross-check"
-  );
-
-  assert.ok(logExpense.radius >= 1.19);
-  assert.ok(addIncome.radius >= 1.2);
-  assert.ok(weeklyCrossCheck.radius >= 1.27);
+test("label clearance does not move the command circles off their bounded ring", () => {
+  assert.ok(CLARA_ORB_COMMANDS.every((command) => command.radius === 1));
+  assert.match(orbCommandRing, /import\(["']\.\/clara-orb-command-ring\.css["']\)/);
+  assert.match(orbCommandRingCss, /data-clara-orb-command-id="log-expense"/);
+  assert.match(orbCommandRingCss, /data-clara-orb-command-id="add-income"/);
+  assert.match(orbCommandRingCss, /data-clara-orb-command-id="weekly-cross-check"/);
+  assert.match(orbCommandRingCss, /data-clara-orb-command-id="debt-obligation"/);
 });
 
 test("production Orb preserves tap behavior while adding pointer-driven hold selection", () => {
