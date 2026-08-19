@@ -115,7 +115,7 @@ function simplifyLogExpenseHeader(overlay) {
   if (title) {
     title.textContent = "Log Expense";
     title.style.position = "absolute";
-    title.style.inset = "0 64px";
+    title.style.inset = "0 76px";
     title.style.display = "flex";
     title.style.alignItems = "center";
     title.style.justifyContent = "center";
@@ -128,10 +128,10 @@ function simplifyLogExpenseHeader(overlay) {
   }
 
   if (closeButton) {
-    closeButton.style.right = "18px";
+    closeButton.style.right = "28px";
     closeButton.style.top = "50%";
-    closeButton.style.width = "34px";
-    closeButton.style.height = "34px";
+    closeButton.style.width = "30px";
+    closeButton.style.height = "30px";
     closeButton.style.transform = "translateY(-50%)";
   }
 }
