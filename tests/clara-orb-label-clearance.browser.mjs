@@ -110,77 +110,109 @@ try {
       const action = document.querySelector(`[data-clara-orb-command-id="${commandId}"]`);
       const label = action?.querySelector(".clara-orb-command-action-label");
       const status = document.querySelector(".clara-orb-status-copy p");
-      if (!orb || !label) return null;
+      if (!orb || !action) return null;
 
-      const labelRect = label.getBoundingClientRect();
+      const labelRect = label?.getBoundingClientRect() || null;
+      const labelVisible = Boolean(
+        label &&
+          getComputedStyle(label).display !== "none" &&
+          labelRect &&
+          labelRect.width > 0 &&
+          labelRect.height > 0
+      );
+
       const orbCenter = {
         x: orb.left + orb.width / 2,
         y: orb.top + orb.height / 2,
       };
       const protectedRadius = orb.width * (117 / 320);
-      const nearestX = Math.max(labelRect.left, Math.min(orbCenter.x, labelRect.right));
-      const nearestY = Math.max(labelRect.top, Math.min(orbCenter.y, labelRect.bottom));
-      const nearestDistance = Math.hypot(nearestX - orbCenter.x, nearestY - orbCenter.y);
-      const collisionPadding = 3;
-      const commandCollisions = [...document.querySelectorAll('[data-clara-orb-command-id]')]
-        .filter((node) => node !== action)
-        .map((node) => {
-          const rect = node.getBoundingClientRect();
-          const overlaps = !(
-            labelRect.right + collisionPadding <= rect.left ||
-            labelRect.left - collisionPadding >= rect.right ||
-            labelRect.bottom + collisionPadding <= rect.top ||
-            labelRect.top - collisionPadding >= rect.bottom
-          );
-          return overlaps ? node.dataset.claraOrbCommandId : null;
-        })
-        .filter(Boolean);
+      let nearestDistance = Number.POSITIVE_INFINITY;
+      let commandCollisions = [];
+
+      if (labelVisible && labelRect) {
+        const nearestX = Math.max(labelRect.left, Math.min(orbCenter.x, labelRect.right));
+        const nearestY = Math.max(labelRect.top, Math.min(orbCenter.y, labelRect.bottom));
+        nearestDistance = Math.hypot(nearestX - orbCenter.x, nearestY - orbCenter.y);
+        const collisionPadding = 3;
+        commandCollisions = [...document.querySelectorAll('[data-clara-orb-command-id]')]
+          .filter((node) => node !== action)
+          .map((node) => {
+            const rect = node.getBoundingClientRect();
+            const overlaps = !(
+              labelRect.right + collisionPadding <= rect.left ||
+              labelRect.left - collisionPadding >= rect.right ||
+              labelRect.bottom + collisionPadding <= rect.top ||
+              labelRect.top - collisionPadding >= rect.bottom
+            );
+            return overlaps ? node.dataset.claraOrbCommandId : null;
+          })
+          .filter(Boolean);
+      }
 
       return {
-        selected: action?.dataset.selected === "true",
+        selected: action.dataset.selected === "true",
         statusText: status?.textContent?.trim() || "",
+        labelVisible,
         nearestDistance,
         protectedRadius,
         commandCollisions,
         viewportWidth: window.innerWidth,
         viewportHeight: window.innerHeight,
-        labelRect: {
-          left: labelRect.left,
-          top: labelRect.top,
-          right: labelRect.right,
-          bottom: labelRect.bottom,
-        },
+        labelRect: labelRect
+          ? {
+              left: labelRect.left,
+              top: labelRect.top,
+              right: labelRect.right,
+              bottom: labelRect.bottom,
+            }
+          : null,
       };
     }, id);
 
-    assert.ok(geometry, `expected selected label for ${id} at ${width}px`);
+    assert.ok(geometry, `expected selected command geometry for ${id} at ${width}px`);
     assert.equal(geometry.selected, true, `${id} must be the selected command at ${width}px`);
     assert.ok(geometry.statusText.length > 0, `${id} must keep a visible status label at ${width}px`);
-    assert.ok(
-      geometry.nearestDistance > geometry.protectedRadius,
-      `${id} label entered Orb protected zone at ${width}px: ${JSON.stringify(geometry)}`
-    );
-    assert.deepEqual(
-      geometry.commandCollisions,
-      [],
-      `${id} label overlapped another command icon at ${width}px: ${JSON.stringify(geometry)}`
-    );
-    assert.ok(
-      geometry.labelRect.left >= -0.5,
-      `${id} label overflowed the left viewport edge at ${width}px`
-    );
-    assert.ok(
-      geometry.labelRect.right <= geometry.viewportWidth + 0.5,
-      `${id} label overflowed the right viewport edge at ${width}px`
-    );
-    assert.ok(
-      geometry.labelRect.top >= -0.5,
-      `${id} label overflowed the top viewport edge at ${width}px`
-    );
-    assert.ok(
-      geometry.labelRect.bottom <= geometry.viewportHeight + 0.5,
-      `${id} label overflowed the bottom viewport edge at ${width}px`
-    );
+
+    const compactWeeklyUsesStatusOnly = id === "weekly-cross-check" && width <= 340;
+    if (compactWeeklyUsesStatusOnly) {
+      assert.equal(
+        geometry.labelVisible,
+        false,
+        "compact Weekly Cross-Check must avoid duplicate local label collisions"
+      );
+      assert.equal(
+        geometry.statusText,
+        "Weekly Cross-Check",
+        "compact Weekly Cross-Check must retain its canonical top status"
+      );
+    } else {
+      assert.equal(geometry.labelVisible, true, `expected selected label for ${id} at ${width}px`);
+      assert.ok(
+        geometry.nearestDistance > geometry.protectedRadius,
+        `${id} label entered Orb protected zone at ${width}px: ${JSON.stringify(geometry)}`
+      );
+      assert.deepEqual(
+        geometry.commandCollisions,
+        [],
+        `${id} label overlapped another command icon at ${width}px: ${JSON.stringify(geometry)}`
+      );
+      assert.ok(
+        geometry.labelRect.left >= -0.5,
+        `${id} label overflowed the left viewport edge at ${width}px`
+      );
+      assert.ok(
+        geometry.labelRect.right <= geometry.viewportWidth + 0.5,
+        `${id} label overflowed the right viewport edge at ${width}px`
+      );
+      assert.ok(
+        geometry.labelRect.top >= -0.5,
+        `${id} label overflowed the top viewport edge at ${width}px`
+      );
+      assert.ok(
+        geometry.labelRect.bottom <= geometry.viewportHeight + 0.5,
+        `${id} label overflowed the bottom viewport edge at ${width}px`
+      );
+    }
 
     if (
       id === "log-expense" ||
@@ -202,7 +234,7 @@ try {
     await page.close();
   }
 
-  console.log("CLARA Orb label-clearance browser verification passed with command-to-label collision checks.");
+  console.log("CLARA Orb label-clearance browser verification passed with compact status handling.");
 } finally {
   await browser.close();
 }
