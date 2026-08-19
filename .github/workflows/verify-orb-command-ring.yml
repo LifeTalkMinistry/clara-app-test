@@ -1,0 +1,67 @@
+name: Verify CLARA Orb Command Ring
+
+on:
+  pull_request:
+    paths:
+      - "src/components/community/ClaraOrbPage.jsx"
+      - "src/lib/clara-orb-command-ring.js"
+      - "src/lib/claraHaptics.js"
+      - "tests/clara-orb-command-ring.browser.mjs"
+      - "tests/fixtures/clara-orb-command-ring.html"
+      - "tests/fixtures/clara-orb-command-ring-harness.jsx"
+      - ".github/workflows/verify-orb-command-ring.yml"
+  workflow_dispatch:
+
+jobs:
+  verify-browser-gesture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install application dependencies
+        run: npm ci
+
+      - name: Install browser driver without changing app dependencies
+        run: npm install --no-save --package-lock=false puppeteer-core@24.16.0
+
+      - name: Start isolated Vite harness
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4173 > /tmp/clara-orb-vite.log 2>&1 &
+          echo $! > /tmp/clara-orb-vite.pid
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:4173/tests/fixtures/clara-orb-command-ring.html > /dev/null; then
+              exit 0
+            fi
+            sleep 0.5
+          done
+          cat /tmp/clara-orb-vite.log
+          exit 1
+
+      - name: Exercise real Orb hold-drag-release interaction
+        run: |
+          CHROME_PATH="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$CHROME_PATH" ]; then
+            echo "No Chromium-compatible browser was found on the runner."
+            exit 1
+          fi
+          CHROME_PATH="$CHROME_PATH" node tests/clara-orb-command-ring.browser.mjs
+
+      - name: Upload Orb verification screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clara-orb-command-ring-browser-verification
+          path: |
+            artifacts/orb-command-*.png
+            /tmp/clara-orb-vite.log
+          if-no-files-found: warn
+          retention-days: 5
