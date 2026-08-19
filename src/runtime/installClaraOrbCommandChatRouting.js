@@ -101,7 +101,6 @@ function simplifyLogExpenseHeader(overlay) {
 
   const title = header.querySelector("h1");
   const supportingCopy = header.querySelectorAll("p");
-  const closeButton = header.querySelector('button[aria-label="Close Log Expense"]');
 
   supportingCopy.forEach((element) => {
     element.hidden = true;
@@ -125,14 +124,6 @@ function simplifyLogExpenseHeader(overlay) {
     title.style.lineHeight = "1";
     title.style.letterSpacing = "-0.02em";
     title.style.pointerEvents = "none";
-  }
-
-  if (closeButton) {
-    closeButton.style.right = "28px";
-    closeButton.style.top = "50%";
-    closeButton.style.width = "30px";
-    closeButton.style.height = "30px";
-    closeButton.style.transform = "translateY(-50%)";
   }
 }
 
