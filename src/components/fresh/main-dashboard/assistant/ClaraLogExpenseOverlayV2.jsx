@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, X } from "lucide-react";
 import { addBuyCheckExpense } from "@/lib/clara-buy-check-expense-repository";
 import {
@@ -82,6 +82,22 @@ function Bubble({ role, children }) {
   );
 }
 
+function TypingBubble() {
+  return (
+    <div className="flex justify-start" data-clara-log-expense-typing="true" aria-label="CLARA is typing">
+      <div className="flex h-10 items-center gap-1.5 rounded-[20px] rounded-tl-[7px] border border-blue-200/12 bg-[#0a1933]/94 px-4 shadow-[0_12px_28px_rgba(0,0,0,0.20)]">
+        {[0, 1, 2].map((index) => (
+          <span
+            key={index}
+            className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-100/68"
+            style={{ animationDelay: `${index * 120}ms`, animationDuration: "850ms" }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ChoiceButton({ children, onClick, disabled = false, secondary = false }) {
   return (
     <button
@@ -144,6 +160,7 @@ export default function ClaraLogExpenseOverlayV2({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [showPlannedList, setShowPlannedList] = useState(false);
+  const [assistantTyping, setAssistantTyping] = useState(false);
   const [messages, setMessages] = useState(() => [
     chatMessage("assistant", `Hi ${firstName}! 👋`),
     chatMessage(
@@ -152,6 +169,8 @@ export default function ClaraLogExpenseOverlayV2({
     ),
   ]);
   const viewportRef = useRef(null);
+  const timerIdsRef = useRef(new Set());
+  const conversationTokenRef = useRef(0);
 
   const walletOptions = useMemo(
     () => getWalletOptions(claraAssistantContext, amount),
@@ -166,39 +185,122 @@ export default function ClaraLogExpenseOverlayV2({
     [claraAssistantContext?.budgets]
   );
 
-  if (!isActive) return null;
-
-  const append = (...nextMessages) => {
-    setMessages((current) => [...current, ...nextMessages]);
+  const scrollToLatest = () => {
+    if (typeof window === "undefined") return;
     window.requestAnimationFrame(() => {
       const viewport = viewportRef.current;
       if (viewport) viewport.scrollTop = viewport.scrollHeight;
     });
   };
 
+  const append = (...nextMessages) => {
+    setMessages((current) => [...current, ...nextMessages]);
+    scrollToLatest();
+  };
+
+  const wait = (milliseconds) =>
+    new Promise((resolve) => {
+      const id = window.setTimeout(() => {
+        timerIdsRef.current.delete(id);
+        resolve();
+      }, milliseconds);
+      timerIdsRef.current.add(id);
+    });
+
+  const cancelPendingReplies = () => {
+    conversationTokenRef.current += 1;
+    timerIdsRef.current.forEach((id) => window.clearTimeout(id));
+    timerIdsRef.current.clear();
+    setAssistantTyping(false);
+  };
+
+  const responseDelay = (text, index) => {
+    const readingWeight = Math.min(clean(text).length * 4, 480);
+    return 520 + readingWeight + index * 80;
+  };
+
+  const runAssistantSequence = async (replyTexts, nextPhase) => {
+    const replies = replyTexts.map((text) => clean(text)).filter(Boolean);
+    if (!replies.length) {
+      setPhase(nextPhase);
+      return true;
+    }
+
+    const token = ++conversationTokenRef.current;
+    setPhase("responding");
+    setAssistantTyping(true);
+    scrollToLatest();
+
+    for (let index = 0; index < replies.length; index += 1) {
+      await wait(responseDelay(replies[index], index));
+      if (token !== conversationTokenRef.current) return false;
+
+      append(chatMessage("assistant", replies[index]));
+      setAssistantTyping(false);
+
+      if (index < replies.length - 1) {
+        await wait(260);
+        if (token !== conversationTokenRef.current) return false;
+        setAssistantTyping(true);
+        scrollToLatest();
+      }
+    }
+
+    if (token !== conversationTokenRef.current) return false;
+    setPhase(nextPhase);
+    return true;
+  };
+
+  useEffect(
+    () => () => {
+      conversationTokenRef.current += 1;
+      timerIdsRef.current.forEach((id) => window.clearTimeout(id));
+      timerIdsRef.current.clear();
+    },
+    []
+  );
+
+  if (!isActive) return null;
+
+  const closeChat = () => {
+    cancelPendingReplies();
+    onClose?.();
+  };
+
   const choosePlanned = () => {
-    setPhase("planned");
     setError("");
-    append(
-      chatMessage("user", "Scheduled / Planned"),
-      chatMessage(
-        "assistant",
-        "If this was already part of your planned budget or scheduled money setup, you don’t have to log it again. CLARA already has that plan accounted for, so logging it here could count it twice."
-      ),
-      chatMessage(
-        "assistant",
-        "I can remind you of the budget items you already set up. Want to see your current planned list?"
-      )
+    setShowPlannedList(false);
+    append(chatMessage("user", "Scheduled / Planned"));
+    void runAssistantSequence(
+      [
+        "If this was already part of your planned budget or scheduled money setup, you don’t have to log it again. CLARA already has that plan accounted for, so logging it here could count it twice.",
+        "I can remind you of the budget items you already set up. Want to see your current planned list?",
+      ],
+      "planned"
     );
   };
 
   const chooseUnplanned = () => {
-    setPhase("amount");
     setError("");
-    append(
-      chatMessage("user", "Unplanned Spending"),
-      chatMessage("assistant", "Got it — this was unplanned spending. How much did you spend?")
+    append(chatMessage("user", "Unplanned Spending"));
+    void runAssistantSequence(
+      ["Got it — this was unplanned spending. How much did you spend?"],
+      "amount"
     );
+  };
+
+  const showCurrentPlannedList = async () => {
+    setError("");
+    setShowPlannedList(false);
+    append(chatMessage("user", "Show my planned list"));
+    const completed = await runAssistantSequence(
+      ["Sure. Here’s the planned budget setup I currently have for you."],
+      "planned"
+    );
+    if (completed) {
+      setShowPlannedList(true);
+      scrollToLatest();
+    }
   };
 
   const submitAmount = () => {
@@ -208,37 +310,30 @@ export default function ClaraLogExpenseOverlayV2({
       return;
     }
     setAmount(parsed);
-    setPhase("item");
+    setAmountInput("");
     setError("");
-    append(
-      chatMessage("user", money(parsed)),
-      chatMessage("assistant", "What was this expense for?")
-    );
+    append(chatMessage("user", money(parsed)));
+    void runAssistantSequence(["What was this expense for?"], "item");
   };
 
   const submitItem = () => {
     const nextItem = clean(itemInput);
     if (!nextItem) return;
     setItem(nextItem);
-    setPhase("wallet");
+    setItemInput("");
     setError("");
-    append(
-      chatMessage("user", nextItem),
-      chatMessage("assistant", "Which wallet did you use?")
-    );
+    append(chatMessage("user", nextItem));
+    void runAssistantSequence(["Which wallet did you use?"], "wallet");
   };
 
   const chooseWallet = (wallet) => {
     if (!wallet?.id || !wallet?.enough) return;
     setWalletId(wallet.id);
-    setPhase("confirm");
     setError("");
-    append(
-      chatMessage("user", wallet.name),
-      chatMessage(
-        "assistant",
-        `Just to confirm — log ${money(amount)} for ${item} from ${wallet.name} as unplanned spending?`
-      )
+    append(chatMessage("user", wallet.name));
+    void runAssistantSequence(
+      [`Just to confirm — log ${money(amount)} for ${item} from ${wallet.name} as unplanned spending?`],
+      "confirm"
     );
   };
 
@@ -250,8 +345,14 @@ export default function ClaraLogExpenseOverlayV2({
       return;
     }
 
+    const token = ++conversationTokenRef.current;
     setBusy(true);
     setError("");
+    setPhase("responding");
+    append(chatMessage("user", "Yes, log it"));
+    setAssistantTyping(true);
+    scrollToLatest();
+    const minimumReplyDelay = wait(680);
 
     try {
       const localUserId = clean(user?.id || user?.email || "local-user");
@@ -271,23 +372,33 @@ export default function ClaraLogExpenseOverlayV2({
         syncStatus: "local_only",
       });
 
+      await minimumReplyDelay;
+      if (token !== conversationTokenRef.current) return;
+
       dispatchFinanceUpdates();
-      setPhase("done");
+      setAssistantTyping(false);
       append(
-        chatMessage("user", "Yes, log it"),
         chatMessage(
           "assistant",
           `${money(amount)} for ${item} has been logged as unplanned spending and deducted from ${wallet.name}.`
         )
       );
+      setPhase("done");
     } catch (nextError) {
-      setError(clean(nextError?.message || "I couldn’t log that expense. Please try again."));
+      await minimumReplyDelay;
+      if (token !== conversationTokenRef.current) return;
+      setAssistantTyping(false);
+      const message = clean(nextError?.message || "I couldn’t log that expense. Please try again.");
+      append(chatMessage("assistant", message));
+      setError(message);
+      setPhase("confirm");
     } finally {
-      setBusy(false);
+      if (token === conversationTokenRef.current) setBusy(false);
     }
   };
 
   const resetFlow = () => {
+    cancelPendingReplies();
     setPhase("planning-choice");
     setAmountInput("");
     setAmount(0);
@@ -323,7 +434,7 @@ export default function ClaraLogExpenseOverlayV2({
         <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-100/42">Check · Record · Stay accurate</p>
         <button
           type="button"
-          onClick={onClose}
+          onClick={closeChat}
           className="absolute right-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full border border-blue-100/28 bg-[#07152d]/86 text-white/88 transition active:scale-95"
           aria-label="Close Log Expense"
         >
@@ -341,6 +452,8 @@ export default function ClaraLogExpenseOverlayV2({
             <Bubble key={entry.id} role={entry.role}>{entry.text}</Bubble>
           ))}
 
+          {assistantTyping ? <TypingBubble /> : null}
+
           {phase === "planning-choice" ? (
             <div className="mt-1 grid gap-2.5">
               <ChoiceButton onClick={choosePlanned}>Scheduled / Planned</ChoiceButton>
@@ -350,8 +463,10 @@ export default function ClaraLogExpenseOverlayV2({
 
           {phase === "planned" ? (
             <div className="mt-1 grid gap-2.5">
-              <ChoiceButton onClick={() => setShowPlannedList(true)}>Show my planned list</ChoiceButton>
-              <ChoiceButton onClick={onClose} secondary>Done</ChoiceButton>
+              {!showPlannedList ? (
+                <ChoiceButton onClick={showCurrentPlannedList}>Show my planned list</ChoiceButton>
+              ) : null}
+              <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
             </div>
           ) : null}
 
@@ -417,7 +532,7 @@ export default function ClaraLogExpenseOverlayV2({
           {phase === "done" ? (
             <div className="mt-1 grid grid-cols-2 gap-2.5">
               <ChoiceButton onClick={resetFlow}>Log another</ChoiceButton>
-              <ChoiceButton onClick={onClose} secondary>Done</ChoiceButton>
+              <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
             </div>
           ) : null}
 
