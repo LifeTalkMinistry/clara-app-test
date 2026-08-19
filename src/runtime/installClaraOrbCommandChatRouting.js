@@ -33,6 +33,28 @@ function sanitizeLogExpenseAmountInput(value) {
   return `${whole}.${fraction}`;
 }
 
+function setInputValueWithoutTouchingReactTracker(input, value) {
+  if (!input) return;
+
+  const inputPrototype =
+    typeof HTMLInputElement !== "undefined" ? HTMLInputElement.prototype : null;
+  const nativeValueSetter = inputPrototype
+    ? Object.getOwnPropertyDescriptor(inputPrototype, "value")?.set
+    : null;
+
+  // React installs an instance value tracker for controlled inputs. Calling the
+  // instance setter here would update that tracker before React receives the
+  // native input event, so pasted text could look correct but leave React state
+  // stale. Use the native prototype setter so React still observes the sanitized
+  // value when the same input event bubbles to its delegated onChange handler.
+  if (nativeValueSetter) {
+    nativeValueSetter.call(input, value);
+    return;
+  }
+
+  input.value = value;
+}
+
 function configureLogExpenseComposerInputs(overlay) {
   if (!overlay) return;
 
@@ -54,7 +76,7 @@ function configureLogExpenseComposerInputs(overlay) {
         () => {
           const sanitized = sanitizeLogExpenseAmountInput(amountInput.value);
           if (sanitized !== amountInput.value) {
-            amountInput.value = sanitized;
+            setInputValueWithoutTouchingReactTracker(amountInput, sanitized);
           }
         },
         true
