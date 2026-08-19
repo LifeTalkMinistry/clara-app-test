@@ -33,19 +33,27 @@ const idsToCheck = [
   "weekly-cross-check",
 ];
 
+const verificationCases = [
+  ...idsToCheck.map((id) => ({ id, width: 390, height: 844 })),
+  { id: "debt-obligation", width: 320, height: 568 },
+  { id: "weekly-cross-check", width: 320, height: 568 },
+];
+
 try {
   fs.mkdirSync("artifacts", { recursive: true });
 
-  for (const id of idsToCheck) {
+  for (const { id, width, height } of verificationCases) {
     const page = await browser.newPage();
     await page.setViewport({
-      width: 390,
-      height: 844,
+      width,
+      height,
       isMobile: true,
       hasTouch: true,
       deviceScaleFactor: 1,
     });
-    await page.goto(`${baseUrl}?clearance=${id}-${Date.now()}`, { waitUntil: "networkidle0" });
+    await page.goto(`${baseUrl}?clearance=${id}-${width}-${Date.now()}`, {
+      waitUntil: "networkidle0",
+    });
     await page.waitForSelector('[data-clara-orb-launcher="true"]');
 
     const client = await page.createCDPSession();
@@ -145,27 +153,33 @@ try {
       };
     }, id);
 
-    assert.ok(geometry, `expected selected label for ${id}`);
-    assert.equal(geometry.selected, true, `${id} must be the selected command`);
-    assert.ok(geometry.statusText.length > 0, `${id} must keep a visible status label`);
+    assert.ok(geometry, `expected selected label for ${id} at ${width}px`);
+    assert.equal(geometry.selected, true, `${id} must be the selected command at ${width}px`);
+    assert.ok(geometry.statusText.length > 0, `${id} must keep a visible status label at ${width}px`);
     assert.ok(
       geometry.nearestDistance > geometry.protectedRadius,
-      `${id} label entered Orb protected zone: ${JSON.stringify(geometry)}`
+      `${id} label entered Orb protected zone at ${width}px: ${JSON.stringify(geometry)}`
     );
     assert.deepEqual(
       geometry.commandCollisions,
       [],
-      `${id} label overlapped another command icon: ${JSON.stringify(geometry)}`
+      `${id} label overlapped another command icon at ${width}px: ${JSON.stringify(geometry)}`
     );
-    assert.ok(geometry.labelRect.left >= -0.5, `${id} label overflowed the left viewport edge`);
+    assert.ok(
+      geometry.labelRect.left >= -0.5,
+      `${id} label overflowed the left viewport edge at ${width}px`
+    );
     assert.ok(
       geometry.labelRect.right <= geometry.viewportWidth + 0.5,
-      `${id} label overflowed the right viewport edge`
+      `${id} label overflowed the right viewport edge at ${width}px`
     );
-    assert.ok(geometry.labelRect.top >= -0.5, `${id} label overflowed the top viewport edge`);
+    assert.ok(
+      geometry.labelRect.top >= -0.5,
+      `${id} label overflowed the top viewport edge at ${width}px`
+    );
     assert.ok(
       geometry.labelRect.bottom <= geometry.viewportHeight + 0.5,
-      `${id} label overflowed the bottom viewport edge`
+      `${id} label overflowed the bottom viewport edge at ${width}px`
     );
 
     if (
@@ -175,7 +189,7 @@ try {
       id === "weekly-cross-check"
     ) {
       await page.screenshot({
-        path: `artifacts/orb-command-label-${id}-390x844.png`,
+        path: `artifacts/orb-command-label-${id}-${width}x${height}.png`,
         fullPage: false,
       });
     }
@@ -188,7 +202,7 @@ try {
     await page.close();
   }
 
-  console.log("CLARA Orb label-clearance browser verification passed for all nine commands.");
+  console.log("CLARA Orb label-clearance browser verification passed with command-to-label collision checks.");
 } finally {
   await browser.close();
 }
