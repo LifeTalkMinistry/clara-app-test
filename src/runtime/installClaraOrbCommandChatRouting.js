@@ -3,6 +3,7 @@ import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "../lib/clara-pause-events.js";
 
 const RUNTIME_KEY = "__claraOrbCommandChatRoutingRuntime__";
 const LOG_EXPENSE_OVERLAY_SELECTOR = '[data-clara-log-expense-chat="true"]';
+const MONEY_SCHEDULE_OVERLAY_SELECTOR = '[data-clara-money-schedule-chat="true"]';
 const LOG_EXPENSE_VIEWPORT_SELECTOR = '[data-clara-ai-message-viewport="true"]';
 const LOG_EXPENSE_AMOUNT_INPUT_SELECTOR = 'input[placeholder="Amount spent"]';
 const LOG_EXPENSE_ITEM_INPUT_SELECTOR = 'input[placeholder="What was it for?"]';
@@ -127,6 +128,50 @@ function simplifyLogExpenseHeader(overlay) {
   }
 }
 
+function simplifyMoneyScheduleHeader(overlay) {
+  const header = overlay?.querySelector?.("header");
+  if (!header) return;
+
+  const title = header.querySelector("h1");
+  const supportingCopy = header.querySelectorAll("p");
+  const closeButton = header.querySelector('button[aria-label="Close Money Schedule"]');
+  const accentLine = header.firstElementChild;
+
+  supportingCopy.forEach((element) => {
+    element.hidden = true;
+  });
+
+  header.dataset.claraMoneySchedulePremiumHeader = "true";
+  header.style.minHeight = "64px";
+  header.style.paddingTop = "0";
+  header.style.paddingBottom = "0";
+  header.style.background =
+    "linear-gradient(115deg,rgba(5,26,62,0.98),rgba(7,22,48,0.98) 56%,rgba(7,31,38,0.96))";
+
+  if (accentLine instanceof HTMLElement) {
+    accentLine.style.background = "linear-gradient(90deg,#1769ff,#2be1d8)";
+  }
+
+  if (title) {
+    title.textContent = "Money Schedule";
+    title.style.position = "absolute";
+    title.style.inset = "0 76px";
+    title.style.display = "flex";
+    title.style.alignItems = "center";
+    title.style.justifyContent = "center";
+    title.style.margin = "0";
+    title.style.textAlign = "center";
+    title.style.fontSize = "16px";
+    title.style.lineHeight = "1";
+    title.style.letterSpacing = "-0.02em";
+    title.style.pointerEvents = "none";
+  }
+
+  if (closeButton instanceof HTMLElement) {
+    closeButton.style.right = "6px";
+  }
+}
+
 function registerLogExpenseChatKeyboardOwnership() {
   if (typeof document === "undefined") return;
 
@@ -153,6 +198,15 @@ function registerLogExpenseChatKeyboardOwnership() {
   if (stack && stack.getAttribute(CANONICAL_STACK_ATTRIBUTE) !== "true") {
     stack.setAttribute(CANONICAL_STACK_ATTRIBUTE, "true");
   }
+}
+
+function registerMoneySchedulePresentation() {
+  if (typeof document === "undefined") return;
+
+  const overlay = document.querySelector(MONEY_SCHEDULE_OVERLAY_SELECTOR);
+  if (!overlay) return;
+
+  simplifyMoneyScheduleHeader(overlay);
 }
 
 function openActualCalendar() {
@@ -205,6 +259,7 @@ function installClaraOrbCommandChatRouting() {
     registrationFrame = window.requestAnimationFrame(() => {
       registrationFrame = 0;
       registerLogExpenseChatKeyboardOwnership();
+      registerMoneySchedulePresentation();
     });
   };
 
@@ -232,7 +287,7 @@ function installClaraOrbCommandChatRouting() {
       })
     );
 
-    if (commandId === "log-expense") {
+    if (commandId === "log-expense" || commandId === "money-schedule") {
       queueKeyboardRegistration();
     }
   };
