@@ -3,8 +3,11 @@ export const CLARA_REPLY_MAX_DELAY_MS = 700;
 export const CLARA_TYPING_MIN_DURATION_MS = 1800;
 export const CLARA_TYPING_MAX_DURATION_MS = 5200;
 export const CLARA_TYPING_TICK_MS = 28;
-export const CLARA_READ_MIN_DELAY_MS = 5200;
-export const CLARA_READ_MAX_DELAY_MS = 8200;
+
+// Normal CLARA feature chats unlock their next controls as soon as CLARA
+// finishes typing. The longer reading delay remains a Masterclass-only behavior.
+export const CLARA_READ_MIN_DELAY_MS = 0;
+export const CLARA_READ_MAX_DELAY_MS = 0;
 
 export function getClaraReplyDelay() {
   return Math.round(
@@ -31,8 +34,5 @@ export function getClaraTypingPlan(text = "") {
 }
 
 export function getClaraReadDelay() {
-  return Math.round(
-    CLARA_READ_MIN_DELAY_MS +
-      Math.random() * (CLARA_READ_MAX_DELAY_MS - CLARA_READ_MIN_DELAY_MS)
-  );
+  return 0;
 }
