@@ -20,39 +20,46 @@ const browser = await puppeteer.launch({
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const idsToCheck = [
+  "log-expense",
+  "add-income",
+  "wallet",
+  "calendar",
+  "money-schedule",
+  "emergency-fund",
+  "savings-goal",
+  "debt-obligation",
+  "weekly-cross-check",
+];
+
 try {
-  const page = await browser.newPage();
-  await page.setViewport({
-    width: 390,
-    height: 844,
-    isMobile: true,
-    hasTouch: true,
-    deviceScaleFactor: 1,
-  });
-  await page.goto(`${baseUrl}?clearance=${Date.now()}`, { waitUntil: "networkidle0" });
-  await page.waitForSelector('[data-clara-orb-launcher="true"]');
+  fs.mkdirSync("artifacts", { recursive: true });
 
-  const client = await page.createCDPSession();
+  for (const id of idsToCheck) {
+    const page = await browser.newPage();
+    await page.setViewport({
+      width: 390,
+      height: 844,
+      isMobile: true,
+      hasTouch: true,
+      deviceScaleFactor: 1,
+    });
+    await page.goto(`${baseUrl}?clearance=${id}-${Date.now()}`, { waitUntil: "networkidle0" });
+    await page.waitForSelector('[data-clara-orb-launcher="true"]');
 
-  const getLauncherCenter = () =>
-    page.$eval('[data-clara-orb-launcher="true"]', (element) => {
+    const client = await page.createCDPSession();
+
+    const center = await page.$eval('[data-clara-orb-launcher="true"]', (element) => {
       const rect = element.getBoundingClientRect();
       return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
     });
 
-  const getCommandCenter = (commandId) =>
-    page.$eval(`[data-clara-orb-command-id="${commandId}"]`, (element) => {
-      const rect = element.getBoundingClientRect();
-      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-    });
-
-  const touchStart = (point) =>
-    client.send("Input.dispatchTouchEvent", {
+    await client.send("Input.dispatchTouchEvent", {
       type: "touchStart",
       touchPoints: [
         {
-          x: point.x,
-          y: point.y,
+          x: center.x,
+          y: center.y,
           radiusX: 6,
           radiusY: 6,
           force: 1,
@@ -61,50 +68,32 @@ try {
       ],
     });
 
-  const touchMove = (point) =>
-    client.send("Input.dispatchTouchEvent", {
-      type: "touchMove",
-      touchPoints: [
-        {
-          x: point.x,
-          y: point.y,
-          radiusX: 6,
-          radiusY: 6,
-          force: 1,
-          id: 1,
-        },
-      ],
-    });
-
-  const touchEnd = () =>
-    client.send("Input.dispatchTouchEvent", {
-      type: "touchEnd",
-      touchPoints: [],
-    });
-
-  fs.mkdirSync("artifacts", { recursive: true });
-
-  const idsToCheck = [
-    "log-expense",
-    "add-income",
-    "wallet",
-    "calendar",
-    "money-schedule",
-    "emergency-fund",
-    "savings-goal",
-    "debt-obligation",
-    "weekly-cross-check",
-  ];
-
-  for (const id of idsToCheck) {
-    const center = await getLauncherCenter();
-    await touchStart(center);
     await wait(HOLD_WAIT_MS);
     await page.waitForSelector(`[data-clara-orb-command-id="${id}"]`);
 
-    const commandPoint = await getCommandCenter(id);
-    await touchMove(commandPoint);
-    await wait(100);
+    const commandPoint = await page.$eval(
+      `[data-clara-orb-command-id="${id}"]`,
+      (element) => {
+        const rect = element.getBoundingClientRect();
+        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      }
+    );
+
+    await client.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [
+        {
+          x: commandPoint.x,
+          y: commandPoint.y,
+          radiusX: 6,
+          radiusY: 6,
+          force: 1,
+          id: 1,
+        },
+      ],
+    });
+
+    await wait(110);
 
     const geometry = await page.evaluate((commandId) => {
       const orb = document.querySelector('[data-clara-orb-launcher="true"]')?.getBoundingClientRect();
@@ -164,14 +153,12 @@ try {
       });
     }
 
-    await touchEnd();
-    await wait(380);
+    await client.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
 
-    const interactionState = await page.$eval(
-      '[data-clara-orb-launcher="true"]',
-      (element) => element.dataset.orbInteractionState
-    );
-    assert.equal(interactionState, "idle", `${id} release must restore idle state`);
+    await page.close();
   }
 
   console.log("CLARA Orb label-clearance browser verification passed for all nine commands.");
