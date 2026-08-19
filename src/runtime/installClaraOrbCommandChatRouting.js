@@ -95,6 +95,38 @@ function configureLogExpenseComposerInputs(overlay) {
   }
 }
 
+function simplifyLogExpenseHeader(overlay) {
+  const header = overlay?.querySelector?.("header");
+  if (!header) return;
+
+  const title = header.querySelector("h1");
+  const supportingCopy = header.querySelectorAll("p");
+
+  supportingCopy.forEach((element) => {
+    element.hidden = true;
+  });
+
+  header.dataset.claraLogExpensePremiumHeader = "true";
+  header.style.minHeight = "64px";
+  header.style.paddingTop = "0";
+  header.style.paddingBottom = "0";
+
+  if (!title) return;
+
+  title.textContent = "Log Expense";
+  title.style.position = "absolute";
+  title.style.inset = "0 56px";
+  title.style.display = "flex";
+  title.style.alignItems = "center";
+  title.style.justifyContent = "center";
+  title.style.margin = "0";
+  title.style.textAlign = "center";
+  title.style.fontSize = "16px";
+  title.style.lineHeight = "1";
+  title.style.letterSpacing = "-0.02em";
+  title.style.pointerEvents = "none";
+}
+
 function registerLogExpenseChatKeyboardOwnership() {
   if (typeof document === "undefined") return;
 
@@ -112,6 +144,7 @@ function registerLogExpenseChatKeyboardOwnership() {
   }
 
   configureLogExpenseComposerInputs(overlay);
+  simplifyLogExpenseHeader(overlay);
 
   // Register the transcript stack too so keyboard-time scroll anchoring uses
   // the same conversation geometry as Ask Before You Spend.
