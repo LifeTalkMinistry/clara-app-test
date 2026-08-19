@@ -9,6 +9,8 @@ const PRODUCTION_GREETING_SELECTOR =
 const TUTORIAL_GREETING_SELECTOR =
   '[data-clara-tutorial-orb-intro="true"] [data-clara-orb-visual-offset] > div:first-child > p';
 const TUTORIAL_ROOT_SELECTOR = '[data-clara-tutorial-orb-intro="true"]';
+const ORB_COMPOSITION_SELECTOR = '[data-clara-orb-composition="true"]';
+const ORB_LAUNCHER_SELECTOR = '[data-clara-orb-launcher="true"]';
 
 function resolveGreetingLabel() {
   return (
@@ -24,6 +26,25 @@ function resolveTutorialIdentity(label) {
   return {
     firstName: String(tutorialRoot.dataset.claraTutorialOrbName || "").trim(),
   };
+}
+
+function isOrbCommandModeVisible(label) {
+  const composition = label?.closest?.(ORB_COMPOSITION_SELECTOR);
+  const launcher = composition?.querySelector?.(ORB_LAUNCHER_SELECTOR);
+  return launcher?.dataset?.orbCommandVisible === "true";
+}
+
+function clearGreetingPresentation(label) {
+  if (!label) return;
+
+  delete label.dataset.claraOrbUserGreeting;
+  delete label.dataset.claraOrbGreetingScope;
+  label.style.fontSize = "";
+  label.style.fontWeight = "";
+  label.style.lineHeight = "";
+  label.style.letterSpacing = "";
+  label.style.textTransform = "";
+  label.style.color = "";
 }
 
 function installClaraOrbGreeting() {
@@ -52,6 +73,14 @@ function installClaraOrbGreeting() {
       // A tutorial identity is intentionally self-contained. Never fall through
       // to the signed-in user's canonical profile while Juan's demo is active.
       loaded = Boolean(tutorialIdentity);
+    }
+
+    // The top Orb label has two owners by design: this runtime owns the idle
+    // greeting, while ClaraOrbPage owns CLARA COMMANDS / the targeted command
+    // during hold mode. Never let the greeting runtime overwrite command copy.
+    if (isOrbCommandModeVisible(label)) {
+      clearGreetingPresentation(label);
+      return null;
     }
 
     const nextText = firstName ? `Hi ${firstName}!` : "Hi!";
@@ -100,13 +129,19 @@ function installClaraOrbGreeting() {
   };
 
   const observer = new MutationObserver(queueSync);
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["data-orb-command-visible"],
+  });
   queueSync();
 
   window[RUNTIME_KEY] = {
     destroy() {
       destroyed = true;
       observer.disconnect();
+      clearGreetingPresentation(activeLabel);
       activeLabel = null;
       request = null;
       window[RUNTIME_KEY] = null;
