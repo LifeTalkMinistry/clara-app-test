@@ -113,12 +113,27 @@ try {
       const nearestX = Math.max(labelRect.left, Math.min(orbCenter.x, labelRect.right));
       const nearestY = Math.max(labelRect.top, Math.min(orbCenter.y, labelRect.bottom));
       const nearestDistance = Math.hypot(nearestX - orbCenter.x, nearestY - orbCenter.y);
+      const collisionPadding = 3;
+      const commandCollisions = [...document.querySelectorAll('[data-clara-orb-command-id]')]
+        .filter((node) => node !== action)
+        .map((node) => {
+          const rect = node.getBoundingClientRect();
+          const overlaps = !(
+            labelRect.right + collisionPadding <= rect.left ||
+            labelRect.left - collisionPadding >= rect.right ||
+            labelRect.bottom + collisionPadding <= rect.top ||
+            labelRect.top - collisionPadding >= rect.bottom
+          );
+          return overlaps ? node.dataset.claraOrbCommandId : null;
+        })
+        .filter(Boolean);
 
       return {
         selected: action?.dataset.selected === "true",
         statusText: status?.textContent?.trim() || "",
         nearestDistance,
         protectedRadius,
+        commandCollisions,
         viewportWidth: window.innerWidth,
         viewportHeight: window.innerHeight,
         labelRect: {
@@ -137,6 +152,11 @@ try {
       geometry.nearestDistance > geometry.protectedRadius,
       `${id} label entered Orb protected zone: ${JSON.stringify(geometry)}`
     );
+    assert.deepEqual(
+      geometry.commandCollisions,
+      [],
+      `${id} label overlapped another command icon: ${JSON.stringify(geometry)}`
+    );
     assert.ok(geometry.labelRect.left >= -0.5, `${id} label overflowed the left viewport edge`);
     assert.ok(
       geometry.labelRect.right <= geometry.viewportWidth + 0.5,
@@ -148,7 +168,12 @@ try {
       `${id} label overflowed the bottom viewport edge`
     );
 
-    if (id === "log-expense" || id === "add-income" || id === "weekly-cross-check") {
+    if (
+      id === "log-expense" ||
+      id === "add-income" ||
+      id === "debt-obligation" ||
+      id === "weekly-cross-check"
+    ) {
       await page.screenshot({
         path: `artifacts/orb-command-label-${id}-390x844.png`,
         fullPage: false,
