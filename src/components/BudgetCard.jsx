@@ -5,12 +5,14 @@ import {
   Check,
   CheckCircle2,
   CircleDashed,
+  RotateCcw,
   ScanLine,
   X,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import useUserRole from "@/hooks/useUserRole";
 import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
+import { getRecurringCashFlowOwnerId } from "@/lib/recurringCashFlowRepository";
 import {
   getWeeklyMoneyCheckWeekdayLabel,
   readWeeklyMoneyCheckState,
@@ -21,6 +23,7 @@ import {
 } from "@/lib/weeklyMoneyCheckState";
 
 const MONEY_CHECK_GLOW_LAYERS = [];
+const WEEKLY_MONEY_CHECK_SESSION_PREFIX = "clara_weekly_money_check_v1";
 
 function cleanMoney(value) {
   const amount = Number(String(value ?? "").replace(/[₱,\s]/g, ""));
@@ -269,6 +272,18 @@ export default function BudgetCard() {
     navigate(`/community?${params.toString()}`);
   };
 
+  const restartWeeklyCheckForDevelopment = () => {
+    if (typeof window === "undefined" || !window.localStorage) return;
+    const ownerId = getRecurringCashFlowOwnerId(user);
+    window.localStorage.removeItem(`${WEEKLY_MONEY_CHECK_SESSION_PREFIX}_${ownerId}`);
+    window.dispatchEvent(
+      new CustomEvent(WEEKLY_MONEY_CHECK_UPDATED_EVENT, {
+        detail: { type: "development_restart" },
+      })
+    );
+    openClaraCheck();
+  };
+
   let eyebrow = "Weekly Money Check";
   let headline = "Choose your weekly check-in";
   let body = "Pick one day each week to compare your real money with the life you planned.";
@@ -321,6 +336,8 @@ export default function BudgetCard() {
     }
   }
 
+  const canRestartDevelopmentFlow = stateKey === "in_progress" || stateKey === "completed";
+
   return (
     <>
       <div className="flex h-full min-h-[inherit] flex-col rounded-[inherit]" data-weekly-money-check-state={stateKey}>
@@ -335,6 +352,18 @@ export default function BudgetCard() {
           <div className="relative flex h-full min-h-[inherit] flex-col justify-center overflow-hidden px-5 py-6 text-center sm:px-6">
             <div className="pointer-events-none absolute -right-16 -top-20 h-40 w-40 rounded-full bg-cyan-300/[0.045] blur-3xl" />
             <div className="pointer-events-none absolute -bottom-20 -left-16 h-40 w-40 rounded-full bg-blue-500/[0.055] blur-3xl" />
+
+            {canRestartDevelopmentFlow ? (
+              <button
+                type="button"
+                onClick={restartWeeklyCheckForDevelopment}
+                className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-cyan-100/[0.16] bg-[#07172f]/72 text-cyan-100/64 shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_8px_20px_rgba(0,0,0,0.18)] backdrop-blur-md transition hover:border-cyan-100/[0.28] hover:bg-cyan-300/[0.08] hover:text-cyan-50 active:scale-95"
+                aria-label="Restart Weekly Money Check from the beginning"
+                title="Restart Weekly Money Check"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </button>
+            ) : null}
 
             <div className="relative z-10 mx-auto w-full max-w-[286px]">
               <StateIcon stateKey={stateKey} />
