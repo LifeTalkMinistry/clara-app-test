@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { ArrowUp, X } from "lucide-react";
 import { addBuyCheckExpense } from "@/lib/clara-buy-check-expense-repository";
+import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "@/lib/clara-pause-events";
 import {
   clean,
   dispatchFinanceUpdates,
@@ -142,7 +142,6 @@ export default function ClaraLogExpenseOverlayV2({
   claraAssistantContext = {},
   onClose,
 }) {
-  const navigate = useNavigate();
   const user = claraAssistantContext?.user || {};
   const firstName = firstNameFromUser(user);
   const [phase, setPhase] = useState("opening");
@@ -335,12 +334,24 @@ export default function ClaraLogExpenseOverlayV2({
     }
 
     const timerId = window.setTimeout(() => {
-      onClose?.();
-      navigate("/community?view=schedule");
+      const requestId = `clara-log-expense-money-schedule-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2)}`;
+
+      window.dispatchEvent(
+        new CustomEvent(CLARA_PAUSE_OPEN_REQUEST_EVENT, {
+          detail: {
+            requestId,
+            source: "log-expense-money-schedule-handoff",
+            mode: "money-schedule",
+            commandId: "money-schedule",
+          },
+        })
+      );
     }, 120);
 
     return () => window.clearTimeout(timerId);
-  }, [interactionReady, isActive, navigate, onClose, phase]);
+  }, [interactionReady, isActive, phase]);
 
   if (!isActive) return null;
 
