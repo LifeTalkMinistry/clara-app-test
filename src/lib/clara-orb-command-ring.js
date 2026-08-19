@@ -5,6 +5,12 @@ export const ORB_COMMAND_PRE_HOLD_MOVE_PX = 14;
 export const ORB_COMMAND_MIN_DEAD_ZONE_PX = 52;
 export const ORB_COMMAND_MAX_DEAD_ZONE_PX = 78;
 
+// The presentation stylesheet is browser-only. Keeping the import guarded lets
+// the geometry module stay directly importable by the Node regression tests.
+if (typeof document !== "undefined") {
+  void import("./clara-orb-command-ring.css");
+}
+
 export const CLARA_ORB_COMMANDS = Object.freeze([
   Object.freeze({ id: "log-expense", label: "Log Expense", angle: -90, radius: 1 }),
   Object.freeze({ id: "add-income", label: "Add Income", angle: -50, radius: 1 }),

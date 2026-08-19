@@ -12,6 +12,8 @@ import {
 } from "../src/lib/clara-orb-command-ring.js";
 
 const orbPage = fs.readFileSync("src/components/community/ClaraOrbPage.jsx", "utf8");
+const orbCommandRing = fs.readFileSync("src/lib/clara-orb-command-ring.js", "utf8");
+const orbCommandRingCss = fs.readFileSync("src/lib/clara-orb-command-ring.css", "utf8");
 
 test("ORB command ring exposes exactly the nine product command categories", () => {
   assert.deepEqual(
@@ -86,6 +88,15 @@ test("responsive geometry keeps the ring bounded without changing command identi
   });
 
   assert.ok(radius >= 92 && radius <= 158);
+});
+
+test("label clearance does not move the command circles off their bounded ring", () => {
+  assert.ok(CLARA_ORB_COMMANDS.every((command) => command.radius === 1));
+  assert.match(orbCommandRing, /import\(["']\.\/clara-orb-command-ring\.css["']\)/);
+  assert.match(orbCommandRingCss, /data-clara-orb-command-id="log-expense"/);
+  assert.match(orbCommandRingCss, /data-clara-orb-command-id="add-income"/);
+  assert.match(orbCommandRingCss, /data-clara-orb-command-id="weekly-cross-check"/);
+  assert.match(orbCommandRingCss, /data-clara-orb-command-id="debt-obligation"/);
 });
 
 test("production Orb preserves tap behavior while adding pointer-driven hold selection", () => {
