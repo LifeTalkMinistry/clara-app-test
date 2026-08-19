@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import ClaraAiEnvironmentOverlayV2 from "./ClaraAiEnvironmentOverlayV2.jsx";
 import ClaraWeeklyMoneyCheckOverlay from "./ClaraWeeklyMoneyCheckOverlayV2.jsx";
 import ClaraLogExpenseOverlay from "./ClaraLogExpenseOverlayV2.jsx";
+import ClaraWalletOverlay from "./ClaraWalletOverlayV2.jsx";
 import ClaraBuyCheckImpactPortal from "./ClaraBuyCheckImpactPortal.jsx";
 import ClaraBuyCheckUsagePortal from "./ClaraBuyCheckUsagePortal.jsx";
 import ClaraLifeProfilePortal from "./ClaraLifeProfilePortal.jsx";
@@ -13,6 +14,7 @@ import { WEEKLY_MONEY_CHECK_UPDATED_EVENT } from "@/lib/weeklyMoneyCheckState";
 
 const WEEKLY_SESSION_STORAGE_PREFIX = "clara_weekly_money_check_v1";
 const WEEKLY_CHAT_FLOW_VERSION = "weekly-money-check-chat-v1";
+const ORB_ENTRY_MODES = new Set(["log-expense", "wallet"]);
 
 function restoreReadyStateWhenWeeklyCheckWasNotStarted(user) {
   if (typeof window === "undefined" || !window.localStorage) return;
@@ -55,6 +57,7 @@ export default function ClaraAiEnvironmentOverlay(props) {
   const routeMode = searchParams.get("mode");
   const weeklyMoneyCheckMode = !guidePreview && routeMode === "weekly-money-check";
   const logExpenseMode = !guidePreview && entryMode === "log-expense";
+  const walletMode = !guidePreview && entryMode === "wallet";
   const weeklyAutoOpenRef = useRef(false);
   const lifeContext = useClaraBuyCheckLifeContext(props?.claraAssistantContext?.user);
   const enrichedAssistantContext = useMemo(
@@ -77,7 +80,7 @@ export default function ClaraAiEnvironmentOverlay(props) {
 
     const handlePauseOpenRequest = (event) => {
       const mode = String(event?.detail?.mode || "").trim();
-      setEntryMode(mode === "log-expense" ? "log-expense" : null);
+      setEntryMode(ORB_ENTRY_MODES.has(mode) ? mode : null);
     };
 
     window.addEventListener(CLARA_PAUSE_OPEN_REQUEST_EVENT, handlePauseOpenRequest);
@@ -123,6 +126,21 @@ export default function ClaraAiEnvironmentOverlay(props) {
         {...props}
         claraAssistantContext={enrichedAssistantContext}
         onClose={closeLogExpense}
+      />
+    );
+  }
+
+  if (walletMode) {
+    const closeWallet = () => {
+      setEntryMode(null);
+      props?.onClose?.();
+    };
+
+    return (
+      <ClaraWalletOverlay
+        {...props}
+        claraAssistantContext={enrichedAssistantContext}
+        onClose={closeWallet}
       />
     );
   }
