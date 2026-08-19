@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "@/lib/clara-pause-events";
 
 // Keep the traced CLARA silhouette, but express the long sampled blue contour as
@@ -223,12 +223,43 @@ function MoneyLeftOrbVisual({ launching = false }) {
 
 export default function ClaraOrbPage({ onActivate, activationDelayMs = 0 }) {
   const [launching, setLaunching] = useState(false);
+  const weeklyAutoStartRef = useRef(false);
+  const weeklyMoneyCheckAutoStart =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("mode") === "weekly-money-check";
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
     document.body.classList.add("clara-orb-page-active");
     return () => document.body.classList.remove("clara-orb-page-active");
   }, []);
+
+  useEffect(() => {
+    if (!weeklyMoneyCheckAutoStart || weeklyAutoStartRef.current || typeof window === "undefined") {
+      return undefined;
+    }
+
+    weeklyAutoStartRef.current = true;
+    const delay = Math.max(180, Number(activationDelayMs) || 0);
+    const timerId = window.setTimeout(() => {
+      if (typeof onActivate === "function") {
+        onActivate();
+        return;
+      }
+
+      const requestId = `clara-weekly-money-check-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      window.dispatchEvent(
+        new CustomEvent(CLARA_PAUSE_OPEN_REQUEST_EVENT, {
+          detail: {
+            requestId,
+            source: "clara-orb-page-weekly-money-check",
+          },
+        })
+      );
+    }, delay);
+
+    return () => window.clearTimeout(timerId);
+  }, [activationDelayMs, onActivate, weeklyMoneyCheckAutoStart]);
 
   const openClara = () => {
     if (launching || typeof window === "undefined") return;
