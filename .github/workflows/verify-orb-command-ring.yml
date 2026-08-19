@@ -6,6 +6,7 @@ on:
       - "src/components/community/ClaraOrbPage.jsx"
       - "src/lib/clara-orb-command-ring.js"
       - "src/lib/claraHaptics.js"
+      - "src/runtime/installClaraOrbGreeting.js"
       - "tests/clara-orb-command-ring.browser.mjs"
       - "tests/clara-orb-label-clearance.browser.mjs"
       - "tests/fixtures/clara-orb-command-ring.html"
