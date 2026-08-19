@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import useUserRole from "@/hooks/useUserRole";
 import {
   getRecurringCashFlowOwnerId,
@@ -12,15 +12,7 @@ import {
   saveRecurringScheduleBill,
   syncRecurringBillsIntoSchedule,
 } from "./recurringScheduleIntegration";
-import { syncFinancialCardSchedulesIntoCalendar } from "./financialCardScheduleIntegration";
 import OriginalScheduleImpactPortalPanel from "./DashboardScheduleImpactPortalPanel.jsx";
-
-const FINANCIAL_CARD_SCHEDULE_UPDATE_EVENTS = [
-  "clara-finance-updated",
-  "clara:finance-data-updated",
-  "clara-local-finance-updated",
-  "clara:debt-obligations-updated",
-];
 
 function cleanLabel(value) {
   return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
@@ -180,7 +172,6 @@ export default function DashboardScheduleImpactPortalPanel(props) {
   const { user } = useUserRole() || {};
   const ownerId = useMemo(() => getRecurringCashFlowOwnerId(user), [user]);
   const pendingBillRef = useRef(null);
-  const [financialProjectionEpoch, setFinancialProjectionEpoch] = useState(0);
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
@@ -299,51 +290,5 @@ export default function DashboardScheduleImpactPortalPanel(props) {
     };
   }, [ownerId, props.guidePreviewMode]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return undefined;
-
-    let cancelled = false;
-    let requestRevision = 0;
-
-    const refreshFinancialCardDates = async () => {
-      const revision = ++requestRevision;
-
-      try {
-        await syncFinancialCardSchedulesIntoCalendar(user);
-        if (cancelled || revision !== requestRevision) return;
-
-        // The Schedule panel owns an in-memory event snapshot. Always remount it
-        // after a successful Savings Goal / Debt sync so it rereads the canonical
-        // schedule storage even when that storage already contained the projection.
-        setFinancialProjectionEpoch((current) => current + 1);
-      } catch (error) {
-        if (cancelled || revision !== requestRevision) return;
-        console.warn(
-          "CLARA Savings Goal / Debt calendar projection could not be refreshed:",
-          error
-        );
-      }
-    };
-
-    const queueRefresh = () => {
-      window.setTimeout(refreshFinancialCardDates, 0);
-    };
-
-    refreshFinancialCardDates();
-    FINANCIAL_CARD_SCHEDULE_UPDATE_EVENTS.forEach((eventName) => {
-      window.addEventListener(eventName, queueRefresh);
-    });
-
-    return () => {
-      cancelled = true;
-      FINANCIAL_CARD_SCHEDULE_UPDATE_EVENTS.forEach((eventName) => {
-        window.removeEventListener(eventName, queueRefresh);
-      });
-    };
-  }, [ownerId, user?.id, user?.email]);
-
-  return React.createElement(OriginalScheduleImpactPortalPanel, {
-    ...props,
-    key: `financial-card-schedule-${ownerId}-${financialProjectionEpoch}`,
-  });
+  return React.createElement(OriginalScheduleImpactPortalPanel, props);
 }

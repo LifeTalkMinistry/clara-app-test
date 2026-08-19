@@ -4,6 +4,17 @@ import { reconcileSavingsGoalsWithLinkedExpenses } from "./savingsGoalLinkedExpe
 
 export * from "./financeRepositoryCore.js";
 
+export const FINANCE_DATA_UPDATED_EVENT = "clara:finance-data-updated";
+
+function emitFinanceDataUpdated(localUserId, source) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(FINANCE_DATA_UPDATED_EVENT, {
+      detail: { localUserId, source },
+    })
+  );
+}
+
 async function findExpenseById(repository, localUserId, expenseId) {
   if (!expenseId || typeof repository?.getExpenses !== "function") return null;
   const rows = await repository.getExpenses(localUserId, { includeDeleted: true });
@@ -62,6 +73,12 @@ function decorateFinanceRepository(repository) {
 
       return result;
     },
+
+    async upsertSavingsGoal(localUserId, goal, ...args) {
+      const result = await repository.upsertSavingsGoal(localUserId, goal, ...args);
+      emitFinanceDataUpdated(localUserId, "savings_goal");
+      return result;
+    },
   };
 }
 
@@ -110,4 +127,8 @@ export async function getSavingsGoals(localUserId, options) {
   ]);
 
   return reconcileSavingsGoalsWithLinkedExpenses(goals, expenses);
+}
+
+export async function upsertSavingsGoal(localUserId, goal, options) {
+  return financeRepository.upsertSavingsGoal(localUserId, goal, options);
 }

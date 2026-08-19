@@ -35,6 +35,16 @@ export {
 export const DEBT_OBLIGATION_STORE =
   LOCAL_FINANCE_STORES?.privatePreferences || "private_preferences";
 export const DEFAULT_DEBT_OBLIGATION_ID = "debt_obligation_primary";
+export const DEBT_OBLIGATIONS_UPDATED_EVENT = "clara:debt-obligations-updated";
+
+function emitDebtObligationsUpdated(localUserId, reason) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(DEBT_OBLIGATIONS_UPDATED_EVENT, {
+      detail: { localUserId, reason },
+    })
+  );
+}
 
 const normalizeLocalUserId = (localUserId) => {
   const safeLocalUserId = String(localUserId || "").trim();
@@ -181,14 +191,26 @@ export async function upsertDebtObligation(localUserId, payload = {}) {
     source: "local",
   };
 
-  return upsertLocalRecord(DEBT_OBLIGATION_STORE, record, safeLocalUserId);
+  const result = await upsertLocalRecord(
+    DEBT_OBLIGATION_STORE,
+    record,
+    safeLocalUserId
+  );
+  emitDebtObligationsUpdated(safeLocalUserId, "upsert");
+  return result;
 }
 
 export async function deleteDebtObligation(localUserId, id) {
   const safeLocalUserId = normalizeLocalUserId(localUserId);
   const safeId = normalizeString(id);
   if (!safeId) throw new Error("Debt obligation id is required.");
-  return softDeleteLocalRecord(DEBT_OBLIGATION_STORE, safeId, safeLocalUserId);
+  const result = await softDeleteLocalRecord(
+    DEBT_OBLIGATION_STORE,
+    safeId,
+    safeLocalUserId
+  );
+  if (result) emitDebtObligationsUpdated(safeLocalUserId, "delete");
+  return result;
 }
 
 export function summarizeDebtObligations(records = [], options = {}) {
