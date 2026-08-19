@@ -7,6 +7,7 @@ on:
       - "src/lib/clara-orb-command-ring.js"
       - "src/lib/claraHaptics.js"
       - "tests/clara-orb-command-ring.browser.mjs"
+      - "tests/clara-orb-label-clearance.browser.mjs"
       - "tests/fixtures/clara-orb-command-ring.html"
       - "tests/fixtures/clara-orb-command-ring-harness.jsx"
       - ".github/workflows/verify-orb-command-ring.yml"
@@ -54,6 +55,7 @@ jobs:
             exit 1
           fi
           CHROME_PATH="$CHROME_PATH" node tests/clara-orb-command-ring.browser.mjs
+          CHROME_PATH="$CHROME_PATH" node tests/clara-orb-label-clearance.browser.mjs
 
       - name: Upload Orb verification screenshots
         if: always()
