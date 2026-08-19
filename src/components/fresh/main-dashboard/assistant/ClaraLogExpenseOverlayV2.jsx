@@ -525,7 +525,7 @@ export default function ClaraLogExpenseOverlayV2({
         <button
           type="button"
           onClick={closeChat}
-          className="absolute right-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full border border-blue-100/28 bg-[#07152d]/86 text-white/88 transition active:scale-95"
+          className="absolute inset-y-0 right-4 my-auto grid h-9 w-9 place-items-center rounded-full border border-blue-100/28 bg-[#07152d]/86 text-white/88 transition active:scale-95"
           aria-label="Close Log Expense"
         >
           <X className="h-4 w-4" />
