@@ -16,7 +16,11 @@ import {
   isStableIncomeScheduleProjection,
   mergeScheduleEventsForRender,
 } from "@/lib/stableIncomeScheduleProjection";
-import { isFinancialCardScheduleProjection } from "@/lib/financialCardScheduleProjection";
+import {
+  DEBT_OBLIGATION_SCHEDULE_SOURCE,
+  SAVINGS_GOAL_SCHEDULE_SOURCE,
+  isFinancialCardScheduleProjection,
+} from "@/lib/financialCardScheduleProjection";
 import {
   filterScheduleOwnedEvents,
   isDerivedScheduleProjection,
@@ -398,6 +402,28 @@ function displayTitle(event) {
   return title;
 }
 
+function getFinancialCardSourcePresentation(event) {
+  const source = String(event?.source || "").trim().toLowerCase();
+
+  if (source === SAVINGS_GOAL_SCHEDULE_SOURCE) {
+    return {
+      label: "Savings Goal",
+      ownerTitle: "Managed from Savings Goal",
+      ownerCopy: "Update this date from your Savings Goal card.",
+    };
+  }
+
+  if (source === DEBT_OBLIGATION_SCHEDULE_SOURCE) {
+    return {
+      label: "Debt / Obligation",
+      ownerTitle: "Managed from Debt / Obligation",
+      ownerCopy: "Update this date from your Debt / Obligation card.",
+    };
+  }
+
+  return null;
+}
+
 function impactMessage(event) {
   if (!event) return "Nothing money-sensitive is attached to this day yet.";
 
@@ -524,9 +550,11 @@ function getSelectedAgenda({ selectedDate, todayKey, events, holiday }) {
   const dateLabel = isToday ? `Today • ${formatDate(selectedDate)}` : formatDate(selectedDate);
 
   if (moneyEvent) {
+    const financialSource = getFinancialCardSourcePresentation(moneyEvent);
+
     return {
       event: moneyEvent,
-      label: isToday ? "Today impact" : "Money impact",
+      label: financialSource?.label || (isToday ? "Today impact" : "Money impact"),
       dateLabel,
       badge: holiday ? holiday.icon : "Watch",
       title: `${getEventIcon(moneyEvent)} ${displayTitle(moneyEvent)}`,
@@ -805,6 +833,9 @@ function Sheet({ event, mode, form, setForm, onSave, onRemove, onClose, onRefine
     !adding && isStableIncomeScheduleProjection(event);
   const managedFinancialCardEvent =
     !adding && isFinancialCardScheduleProjection(event);
+  const financialSource = managedFinancialCardEvent
+    ? getFinancialCardSourcePresentation(event)
+    : null;
 
   return (
     <div
@@ -820,7 +851,7 @@ function Sheet({ event, mode, form, setForm, onSave, onRemove, onClose, onRefine
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[.22em] text-cyan-100/70">
-              {adding ? "Schedule" : event?.type}
+              {adding ? "Schedule" : financialSource?.label || event?.type}
             </p>
             <h3 className="mt-3 text-2xl font-black leading-tight text-white">
               {adding ? "Add schedule" : `${getEventIcon(event)} ${displayTitle(event)}`}
@@ -917,8 +948,11 @@ function Sheet({ event, mode, form, setForm, onSave, onRemove, onClose, onRefine
                 Payday timing is managed in Income Hub.
               </div>
             ) : managedFinancialCardEvent ? (
-              <div className="rounded-2xl border border-cyan-300/12 bg-cyan-300/[.035] px-4 py-3 text-center text-xs font-bold leading-5 text-cyan-50/62">
-                This date is managed from its Savings Goal or Debt / Obligation.
+              <div className="rounded-2xl border border-cyan-300/12 bg-cyan-300/[.035] px-4 py-3 text-center text-cyan-50/62">
+                <p className="text-xs font-black leading-5">{financialSource?.ownerTitle || "Managed from financial card"}</p>
+                <p className="mt-1 text-[11px] font-bold leading-5 text-cyan-50/48">
+                  {financialSource?.ownerCopy || "Update this date from its source financial card."}
+                </p>
               </div>
             ) : (
               <button
