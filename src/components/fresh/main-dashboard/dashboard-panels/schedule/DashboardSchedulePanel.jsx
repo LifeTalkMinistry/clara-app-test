@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   ChevronLeft,
@@ -43,6 +43,8 @@ const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const PH_HOLIDAY_START_YEAR = 2026;
 const PH_HOLIDAY_LOOKAHEAD_YEARS = 10;
 const DOUBLE_TAP_DELAY_MS = 380;
+const AGENDA_SWIPE_THRESHOLD_PX = 42;
+const AGENDA_OPEN_SUPPRESSION_MS = 250;
 
 const CHINESE_NEW_YEAR_BY_YEAR = {
   2026: "02-17",
@@ -607,6 +609,45 @@ function getSelectedAgenda({ selectedDate, todayKey, events, holiday }) {
   };
 }
 
+function getSelectedAgendas({ selectedDate, todayKey, events, holiday }) {
+  const agendas = [];
+
+  if (holiday) {
+    agendas.push(
+      getSelectedAgenda({
+        selectedDate,
+        todayKey,
+        events: [],
+        holiday,
+      })
+    );
+  }
+
+  events.forEach((event) => {
+    agendas.push(
+      getSelectedAgenda({
+        selectedDate,
+        todayKey,
+        events: [event],
+        holiday: null,
+      })
+    );
+  });
+
+  if (!agendas.length) {
+    agendas.push(
+      getSelectedAgenda({
+        selectedDate,
+        todayKey,
+        events: [],
+        holiday: null,
+      })
+    );
+  }
+
+  return agendas;
+}
+
 function getMonthlyInsight({ sortedEvents, monthDate, todayKey }) {
   const monthEvents = sortedEvents.filter((event) => isSameMonth(event, monthDate));
   const moneyEvents = monthEvents.filter(isMoneyEvent);
@@ -688,6 +729,117 @@ function AgendaCard({ agenda, onOpen }) {
   );
 }
 
+function AgendaCarousel({ agendas, selectedDate, onOpen }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const touchStartXRef = useRef(null);
+  const touchCurrentXRef = useRef(null);
+  const suppressOpenUntilRef = useRef(0);
+  const agendaSignature = agendas
+    .map((agenda) => agenda.event?.id || agenda.title)
+    .join("|");
+  const count = agendas.length;
+  const activeAgenda = agendas[Math.min(activeIndex, Math.max(count - 1, 0))];
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [selectedDate, agendaSignature]);
+
+  if (!activeAgenda) return null;
+
+  if (count <= 1) {
+    return <AgendaCard agenda={activeAgenda} onOpen={onOpen} />;
+  }
+
+  const moveBy = (direction) => {
+    setActiveIndex((current) => (current + direction + count) % count);
+  };
+
+  const handleTouchStart = (touchEvent) => {
+    const x = touchEvent.touches?.[0]?.clientX;
+    touchStartXRef.current = Number.isFinite(x) ? x : null;
+    touchCurrentXRef.current = touchStartXRef.current;
+  };
+
+  const handleTouchMove = (touchEvent) => {
+    const x = touchEvent.touches?.[0]?.clientX;
+    if (Number.isFinite(x)) touchCurrentXRef.current = x;
+  };
+
+  const handleTouchEnd = () => {
+    const startX = touchStartXRef.current;
+    const endX = touchCurrentXRef.current;
+    touchStartXRef.current = null;
+    touchCurrentXRef.current = null;
+
+    if (!Number.isFinite(startX) || !Number.isFinite(endX)) return;
+
+    const delta = endX - startX;
+    if (Math.abs(delta) < AGENDA_SWIPE_THRESHOLD_PX) return;
+
+    suppressOpenUntilRef.current = Date.now() + AGENDA_OPEN_SUPPRESSION_MS;
+    moveBy(delta < 0 ? 1 : -1);
+  };
+
+  const handleOpen = (event) => {
+    if (Date.now() < suppressOpenUntilRef.current) return;
+    onOpen(event);
+  };
+
+  return (
+    <div
+      className="relative shrink-0 touch-pan-y"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      <AgendaCard agenda={activeAgenda} onOpen={handleOpen} />
+
+      <button
+        type="button"
+        onClick={() => moveBy(-1)}
+        className="absolute left-2 top-1/2 z-20 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-[#071026]/82 text-white/52 backdrop-blur-md transition hover:text-white/80 sm:flex"
+        aria-label="Previous event"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => moveBy(1)}
+        className="absolute right-2 top-1/2 z-20 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-[#071026]/82 text-white/52 backdrop-blur-md transition hover:text-white/80 sm:flex"
+        aria-label="Next event"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
+
+      <div className="mt-1 flex h-4 items-center justify-center gap-2" aria-label={`${activeIndex + 1} of ${count} events`}>
+        <div className="flex items-center gap-0.5">
+          {agendas.map((agenda, index) => (
+            <button
+              key={agenda.event?.id || `${agenda.title}-${index}`}
+              type="button"
+              onClick={() => setActiveIndex(index)}
+              className="flex h-4 w-4 items-center justify-center"
+              aria-label={`Show event ${index + 1} of ${count}`}
+              aria-current={index === activeIndex ? "true" : undefined}
+            >
+              <span
+                className={`block rounded-full transition-all ${
+                  index === activeIndex
+                    ? "h-1.5 w-4 bg-cyan-100/68"
+                    : "h-1.5 w-1.5 bg-white/22"
+                }`}
+              />
+            </button>
+          ))}
+        </div>
+        <span className="text-[9px] font-black uppercase tracking-[.11em] text-white/32">
+          {activeIndex + 1} of {count}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSelect, onPrev, onNext, onAdd }) {
   return (
     <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[30px] border border-white/8 bg-[linear-gradient(145deg,rgba(8,13,34,.72),rgba(12,22,50,.56)_52%,rgba(36,21,70,.26))] p-[clamp(0.68rem,1.75svh,0.9rem)] shadow-[0_18px_45px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.035)]">
@@ -744,6 +896,7 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
           const hasHoliday = Boolean(holiday);
           const hasMoney = events.some(isMoneyEvent);
           const hasAny = events.length > 0;
+          const agendaCount = events.length + (hasHoliday ? 1 : 0);
           const selected = cell.key === selectedDate;
           const today = cell.key === todayKey;
           const displayIcon = eventIcon || holiday?.icon || "";
@@ -766,8 +919,8 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
                           ? "border-white/8 bg-white/[.03] text-white/58"
                           : "border-white/6 bg-white/[.022] text-white/36 hover:bg-white/[.035] hover:text-white/56"
               }`}
-              aria-label={`Select ${cell.key}${primaryEvent ? `, ${displayTitle(primaryEvent)}` : holiday ? `, ${holiday.title}` : ""}. Double tap to add a schedule.`}
-              title={primaryEvent ? `${displayTitle(primaryEvent)} • Double tap to add another schedule` : holiday ? `${holiday.title} • ${holiday.type}` : "Double tap to add a schedule"}
+              aria-label={`Select ${cell.key}${primaryEvent ? `, ${displayTitle(primaryEvent)}` : holiday ? `, ${holiday.title}` : ""}${agendaCount > 1 ? `, ${agendaCount} events` : ""}. Double tap to add a schedule.`}
+              title={primaryEvent ? `${displayTitle(primaryEvent)}${agendaCount > 1 ? ` • ${agendaCount} events` : ""} • Double tap to add another schedule` : holiday ? `${holiday.title} • ${holiday.type}${agendaCount > 1 ? ` • ${agendaCount} events` : ""}` : "Double tap to add a schedule"}
             >
               {selected ? (
                 <span className="pointer-events-none absolute inset-[-1px] rounded-[inherit] border border-cyan-100/14" />
@@ -788,7 +941,11 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
               {selected ? (
                 <span className="absolute top-1.5 h-1 w-5 rounded-full bg-cyan-100/50 shadow-[0_0_8px_rgba(103,232,249,.25)]" />
               ) : null}
-              {hasAny ? (
+              {agendaCount > 1 ? (
+                <span className="absolute bottom-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-white/10 bg-white/[.08] px-1 text-[8px] font-black leading-none text-white/60">
+                  {agendaCount > 9 ? "9+" : agendaCount}
+                </span>
+              ) : hasAny ? (
                 <span className={`absolute bottom-1.5 h-1.5 w-1.5 rounded-full ${hasMoney ? "bg-fuchsia-200/70" : "bg-cyan-200/55"}`} />
               ) : null}
             </button>
@@ -1186,8 +1343,8 @@ export default function DashboardSchedulePanel() {
   const cells = useMemo(() => buildMonthCells(monthDate), [monthDate]);
   const selectedEvents = byDate[selectedDate] || [];
   const selectedHoliday = getHoliday(selectedDate);
-  const selectedAgenda = useMemo(
-    () => getSelectedAgenda({ selectedDate, todayKey: today, events: selectedEvents, holiday: selectedHoliday }),
+  const selectedAgendas = useMemo(
+    () => getSelectedAgendas({ selectedDate, todayKey: today, events: selectedEvents, holiday: selectedHoliday }),
     [selectedDate, selectedEvents, selectedHoliday, today]
   );
   const monthlyInsight = useMemo(
@@ -1406,7 +1563,7 @@ export default function DashboardSchedulePanel() {
       className="flex min-h-0 flex-col gap-[clamp(0.5rem,1.35svh,0.75rem)] overflow-hidden pb-1"
       style={{ height: "clamp(560px, calc(100svh - 126px), 720px)" }}
     >
-      <AgendaCard agenda={selectedAgenda} onOpen={openEvent} />
+      <AgendaCarousel agendas={selectedAgendas} selectedDate={selectedDate} onOpen={openEvent} />
       <CalendarMonth
         monthDate={monthDate}
         cells={cells}
