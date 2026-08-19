@@ -30,10 +30,17 @@ export default function ClaraAiEnvironmentOverlay(props) {
 
   if (weeklyMoneyCheckMode) {
     return (
-      <ClaraWeeklyMoneyCheckOverlay
-        {...props}
-        claraAssistantContext={enrichedAssistantContext}
-      />
+      <>
+        <ClaraWeeklyMoneyCheckOverlay
+          {...props}
+          claraAssistantContext={enrichedAssistantContext}
+        />
+        <span
+          data-clara-pause-entry-board="true"
+          className="hidden"
+          aria-hidden="true"
+        />
+      </>
     );
   }
 
