@@ -30,6 +30,15 @@ test("planned spending branch explicitly avoids duplicate logging", () => {
   assert.match(overlaySource, /Show my planned list/);
 });
 
+test("empty planned list continues into a Money Schedule offer instead of ending", () => {
+  assert.match(overlaySource, /I don’t see an active planned budget or Money Schedule yet/);
+  assert.match(overlaySource, /Would you like to set up your Money Schedule now\?/);
+  assert.match(overlaySource, />Yes, set it up</);
+  assert.match(overlaySource, />Not now</);
+  assert.match(overlaySource, /phase === "money-schedule-offer"/);
+  assert.match(overlaySource, /window\.location\.assign\("\/community\?view=schedule"\)/);
+});
+
 test("Log Expense uses the Emergency Fund Masterclass conversation rhythm", () => {
   assert.match(overlaySource, /getClaraReplyDelay/);
   assert.match(overlaySource, /getClaraTypingPlan/);
@@ -41,7 +50,7 @@ test("Log Expense uses the Emergency Fund Masterclass conversation rhythm", () =
   assert.doesNotMatch(overlaySource, /data-clara-log-expense-typing="true"/);
 });
 
-test("Log Expense hides controls until CLARA finishes typing and the reading window ends", () => {
+test("Log Expense hides controls until CLARA finishes typing", () => {
   assert.match(overlaySource, /setInteractionReady\(false\)/);
   assert.match(overlaySource, /setInteractionReady\(true\)/);
   assert.match(overlaySource, /controlsReady = interactionReady/);
