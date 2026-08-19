@@ -12,6 +12,9 @@ const dashboardPreview = read(
 );
 const repair = read("src/lib/savingsGoalLinkedExpenseRepair.js");
 const manualSync = read("src/lib/manualExpenseLinkedTargetSync.js");
+const scheduleEntry = read(
+  "src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardScheduleImpactPortalPanel.jsx"
+);
 const packageJson = read("package.json");
 
 test("Savings Goal uses one protected-wallet truth", () => {
@@ -93,6 +96,14 @@ test("Savings Goals owns the complete top shell without a mount-time class", () 
   assert.match(topShell, /background: #061426 !important/);
   assert.match(topShell, /padding-top: 0 !important/);
   assert.match(topShell, /min-height: 100dvh/);
+});
+
+test("Savings Goal schedule entry cannot bypass financial-card projection sync", () => {
+  assert.match(scheduleEntry, /syncFinancialCardSchedulesIntoCalendar/);
+  assert.match(scheduleEntry, /clara-finance-updated/);
+  assert.match(scheduleEntry, /clara:debt-obligations-updated/);
+  assert.match(scheduleEntry, /financialProjectionEpoch/);
+  assert.match(scheduleEntry, /DashboardScheduleManualPanel/);
 });
 
 test("Savings Goal flow regression runs in npm test", () => {
