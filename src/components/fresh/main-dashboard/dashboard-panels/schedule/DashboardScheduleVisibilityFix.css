@@ -48,6 +48,30 @@
   filter: blur(2px);
 }
 
+/* Keep the carousel count on the true horizontal centerline.
+   The dot controls occupy the left mirror column so their width can never
+   push "1 of 2" (or any other count) away from center. */
+div[aria-label$=" events"] {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  width: 100%;
+  column-gap: 0.5rem !important;
+  align-items: center;
+  justify-content: stretch !important;
+}
+
+div[aria-label$=" events"] > div:first-child {
+  grid-column: 1;
+  justify-self: end;
+}
+
+div[aria-label$=" events"] > span:last-child {
+  grid-column: 2;
+  justify-self: center;
+  white-space: nowrap;
+  text-align: center;
+}
+
 @media (max-width: 480px) {
   [role="dialog"][aria-label="Add schedule"] > section {
     max-height: calc(100svh - 18px) !important;
