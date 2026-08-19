@@ -38,3 +38,15 @@
   line-height: 1.05 !important;
   transform: translate(-78%, -100%) !important;
 }
+
+/*
+ * On the narrowest supported mobile width, the full Weekly Cross-Check label
+ * can graze the Log Expense circle. Shift only that label a few pixels left;
+ * the command circle and its directional sector remain unchanged.
+ */
+@media (max-width: 340px) {
+  .clara-orb-command-action[data-clara-orb-command-id="weekly-cross-check"]
+    .clara-orb-command-action-label {
+    left: 38% !important;
+  }
+}
