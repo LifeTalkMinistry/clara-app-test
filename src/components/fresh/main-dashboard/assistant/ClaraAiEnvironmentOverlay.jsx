@@ -110,8 +110,10 @@ export default function ClaraAiEnvironmentOverlay(props) {
       return undefined;
     }
 
-    weeklyAutoOpenRef.current = true;
     const timerId = window.setTimeout(() => {
+      if (weeklyAutoOpenRef.current) return;
+      weeklyAutoOpenRef.current = true;
+
       const requestId = `clara-weekly-money-check-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       window.dispatchEvent(
         new CustomEvent(CLARA_PAUSE_OPEN_REQUEST_EVENT, {
