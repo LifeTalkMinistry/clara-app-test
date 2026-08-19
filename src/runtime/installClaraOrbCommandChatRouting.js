@@ -4,6 +4,8 @@ import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "../lib/clara-pause-events.js";
 const RUNTIME_KEY = "__claraOrbCommandChatRoutingRuntime__";
 const LOG_EXPENSE_OVERLAY_SELECTOR = '[data-clara-log-expense-chat="true"]';
 const LOG_EXPENSE_VIEWPORT_SELECTOR = '[data-clara-ai-message-viewport="true"]';
+const LOG_EXPENSE_AMOUNT_INPUT_SELECTOR = 'input[placeholder="Amount spent"]';
+const LOG_EXPENSE_ITEM_INPUT_SELECTOR = 'input[placeholder="What was it for?"]';
 const CANONICAL_FORM_ATTRIBUTE = "data-clara-buy-check-react-form";
 const CANONICAL_STACK_ATTRIBUTE = "data-clara-ai-message-stack";
 const CLARA_CALENDAR_PATH = "/community?view=schedule";
@@ -12,6 +14,64 @@ const CHAT_COMMAND_MODES = Object.freeze({
   wallet: "wallet",
   "money-schedule": "money-schedule",
 });
+const registeredAmountInputs = new WeakSet();
+
+function sanitizeLogExpenseAmountInput(value) {
+  const compact = String(value ?? "")
+    .replace(/,/g, "")
+    .replace(/[^0-9.]/g, "");
+  const decimalIndex = compact.indexOf(".");
+
+  if (decimalIndex < 0) return compact;
+
+  const whole = compact.slice(0, decimalIndex) || "0";
+  const fraction = compact
+    .slice(decimalIndex + 1)
+    .replace(/\./g, "")
+    .slice(0, 2);
+
+  return `${whole}.${fraction}`;
+}
+
+function configureLogExpenseComposerInputs(overlay) {
+  if (!overlay) return;
+
+  const amountInput = overlay.querySelector(LOG_EXPENSE_AMOUNT_INPUT_SELECTOR);
+  if (amountInput) {
+    amountInput.setAttribute("inputmode", "decimal");
+    amountInput.setAttribute("pattern", "[0-9]*[.]?[0-9]{0,2}");
+    amountInput.setAttribute("autocomplete", "off");
+    amountInput.setAttribute("data-clara-log-expense-input-kind", "amount");
+
+    if (!registeredAmountInputs.has(amountInput)) {
+      registeredAmountInputs.add(amountInput);
+
+      // Sanitize at the actual input target before React's delegated onChange
+      // reads the value. Mobile receives the decimal keyboard, while desktop
+      // typing and pasted text still cannot put letters into the amount draft.
+      amountInput.addEventListener(
+        "input",
+        () => {
+          const sanitized = sanitizeLogExpenseAmountInput(amountInput.value);
+          if (sanitized !== amountInput.value) {
+            amountInput.value = sanitized;
+          }
+        },
+        true
+      );
+    }
+  }
+
+  const itemInput = overlay.querySelector(LOG_EXPENSE_ITEM_INPUT_SELECTOR);
+  if (itemInput) {
+    // Item/reason is descriptive content. Restore a normal text keyboard and
+    // remove the numeric-only constraint from the amount step.
+    itemInput.setAttribute("inputmode", "text");
+    itemInput.setAttribute("autocomplete", "off");
+    itemInput.removeAttribute("pattern");
+    itemInput.setAttribute("data-clara-log-expense-input-kind", "item");
+  }
+}
 
 function registerLogExpenseChatKeyboardOwnership() {
   if (typeof document === "undefined") return;
@@ -28,6 +88,8 @@ function registerLogExpenseChatKeyboardOwnership() {
   if (form && form.getAttribute(CANONICAL_FORM_ATTRIBUTE) !== "true") {
     form.setAttribute(CANONICAL_FORM_ATTRIBUTE, "true");
   }
+
+  configureLogExpenseComposerInputs(overlay);
 
   // Register the transcript stack too so keyboard-time scroll anchoring uses
   // the same conversation geometry as Ask Before You Spend.
