@@ -12,6 +12,11 @@ const environmentSource = await readFile(
   "utf8"
 );
 
+const commandRingCss = await readFile(
+  new URL("../src/lib/clara-orb-command-ring.css", import.meta.url),
+  "utf8"
+);
+
 test("Log Expense chat starts with greeting and planned versus unplanned choice", () => {
   assert.match(overlaySource, /Hi \$\{firstName\}!/);
   assert.match(overlaySource, /scheduled budget, or was it unplanned spending/i);
@@ -35,4 +40,11 @@ test("unplanned spending reuses the atomic Buy Check expense repository", () => 
 test("CLARA environment renders dedicated Log Expense mode", () => {
   assert.match(environmentSource, /entryMode === "log-expense"/);
   assert.match(environmentSource, /<ClaraLogExpenseOverlay/);
+});
+
+test("short Log Expense conversations sit lower like a normal chat instead of stacking under the header", () => {
+  assert.match(commandRingCss, /\[data-clara-log-expense-chat="true"\]/);
+  assert.match(commandRingCss, /\[data-clara-ai-message-viewport="true"\]/);
+  assert.match(commandRingCss, /justify-content:\s*flex-end/);
+  assert.match(commandRingCss, /padding-bottom:\s*clamp\(72px,\s*11vh,\s*96px\)/);
 });
