@@ -27,12 +27,13 @@ const masterclassPrimitiveSource = await readFile(
   "utf8"
 );
 
-test("canonical pacing matches the Emergency Fund Masterclass timing envelope", () => {
+test("normal CLARA chats keep Masterclass typing rhythm without the Masterclass option delay", () => {
   assert.match(pacingSource, /CLARA_TYPING_MIN_DURATION_MS = 1800/);
   assert.match(pacingSource, /CLARA_TYPING_MAX_DURATION_MS = 5200/);
   assert.match(pacingSource, /CLARA_TYPING_TICK_MS = 28/);
-  assert.match(pacingSource, /CLARA_READ_MIN_DELAY_MS = 5200/);
-  assert.match(pacingSource, /CLARA_READ_MAX_DELAY_MS = 8200/);
+  assert.match(pacingSource, /CLARA_READ_MIN_DELAY_MS = 0/);
+  assert.match(pacingSource, /CLARA_READ_MAX_DELAY_MS = 0/);
+  assert.match(pacingSource, /function getClaraReadDelay\(\) \{\s*return 0;/);
 
   assert.match(masterclassRuntimeSource, /Math\.min\(5200, Math\.max\(1800, source\.length \* 7\)\)/);
   assert.match(masterclassRuntimeSource, /const tickMs = 28/);
@@ -46,7 +47,7 @@ test("all production CLARA financial chat surfaces declare masterclass pacing", 
   assert.match(weeklySource, /data-clara-conversation-pacing="masterclass"/);
 });
 
-test("Log Expense types the actual CLARA sentence and unlocks controls only after reading time", () => {
+test("Log Expense types the actual CLARA sentence and unlocks controls immediately after typing", () => {
   assert.match(logExpenseSource, /getClaraTypingPlan/);
   assert.match(logExpenseSource, /pendingMessage/);
   assert.match(logExpenseSource, /typedText/);
@@ -54,7 +55,7 @@ test("Log Expense types the actual CLARA sentence and unlocks controls only afte
   assert.match(logExpenseSource, /controlsReady = interactionReady/);
 });
 
-test("Ask Before You Spend progressively types new CLARA messages and locks reply controls", () => {
+test("Ask Before You Spend progressively types new CLARA messages and locks reply controls only while pacing is active", () => {
   assert.match(buyCheckSource, /function CanonicalTypewriter/);
   assert.match(buyCheckSource, /getClaraReplyDelay/);
   assert.match(buyCheckSource, /getClaraTypingPlan/);
@@ -63,7 +64,7 @@ test("Ask Before You Spend progressively types new CLARA messages and locks repl
   assert.match(buyCheckSource, /actionBarVisible/);
 });
 
-test("Weekly Money Check waits for one CLARA turn at a time", () => {
+test("Weekly Money Check waits for one CLARA turn at a time and continues immediately after typing", () => {
   assert.match(weeklySource, /getClaraTypingPlan/);
   assert.match(weeklySource, /getClaraReadDelay/);
   assert.match(weeklySource, /pendingReviewRef/);
