@@ -30,6 +30,16 @@ test("planned spending branch explicitly avoids duplicate logging", () => {
   assert.match(overlaySource, /Show my planned list/);
 });
 
+test("Log Expense replies arrive conversationally instead of dumping static responses", () => {
+  assert.match(overlaySource, /function TypingBubble/);
+  assert.match(overlaySource, /data-clara-log-expense-typing="true"/);
+  assert.match(overlaySource, /runAssistantSequence/);
+  assert.match(overlaySource, /setPhase\("responding"\)/);
+  assert.match(overlaySource, /setAssistantTyping\(true\)/);
+  assert.match(overlaySource, /await wait\(responseDelay/);
+  assert.match(overlaySource, /append\(chatMessage\("user", "Scheduled \/ Planned"\)\)/);
+});
+
 test("unplanned spending reuses the atomic Buy Check expense repository", () => {
   assert.match(overlaySource, /addBuyCheckExpense/);
   assert.match(overlaySource, /planning_status: "unplanned"/);
