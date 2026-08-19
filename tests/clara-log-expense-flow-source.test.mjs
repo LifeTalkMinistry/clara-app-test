@@ -72,6 +72,17 @@ test("Log Expense free-text composer registers with the canonical CLARA keyboard
   assert.match(commandChatRoutingSource, /registerLogExpenseChatKeyboardOwnership/);
 });
 
+test("Log Expense amount is numeric-only while item input remains unrestricted text", () => {
+  assert.match(commandChatRoutingSource, /sanitizeLogExpenseAmountInput/);
+  assert.match(commandChatRoutingSource, /replace\(\/\[\^0-9\.\]\/g, ""\)/);
+  assert.match(commandChatRoutingSource, /inputmode", "decimal"/);
+  assert.match(commandChatRoutingSource, /pattern", "\[0-9\]\*\[\.\]\?\[0-9\]\{0,2\}"/);
+  assert.match(commandChatRoutingSource, /data-clara-log-expense-input-kind", "amount"/);
+  assert.match(commandChatRoutingSource, /inputmode", "text"/);
+  assert.match(commandChatRoutingSource, /removeAttribute\("pattern"\)/);
+  assert.match(commandChatRoutingSource, /data-clara-log-expense-input-kind", "item"/);
+});
+
 test("unplanned spending reuses the atomic Buy Check expense repository", () => {
   assert.match(overlaySource, /addBuyCheckExpense/);
   assert.match(overlaySource, /planning_status: "unplanned"/);
