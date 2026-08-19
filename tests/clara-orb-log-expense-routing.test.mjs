@@ -54,6 +54,69 @@ test("Log Expense Orb command opens CLARA chat in log-expense mode", async () =>
   }
 });
 
+test("Calendar Orb command opens the existing Community Schedule calendar", async () => {
+  const previousWindow = globalThis.window;
+  const previousCustomEvent = globalThis.CustomEvent;
+
+  class TestCustomEvent extends Event {
+    constructor(type, options = {}) {
+      super(type);
+      this.detail = options.detail;
+    }
+  }
+
+  const fakeWindow = new EventTarget();
+  let pushedPath = "";
+  let popstateObserved = false;
+  let chatOpened = false;
+
+  fakeWindow.history = {
+    state: null,
+    pushState(state, _title, path) {
+      this.state = state;
+      pushedPath = String(path || "");
+    },
+  };
+  fakeWindow.location = {
+    assign(path) {
+      pushedPath = String(path || "");
+    },
+  };
+
+  fakeWindow.addEventListener("popstate", () => {
+    popstateObserved = true;
+  });
+  fakeWindow.addEventListener(CLARA_PAUSE_OPEN_REQUEST_EVENT, () => {
+    chatOpened = true;
+  });
+
+  globalThis.window = fakeWindow;
+  globalThis.CustomEvent = TestCustomEvent;
+
+  try {
+    await import(`../src/runtime/installClaraOrbCommandChatRouting.js?test=${Date.now()}-calendar`);
+
+    fakeWindow.dispatchEvent(
+      new TestCustomEvent(CLARA_ORB_COMMAND_SELECT_EVENT, {
+        detail: {
+          commandId: "calendar",
+          commandLabel: "Calendar",
+          source: "clara-orb-page",
+        },
+      })
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(pushedPath, "/community?view=schedule");
+    assert.equal(popstateObserved, true);
+    assert.equal(chatOpened, false);
+  } finally {
+    fakeWindow.__claraOrbCommandChatRoutingRuntime__?.destroy?.();
+    globalThis.window = previousWindow;
+    globalThis.CustomEvent = previousCustomEvent;
+  }
+});
+
 test("non Log Expense Orb commands do not open the Log Expense chat mode", async () => {
   const previousWindow = globalThis.window;
   const previousCustomEvent = globalThis.CustomEvent;
