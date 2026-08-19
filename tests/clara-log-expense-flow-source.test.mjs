@@ -7,6 +7,11 @@ const overlaySource = await readFile(
   "utf8"
 );
 
+const moneyScheduleSource = await readFile(
+  new URL("../src/components/fresh/main-dashboard/assistant/ClaraMoneyScheduleOverlay.jsx", import.meta.url),
+  "utf8"
+);
+
 const environmentSource = await readFile(
   new URL("../src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay.jsx", import.meta.url),
   "utf8"
@@ -35,15 +40,23 @@ test("planned spending branch explicitly avoids duplicate logging", () => {
   assert.match(overlaySource, /Show my planned list/);
 });
 
-test("empty planned list continues into a Money Schedule offer instead of ending", () => {
+test("empty planned list hands directly into Money Schedule chat instead of the Calendar", () => {
   assert.match(overlaySource, /I don’t see an active planned budget or Money Schedule yet/);
   assert.match(overlaySource, /Would you like to set up your Money Schedule now\?/);
   assert.match(overlaySource, />Yes, set it up</);
   assert.match(overlaySource, />Not now</);
   assert.match(overlaySource, /phase === "money-schedule-offer"/);
-  assert.match(overlaySource, /useNavigate/);
-  assert.match(overlaySource, /navigate\("\/community\?view=schedule"\)/);
+  assert.match(overlaySource, /CLARA_PAUSE_OPEN_REQUEST_EVENT/);
+  assert.match(overlaySource, /mode: "money-schedule"/);
+  assert.match(overlaySource, /commandId: "money-schedule"/);
+  assert.doesNotMatch(overlaySource, /navigate\("\/community\?view=schedule"\)/);
   assert.doesNotMatch(overlaySource, /window\.location\.assign\("\/community\?view=schedule"\)/);
+});
+
+test("Money Schedule Open Calendar stays inside the app router", () => {
+  assert.match(moneyScheduleSource, /useNavigate/);
+  assert.match(moneyScheduleSource, /navigate\("\/community\?view=schedule"\)/);
+  assert.doesNotMatch(moneyScheduleSource, /window\.location\.assign\("\/community\?view=schedule"\)/);
 });
 
 test("Log Expense uses the Emergency Fund Masterclass conversation rhythm", () => {
