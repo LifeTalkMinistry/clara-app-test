@@ -1,5 +1,5 @@
-import { CLARA_ORB_COMMAND_SELECT_EVENT } from "@/lib/clara-orb-command-ring";
-import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "@/lib/clara-pause-events";
+import { CLARA_ORB_COMMAND_SELECT_EVENT } from "../lib/clara-orb-command-ring.js";
+import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "../lib/clara-pause-events.js";
 
 const RUNTIME_KEY = "__claraOrbCommandChatRoutingRuntime__";
 
