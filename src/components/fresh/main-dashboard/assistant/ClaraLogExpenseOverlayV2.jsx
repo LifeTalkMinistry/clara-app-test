@@ -9,6 +9,11 @@ import {
   normalizeExpenseCategory,
   normalizeNeedType,
 } from "@/lib/clara-buy-check-budget-intelligence";
+import {
+  getClaraReadDelay,
+  getClaraReplyDelay,
+  getClaraTypingPlan,
+} from "@/lib/clara-conversation-pacing";
 
 function money(value = 0) {
   const parsed = Number(value);
@@ -65,7 +70,7 @@ function titleFromBudget(budget = {}) {
   );
 }
 
-function Bubble({ role, children }) {
+function Bubble({ role, children, typing = false }) {
   const assistant = role === "assistant";
   return (
     <div className={`flex ${assistant ? "justify-start" : "justify-end"}`}>
@@ -76,23 +81,10 @@ function Bubble({ role, children }) {
             : "rounded-tr-[7px] border border-blue-300/22 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] text-white"
         }`}
       >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function TypingBubble() {
-  return (
-    <div className="flex justify-start" data-clara-log-expense-typing="true" aria-label="CLARA is typing">
-      <div className="flex h-10 items-center gap-1.5 rounded-[20px] rounded-tl-[7px] border border-blue-200/12 bg-[#0a1933]/94 px-4 shadow-[0_12px_28px_rgba(0,0,0,0.20)]">
-        {[0, 1, 2].map((index) => (
-          <span
-            key={index}
-            className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-100/68"
-            style={{ animationDelay: `${index * 120}ms`, animationDuration: "850ms" }}
-          />
-        ))}
+        <span className="whitespace-pre-wrap">{children}</span>
+        {typing ? (
+          <span className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[2px] animate-pulse rounded-full bg-cyan-100/75" />
+        ) : null}
       </div>
     </div>
   );
@@ -151,7 +143,7 @@ export default function ClaraLogExpenseOverlayV2({
 }) {
   const user = claraAssistantContext?.user || {};
   const firstName = firstNameFromUser(user);
-  const [phase, setPhase] = useState("planning-choice");
+  const [phase, setPhase] = useState("opening");
   const [amountInput, setAmountInput] = useState("");
   const [amount, setAmount] = useState(0);
   const [itemInput, setItemInput] = useState("");
@@ -159,18 +151,17 @@ export default function ClaraLogExpenseOverlayV2({
   const [walletId, setWalletId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [showPlannedList, setShowPlannedList] = useState(false);
-  const [assistantTyping, setAssistantTyping] = useState(false);
-  const [messages, setMessages] = useState(() => [
-    chatMessage("assistant", `Hi ${firstName}! 👋`),
-    chatMessage(
-      "assistant",
-      "Was this expense part of your scheduled budget, or was it unplanned spending?"
-    ),
-  ]);
+  const [messages, setMessages] = useState([]);
+  const [pendingMessage, setPendingMessage] = useState(null);
+  const [typedText, setTypedText] = useState("");
+  const [interactionReady, setInteractionReady] = useState(false);
   const viewportRef = useRef(null);
   const timerIdsRef = useRef(new Set());
-  const conversationTokenRef = useRef(0);
+  const typingTimerRef = useRef(null);
+  const sequenceRef = useRef([]);
+  const sequencePhaseRef = useRef("planning-choice");
+  const sequenceTokenRef = useRef(0);
+  const previousActiveRef = useRef(false);
 
   const walletOptions = useMemo(
     () => getWalletOptions(claraAssistantContext, amount),
@@ -198,64 +189,135 @@ export default function ClaraLogExpenseOverlayV2({
     scrollToLatest();
   };
 
-  const wait = (milliseconds) =>
-    new Promise((resolve) => {
-      const id = window.setTimeout(() => {
-        timerIdsRef.current.delete(id);
-        resolve();
-      }, milliseconds);
-      timerIdsRef.current.add(id);
-    });
+  const registerTimeout = (callback, delay) => {
+    const id = window.setTimeout(() => {
+      timerIdsRef.current.delete(id);
+      callback();
+    }, delay);
+    timerIdsRef.current.add(id);
+    return id;
+  };
 
-  const cancelPendingReplies = () => {
-    conversationTokenRef.current += 1;
+  const clearPacingTimers = () => {
+    if (typingTimerRef.current) window.clearInterval(typingTimerRef.current);
+    typingTimerRef.current = null;
     timerIdsRef.current.forEach((id) => window.clearTimeout(id));
     timerIdsRef.current.clear();
-    setAssistantTyping(false);
   };
 
-  const responseDelay = (text, index) => {
-    const readingWeight = Math.min(clean(text).length * 4, 480);
-    return 520 + readingWeight + index * 80;
+  const cancelConversationPacing = () => {
+    sequenceTokenRef.current += 1;
+    clearPacingTimers();
+    sequenceRef.current = [];
+    setPendingMessage(null);
+    setTypedText("");
+    setInteractionReady(false);
   };
 
-  const runAssistantSequence = async (replyTexts, nextPhase) => {
-    const replies = replyTexts.map((text) => clean(text)).filter(Boolean);
-    if (!replies.length) {
-      setPhase(nextPhase);
-      return true;
+  const queueNextAssistantMessage = (token, skipDelay = false) => {
+    if (token !== sequenceTokenRef.current) return;
+    const nextText = sequenceRef.current.shift();
+    if (!nextText) {
+      setPendingMessage(null);
+      setTypedText("");
+      setPhase(sequencePhaseRef.current);
+      registerTimeout(() => {
+        if (token === sequenceTokenRef.current) setInteractionReady(true);
+      }, getClaraReadDelay());
+      return;
     }
 
-    const token = ++conversationTokenRef.current;
+    const show = () => {
+      if (token !== sequenceTokenRef.current) return;
+      setTypedText("");
+      setPendingMessage(chatMessage("assistant", nextText));
+      scrollToLatest();
+    };
+
+    if (skipDelay) show();
+    else registerTimeout(show, getClaraReplyDelay());
+  };
+
+  const runAssistantSequence = (replyTexts, nextPhase, options = {}) => {
+    cancelConversationPacing();
+    const replies = replyTexts.map((text) => String(text || "").trim()).filter(Boolean);
+    const token = sequenceTokenRef.current;
+    sequenceRef.current = replies;
+    sequencePhaseRef.current = nextPhase;
     setPhase("responding");
-    setAssistantTyping(true);
-    scrollToLatest();
-
-    for (let index = 0; index < replies.length; index += 1) {
-      await wait(responseDelay(replies[index], index));
-      if (token !== conversationTokenRef.current) return false;
-
-      append(chatMessage("assistant", replies[index]));
-      setAssistantTyping(false);
-
-      if (index < replies.length - 1) {
-        await wait(260);
-        if (token !== conversationTokenRef.current) return false;
-        setAssistantTyping(true);
-        scrollToLatest();
-      }
-    }
-
-    if (token !== conversationTokenRef.current) return false;
-    setPhase(nextPhase);
-    return true;
+    setInteractionReady(false);
+    queueNextAssistantMessage(token, options.skipInitialDelay === true);
   };
+
+  const resetFinancialFields = () => {
+    setAmountInput("");
+    setAmount(0);
+    setItemInput("");
+    setItem("");
+    setWalletId("");
+    setBusy(false);
+    setError("");
+  };
+
+  const startOpeningConversation = () => {
+    cancelConversationPacing();
+    resetFinancialFields();
+    setMessages([]);
+    runAssistantSequence(
+      [
+        `Hi ${firstName}! 👋`,
+        "Was this expense part of your scheduled budget, or was it unplanned spending?",
+      ],
+      "planning-choice"
+    );
+  };
+
+  useEffect(() => {
+    if (!pendingMessage) return undefined;
+    const token = sequenceTokenRef.current;
+    const plan = getClaraTypingPlan(pendingMessage.text);
+    let index = 0;
+
+    setTypedText("");
+    typingTimerRef.current = window.setInterval(() => {
+      if (token !== sequenceTokenRef.current) return;
+      index = Math.min(plan.source.length, index + plan.charsPerTick);
+      setTypedText(plan.source.slice(0, index));
+      scrollToLatest();
+
+      if (index >= plan.source.length) {
+        window.clearInterval(typingTimerRef.current);
+        typingTimerRef.current = null;
+        const completedMessage = pendingMessage;
+        setMessages((current) => [...current, completedMessage]);
+        setPendingMessage(null);
+        setTypedText("");
+        scrollToLatest();
+        queueNextAssistantMessage(token);
+      }
+    }, plan.tickMs);
+
+    return () => {
+      if (typingTimerRef.current) window.clearInterval(typingTimerRef.current);
+      typingTimerRef.current = null;
+    };
+  }, [pendingMessage]);
+
+  useEffect(() => {
+    if (isActive && !previousActiveRef.current) startOpeningConversation();
+    if (!isActive && previousActiveRef.current) {
+      cancelConversationPacing();
+      resetFinancialFields();
+      setMessages([]);
+      setPhase("opening");
+    }
+    previousActiveRef.current = isActive;
+  }, [isActive, firstName]);
 
   useEffect(
     () => () => {
-      conversationTokenRef.current += 1;
-      timerIdsRef.current.forEach((id) => window.clearTimeout(id));
-      timerIdsRef.current.clear();
+      sequenceTokenRef.current += 1;
+      clearPacingTimers();
     },
     []
   );
@@ -263,15 +325,15 @@ export default function ClaraLogExpenseOverlayV2({
   if (!isActive) return null;
 
   const closeChat = () => {
-    cancelPendingReplies();
+    cancelConversationPacing();
     onClose?.();
   };
 
   const choosePlanned = () => {
+    if (!interactionReady) return;
     setError("");
-    setShowPlannedList(false);
     append(chatMessage("user", "Scheduled / Planned"));
-    void runAssistantSequence(
+    runAssistantSequence(
       [
         "If this was already part of your planned budget or scheduled money setup, you don’t have to log it again. CLARA already has that plan accounted for, so logging it here could count it twice.",
         "I can remind you of the budget items you already set up. Want to see your current planned list?",
@@ -281,29 +343,27 @@ export default function ClaraLogExpenseOverlayV2({
   };
 
   const chooseUnplanned = () => {
+    if (!interactionReady) return;
     setError("");
     append(chatMessage("user", "Unplanned Spending"));
-    void runAssistantSequence(
+    runAssistantSequence(
       ["Got it — this was unplanned spending. How much did you spend?"],
       "amount"
     );
   };
 
-  const showCurrentPlannedList = async () => {
+  const showCurrentPlannedList = () => {
+    if (!interactionReady) return;
     setError("");
-    setShowPlannedList(false);
     append(chatMessage("user", "Show my planned list"));
-    const completed = await runAssistantSequence(
+    runAssistantSequence(
       ["Sure. Here’s the planned budget setup I currently have for you."],
-      "planned"
+      "planned-list"
     );
-    if (completed) {
-      setShowPlannedList(true);
-      scrollToLatest();
-    }
   };
 
   const submitAmount = () => {
+    if (!interactionReady) return;
     const parsed = Number(String(amountInput || "").replace(/[₱,\s]/g, ""));
     if (!Number.isFinite(parsed) || parsed <= 0) {
       setError("Enter a valid amount greater than zero.");
@@ -313,46 +373,45 @@ export default function ClaraLogExpenseOverlayV2({
     setAmountInput("");
     setError("");
     append(chatMessage("user", money(parsed)));
-    void runAssistantSequence(["What was this expense for?"], "item");
+    runAssistantSequence(["What was this expense for?"], "item");
   };
 
   const submitItem = () => {
+    if (!interactionReady) return;
     const nextItem = clean(itemInput);
     if (!nextItem) return;
     setItem(nextItem);
     setItemInput("");
     setError("");
     append(chatMessage("user", nextItem));
-    void runAssistantSequence(["Which wallet did you use?"], "wallet");
+    runAssistantSequence(["Which wallet did you use?"], "wallet");
   };
 
   const chooseWallet = (wallet) => {
-    if (!wallet?.id || !wallet?.enough) return;
+    if (!interactionReady || !wallet?.id || !wallet?.enough) return;
     setWalletId(wallet.id);
     setError("");
     append(chatMessage("user", wallet.name));
-    void runAssistantSequence(
+    runAssistantSequence(
       [`Just to confirm — log ${money(amount)} for ${item} from ${wallet.name} as unplanned spending?`],
       "confirm"
     );
   };
 
   const logExpense = async () => {
-    if (busy) return;
+    if (busy || !interactionReady) return;
     const wallet = walletOptions.find((option) => option.id === walletId);
     if (!wallet) {
       setError("Choose a wallet before logging this expense.");
       return;
     }
 
-    const token = ++conversationTokenRef.current;
+    cancelConversationPacing();
     setBusy(true);
     setError("");
-    setPhase("responding");
+    setPhase("saving");
     append(chatMessage("user", "Yes, log it"));
-    setAssistantTyping(true);
-    scrollToLatest();
-    const minimumReplyDelay = wait(680);
+    const minimumReplyDelay = new Promise((resolve) => registerTimeout(resolve, getClaraReplyDelay()));
 
     try {
       const localUserId = clean(user?.id || user?.email || "local-user");
@@ -373,49 +432,27 @@ export default function ClaraLogExpenseOverlayV2({
       });
 
       await minimumReplyDelay;
-      if (token !== conversationTokenRef.current) return;
-
       dispatchFinanceUpdates();
-      setAssistantTyping(false);
-      append(
-        chatMessage(
-          "assistant",
-          `${money(amount)} for ${item} has been logged as unplanned spending and deducted from ${wallet.name}.`
-        )
+      setBusy(false);
+      runAssistantSequence(
+        [`${money(amount)} for ${item} has been logged as unplanned spending and deducted from ${wallet.name}.`],
+        "done",
+        { skipInitialDelay: true }
       );
-      setPhase("done");
     } catch (nextError) {
       await minimumReplyDelay;
-      if (token !== conversationTokenRef.current) return;
-      setAssistantTyping(false);
       const message = clean(nextError?.message || "I couldn’t log that expense. Please try again.");
-      append(chatMessage("assistant", message));
+      setBusy(false);
       setError(message);
-      setPhase("confirm");
-    } finally {
-      if (token === conversationTokenRef.current) setBusy(false);
+      runAssistantSequence([message], "confirm", { skipInitialDelay: true });
     }
   };
 
   const resetFlow = () => {
-    cancelPendingReplies();
-    setPhase("planning-choice");
-    setAmountInput("");
-    setAmount(0);
-    setItemInput("");
-    setItem("");
-    setWalletId("");
-    setBusy(false);
-    setError("");
-    setShowPlannedList(false);
-    setMessages([
-      chatMessage("assistant", `Hi ${firstName}! 👋`),
-      chatMessage(
-        "assistant",
-        "Was this expense part of your scheduled budget, or was it unplanned spending?"
-      ),
-    ]);
+    startOpeningConversation();
   };
+
+  const controlsReady = interactionReady && !pendingMessage && phase !== "responding" && !busy;
 
   return (
     <div
@@ -424,6 +461,7 @@ export default function ClaraLogExpenseOverlayV2({
       data-clara-pause-overlay="true"
       data-clara-buy-check-react-owner="true"
       data-clara-log-expense-chat="true"
+      data-clara-conversation-pacing="masterclass"
     >
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_5%_4%,rgba(23,105,255,0.28),transparent_34%),radial-gradient(circle_at_96%_8%,rgba(43,225,216,0.12),transparent_34%),linear-gradient(180deg,#06152e_0%,#040b1a_44%,#020714_100%)]" />
 
@@ -452,55 +490,60 @@ export default function ClaraLogExpenseOverlayV2({
             <Bubble key={entry.id} role={entry.role}>{entry.text}</Bubble>
           ))}
 
-          {assistantTyping ? <TypingBubble /> : null}
+          {pendingMessage ? (
+            <Bubble role="assistant" typing>{typedText}</Bubble>
+          ) : null}
 
-          {phase === "planning-choice" ? (
+          {phase === "planning-choice" && controlsReady ? (
             <div className="mt-1 grid gap-2.5">
               <ChoiceButton onClick={choosePlanned}>Scheduled / Planned</ChoiceButton>
               <ChoiceButton onClick={chooseUnplanned} secondary>Unplanned Spending</ChoiceButton>
             </div>
           ) : null}
 
-          {phase === "planned" ? (
+          {phase === "planned" && controlsReady ? (
             <div className="mt-1 grid gap-2.5">
-              {!showPlannedList ? (
-                <ChoiceButton onClick={showCurrentPlannedList}>Show my planned list</ChoiceButton>
-              ) : null}
+              <ChoiceButton onClick={showCurrentPlannedList}>Show my planned list</ChoiceButton>
               <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
             </div>
           ) : null}
 
-          {phase === "planned" && showPlannedList ? (
-            <section className="mt-1 rounded-[22px] border border-blue-200/12 bg-[#07142b]/88 p-3.5">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8ffff8]/66">CURRENT PLANNED BUDGET</p>
-              {plannedItems.length ? (
-                <div className="mt-3 grid gap-2">
-                  {plannedItems.map((budget, index) => (
-                    <div key={budget?.id || `${titleFromBudget(budget)}-${index}`} className="flex items-center justify-between gap-3 rounded-[16px] border border-white/8 bg-white/[0.035] px-3.5 py-3">
-                      <span className="min-w-0 truncate text-[12.5px] font-black text-white/92">{titleFromBudget(budget)}</span>
-                      {amountFromBudget(budget) > 0 ? <span className="shrink-0 text-[12px] font-black text-[#8ffff8]/82">{money(amountFromBudget(budget))}</span> : null}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-3 text-[12px] font-semibold leading-5 text-slate-300/72">I don’t see an active planned budget item to list right now.</p>
-              )}
-            </section>
+          {phase === "planned-list" && controlsReady ? (
+            <>
+              <section className="mt-1 rounded-[22px] border border-blue-200/12 bg-[#07142b]/88 p-3.5">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8ffff8]/66">CURRENT PLANNED BUDGET</p>
+                {plannedItems.length ? (
+                  <div className="mt-3 grid gap-2">
+                    {plannedItems.map((budget, index) => (
+                      <div key={budget?.id || `${titleFromBudget(budget)}-${index}`} className="flex items-center justify-between gap-3 rounded-[16px] border border-white/8 bg-white/[0.035] px-3.5 py-3">
+                        <span className="min-w-0 truncate text-[12.5px] font-black text-white/92">{titleFromBudget(budget)}</span>
+                        {amountFromBudget(budget) > 0 ? <span className="shrink-0 text-[12px] font-black text-[#8ffff8]/82">{money(amountFromBudget(budget))}</span> : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-[12px] font-semibold leading-5 text-slate-300/72">I don’t see an active planned budget item to list right now.</p>
+                )}
+              </section>
+              <div className="mt-1">
+                <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
+              </div>
+            </>
           ) : null}
 
-          {phase === "amount" ? (
+          {phase === "amount" && controlsReady ? (
             <div className="mt-auto pt-3">
               <Composer value={amountInput} onChange={setAmountInput} onSubmit={submitAmount} placeholder="Amount spent" inputMode="decimal" />
             </div>
           ) : null}
 
-          {phase === "item" ? (
+          {phase === "item" && controlsReady ? (
             <div className="mt-auto pt-3">
               <Composer value={itemInput} onChange={setItemInput} onSubmit={submitItem} placeholder="What was it for?" />
             </div>
           ) : null}
 
-          {phase === "wallet" ? (
+          {phase === "wallet" && controlsReady ? (
             <div className="mt-1 grid gap-2">
               {walletOptions.length ? walletOptions.map((wallet) => (
                 <button
@@ -522,21 +565,21 @@ export default function ClaraLogExpenseOverlayV2({
             </div>
           ) : null}
 
-          {phase === "confirm" ? (
+          {phase === "confirm" && controlsReady ? (
             <div className="mt-1 grid grid-cols-2 gap-2.5">
               <ChoiceButton onClick={logExpense} disabled={busy}>{busy ? "Logging..." : "Yes, log it"}</ChoiceButton>
               <ChoiceButton onClick={() => setPhase("wallet")} disabled={busy} secondary>Back</ChoiceButton>
             </div>
           ) : null}
 
-          {phase === "done" ? (
+          {phase === "done" && controlsReady ? (
             <div className="mt-1 grid grid-cols-2 gap-2.5">
               <ChoiceButton onClick={resetFlow}>Log another</ChoiceButton>
               <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
             </div>
           ) : null}
 
-          {error ? (
+          {error && phase !== "responding" ? (
             <p className="rounded-[16px] border border-red-300/15 bg-red-500/[0.06] px-3.5 py-3 text-[11.5px] font-bold leading-5 text-red-100/88" aria-live="polite">{error}</p>
           ) : null}
         </div>
