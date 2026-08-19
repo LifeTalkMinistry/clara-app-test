@@ -33,6 +33,16 @@ test("ORB command ring exposes exactly the nine product command categories", () 
   assert.equal(new Set(CLARA_ORB_COMMANDS.map((command) => command.angle)).size, 9);
 });
 
+test("Add Income owns the Income Hub fallback destination", () => {
+  const addIncomeCommand = CLARA_ORB_COMMANDS.find(
+    (command) => command.id === "add-income"
+  );
+
+  assert.equal(addIncomeCommand?.href, "/investment-plan");
+  assert.match(orbCommandRing, /cancelable:\s*true/);
+  assert.match(orbCommandRing, /window\.location\?\.assign/);
+});
+
 test("hold timing and pre-activation motion tolerance stay deliberate", () => {
   assert.ok(ORB_COMMAND_HOLD_MS >= 450 && ORB_COMMAND_HOLD_MS <= 650);
   assert.ok(ORB_COMMAND_PRE_HOLD_MOVE_PX >= 10 && ORB_COMMAND_PRE_HOLD_MOVE_PX <= 20);
