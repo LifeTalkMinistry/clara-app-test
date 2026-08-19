@@ -5,6 +5,45 @@ import ClaraBuyCheckImpactPortal from "./ClaraBuyCheckImpactPortal.jsx";
 import ClaraBuyCheckUsagePortal from "./ClaraBuyCheckUsagePortal.jsx";
 import ClaraLifeProfilePortal from "./ClaraLifeProfilePortal.jsx";
 import useClaraBuyCheckLifeContext from "./useClaraBuyCheckLifeContext.js";
+import { getRecurringCashFlowOwnerId } from "@/lib/recurringCashFlowRepository";
+import { WEEKLY_MONEY_CHECK_UPDATED_EVENT } from "@/lib/weeklyMoneyCheckState";
+
+const WEEKLY_SESSION_STORAGE_PREFIX = "clara_weekly_money_check_v1";
+const WEEKLY_CHAT_FLOW_VERSION = "weekly-money-check-chat-v1";
+
+function restoreReadyStateWhenWeeklyCheckWasNotStarted(user) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+
+  const key = `${WEEKLY_SESSION_STORAGE_PREFIX}_${getRecurringCashFlowOwnerId(user)}`;
+  let current = null;
+  try {
+    current = JSON.parse(window.localStorage.getItem(key) || "null");
+  } catch {
+    current = null;
+  }
+
+  if (
+    !current ||
+    current.status !== "in_progress" ||
+    current.conversationVersion === WEEKLY_CHAT_FLOW_VERSION
+  ) {
+    return;
+  }
+
+  const next = {
+    ...current,
+    status: "idle",
+    startedAt: null,
+    completedAt: null,
+    updatedAt: new Date().toISOString(),
+  };
+  window.localStorage.setItem(key, JSON.stringify(next));
+  window.dispatchEvent(
+    new CustomEvent(WEEKLY_MONEY_CHECK_UPDATED_EVENT, {
+      detail: { type: "session_cancelled_before_start", session: next },
+    })
+  );
+}
 
 export default function ClaraAiEnvironmentOverlay(props) {
   const guidePreview = props?.layoutVariant === "guide-preview";
@@ -29,11 +68,17 @@ export default function ClaraAiEnvironmentOverlay(props) {
   );
 
   if (weeklyMoneyCheckMode) {
+    const closeWeeklyMoneyCheck = () => {
+      restoreReadyStateWhenWeeklyCheckWasNotStarted(enrichedAssistantContext?.user);
+      props?.onClose?.();
+    };
+
     return (
       <>
         <ClaraWeeklyMoneyCheckOverlay
           {...props}
           claraAssistantContext={enrichedAssistantContext}
+          onClose={closeWeeklyMoneyCheck}
         />
         <span
           data-clara-pause-entry-board="true"
