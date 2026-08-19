@@ -11,6 +11,7 @@ const executablePath =
   process.env.CHROME_BIN ||
   "/usr/bin/google-chrome";
 const HOLD_WAIT_MS = 650;
+const BLOOM_SETTLE_MS = 280;
 
 const browser = await puppeteer.launch({
   executablePath,
@@ -70,6 +71,7 @@ try {
 
     await wait(HOLD_WAIT_MS);
     await page.waitForSelector(`[data-clara-orb-command-id="${id}"]`);
+    await wait(BLOOM_SETTLE_MS);
 
     const commandPoint = await page.$eval(
       `[data-clara-orb-command-id="${id}"]`,
