@@ -117,7 +117,7 @@ test("Calendar Orb command opens the existing Community Schedule calendar", asyn
   }
 });
 
-test("non Log Expense Orb commands do not open the Log Expense chat mode", async () => {
+test("Wallet Orb command opens CLARA chat in wallet mode", async () => {
   const previousWindow = globalThis.window;
   const previousCustomEvent = globalThis.CustomEvent;
 
@@ -133,7 +133,53 @@ test("non Log Expense Orb commands do not open the Log Expense chat mode", async
   globalThis.CustomEvent = TestCustomEvent;
 
   try {
-    await import(`../src/runtime/installClaraOrbCommandChatRouting.js?test=${Date.now()}-other`);
+    await import(`../src/runtime/installClaraOrbCommandChatRouting.js?test=${Date.now()}-wallet`);
+
+    const pauseRequest = new Promise((resolve) => {
+      fakeWindow.addEventListener(CLARA_PAUSE_OPEN_REQUEST_EVENT, (event) => resolve(event.detail), {
+        once: true,
+      });
+    });
+
+    fakeWindow.dispatchEvent(
+      new TestCustomEvent(CLARA_ORB_COMMAND_SELECT_EVENT, {
+        detail: {
+          commandId: "wallet",
+          commandLabel: "Wallet",
+          source: "clara-orb-page",
+        },
+      })
+    );
+
+    const detail = await pauseRequest;
+    assert.equal(detail.mode, "wallet");
+    assert.equal(detail.commandId, "wallet");
+    assert.equal(detail.source, "clara-orb-page");
+    assert.match(detail.requestId, /^clara-orb-wallet-/);
+  } finally {
+    fakeWindow.__claraOrbCommandChatRoutingRuntime__?.destroy?.();
+    globalThis.window = previousWindow;
+    globalThis.CustomEvent = previousCustomEvent;
+  }
+});
+
+test("unknown Orb commands do not open a CLARA command chat", async () => {
+  const previousWindow = globalThis.window;
+  const previousCustomEvent = globalThis.CustomEvent;
+
+  class TestCustomEvent extends Event {
+    constructor(type, options = {}) {
+      super(type);
+      this.detail = options.detail;
+    }
+  }
+
+  const fakeWindow = new EventTarget();
+  globalThis.window = fakeWindow;
+  globalThis.CustomEvent = TestCustomEvent;
+
+  try {
+    await import(`../src/runtime/installClaraOrbCommandChatRouting.js?test=${Date.now()}-unknown`);
 
     let opened = false;
     fakeWindow.addEventListener(CLARA_PAUSE_OPEN_REQUEST_EVENT, () => {
@@ -143,8 +189,8 @@ test("non Log Expense Orb commands do not open the Log Expense chat mode", async
     fakeWindow.dispatchEvent(
       new TestCustomEvent(CLARA_ORB_COMMAND_SELECT_EVENT, {
         detail: {
-          commandId: "wallet",
-          commandLabel: "Wallet",
+          commandId: "not-a-command",
+          commandLabel: "Unknown",
           source: "clara-orb-page",
         },
       })
