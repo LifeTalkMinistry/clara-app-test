@@ -309,11 +309,13 @@ export default function DashboardScheduleImpactPortalPanel(props) {
       const revision = ++requestRevision;
 
       try {
-        const result = await syncFinancialCardSchedulesIntoCalendar(user);
+        await syncFinancialCardSchedulesIntoCalendar(user);
         if (cancelled || revision !== requestRevision) return;
-        if (result.changed) {
-          setFinancialProjectionEpoch((current) => current + 1);
-        }
+
+        // The Schedule panel owns an in-memory event snapshot. Always remount it
+        // after a successful Savings Goal / Debt sync so it rereads the canonical
+        // schedule storage even when that storage already contained the projection.
+        setFinancialProjectionEpoch((current) => current + 1);
       } catch (error) {
         if (cancelled || revision !== requestRevision) return;
         console.warn(
