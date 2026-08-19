@@ -429,7 +429,7 @@ function MessageRow({ entry, onTypingComplete }) {
   );
 }
 
-function Composer({ phase, onSubmit, disabled = false }) {
+function Composer({ phase, onSubmit, submitLocked = false }) {
   const [draft, setDraft] = useState("");
   const inputRef = useRef(null);
   const isMoney = phase === "wallet_entry";
@@ -437,21 +437,20 @@ function Composer({ phase, onSubmit, disabled = false }) {
 
   useEffect(() => {
     setDraft("");
-    if (disabled) return undefined;
     const frame = window.requestAnimationFrame(() => inputRef.current?.focus?.({ preventScroll: true }));
     return () => window.cancelAnimationFrame(frame);
-  }, [phase, disabled]);
+  }, [phase]);
 
   const submit = (event) => {
     event.preventDefault();
     const value = draft.trim();
-    if (!value || disabled) return;
+    if (!value || submitLocked) return;
     const accepted = onSubmit?.(value);
     if (accepted !== false) setDraft("");
   };
 
   return (
-    <form onSubmit={submit} className={`relative z-30 shrink-0 overflow-hidden rounded-[28px] border border-blue-200/16 bg-[#040b1a]/96 p-2.5 ${disabled ? "pointer-events-none opacity-45" : ""}`}>
+    <form onSubmit={submit} className="relative z-30 shrink-0 overflow-hidden rounded-[28px] border border-blue-200/16 bg-[#040b1a]/96 p-2.5">
       <div className="flex items-center gap-2 rounded-[22px] border border-blue-200/14 bg-[#08142b]/94 px-3 py-2">
         <input
           ref={inputRef}
@@ -461,9 +460,8 @@ function Composer({ phase, onSubmit, disabled = false }) {
           placeholder={placeholder}
           inputMode={isMoney ? "decimal" : "text"}
           aria-label={placeholder}
-          disabled={disabled}
         />
-        <button type="submit" disabled={!draft.trim() || disabled} className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-blue-300/24 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] text-white disabled:opacity-40">
+        <button type="submit" disabled={!draft.trim() || submitLocked} className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-blue-300/24 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] text-white disabled:opacity-40">
           <ArrowUp className="h-5 w-5" />
         </button>
       </div>
@@ -985,7 +983,7 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
         disabled={interactionLocked}
       />
 
-      {showComposer ? <Composer phase={phase} onSubmit={submitComposer} disabled={interactionLocked} /> : null}
+      {showComposer ? <Composer phase={phase} onSubmit={submitComposer} submitLocked={interactionLocked} /> : null}
     </div>
   );
 }
