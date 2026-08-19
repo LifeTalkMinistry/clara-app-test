@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ArrowUp, X } from "lucide-react";
 import { addBuyCheckExpense } from "@/lib/clara-buy-check-expense-repository";
 import {
@@ -141,6 +142,7 @@ export default function ClaraLogExpenseOverlayV2({
   claraAssistantContext = {},
   onClose,
 }) {
+  const navigate = useNavigate();
   const user = claraAssistantContext?.user || {};
   const firstName = firstNameFromUser(user);
   const [phase, setPhase] = useState("opening");
@@ -334,11 +336,11 @@ export default function ClaraLogExpenseOverlayV2({
 
     const timerId = window.setTimeout(() => {
       onClose?.();
-      window.location.assign("/community?view=schedule");
+      navigate("/community?view=schedule");
     }, 120);
 
     return () => window.clearTimeout(timerId);
-  }, [interactionReady, isActive, onClose, phase]);
+  }, [interactionReady, isActive, navigate, onClose, phase]);
 
   if (!isActive) return null;
 
