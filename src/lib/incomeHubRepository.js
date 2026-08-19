@@ -134,26 +134,15 @@ export function getIncomeSourceRemovalPlan(source = {}) {
   const totalMoneyOut = getSourceMoneyOut(source);
   const hasActivity = totalMoneyIn > 0 || totalMoneyOut > 0;
 
-  if (currentBalance > 0) {
-    return {
-      type: "blocked_balance",
-      title: "Cannot delete yet",
-      message: "This income source still has remaining money. Please transfer or clear the balance before deleting it.",
-      primaryLabel: "Transfer Money",
-      secondaryLabel: "Cancel",
-      danger: false,
-      currentBalance,
-      hasActivity,
-    };
-  }
-
-  if (hasActivity) {
+  if (currentBalance !== 0 || hasActivity) {
     return {
       type: "archive",
-      title: "Archive income source?",
+      title: "Delete income source?",
       message:
-        "This income source has past activity. To keep your records accurate, CLARA will archive it instead of permanently deleting it. It will disappear from your active income sources, but past transactions will remain in your history.",
-      primaryLabel: "Archive Income Source",
+        currentBalance !== 0
+          ? "This income source still has a balance. You can delete it anyway. CLARA will remove it from your active income sources while preserving its past activity so your financial history stays accurate."
+          : "This income source has past activity. You can delete it from your active income sources while CLARA preserves its past activity so your financial history stays accurate.",
+      primaryLabel: currentBalance !== 0 ? "Delete Anyway" : "Delete Income Source",
       secondaryLabel: "Cancel",
       danger: true,
       currentBalance,
