@@ -7,6 +7,10 @@ const LOG_EXPENSE_VIEWPORT_SELECTOR = '[data-clara-ai-message-viewport="true"]';
 const CANONICAL_FORM_ATTRIBUTE = "data-clara-buy-check-react-form";
 const CANONICAL_STACK_ATTRIBUTE = "data-clara-ai-message-stack";
 const CLARA_CALENDAR_PATH = "/community?view=schedule";
+const CHAT_COMMAND_MODES = Object.freeze({
+  "log-expense": "log-expense",
+  wallet: "wallet",
+});
 
 function registerLogExpenseChatKeyboardOwnership() {
   if (typeof document === "undefined") return;
@@ -94,22 +98,25 @@ function installClaraOrbCommandChatRouting() {
       return;
     }
 
-    if (commandId !== "log-expense") return;
+    const mode = CHAT_COMMAND_MODES[commandId];
+    if (!mode) return;
 
-    const requestId = `clara-orb-log-expense-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const requestId = `clara-orb-${commandId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
     window.dispatchEvent(
       new CustomEvent(CLARA_PAUSE_OPEN_REQUEST_EVENT, {
         detail: {
           requestId,
           source: "clara-orb-page",
-          mode: "log-expense",
+          mode,
           commandId,
         },
       })
     );
 
-    queueKeyboardRegistration();
+    if (commandId === "log-expense") {
+      queueKeyboardRegistration();
+    }
   };
 
   const root =
