@@ -5,18 +5,6 @@ export const ORB_COMMAND_PRE_HOLD_MOVE_PX = 14;
 export const ORB_COMMAND_MIN_DEAD_ZONE_PX = 52;
 export const ORB_COMMAND_MAX_DEAD_ZONE_PX = 78;
 
-export const CLARA_ORB_COMMANDS = Object.freeze([
-  Object.freeze({ id: "log-expense", label: "Log Expense", angle: -90, radius: 1 }),
-  Object.freeze({ id: "add-income", label: "Add Income", angle: -50, radius: 1 }),
-  Object.freeze({ id: "wallet", label: "Wallet", angle: -10, radius: 1 }),
-  Object.freeze({ id: "calendar", label: "Calendar", angle: 30, radius: 1 }),
-  Object.freeze({ id: "money-schedule", label: "Money Schedule", angle: 70, radius: 1 }),
-  Object.freeze({ id: "emergency-fund", label: "Emergency Fund", angle: 110, radius: 1 }),
-  Object.freeze({ id: "savings-goal", label: "Savings Goal", angle: 150, radius: 1 }),
-  Object.freeze({ id: "debt-obligation", label: "Debt / Obligation", angle: 190, radius: 1 }),
-  Object.freeze({ id: "weekly-cross-check", label: "Weekly Cross-Check", angle: 230, radius: 1 }),
-]);
-
 export function normalizeOrbCommandAngle(angle) {
   return ((Number(angle) % 360) + 360) % 360;
 }
@@ -27,6 +15,44 @@ export function getOrbCommandAngularDistance(leftAngle, rightAngle) {
   );
   return Math.min(delta, 360 - delta);
 }
+
+// Selected command labels are rendered below their action circles. On the upper
+// half of the ring that direction points back toward the Orb, while wide labels
+// near the left/right sides can also extend inward horizontally. Give every
+// command a small geometry-derived radial allowance so text stays outside the
+// Orb instead of special-casing individual clock positions.
+export function getOrbCommandVisualRadiusMultiplier(angle, label = "") {
+  const radians = (normalizeOrbCommandAngle(angle) * Math.PI) / 180;
+  const upperArcInwardFactor = Math.max(0, -Math.sin(radians));
+  const horizontalLabelExposure = Math.abs(Math.cos(radians));
+  const labelWidthFactor = Math.min(String(label).trim().length / 18, 1);
+
+  const upperArcAllowance = upperArcInwardFactor * 0.2;
+  const labelWidthAllowance = horizontalLabelExposure * labelWidthFactor * 0.2;
+
+  return 1 + upperArcAllowance + labelWidthAllowance;
+}
+
+const ORB_COMMAND_LAYOUT = [
+  { id: "log-expense", label: "Log Expense", angle: -90 },
+  { id: "add-income", label: "Add Income", angle: -50 },
+  { id: "wallet", label: "Wallet", angle: -10 },
+  { id: "calendar", label: "Calendar", angle: 30 },
+  { id: "money-schedule", label: "Money Schedule", angle: 70 },
+  { id: "emergency-fund", label: "Emergency Fund", angle: 110 },
+  { id: "savings-goal", label: "Savings Goal", angle: 150 },
+  { id: "debt-obligation", label: "Debt / Obligation", angle: 190 },
+  { id: "weekly-cross-check", label: "Weekly Cross-Check", angle: 230 },
+];
+
+export const CLARA_ORB_COMMANDS = Object.freeze(
+  ORB_COMMAND_LAYOUT.map((command) =>
+    Object.freeze({
+      ...command,
+      radius: getOrbCommandVisualRadiusMultiplier(command.angle, command.label),
+    })
+  )
+);
 
 export function getOrbCommandDeadZone(orbWidth) {
   const proposed = Number(orbWidth) * 0.3;
