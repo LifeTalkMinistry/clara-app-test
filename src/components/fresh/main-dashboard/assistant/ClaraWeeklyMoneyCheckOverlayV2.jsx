@@ -450,7 +450,11 @@ function Composer({ phase, onSubmit, submitLocked = false }) {
   };
 
   return (
-    <form onSubmit={submit} className="relative z-30 shrink-0 overflow-hidden rounded-[28px] border border-blue-200/16 bg-[#040b1a]/96 p-2.5">
+    <form
+      data-clara-buy-check-react-form="true"
+      onSubmit={submit}
+      className="relative z-30 shrink-0 overflow-hidden rounded-[28px] border border-blue-200/16 bg-[#040b1a]/96 p-2.5"
+    >
       <div className="flex items-center gap-2 rounded-[22px] border border-blue-200/14 bg-[#08142b]/94 px-3 py-2">
         <input
           ref={inputRef}
@@ -955,13 +959,19 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
 
       <WeeklyHeader onClose={onClose} />
 
-      <main className="relative z-10 min-h-0 flex-1 overflow-y-auto px-0 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <main
+        data-clara-ai-message-viewport="true"
+        className="relative z-10 min-h-0 flex-1 overflow-y-auto px-0 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
         {phase === "ready" ? (
           <div className="flex min-h-full flex-col justify-center px-1 pb-24 pt-3">
             <WeeklyEntryBoard firstName={firstName} onStart={startCheck} onClose={onClose} />
           </div>
         ) : (
-          <div className={`flex min-h-full min-w-0 flex-col justify-start gap-3 px-2 pt-1 ${showComposer ? "pb-28" : "pb-5"}`}>
+          <div
+            data-clara-ai-message-stack="true"
+            className={`flex min-h-full min-w-0 flex-col justify-start gap-3 px-2 pt-1 ${showComposer ? "pb-28" : "pb-5"}`}
+          >
             {messages.map((entry, index) => (
               <MessageRow
                 key={entry.id || `${entry.role}-${index}`}
