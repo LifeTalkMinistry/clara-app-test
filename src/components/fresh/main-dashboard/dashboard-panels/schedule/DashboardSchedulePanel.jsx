@@ -16,10 +16,24 @@ import {
   isStableIncomeScheduleProjection,
   mergeScheduleEventsForRender,
 } from "@/lib/stableIncomeScheduleProjection";
+import { isFinancialCardScheduleProjection } from "@/lib/financialCardScheduleProjection";
+import {
+  filterScheduleOwnedEvents,
+  isDerivedScheduleProjection,
+  mergeScheduleEventCollections,
+} from "@/lib/scheduleEventOwnership";
+import { loadFinancialCardScheduleProjections } from "./financialCardScheduleIntegration";
 
 const STORAGE_PREFIX = "clara_schedule_events_v2";
 const CLARA_SCHEDULE_CREATE_EVENT = "clara:schedule:create-event";
 const INCOME_HUB_UPDATED_EVENT = "clara-income-hub-updated";
+const FINANCIAL_CARD_SCHEDULE_UPDATE_EVENTS = [
+  "clara-finance-updated",
+  "clara:finance-data-updated",
+  "clara-local-finance-updated",
+  "clara:debt-obligations-updated",
+  "clara:demo-data-loaded",
+];
 const TYPES = ["Bill", "Payday", "Health", "Work", "Family", "Relationship", "Personal"];
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const PH_HOLIDAY_START_YEAR = 2026;
@@ -306,20 +320,14 @@ function readEvents(user) {
 
     if (!Array.isArray(parsed)) return seedEvents();
 
-    return parsed.filter((event) => {
+    return filterScheduleOwnedEvents(parsed).filter((event) => {
       const title = String(event?.title || "").toLowerCase();
       const isOldSampleCheckin =
         event?.id === "sample-reset" ||
         event?.id === "sample-checkin" ||
         title.includes("lifeos check-in");
 
-      return (
-        event?.id &&
-        event?.title &&
-        event?.date &&
-        !isOldSampleCheckin &&
-        !isStableIncomeScheduleProjection(event)
-      );
+      return !isOldSampleCheckin;
     });
   } catch {
     return seedEvents();
@@ -330,9 +338,7 @@ function saveEvents(user, events) {
   if (typeof window === "undefined") return;
 
   try {
-    const persistedEvents = (Array.isArray(events) ? events : []).filter(
-      (event) => !isStableIncomeScheduleProjection(event)
-    );
+    const persistedEvents = filterScheduleOwnedEvents(events);
     window.localStorage.setItem(
       getStorageKey(user),
       JSON.stringify(persistedEvents)
@@ -797,6 +803,8 @@ function Sheet({ event, mode, form, setForm, onSave, onRemove, onClose, onRefine
   const adding = mode === "add";
   const managedStableIncomeEvent =
     !adding && isStableIncomeScheduleProjection(event);
+  const managedFinancialCardEvent =
+    !adding && isFinancialCardScheduleProjection(event);
 
   return (
     <div
@@ -907,6 +915,10 @@ function Sheet({ event, mode, form, setForm, onSave, onRemove, onClose, onRefine
             {managedStableIncomeEvent ? (
               <div className="rounded-2xl border border-cyan-300/12 bg-cyan-300/[.035] px-4 py-3 text-center text-xs font-bold leading-5 text-cyan-50/62">
                 Payday timing is managed in Income Hub.
+              </div>
+            ) : managedFinancialCardEvent ? (
+              <div className="rounded-2xl border border-cyan-300/12 bg-cyan-300/[.035] px-4 py-3 text-center text-xs font-bold leading-5 text-cyan-50/62">
+                This date is managed from its Savings Goal or Debt / Obligation.
               </div>
             ) : (
               <button
@@ -1022,6 +1034,7 @@ export default function DashboardSchedulePanel() {
   const today = toDateKey(new Date());
   const [events, setEvents] = useState(() => readEvents(user));
   const [incomeProjectedEvents, setIncomeProjectedEvents] = useState([]);
+  const [financialProjectedEvents, setFinancialProjectedEvents] = useState([]);
   const [monthDate, setMonthDate] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState(today);
   const [lastDateTap, setLastDateTap] = useState({ date: "", time: 0 });
@@ -1075,9 +1088,53 @@ export default function DashboardSchedulePanel() {
     };
   }, [ownerId]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    let cancelled = false;
+    let requestRevision = 0;
+
+    const refreshFinancialProjection = async () => {
+      const revision = ++requestRevision;
+
+      try {
+        const { savingsGoalEvents, debtEvents } =
+          await loadFinancialCardScheduleProjections();
+        if (cancelled || revision !== requestRevision) return;
+        setFinancialProjectedEvents(
+          mergeScheduleEventCollections(savingsGoalEvents, debtEvents)
+        );
+      } catch (error) {
+        if (cancelled || revision !== requestRevision) return;
+        console.warn(
+          "CLARA Savings Goal / Debt Calendar projection could not be refreshed:",
+          error
+        );
+        setFinancialProjectedEvents([]);
+      }
+    };
+
+    setFinancialProjectedEvents([]);
+    refreshFinancialProjection();
+    FINANCIAL_CARD_SCHEDULE_UPDATE_EVENTS.forEach((eventName) => {
+      window.addEventListener(eventName, refreshFinancialProjection);
+    });
+
+    return () => {
+      cancelled = true;
+      FINANCIAL_CARD_SCHEDULE_UPDATE_EVENTS.forEach((eventName) => {
+        window.removeEventListener(eventName, refreshFinancialProjection);
+      });
+    };
+  }, [ownerId]);
+
   const renderEvents = useMemo(
-    () => mergeScheduleEventsForRender(events, incomeProjectedEvents),
-    [events, incomeProjectedEvents]
+    () =>
+      mergeScheduleEventCollections(
+        mergeScheduleEventsForRender(events, incomeProjectedEvents),
+        financialProjectedEvents
+      ),
+    [events, incomeProjectedEvents, financialProjectedEvents]
   );
 
   const sorted = useMemo(
@@ -1146,7 +1203,7 @@ export default function DashboardSchedulePanel() {
       const detail = browserEvent?.detail || {};
       const title = String(detail.title || "").trim();
 
-      if (!title || isStableIncomeScheduleProjection(detail)) return;
+      if (!title || isDerivedScheduleProjection(detail)) return;
 
       const nextEvent = {
         id: detail.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -1226,7 +1283,7 @@ export default function DashboardSchedulePanel() {
       (event) => String(event?.id) === String(id)
     );
 
-    if (isStableIncomeScheduleProjection(target)) {
+    if (isDerivedScheduleProjection(target)) {
       close();
       return;
     }
