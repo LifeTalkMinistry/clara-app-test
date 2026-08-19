@@ -2,11 +2,50 @@ import { CLARA_ORB_COMMAND_SELECT_EVENT } from "../lib/clara-orb-command-ring.js
 import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "../lib/clara-pause-events.js";
 
 const RUNTIME_KEY = "__claraOrbCommandChatRoutingRuntime__";
+const LOG_EXPENSE_OVERLAY_SELECTOR = '[data-clara-log-expense-chat="true"]';
+const LOG_EXPENSE_VIEWPORT_SELECTOR = '[data-clara-ai-message-viewport="true"]';
+const CANONICAL_FORM_ATTRIBUTE = "data-clara-buy-check-react-form";
+const CANONICAL_STACK_ATTRIBUTE = "data-clara-ai-message-stack";
+
+function registerLogExpenseChatKeyboardOwnership() {
+  if (typeof document === "undefined") return;
+
+  const overlay = document.querySelector(LOG_EXPENSE_OVERLAY_SELECTOR);
+  if (!overlay) return;
+
+  // The shared CLARA keyboard guard recognizes active chat composers through
+  // this canonical form attribute. Log Expense mounts its composer only during
+  // free-text phases (amount / item), so register it as soon as React adds it.
+  // Without this marker the guard can treat the composer as missing and release
+  // keyboard ownership, which can drop focus before the user can type.
+  const form = overlay.querySelector("form");
+  if (form && form.getAttribute(CANONICAL_FORM_ATTRIBUTE) !== "true") {
+    form.setAttribute(CANONICAL_FORM_ATTRIBUTE, "true");
+  }
+
+  // Register the transcript stack too so keyboard-time scroll anchoring uses
+  // the same conversation geometry as Ask Before You Spend.
+  const viewport = overlay.querySelector(LOG_EXPENSE_VIEWPORT_SELECTOR);
+  const stack = viewport?.firstElementChild || null;
+  if (stack && stack.getAttribute(CANONICAL_STACK_ATTRIBUTE) !== "true") {
+    stack.setAttribute(CANONICAL_STACK_ATTRIBUTE, "true");
+  }
+}
 
 function installClaraOrbCommandChatRouting() {
   if (typeof window === "undefined") return;
 
   window[RUNTIME_KEY]?.destroy?.();
+
+  let registrationFrame = 0;
+
+  const queueKeyboardRegistration = () => {
+    if (registrationFrame || typeof document === "undefined") return;
+    registrationFrame = window.requestAnimationFrame(() => {
+      registrationFrame = 0;
+      registerLogExpenseChatKeyboardOwnership();
+    });
+  };
 
   const handleCommandSelect = (event) => {
     const commandId = String(event?.detail?.commandId || "").trim();
@@ -24,12 +63,32 @@ function installClaraOrbCommandChatRouting() {
         },
       })
     );
+
+    queueKeyboardRegistration();
   };
 
+  const root =
+    typeof document !== "undefined"
+      ? document.getElementById("root") || document.body
+      : null;
+  const observer =
+    root && typeof MutationObserver !== "undefined"
+      ? new MutationObserver(queueKeyboardRegistration)
+      : null;
+
+  observer?.observe(root, {
+    childList: true,
+    subtree: true,
+  });
+
   window.addEventListener(CLARA_ORB_COMMAND_SELECT_EVENT, handleCommandSelect);
+  queueKeyboardRegistration();
 
   window[RUNTIME_KEY] = {
     destroy() {
+      observer?.disconnect();
+      if (registrationFrame) window.cancelAnimationFrame(registrationFrame);
+      registrationFrame = 0;
       window.removeEventListener(CLARA_ORB_COMMAND_SELECT_EVENT, handleCommandSelect);
       window[RUNTIME_KEY] = null;
     },
