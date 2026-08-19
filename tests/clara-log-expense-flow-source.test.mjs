@@ -41,7 +41,9 @@ test("empty planned list continues into a Money Schedule offer instead of ending
   assert.match(overlaySource, />Yes, set it up</);
   assert.match(overlaySource, />Not now</);
   assert.match(overlaySource, /phase === "money-schedule-offer"/);
-  assert.match(overlaySource, /window\.location\.assign\("\/community\?view=schedule"\)/);
+  assert.match(overlaySource, /useNavigate/);
+  assert.match(overlaySource, /navigate\("\/community\?view=schedule"\)/);
+  assert.doesNotMatch(overlaySource, /window\.location\.assign\("\/community\?view=schedule"\)/);
 });
 
 test("Log Expense uses the Emergency Fund Masterclass conversation rhythm", () => {
