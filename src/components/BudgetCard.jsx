@@ -281,8 +281,10 @@ export default function BudgetCard() {
     eyebrow = "Weekly check-in";
     headline = weekdayLabel ? `Every ${weekdayLabel}` : "Your weekly rhythm is set";
     body = "Your week is still in progress. Live normally and use CLARA when a spending decision falls outside your routine.";
-    primaryLabel = "Change check-in day";
-    primaryAction = openWeekdayPicker;
+    primaryLabel = "Start Weekly Check";
+    primaryAction = () => openClaraCheck();
+    secondaryLabel = "Change check-in day";
+    secondaryAction = openWeekdayPicker;
   } else if (stateKey === "ready") {
     eyebrow = weekdayLabel ? `${weekdayLabel} · Ready today` : "Ready today";
     headline = "Ready to cross-check?";
