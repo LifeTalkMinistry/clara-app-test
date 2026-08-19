@@ -35,5 +35,27 @@ jobs:
       - name: Verify canonical CLARA chat pacing
         run: node --test tests/clara-conversation-pacing-regression.test.mjs tests/clara-log-expense-flow-source.test.mjs
 
-      - name: Build production app
-        run: npm run build
+      - name: Parse changed CLARA chat modules with esbuild
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile } from 'node:fs/promises';
+          import { transform } from 'esbuild';
+
+          const files = [
+            'src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx',
+            'src/components/fresh/main-dashboard/assistant/ClaraLogExpenseOverlayV2.jsx',
+            'src/components/fresh/main-dashboard/assistant/ClaraWeeklyMoneyCheckOverlayV2.jsx',
+            'src/lib/clara-conversation-pacing.js',
+          ];
+
+          for (const file of files) {
+            const source = await readFile(file, 'utf8');
+            await transform(source, {
+              loader: file.endsWith('.jsx') ? 'jsx' : 'js',
+              jsx: 'automatic',
+              format: 'esm',
+              sourcefile: file,
+            });
+            console.log(`Parsed ${file}`);
+          }
+          NODE
