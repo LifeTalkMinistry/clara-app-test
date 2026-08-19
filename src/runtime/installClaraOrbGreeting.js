@@ -1,4 +1,5 @@
 import "./installClaraOrbChatHandoff";
+import "./installClaraOrbCommandChatRouting";
 import "./installClaraBuyCheckKeyboardGuard";
 import "./installClaraOrbViewportOwnershipGuard";
 import { fetchCanonicalClaraProfile, resolveCanonicalFirstName } from "@/lib/canonical-clara-profile";

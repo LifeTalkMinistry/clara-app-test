@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import ClaraAiEnvironmentOverlayV2 from "./ClaraAiEnvironmentOverlayV2.jsx";
 import ClaraWeeklyMoneyCheckOverlay from "./ClaraWeeklyMoneyCheckOverlayV2.jsx";
+import ClaraLogExpenseOverlay from "./ClaraLogExpenseOverlayV2.jsx";
 import ClaraBuyCheckImpactPortal from "./ClaraBuyCheckImpactPortal.jsx";
 import ClaraBuyCheckUsagePortal from "./ClaraBuyCheckUsagePortal.jsx";
 import ClaraLifeProfilePortal from "./ClaraLifeProfilePortal.jsx";
@@ -50,8 +51,10 @@ function restoreReadyStateWhenWeeklyCheckWasNotStarted(user) {
 export default function ClaraAiEnvironmentOverlay(props) {
   const guidePreview = props?.layoutVariant === "guide-preview";
   const [searchParams] = useSearchParams();
+  const [entryMode, setEntryMode] = useState(null);
   const routeMode = searchParams.get("mode");
   const weeklyMoneyCheckMode = !guidePreview && routeMode === "weekly-money-check";
+  const logExpenseMode = !guidePreview && entryMode === "log-expense";
   const weeklyAutoOpenRef = useRef(false);
   const lifeContext = useClaraBuyCheckLifeContext(props?.claraAssistantContext?.user);
   const enrichedAssistantContext = useMemo(
@@ -68,6 +71,18 @@ export default function ClaraAiEnvironmentOverlay(props) {
       lifeContext.supportTier,
     ]
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const handlePauseOpenRequest = (event) => {
+      const mode = String(event?.detail?.mode || "").trim();
+      setEntryMode(mode === "log-expense" ? "log-expense" : null);
+    };
+
+    window.addEventListener(CLARA_PAUSE_OPEN_REQUEST_EVENT, handlePauseOpenRequest);
+    return () => window.removeEventListener(CLARA_PAUSE_OPEN_REQUEST_EVENT, handlePauseOpenRequest);
+  }, []);
 
   useEffect(() => {
     if (!weeklyMoneyCheckMode) {
@@ -96,6 +111,21 @@ export default function ClaraAiEnvironmentOverlay(props) {
 
     return () => window.clearTimeout(timerId);
   }, [props?.isActive, weeklyMoneyCheckMode]);
+
+  if (logExpenseMode) {
+    const closeLogExpense = () => {
+      setEntryMode(null);
+      props?.onClose?.();
+    };
+
+    return (
+      <ClaraLogExpenseOverlay
+        {...props}
+        claraAssistantContext={enrichedAssistantContext}
+        onClose={closeLogExpense}
+      />
+    );
+  }
 
   if (weeklyMoneyCheckMode) {
     const closeWeeklyMoneyCheck = () => {
