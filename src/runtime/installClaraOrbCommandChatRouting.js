@@ -101,6 +101,7 @@ function simplifyLogExpenseHeader(overlay) {
 
   const title = header.querySelector("h1");
   const supportingCopy = header.querySelectorAll("p");
+  const closeButton = header.querySelector('button[aria-label="Close Log Expense"]');
 
   supportingCopy.forEach((element) => {
     element.hidden = true;
@@ -111,20 +112,28 @@ function simplifyLogExpenseHeader(overlay) {
   header.style.paddingTop = "0";
   header.style.paddingBottom = "0";
 
-  if (!title) return;
+  if (title) {
+    title.textContent = "Log Expense";
+    title.style.position = "absolute";
+    title.style.inset = "0 64px";
+    title.style.display = "flex";
+    title.style.alignItems = "center";
+    title.style.justifyContent = "center";
+    title.style.margin = "0";
+    title.style.textAlign = "center";
+    title.style.fontSize = "16px";
+    title.style.lineHeight = "1";
+    title.style.letterSpacing = "-0.02em";
+    title.style.pointerEvents = "none";
+  }
 
-  title.textContent = "Log Expense";
-  title.style.position = "absolute";
-  title.style.inset = "0 56px";
-  title.style.display = "flex";
-  title.style.alignItems = "center";
-  title.style.justifyContent = "center";
-  title.style.margin = "0";
-  title.style.textAlign = "center";
-  title.style.fontSize = "16px";
-  title.style.lineHeight = "1";
-  title.style.letterSpacing = "-0.02em";
-  title.style.pointerEvents = "none";
+  if (closeButton) {
+    closeButton.style.right = "18px";
+    closeButton.style.top = "50%";
+    closeButton.style.width = "34px";
+    closeButton.style.height = "34px";
+    closeButton.style.transform = "translateY(-50%)";
+  }
 }
 
 function registerLogExpenseChatKeyboardOwnership() {
