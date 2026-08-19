@@ -17,6 +17,11 @@ const commandRingCss = await readFile(
   "utf8"
 );
 
+const commandChatRoutingSource = await readFile(
+  new URL("../src/runtime/installClaraOrbCommandChatRouting.js", import.meta.url),
+  "utf8"
+);
+
 test("Log Expense chat starts with greeting and planned versus unplanned choice", () => {
   assert.match(overlaySource, /Hi \$\{firstName\}!/);
   assert.match(overlaySource, /scheduled budget, or was it unplanned spending/i);
@@ -57,6 +62,14 @@ test("Log Expense hides controls until CLARA finishes typing", () => {
   assert.match(overlaySource, /phase === "planning-choice" && controlsReady/);
   assert.match(overlaySource, /phase === "amount" && controlsReady/);
   assert.match(overlaySource, /phase === "confirm" && controlsReady/);
+});
+
+test("Log Expense free-text composer registers with the canonical CLARA keyboard guard", () => {
+  assert.match(commandChatRoutingSource, /data-clara-log-expense-chat/);
+  assert.match(commandChatRoutingSource, /data-clara-buy-check-react-form/);
+  assert.match(commandChatRoutingSource, /data-clara-ai-message-stack/);
+  assert.match(commandChatRoutingSource, /new MutationObserver\(queueKeyboardRegistration\)/);
+  assert.match(commandChatRoutingSource, /registerLogExpenseChatKeyboardOwnership/);
 });
 
 test("unplanned spending reuses the atomic Buy Check expense repository", () => {
