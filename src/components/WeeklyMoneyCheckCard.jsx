@@ -10,8 +10,7 @@ import {
 } from "lucide-react";
 import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
 import FinanceActionModal from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal";
-import { DASHBOARD_NAVIGATE_EVENT } from "@/components/fresh/main-dashboard/shell/useDashboardPanelNavigation";
-import { getEffectiveDemoFinanceLocalUserId } from "@/lib/demo/activeDemoProfile";
+import { getRecurringCashFlowOwnerId } from "@/lib/recurringCashFlowRepository";
 import {
   WEEKLY_MONEY_CHECK_COMPLETED_EVENT,
   WEEKLY_MONEY_CHECK_DAY_OPTIONS,
@@ -22,7 +21,6 @@ import {
   getWeeklyMoneyCheckViewState,
   readWeeklyMoneyCheck,
   setWeeklyMoneyCheckDay,
-  startWeeklyMoneyCheck,
   updateWeeklyMoneyCheckProgress,
 } from "@/lib/weeklyMoneyCheckStore";
 
@@ -119,9 +117,7 @@ function ResultSummary({ result }) {
 
 export default function WeeklyMoneyCheckCard({ financeCardController = null }) {
   const user = financeCardController?.user || null;
-  const ownerId = getEffectiveDemoFinanceLocalUserId(
-    String(user?.id || user?.email || "local-user"),
-  );
+  const ownerId = getRecurringCashFlowOwnerId(user);
   const [record, setRecord] = useState(() => readWeeklyMoneyCheck(ownerId));
   const [clockTick, setClockTick] = useState(0);
   const [scheduleOpen, setScheduleOpen] = useState(false);
@@ -181,26 +177,9 @@ export default function WeeklyMoneyCheckCard({ financeCardController = null }) {
   const walletsChecked = Math.min(Number(progress.walletsChecked || 0), walletCount || Number.MAX_SAFE_INTEGER);
   const progressPercent = walletCount > 0 ? Math.min((walletsChecked / walletCount) * 100, 100) : 0;
 
-  const openCalendar = () => {
-    if (typeof window === "undefined") return;
-    window.dispatchEvent(
-      new CustomEvent(DASHBOARD_NAVIGATE_EVENT, {
-        detail: { panel: "schedule", source: "weekly-money-check" },
-      }),
-    );
-  };
-
-  const openClara = ({ start = false } = {}) => {
-    let next = record;
-    if (start) {
-      try {
-        next = startWeeklyMoneyCheck(ownerId);
-        setRecord(next);
-      } catch {
-        setScheduleOpen(true);
-        return;
-      }
-    }
+  // The card remains a passive viewer. The real CLARA cross-check flow will
+  // publish progress/completion events when that AI flow is implemented.
+  const openClara = () => {
     if (typeof window === "undefined") return;
     window.dispatchEvent(
       new CustomEvent("clara:open-ai-chat", {
@@ -208,7 +187,7 @@ export default function WeeklyMoneyCheckCard({ financeCardController = null }) {
           source: "weekly-money-check",
           weeklyMoneyCheck: {
             ownerId,
-            checkInDay: next.checkInDay,
+            checkInDay: record.checkInDay,
             dueDate: view.currentDue,
           },
         },
@@ -273,10 +252,7 @@ export default function WeeklyMoneyCheckCard({ financeCardController = null }) {
                   <span className="text-[11px] font-black text-emerald-100/78">{record.lastResult.headline || "Completed"}</span>
                 </div>
               ) : null}
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <button type="button" onClick={openCalendar} className={secondaryButtonClass}>View calendar</button>
-                <button type="button" onClick={() => setScheduleOpen(true)} className={secondaryButtonClass}>Change day</button>
-              </div>
+              <button type="button" onClick={() => setScheduleOpen(true)} className={`${secondaryButtonClass} mt-3 w-full`}>Change check-in day</button>
             </StateSurface>
           ) : null}
 
@@ -290,7 +266,7 @@ export default function WeeklyMoneyCheckCard({ financeCardController = null }) {
               <p className="mt-1.5 text-[11px] font-semibold leading-5 text-white/44">
                 CLARA will guide you through your real wallet balances and the routines that mattered this week.
               </p>
-              <button type="button" onClick={() => openClara({ start: true })} className={`${primaryButtonClass} mt-4`}>
+              <button type="button" onClick={openClara} className={`${primaryButtonClass} mt-4`}>
                 Start with CLARA <ArrowRight className="h-4 w-4" />
               </button>
             </StateSurface>
@@ -312,7 +288,7 @@ export default function WeeklyMoneyCheckCard({ financeCardController = null }) {
               ) : (
                 <p className="mt-1.5 text-[11px] font-semibold leading-5 text-white/44">Your check is waiting in CLARA.</p>
               )}
-              <button type="button" onClick={() => openClara()} className={`${primaryButtonClass} mt-4`}>
+              <button type="button" onClick={openClara} className={`${primaryButtonClass} mt-4`}>
                 Continue with CLARA <WalletCards className="h-4 w-4" />
               </button>
             </StateSurface>
@@ -330,7 +306,7 @@ export default function WeeklyMoneyCheckCard({ financeCardController = null }) {
               <ResultSummary result={record.lastResult} />
               <div className="mt-3 flex items-center justify-between gap-3">
                 <p className="text-[10px] font-semibold text-white/34">Next: {formatCheckDate(view.nextDue)}</p>
-                <button type="button" onClick={openCalendar} className={secondaryButtonClass}>View schedule</button>
+                <button type="button" onClick={() => setScheduleOpen(true)} className={secondaryButtonClass}>Change day</button>
               </div>
             </StateSurface>
           ) : null}

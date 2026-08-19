@@ -30,13 +30,22 @@ test("Weekly Money Check owns the old Budget carousel slot without reviving Budg
 
 test("Weekly Money Check card exposes the five agreed lifecycle states", () => {
   for (const state of ["setup", "waiting", "ready", "in_progress", "completed"]) {
-    assert.match(weeklyCard, new RegExp(`view\\.state === \\\"${state}\\\"`));
+    assert.match(weeklyCard, new RegExp(`view\\.state === \\"${state}\\"`));
   }
   assert.match(weeklyCard, /data-weekly-money-check-state=\{view\.state\}/);
   assert.match(weeklyCard, /Choose check-in day/);
   assert.match(weeklyCard, /Start with CLARA/);
   assert.match(weeklyCard, /Continue with CLARA/);
   assert.match(weeklyCard, /clara:open-ai-chat/);
+});
+
+test("the card remains a passive viewer while the real CLARA flow owns cross-check progression", () => {
+  assert.doesNotMatch(weeklyCard, /startWeeklyMoneyCheck/);
+  assert.match(weeklyCard, /WEEKLY_MONEY_CHECK_PROGRESS_EVENT/);
+  assert.match(weeklyCard, /WEEKLY_MONEY_CHECK_COMPLETED_EVENT/);
+  assert.match(weeklyCard, /updateWeeklyMoneyCheckProgress/);
+  assert.match(weeklyCard, /completeWeeklyMoneyCheck/);
+  assert.doesNotMatch(weeklyCard, /View calendar|View schedule/);
 });
 
 test("a new Wednesday setup for Sunday waits until the first Sunday", () => {
