@@ -23,11 +23,14 @@ const addMoneyModal = readSource("src/components/financial-carousel/cards/invest
 const createModal = readSource("src/components/financial-carousel/cards/investment/ui/IncomeSourceCreateModal.jsx");
 const createModalBase = readSource("src/components/financial-carousel/cards/investment/ui/IncomeSourceCreateModalBase.jsx");
 const surfaces = readSource("src/components/financial-carousel/cards/investment/ui/IncomeHubExpandedSurfaces.jsx");
+const surfacesEntry = readSource("src/components/financial-carousel/cards/investment/ui/IncomeHubExpandedSurfaces.js");
 const cardLogic = readSource("src/components/financial-carousel/cards/investment/logic/useInvestmentCardLogic.js");
 const renderer = readSource("src/components/financial-carousel/ui/CarouselItemCard.jsx");
 const financeActionModal = readSource("src/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal.jsx");
 const recurringScheduleIntegration = readSource("src/components/fresh/main-dashboard/dashboard-panels/schedule/recurringScheduleIntegration.js");
 const schedulePortal = readSource("src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardScheduleImpactPortalPanel.js");
+const schedulePanel = readSource("src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardSchedulePanel.jsx");
+const scheduleProjection = readSource("src/lib/stableIncomeScheduleProjection.js");
 const budgetTimingHook = readSource("src/components/fresh/main-dashboard/budget/useDashboardManualExpenseBudgetOptions.js");
 
 class MemoryStorage {
@@ -129,23 +132,30 @@ test("Income Hub repository is the synchronization boundary for every writer and
   assert.equal(timingAuthority.includes("reconcileStableIncomeTimingCache"), true);
 });
 
-test("stable income minimum is projected as money-in on the Payday schedule", () => {
-  assert.equal(recurringScheduleIntegration.includes('import { getIncomeSources } from "@/lib/incomeHubRepository"'), true);
-  assert.equal(recurringScheduleIntegration.includes("stableMinimumAmount"), true);
-  assert.equal(recurringScheduleIntegration.includes('type: "Payday"'), true);
-  assert.equal(recurringScheduleIntegration.includes('source: "stable_income_minimum"'), true);
-  assert.equal(recurringScheduleIntegration.includes('direction: "in"'), true);
+test("stable income minimum is projected as derived money-in from the canonical Income Hub source", () => {
+  assert.equal(scheduleProjection.includes("buildCanonicalStableIncomeTimingSource"), true);
+  assert.equal(scheduleProjection.includes('type: "Payday"'), true);
+  assert.equal(scheduleProjection.includes('source: "stable_income_minimum"'), true);
+  assert.equal(scheduleProjection.includes('direction: "in"'), true);
+  assert.equal(schedulePanel.includes("getIncomeSources(ownerId)"), true);
+  assert.equal(recurringScheduleIntegration.includes("getIncomeSources"), false);
 });
 
-test("payday projection replaces managed events and has a live Calendar consumer", () => {
+test("payday projection is render-derived; duplicate storage and forced Calendar remount are gone", () => {
   assert.equal(recurringScheduleIntegration.includes("RECURRING_SCHEDULE_WINDOW_MONTHS = 12"), true);
-  assert.equal(recurringScheduleIntegration.includes("persistIncomeScheduleProjection"), true);
-  assert.equal(recurringScheduleIntegration.includes('SCHEDULE_STORAGE_PREFIX = "clara_schedule_events_v2"'), true);
-  assert.equal(recurringScheduleIntegration.includes("new Date(now.getFullYear(), now.getMonth(), 1)"), true);
-  assert.equal(recurringScheduleIntegration.includes("projectedEvents.forEach((event) => dispatchClaraEvent(SCHEDULE_CREATE_EVENT, event))"), false);
-  assert.equal(recurringScheduleIntegration.includes("SCHEDULE_SYNC_INCOME_EVENT"), true);
-  assert.equal(schedulePortal.includes('SCHEDULE_SYNC_INCOME_EVENT = "clara:schedule:sync-income-events"'), true);
-  assert.equal(schedulePortal.includes("setScheduleRevision((current) => current + 1)"), true);
+  assert.equal(recurringScheduleIntegration.includes("persistIncomeScheduleProjection"), false);
+  assert.equal(recurringScheduleIntegration.includes('SCHEDULE_STORAGE_PREFIX = "clara_schedule_events_v2"'), false);
+  assert.equal(recurringScheduleIntegration.includes("clara:schedule:sync-income-events"), false);
+  assert.equal(schedulePortal.includes("clara:schedule:sync-income-events"), false);
+  assert.equal(schedulePortal.includes("setScheduleRevision"), false);
+  assert.equal(schedulePanel.includes("mergeScheduleEventsForRender"), true);
+  assert.equal(schedulePanel.includes("isStableIncomeScheduleProjection"), true);
+});
+
+test("Income Hub card no longer injects redundant usual timing text", () => {
+  assert.equal(surfacesEntry.includes("Usually received:"), false);
+  assert.equal(surfacesEntry.includes("formatIncomeTimingLabel"), false);
+  assert.equal(surfacesEntry.trim(), 'export * from "./IncomeHubExpandedSurfaces.jsx";');
 });
 
 test("Budget opens through the canonical Income Hub timing read before using the synchronous cache", () => {

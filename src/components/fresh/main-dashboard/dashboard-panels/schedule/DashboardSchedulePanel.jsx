@@ -9,9 +9,17 @@ import {
   X,
 } from "lucide-react";
 import useUserRole from "@/hooks/useUserRole";
+import { getIncomeSources } from "@/lib/incomeHubRepository";
+import { getRecurringCashFlowOwnerId } from "@/lib/recurringCashFlowRepository";
+import {
+  buildStableIncomeScheduleProjection,
+  isStableIncomeScheduleProjection,
+  mergeScheduleEventsForRender,
+} from "@/lib/stableIncomeScheduleProjection";
 
 const STORAGE_PREFIX = "clara_schedule_events_v2";
 const CLARA_SCHEDULE_CREATE_EVENT = "clara:schedule:create-event";
+const INCOME_HUB_UPDATED_EVENT = "clara-income-hub-updated";
 const TYPES = ["Bill", "Payday", "Health", "Work", "Family", "Relationship", "Personal"];
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const PH_HOLIDAY_START_YEAR = 2026;
@@ -66,7 +74,7 @@ function getEasterSunday(year) {
   const g = Math.floor((b - f + 1) / 3);
   const h = (19 * a + b - d - g + 15) % 30;
   const i = Math.floor(c / 4);
-  const k = c % 4;
+  const k = year % 100 % 4;
   const l = (32 + 2 * e + 2 * i - h - k) % 7;
   const m = Math.floor((a + 11 * h + 22 * l) / 451);
   const month = Math.floor((h + l - 7 * m + 114) / 31);
@@ -236,6 +244,10 @@ function formatDate(key) {
 }
 
 function getStorageKey(user) {
+  return `${STORAGE_PREFIX}_${getRecurringCashFlowOwnerId(user)}`;
+}
+
+function getLegacyStorageKey(user) {
   return `${STORAGE_PREFIX}_${user?.id || user?.email || "guest"}`;
 }
 
@@ -282,23 +294,33 @@ function readEvents(user) {
   if (typeof window === "undefined") return seedEvents();
 
   try {
-    const raw = window.localStorage.getItem(getStorageKey(user));
+    const storageKey = getStorageKey(user);
+    const legacyOwnerStorageKey = getLegacyStorageKey(user);
+    const raw =
+      window.localStorage.getItem(storageKey) ||
+      (legacyOwnerStorageKey !== storageKey
+        ? window.localStorage.getItem(legacyOwnerStorageKey)
+        : null);
     const legacy = window.localStorage.getItem("clara_lifeos_schedule_events_v1");
     const parsed = raw ? JSON.parse(raw) : legacy ? JSON.parse(legacy) : null;
 
-    if (!Array.isArray(parsed) || parsed.length === 0) return seedEvents();
+    if (!Array.isArray(parsed)) return seedEvents();
 
-    const cleaned = parsed.filter((event) => {
+    return parsed.filter((event) => {
       const title = String(event?.title || "").toLowerCase();
       const isOldSampleCheckin =
         event?.id === "sample-reset" ||
         event?.id === "sample-checkin" ||
         title.includes("lifeos check-in");
 
-      return event?.id && event?.title && event?.date && !isOldSampleCheckin;
+      return (
+        event?.id &&
+        event?.title &&
+        event?.date &&
+        !isOldSampleCheckin &&
+        !isStableIncomeScheduleProjection(event)
+      );
     });
-
-    return cleaned.length ? cleaned : seedEvents();
   } catch {
     return seedEvents();
   }
@@ -308,7 +330,13 @@ function saveEvents(user, events) {
   if (typeof window === "undefined") return;
 
   try {
-    window.localStorage.setItem(getStorageKey(user), JSON.stringify(events));
+    const persistedEvents = (Array.isArray(events) ? events : []).filter(
+      (event) => !isStableIncomeScheduleProjection(event)
+    );
+    window.localStorage.setItem(
+      getStorageKey(user),
+      JSON.stringify(persistedEvents)
+    );
   } catch {
     // Local schedule memory is optional.
   }
@@ -366,6 +394,13 @@ function displayTitle(event) {
 
 function impactMessage(event) {
   if (!event) return "Nothing money-sensitive is attached to this day yet.";
+
+  if (isStableIncomeScheduleProjection(event)) {
+    return (
+      event.note ||
+      `${displayTitle(event)} is expected on ${formatDate(event.date)}. Actual received money remains owned by Income Hub.`
+    );
+  }
 
   const amountText = event.amount ? ` Around ₱${event.amount} may be involved.` : "";
   return `${displayTitle(event)} is scheduled on ${formatDate(event.date)}.${amountText} Prepare before it affects optional spending.`;
@@ -760,6 +795,8 @@ function Sheet({ event, mode, form, setForm, onSave, onRemove, onClose, onRefine
 
   if (!mode) return null;
   const adding = mode === "add";
+  const managedStableIncomeEvent =
+    !adding && isStableIncomeScheduleProjection(event);
 
   return (
     <div
@@ -867,13 +904,19 @@ function Sheet({ event, mode, form, setForm, onSave, onRemove, onClose, onRefine
                 <p className="mt-1 text-sm font-bold leading-6 text-white/78">{impactMessage(event)}</p>
               </div>
             ) : null}
-            <button
-              type="button"
-              onClick={() => onRemove(event.id)}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[.035] px-4 py-3 text-sm font-black text-white/58"
-            >
-              <Trash2 className="h-4 w-4" /> Remove schedule
-            </button>
+            {managedStableIncomeEvent ? (
+              <div className="rounded-2xl border border-cyan-300/12 bg-cyan-300/[.035] px-4 py-3 text-center text-xs font-bold leading-5 text-cyan-50/62">
+                Payday timing is managed in Income Hub.
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onRemove(event.id)}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[.035] px-4 py-3 text-sm font-black text-white/58"
+              >
+                <Trash2 className="h-4 w-4" /> Remove schedule
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -972,8 +1015,13 @@ function ImpactAssistantModal({ session, input, setInput, onSend, onSave, onClos
 
 export default function DashboardSchedulePanel() {
   const { user } = useUserRole() || {};
+  const ownerId = useMemo(
+    () => getRecurringCashFlowOwnerId(user),
+    [user?.id, user?.email]
+  );
   const today = toDateKey(new Date());
   const [events, setEvents] = useState(() => readEvents(user));
+  const [incomeProjectedEvents, setIncomeProjectedEvents] = useState([]);
   const [monthDate, setMonthDate] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState(today);
   const [lastDateTap, setLastDateTap] = useState({ date: "", time: 0 });
@@ -983,12 +1031,58 @@ export default function DashboardSchedulePanel() {
   const [impactInput, setImpactInput] = useState("");
   const [form, setForm] = useState({ title: "", date: today, time: "", type: "Personal", amount: "", note: "" });
 
-  useEffect(() => setEvents(readEvents(user)), [user?.id, user?.email]);
-  useEffect(() => saveEvents(user, events), [events, user]);
+  useEffect(() => setEvents(readEvents(user)), [ownerId]);
+  useEffect(() => saveEvents(user, events), [events, ownerId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    let cancelled = false;
+    let requestRevision = 0;
+
+    const refreshIncomeProjection = async () => {
+      const revision = ++requestRevision;
+
+      try {
+        const incomeSources = await getIncomeSources(ownerId);
+        if (cancelled || revision !== requestRevision) return;
+        setIncomeProjectedEvents(
+          buildStableIncomeScheduleProjection(incomeSources)
+        );
+      } catch (error) {
+        if (cancelled || revision !== requestRevision) return;
+        console.warn(
+          "CLARA Stable Income Calendar projection could not be refreshed:",
+          error
+        );
+        setIncomeProjectedEvents([]);
+      }
+    };
+
+    setIncomeProjectedEvents([]);
+    refreshIncomeProjection();
+    window.addEventListener(
+      INCOME_HUB_UPDATED_EVENT,
+      refreshIncomeProjection
+    );
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener(
+        INCOME_HUB_UPDATED_EVENT,
+        refreshIncomeProjection
+      );
+    };
+  }, [ownerId]);
+
+  const renderEvents = useMemo(
+    () => mergeScheduleEventsForRender(events, incomeProjectedEvents),
+    [events, incomeProjectedEvents]
+  );
 
   const sorted = useMemo(
-    () => [...events].sort((a, b) => `${a.date} ${a.time || "99:99"}`.localeCompare(`${b.date} ${b.time || "99:99"}`)),
-    [events]
+    () => [...renderEvents].sort((a, b) => `${a.date} ${a.time || "99:99"}`.localeCompare(`${b.date} ${b.time || "99:99"}`)),
+    [renderEvents]
   );
 
   const byDate = useMemo(() => {
@@ -1052,7 +1146,7 @@ export default function DashboardSchedulePanel() {
       const detail = browserEvent?.detail || {};
       const title = String(detail.title || "").trim();
 
-      if (!title) return;
+      if (!title || isStableIncomeScheduleProjection(detail)) return;
 
       const nextEvent = {
         id: detail.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -1128,6 +1222,15 @@ export default function DashboardSchedulePanel() {
   };
 
   const remove = (id) => {
+    const target = renderEvents.find(
+      (event) => String(event?.id) === String(id)
+    );
+
+    if (isStableIncomeScheduleProjection(target)) {
+      close();
+      return;
+    }
+
     setEvents((current) => current.filter((event) => event.id !== id));
     close();
   };
