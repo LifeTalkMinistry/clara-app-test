@@ -28,12 +28,13 @@ test("Budget recurrence controls appear only after the item is classified as a B
   assert.match(source, /Automatically include in future budgets/);
 });
 
-test("Income cards expose the saved usual timing without replacing the card", async () => {
+test("Income cards no longer inject the saved usual timing as redundant card copy", async () => {
   const source = await read(
     "src/components/financial-carousel/cards/investment/ui/IncomeHubExpandedSurfaces.js"
   );
 
-  assert.match(source, /BaseIncomeSourcePreviewRow/);
-  assert.match(source, /Usually received:/);
-  assert.match(source, /formatIncomeTimingLabel/);
+  assert.doesNotMatch(source, /BaseIncomeSourcePreviewRow/);
+  assert.doesNotMatch(source, /Usually received:/);
+  assert.doesNotMatch(source, /formatIncomeTimingLabel/);
+  assert.match(source, /export \* from "\.\/IncomeHubExpandedSurfaces\.jsx"/);
 });
