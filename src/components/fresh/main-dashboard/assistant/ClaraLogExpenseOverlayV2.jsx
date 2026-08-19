@@ -322,6 +322,24 @@ export default function ClaraLogExpenseOverlayV2({
     []
   );
 
+  useEffect(() => {
+    if (
+      !isActive ||
+      phase !== "money-schedule-launch" ||
+      !interactionReady ||
+      typeof window === "undefined"
+    ) {
+      return undefined;
+    }
+
+    const timerId = window.setTimeout(() => {
+      onClose?.();
+      window.location.assign("/community?view=schedule");
+    }, 120);
+
+    return () => window.clearTimeout(timerId);
+  }, [interactionReady, isActive, onClose, phase]);
+
   if (!isActive) return null;
 
   const closeChat = () => {
@@ -356,9 +374,43 @@ export default function ClaraLogExpenseOverlayV2({
     if (!interactionReady) return;
     setError("");
     append(chatMessage("user", "Show my planned list"));
+
+    if (!plannedItems.length) {
+      runAssistantSequence(
+        [
+          "I checked your current setup, and I don’t see an active planned budget or Money Schedule yet.",
+          "Would you like to set up your Money Schedule now?",
+        ],
+        "money-schedule-offer"
+      );
+      return;
+    }
+
     runAssistantSequence(
       ["Sure. Here’s the planned budget setup I currently have for you."],
       "planned-list"
+    );
+  };
+
+  const openMoneySchedule = () => {
+    if (!interactionReady) return;
+    setError("");
+    append(chatMessage("user", "Yes, set it up"));
+    runAssistantSequence(
+      ["Absolutely. I’ll open your Money Schedule so you can set it up now."],
+      "money-schedule-launch"
+    );
+  };
+
+  const skipMoneySchedule = () => {
+    if (!interactionReady) return;
+    setError("");
+    append(chatMessage("user", "Not now"));
+    runAssistantSequence(
+      [
+        "No problem. You can set up your Money Schedule anytime. I won’t log this expense again because you marked it as planned.",
+      ],
+      "planned-finished"
     );
   };
 
@@ -508,6 +560,20 @@ export default function ClaraLogExpenseOverlayV2({
             </div>
           ) : null}
 
+          {phase === "money-schedule-offer" && controlsReady ? (
+            <div className="mt-1 grid gap-2.5">
+              <ChoiceButton onClick={openMoneySchedule}>Yes, set it up</ChoiceButton>
+              <ChoiceButton onClick={skipMoneySchedule} secondary>Not now</ChoiceButton>
+            </div>
+          ) : null}
+
+          {phase === "planned-finished" && controlsReady ? (
+            <div className="mt-1 grid grid-cols-2 gap-2.5">
+              <ChoiceButton onClick={resetFlow}>Back to Log Expense</ChoiceButton>
+              <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
+            </div>
+          ) : null}
+
           {phase === "planned-list" && controlsReady ? (
             <>
               <section className="mt-1 rounded-[22px] border border-blue-200/12 bg-[#07142b]/88 p-3.5">
@@ -521,9 +587,7 @@ export default function ClaraLogExpenseOverlayV2({
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <p className="mt-3 text-[12px] font-semibold leading-5 text-slate-300/72">I don’t see an active planned budget item to list right now.</p>
-                )}
+                ) : null}
               </section>
               <div className="mt-1">
                 <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
