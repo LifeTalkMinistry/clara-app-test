@@ -13,7 +13,13 @@ if (typeof document !== "undefined") {
 
 export const CLARA_ORB_COMMANDS = Object.freeze([
   Object.freeze({ id: "log-expense", label: "Log Expense", angle: -90, radius: 1 }),
-  Object.freeze({ id: "add-income", label: "Add Income", angle: -50, radius: 1 }),
+  Object.freeze({
+    id: "add-income",
+    label: "Add Income",
+    angle: -50,
+    radius: 1,
+    href: "/investment-plan",
+  }),
   Object.freeze({ id: "wallet", label: "Wallet", angle: -10, radius: 1 }),
   Object.freeze({ id: "calendar", label: "Calendar", angle: 30, radius: 1 }),
   Object.freeze({ id: "money-schedule", label: "Money Schedule", angle: 70, radius: 1 }),
@@ -110,15 +116,23 @@ export function dispatchClaraOrbCommandSelection(commandId, source = "clara-orb-
   const command = CLARA_ORB_COMMANDS.find((item) => item.id === commandId);
   if (!command) return false;
 
-  window.dispatchEvent(
-    new CustomEvent(CLARA_ORB_COMMAND_SELECT_EVENT, {
-      detail: {
-        commandId: command.id,
-        commandLabel: command.label,
-        source,
-      },
-    })
-  );
+  const selectionEvent = new CustomEvent(CLARA_ORB_COMMAND_SELECT_EVENT, {
+    cancelable: true,
+    detail: {
+      commandId: command.id,
+      commandLabel: command.label,
+      source,
+    },
+  });
+
+  const shouldRunDefaultAction = window.dispatchEvent(selectionEvent);
+
+  // Keep routing as a command-level fallback. A future app-level command router
+  // can preventDefault() on the selection event and take over with an in-app
+  // transition without changing the Orb gesture engine itself.
+  if (shouldRunDefaultAction && command.href && window.location?.assign) {
+    window.location.assign(command.href);
+  }
 
   return true;
 }
