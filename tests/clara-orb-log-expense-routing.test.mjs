@@ -222,3 +222,24 @@ test("Weekly Money Check consumes launch-only route state and stays internally a
   assert.match(source, /setSearchParams\(nextParams, \{ replace: true \}\)/);
   assert.match(source, /setWeeklyMoneyCheckMode\(false\)/);
 });
+
+test("Money Schedule Add opens inline item and amount inputs without another chat turn", async () => {
+  const source = await readFile(
+    new URL(
+      "../src/components/fresh/main-dashboard/assistant/ClaraMoneyScheduleOverlay.jsx",
+      import.meta.url
+    ),
+    "utf8"
+  );
+
+  assert.match(source, /addItemOpen/);
+  assert.match(source, /addAmountInput/);
+  assert.match(source, /data-clara-money-routine-inline-add="true"/);
+  assert.match(source, />\s*Item\s*</);
+  assert.match(source, />\s*Amount\s*</);
+  assert.match(source, /createUiItem\(label, amountCentavos\)/);
+  assert.match(source, /Add item/);
+  assert.doesNotMatch(source, /phase === "edit-add"/);
+  assert.doesNotMatch(source, /appendUser\("Add something"\)/);
+  assert.doesNotMatch(source, /What should I add to \$\{currentWeekday\.name\}/);
+});
