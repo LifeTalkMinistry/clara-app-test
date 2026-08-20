@@ -67,12 +67,31 @@ function parseAmountToCentavos(value) {
   return Math.max(0, Math.round(whole * 100 + fraction));
 }
 
+function sanitizeMoneyInput(value) {
+  const cleaned = String(value ?? "")
+    .replace(/php/gi, "")
+    .replace(/[₱,\s]/g, "")
+    .replace(/[^0-9.]/g, "");
+  if (!cleaned) return "";
+
+  const parts = cleaned.split(".");
+  const whole = parts.shift() || "0";
+  const fraction = parts.join("").slice(0, 2);
+  return fraction ? `${whole}.${fraction}` : whole;
+}
+
 function formatMoneyCentavos(value) {
   const amount = Math.max(0, Math.round(Number(value) || 0)) / 100;
   return `₱${amount.toLocaleString("en-PH", {
     minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
     maximumFractionDigits: 2,
   })}`;
+}
+
+function formatEditableAmount(value) {
+  const amount = Math.max(0, Math.round(Number(value) || 0)) / 100;
+  if (Number.isInteger(amount)) return String(amount);
+  return amount.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
 }
 
 function parseRoutineExpenses(value) {
@@ -186,24 +205,80 @@ function Composer({ value, onChange, onSubmit, placeholder, inputMode = "text" }
   );
 }
 
-function ExpenseList({ items = [], totalLabel = "Daily total" }) {
+function ExpenseList({
+  items = [],
+  totalLabel = "Daily total",
+  amountEditMode = false,
+  editingItemId = "",
+  inlineAmountInput = "",
+  onStartAmountEdit,
+  onInlineAmountChange,
+  onCommitAmountEdit,
+  onCancelAmountEdit,
+}) {
   return (
     <section className="rounded-[22px] border border-blue-200/12 bg-[#07142b]/88 p-3.5">
       {items.length ? (
         <div className="grid gap-2">
-          {items.map((item) => (
-            <div
-              key={item.id}
-              className="flex items-center justify-between gap-3 rounded-[15px] border border-white/8 bg-white/[0.035] px-3.5 py-3"
-            >
-              <span className="min-w-0 truncate text-[12.5px] font-black text-white/90">
-                {item.label}
-              </span>
-              <span className="shrink-0 text-[12px] font-black text-[#8ffff8]/82">
-                {formatMoneyCentavos(item.amountCentavos)}
-              </span>
-            </div>
-          ))}
+          {items.map((item) => {
+            const editingAmount = amountEditMode && editingItemId === item.id;
+
+            return (
+              <div
+                key={item.id}
+                className="flex items-center justify-between gap-3 rounded-[15px] border border-white/8 bg-white/[0.035] px-3.5 py-3"
+              >
+                <span className="min-w-0 truncate text-[12.5px] font-black text-white/90">
+                  {item.label}
+                </span>
+
+                {editingAmount ? (
+                  <div
+                    className="flex min-w-[92px] shrink-0 items-center justify-end gap-1 rounded-[12px] border border-cyan-200/24 bg-cyan-200/[0.055] px-2 py-1"
+                    data-clara-money-routine-inline-amount="true"
+                  >
+                    <span className="text-[12px] font-black text-[#8ffff8]/82">₱</span>
+                    <input
+                      autoFocus
+                      value={inlineAmountInput}
+                      onChange={(event) => onInlineAmountChange?.(event.target.value)}
+                      onFocus={(event) => event.currentTarget.select()}
+                      onBlur={() => onCommitAmountEdit?.(item, { revertInvalid: true })}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          onCommitAmountEdit?.(item);
+                        }
+                        if (event.key === "Escape") {
+                          event.preventDefault();
+                          onCancelAmountEdit?.();
+                        }
+                      }}
+                      inputMode="decimal"
+                      aria-label={`Edit ${item.label} amount`}
+                      className="w-[62px] bg-transparent text-right text-[12px] font-black text-white outline-none"
+                    />
+                  </div>
+                ) : amountEditMode ? (
+                  <button
+                    type="button"
+                    onClick={() => onStartAmountEdit?.(item)}
+                    className="flex shrink-0 items-center justify-end gap-1.5 rounded-[12px] px-1 py-1 text-[#8ffff8]/82 transition active:scale-95"
+                    aria-label={`Change ${item.label} amount`}
+                  >
+                    <span className="text-[12px] font-black">
+                      {formatMoneyCentavos(item.amountCentavos)}
+                    </span>
+                    <PencilLine className="h-3.5 w-3.5 text-cyan-100/72" />
+                  </button>
+                ) : (
+                  <span className="shrink-0 text-[12px] font-black text-[#8ffff8]/82">
+                    {formatMoneyCentavos(item.amountCentavos)}
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       ) : (
         <p className="text-[12px] font-semibold text-white/48">No routine expenses added yet.</p>
@@ -233,8 +308,9 @@ export default function ClaraMoneyScheduleOverlay({
   const [dayIndex, setDayIndex] = useState(0);
   const [draftText, setDraftText] = useState("");
   const [editItems, setEditItems] = useState([]);
-  const [selectedItemId, setSelectedItemId] = useState("");
-  const [amountInput, setAmountInput] = useState("");
+  const [amountEditMode, setAmountEditMode] = useState(false);
+  const [inlineEditingItemId, setInlineEditingItemId] = useState("");
+  const [inlineAmountInput, setInlineAmountInput] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [savedRoutine, setSavedRoutine] = useState(null);
@@ -329,13 +405,18 @@ export default function ClaraMoneyScheduleOverlay({
     queueNextAssistantMessage(token, options.skipInitialDelay === true);
   };
 
+  const resetInlineAmountEditing = ({ keepMode = false } = {}) => {
+    if (!keepMode) setAmountEditMode(false);
+    setInlineEditingItemId("");
+    setInlineAmountInput("");
+  };
+
   const resetRoutineFields = () => {
     setDays([]);
     setDayIndex(0);
     setDraftText("");
     setEditItems([]);
-    setSelectedItemId("");
-    setAmountInput("");
+    resetInlineAmountEditing();
     setError("");
     setBusy(false);
     setSavedRoutine(null);
@@ -407,13 +488,17 @@ export default function ClaraMoneyScheduleOverlay({
     if (!isActive || typeof window === "undefined") return undefined;
     const onKeyDown = (event) => {
       if (event.key === "Escape") {
+        if (inlineEditingItemId) {
+          resetInlineAmountEditing({ keepMode: true });
+          return;
+        }
         cancelConversationPacing();
         onClose?.();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isActive, onClose]);
+  }, [isActive, onClose, inlineEditingItemId]);
 
   useEffect(() => {
     scrollToLatest();
@@ -424,6 +509,7 @@ export default function ClaraMoneyScheduleOverlay({
   const startSetup = () => {
     if (!interactionReady) return;
     setEditItems([]);
+    resetInlineAmountEditing();
     setError("");
     appendUser("Yes, I’m ready");
     runAssistantSequence(
@@ -449,8 +535,7 @@ export default function ClaraMoneyScheduleOverlay({
     setDays(nextDays);
     setDraftText("");
     setEditItems([]);
-    setSelectedItemId("");
-    setAmountInput("");
+    resetInlineAmountEditing();
     setError("");
 
     if (dayIndex >= CLARA_MONEY_ROUTINE_WEEKDAYS.length - 1) {
@@ -498,6 +583,7 @@ export default function ClaraMoneyScheduleOverlay({
   const chooseCopySource = (sourceDay) => {
     if (!interactionReady) return;
     setEditItems(cloneItems(sourceDay.items));
+    resetInlineAmountEditing();
     setError("");
     appendUser(`Start from ${sourceDay.name}`);
     runAssistantSequence(
@@ -513,6 +599,7 @@ export default function ClaraMoneyScheduleOverlay({
     if (!interactionReady) return;
     setDraftText("");
     setEditItems([]);
+    resetInlineAmountEditing();
     setError("");
     appendUser("Completely different setup");
     runAssistantSequence(
@@ -546,8 +633,7 @@ export default function ClaraMoneyScheduleOverlay({
     setDayIndex(targetIndex);
     setDraftText("");
     setEditItems(cloneItems(sourceDay.items));
-    setSelectedItemId("");
-    setAmountInput("");
+    resetInlineAmountEditing();
     setError("");
     appendUser(`Edit ${sourceDay.name}`);
     runAssistantSequence(
@@ -571,6 +657,7 @@ export default function ClaraMoneyScheduleOverlay({
   const startAddExpense = () => {
     if (!interactionReady) return;
     setDraftText("");
+    resetInlineAmountEditing();
     setError("");
     appendUser("Add something");
     runAssistantSequence(
@@ -604,6 +691,7 @@ export default function ClaraMoneyScheduleOverlay({
 
   const startRemoveExpense = () => {
     if (!interactionReady || !editItems.length) return;
+    resetInlineAmountEditing();
     setError("");
     appendUser("Remove something");
     runAssistantSequence(
@@ -625,55 +713,69 @@ export default function ClaraMoneyScheduleOverlay({
   const startChangeAmount = () => {
     if (!interactionReady || !editItems.length) return;
     setError("");
-    appendUser("Change an amount");
-    runAssistantSequence(["Which expense amount should I change?"], "edit-change-select");
+    setAmountEditMode((current) => !current);
+    setInlineEditingItemId("");
+    setInlineAmountInput("");
   };
 
-  const chooseAmountItem = (item) => {
-    if (!interactionReady) return;
-    setSelectedItemId(item.id);
-    setAmountInput("");
+  const startInlineAmountEdit = (item) => {
+    if (!interactionReady || !amountEditMode) return;
+    setInlineEditingItemId(item.id);
+    setInlineAmountInput(formatEditableAmount(item.amountCentavos));
     setError("");
-    appendUser(item.label);
-    runAssistantSequence(
-      [`What should the usual amount for ${item.label} be on ${currentWeekday.name}?`],
-      "edit-change-amount"
-    );
   };
 
-  const submitChangedAmount = () => {
-    if (!interactionReady) return;
-    const amountCentavos = parseAmountToCentavos(amountInput);
+  const changeInlineAmountInput = (value) => {
+    setInlineAmountInput(sanitizeMoneyInput(value));
+    if (error) setError("");
+  };
+
+  const commitInlineAmountEdit = (item, options = {}) => {
+    const amountCentavos = parseAmountToCentavos(inlineAmountInput);
     if (amountCentavos <= 0) {
+      if (options.revertInvalid) {
+        setInlineEditingItemId("");
+        setInlineAmountInput("");
+        setError("");
+        return false;
+      }
       setError("Enter an amount greater than zero.");
-      return;
+      return false;
     }
 
-    const item = editItems.find((candidate) => candidate.id === selectedItemId);
     setEditItems((current) =>
       current.map((candidate) =>
-        candidate.id === selectedItemId ? { ...candidate, amountCentavos } : candidate
+        candidate.id === item.id ? { ...candidate, amountCentavos } : candidate
       )
     );
-    setAmountInput("");
-    setSelectedItemId("");
+    setInlineEditingItemId("");
+    setInlineAmountInput("");
     setError("");
-    appendUser(formatMoneyCentavos(amountCentavos));
-    runAssistantSequence(
-      [
-        `${item?.label || "That expense"} is now ${formatMoneyCentavos(amountCentavos)} on ${currentWeekday.name}.`,
-      ],
-      "day-edit"
+    return true;
+  };
+
+  const cancelInlineAmountEdit = () => {
+    setInlineEditingItemId("");
+    setInlineAmountInput("");
+    setError("");
+  };
+
+  const materializeInlineAmount = (items = editItems) => {
+    if (!inlineEditingItemId) return items;
+    const amountCentavos = parseAmountToCentavos(inlineAmountInput);
+    if (amountCentavos <= 0) return items;
+    return items.map((candidate) =>
+      candidate.id === inlineEditingItemId ? { ...candidate, amountCentavos } : candidate
     );
   };
 
-  const finishPreviousDayEdit = () => {
+  const finishPreviousDayEdit = (finalItems = editItems) => {
     const context = editReturnContext;
     if (!context) return false;
 
     const editedWeekday = currentWeekday;
     const editedDayIndex = dayIndex;
-    const nextItems = cloneItems(editItems);
+    const nextItems = cloneItems(finalItems);
     const returnDayIndex = context.returnDayIndex;
     const returnWeekday = CLARA_MONEY_ROUTINE_WEEKDAYS[returnDayIndex];
 
@@ -695,8 +797,7 @@ export default function ClaraMoneyScheduleOverlay({
     setDayIndex(returnDayIndex);
     setDraftText("");
     setEditItems([]);
-    setSelectedItemId("");
-    setAmountInput("");
+    resetInlineAmountEditing();
     setError("");
 
     if (context.returnPhase === "weekly-review") {
@@ -719,12 +820,13 @@ export default function ClaraMoneyScheduleOverlay({
 
   const finishEditedDay = () => {
     if (!interactionReady) return;
-    if (finishPreviousDayEdit()) return;
+    const finalItems = materializeInlineAmount(editItems);
+    if (finishPreviousDayEdit(finalItems)) return;
 
     appendUser(`Done with ${currentWeekday.name}`);
     moveToNextDay(
-      editItems,
-      editItems.length
+      finalItems,
+      finalItems.length
         ? []
         : [`Got it. I’ll keep ${currentWeekday.name} at ₱0 because you didn’t add any routine expenses.`]
     );
@@ -853,7 +955,16 @@ export default function ClaraMoneyScheduleOverlay({
 
           {phase === "day-edit" && controlsReady ? (
             <>
-              <ExpenseList items={editItems} />
+              <ExpenseList
+                items={editItems}
+                amountEditMode={amountEditMode}
+                editingItemId={inlineEditingItemId}
+                inlineAmountInput={inlineAmountInput}
+                onStartAmountEdit={startInlineAmountEdit}
+                onInlineAmountChange={changeInlineAmountInput}
+                onCommitAmountEdit={commitInlineAmountEdit}
+                onCancelAmountEdit={cancelInlineAmountEdit}
+              />
               <div className="grid grid-cols-2 gap-2.5" data-clara-money-routine-day-controls="true">
                 <button
                   type="button"
@@ -874,9 +985,15 @@ export default function ClaraMoneyScheduleOverlay({
                   type="button"
                   onClick={startChangeAmount}
                   disabled={!editItems.length}
-                  className="flex min-h-12 items-center justify-center gap-2 rounded-[18px] border border-blue-300/18 bg-white/[0.04] px-3 text-[12px] font-black text-white/88 active:scale-[0.985] disabled:opacity-35"
+                  aria-pressed={amountEditMode}
+                  className={`flex min-h-12 items-center justify-center gap-2 rounded-[18px] border px-3 text-[12px] font-black active:scale-[0.985] disabled:opacity-35 ${
+                    amountEditMode
+                      ? "border-cyan-200/28 bg-cyan-200/[0.09] text-cyan-50"
+                      : "border-blue-300/18 bg-white/[0.04] text-white/88"
+                  }`}
                 >
-                  <PencilLine className="h-4 w-4" /> Change amount
+                  <PencilLine className="h-4 w-4" />
+                  {amountEditMode ? "Done changing" : "Change amount"}
                 </button>
                 <ChoiceButton onClick={finishEditedDay}>
                   {editReturnContext ? "Done editing" : "Done"}
@@ -911,36 +1028,6 @@ export default function ClaraMoneyScheduleOverlay({
                   </span>
                 </button>
               ))}
-            </div>
-          ) : null}
-
-          {phase === "edit-change-select" && controlsReady ? (
-            <div className="mt-1 grid gap-2">
-              {editItems.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => chooseAmountItem(item)}
-                  className="flex min-h-12 items-center justify-between gap-3 rounded-[17px] border border-blue-200/12 bg-white/[0.035] px-4 text-left active:scale-[0.985]"
-                >
-                  <span className="text-[12.5px] font-black text-white/88">{item.label}</span>
-                  <span className="text-[12px] font-black text-[#8ffff8]/78">
-                    {formatMoneyCentavos(item.amountCentavos)}
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          {phase === "edit-change-amount" && controlsReady ? (
-            <div className="mt-auto pt-3">
-              <Composer
-                value={amountInput}
-                onChange={setAmountInput}
-                onSubmit={submitChangedAmount}
-                placeholder="New usual amount"
-                inputMode="decimal"
-              />
             </div>
           ) : null}
 
