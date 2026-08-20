@@ -95,6 +95,18 @@ function normalizeRoutineItem(item = {}, index = 0) {
   };
 }
 
+function normalizeBasisDayKey(value, ownDayKey = "") {
+  const raw = cleanText(value).toLowerCase();
+  if (!raw) return "";
+
+  const canonical = CLARA_MONEY_ROUTINE_WEEKDAYS.find(
+    (candidate) => candidate.key === raw || candidate.name.toLowerCase() === raw
+  );
+
+  if (!canonical || canonical.key === ownDayKey) return "";
+  return canonical.key;
+}
+
 function normalizeRoutineDay(day = {}, fallback = CLARA_MONEY_ROUTINE_WEEKDAYS[0]) {
   const canonical =
     CLARA_MONEY_ROUTINE_WEEKDAYS.find((candidate) => candidate.key === cleanText(day.key).toLowerCase()) ||
@@ -104,12 +116,18 @@ function normalizeRoutineDay(day = {}, fallback = CLARA_MONEY_ROUTINE_WEEKDAYS[0
     .map((item, index) => normalizeRoutineItem(item, index))
     .filter(Boolean);
   const totalCentavos = items.reduce((sum, item) => sum + item.amountCentavos, 0);
+  const basisDayKey = normalizeBasisDayKey(
+    day.basisDayKey || day.basis_day_key || day.basedOnDayKey || day.based_on_day_key,
+    canonical.key
+  );
 
   return {
     key: canonical.key,
     name: canonical.name,
     weekdayIndex: canonical.weekdayIndex,
     weekday_index: canonical.weekdayIndex,
+    basisDayKey: basisDayKey || null,
+    basis_day_key: basisDayKey || null,
     items,
     totalCentavos,
     total_centavos: totalCentavos,
@@ -168,7 +186,15 @@ export function saveClaraMoneyRoutine({ user, days } = {}) {
     throw new Error("Money Schedule is unavailable on this device right now.");
   }
 
-  if (!Array.isArray(days) || days.length !== CLARA_MONEY_ROUTINE_WEEKDAYS.length) {
+  const suppliedKeys = new Set(
+    (Array.isArray(days) ? days : [])
+      .filter(Boolean)
+      .map((day) => cleanText(day?.key).toLowerCase())
+      .filter(Boolean)
+  );
+  const hasEveryDay = CLARA_MONEY_ROUTINE_WEEKDAYS.every((weekday) => suppliedKeys.has(weekday.key));
+
+  if (!Array.isArray(days) || !hasEveryDay) {
     throw new Error("Finish Monday through Sunday before saving your routine.");
   }
 
