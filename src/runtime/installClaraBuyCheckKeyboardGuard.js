@@ -1,6 +1,6 @@
 const RUNTIME_KEY = "__claraBuyCheckKeyboardGuardRuntime__";
 const OVERLAY_SELECTOR =
-  '[data-clara-pause-overlay="true"][data-clara-buy-check-react-owner="true"]';
+  '[data-clara-pause-overlay="true"][data-clara-buy-check-react-owner="true"][data-clara-buy-check-result-mode]';
 const FORM_SELECTOR = '[data-clara-buy-check-react-form="true"]';
 const VIEWPORT_SELECTOR = '[data-clara-ai-message-viewport="true"]';
 const STACK_SELECTOR = '[data-clara-ai-message-stack="true"]';
