@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   verify-provider-removal:
@@ -14,6 +15,11 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      - name: Mark verification started
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue comment "${{ github.event.issue.number }}" --body 'verification-started'
+
       - name: Check out prepared verification branch
         uses: actions/checkout@v4
         with:
@@ -54,3 +60,8 @@ jobs:
             git commit -m 'Finalize provider removal on latest main'
             git push origin HEAD:provider-removal-verify-main
           fi
+
+      - name: Mark verification passed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue close "${{ github.event.issue.number }}" --comment 'verification-passed'
