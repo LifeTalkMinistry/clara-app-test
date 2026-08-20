@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, X } from "lucide-react";
 import { addBuyCheckExpense } from "@/lib/clara-buy-check-expense-repository";
-import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "@/lib/clara-pause-events";
 import {
   clean,
   dispatchFinanceUpdates,
@@ -47,28 +46,6 @@ function chatMessage(role, text) {
     role,
     text,
   };
-}
-
-function amountFromBudget(budget = {}) {
-  return Number(
-    budget?.amount ??
-      budget?.budget_amount ??
-      budget?.allocated_amount ??
-      budget?.target_amount ??
-      budget?.limit ??
-      0
-  ) || 0;
-}
-
-function titleFromBudget(budget = {}) {
-  return clean(
-    budget?.title ||
-      budget?.name ||
-      budget?.label ||
-      budget?.category ||
-      budget?.budget_name ||
-      "Planned budget"
-  );
 }
 
 function Bubble({ role, children, typing = false }) {
@@ -160,21 +137,13 @@ export default function ClaraLogExpenseOverlayV2({
   const timerIdsRef = useRef(new Set());
   const typingTimerRef = useRef(null);
   const sequenceRef = useRef([]);
-  const sequencePhaseRef = useRef("planning-choice");
+  const sequencePhaseRef = useRef("amount");
   const sequenceTokenRef = useRef(0);
   const previousActiveRef = useRef(false);
 
   const walletOptions = useMemo(
     () => getWalletOptions(claraAssistantContext, amount),
     [claraAssistantContext, amount]
-  );
-
-  const plannedItems = useMemo(
-    () =>
-      (Array.isArray(claraAssistantContext?.budgets) ? claraAssistantContext.budgets : [])
-        .filter((budget) => !budget?.deletedAt && !budget?.deleted_at && budget?.status !== "archived")
-        .slice(0, 12),
-    [claraAssistantContext?.budgets]
   );
 
   const scrollToLatest = () => {
@@ -267,9 +236,10 @@ export default function ClaraLogExpenseOverlayV2({
     runAssistantSequence(
       [
         `Hi ${firstName}! 👋`,
-        "Was this expense part of your scheduled budget, or was it unplanned spending?",
+        "Quick note: Anything you log here will be treated as unplanned spending. Your planned routine expenses are already covered by Money Schedule.",
+        "How much did you spend?",
       ],
-      "planning-choice"
+      "amount"
     );
   };
 
@@ -323,108 +293,11 @@ export default function ClaraLogExpenseOverlayV2({
     []
   );
 
-  useEffect(() => {
-    if (
-      !isActive ||
-      phase !== "money-schedule-launch" ||
-      !interactionReady ||
-      typeof window === "undefined"
-    ) {
-      return undefined;
-    }
-
-    const timerId = window.setTimeout(() => {
-      const requestId = `clara-log-expense-money-schedule-${Date.now()}-${Math.random()
-        .toString(36)
-        .slice(2)}`;
-
-      window.dispatchEvent(
-        new CustomEvent(CLARA_PAUSE_OPEN_REQUEST_EVENT, {
-          detail: {
-            requestId,
-            source: "log-expense-money-schedule-handoff",
-            mode: "money-schedule",
-            commandId: "money-schedule",
-          },
-        })
-      );
-    }, 120);
-
-    return () => window.clearTimeout(timerId);
-  }, [interactionReady, isActive, phase]);
-
   if (!isActive) return null;
 
   const closeChat = () => {
     cancelConversationPacing();
     onClose?.();
-  };
-
-  const choosePlanned = () => {
-    if (!interactionReady) return;
-    setError("");
-    append(chatMessage("user", "Scheduled / Planned"));
-    runAssistantSequence(
-      [
-        "If this was already part of your planned budget or scheduled money setup, you don’t have to log it again. CLARA already has that plan accounted for, so logging it here could count it twice.",
-        "I can remind you of the budget items you already set up. Want to see your current planned list?",
-      ],
-      "planned"
-    );
-  };
-
-  const chooseUnplanned = () => {
-    if (!interactionReady) return;
-    setError("");
-    append(chatMessage("user", "Unplanned Spending"));
-    runAssistantSequence(
-      ["Got it — this was unplanned spending. How much did you spend?"],
-      "amount"
-    );
-  };
-
-  const showCurrentPlannedList = () => {
-    if (!interactionReady) return;
-    setError("");
-    append(chatMessage("user", "Show my planned list"));
-
-    if (!plannedItems.length) {
-      runAssistantSequence(
-        [
-          "I checked your current setup, and I don’t see an active planned budget or Money Schedule yet.",
-          "Would you like to set up your Money Schedule now?",
-        ],
-        "money-schedule-offer"
-      );
-      return;
-    }
-
-    runAssistantSequence(
-      ["Sure. Here’s the planned budget setup I currently have for you."],
-      "planned-list"
-    );
-  };
-
-  const openMoneySchedule = () => {
-    if (!interactionReady) return;
-    setError("");
-    append(chatMessage("user", "Yes, set it up"));
-    runAssistantSequence(
-      ["Absolutely. I’ll open your Money Schedule so you can set it up now."],
-      "money-schedule-launch"
-    );
-  };
-
-  const skipMoneySchedule = () => {
-    if (!interactionReady) return;
-    setError("");
-    append(chatMessage("user", "Not now"));
-    runAssistantSequence(
-      [
-        "No problem. You can set up your Money Schedule anytime. I won’t log this expense again because you marked it as planned.",
-      ],
-      "planned-finished"
-    );
   };
 
   const submitAmount = () => {
@@ -557,55 +430,6 @@ export default function ClaraLogExpenseOverlayV2({
 
           {pendingMessage ? (
             <Bubble role="assistant" typing>{typedText}</Bubble>
-          ) : null}
-
-          {phase === "planning-choice" && controlsReady ? (
-            <div className="mt-1 grid gap-2.5">
-              <ChoiceButton onClick={choosePlanned}>Scheduled / Planned</ChoiceButton>
-              <ChoiceButton onClick={chooseUnplanned} secondary>Unplanned Spending</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "planned" && controlsReady ? (
-            <div className="mt-1 grid gap-2.5">
-              <ChoiceButton onClick={showCurrentPlannedList}>Show my planned list</ChoiceButton>
-              <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "money-schedule-offer" && controlsReady ? (
-            <div className="mt-1 grid gap-2.5">
-              <ChoiceButton onClick={openMoneySchedule}>Yes, set it up</ChoiceButton>
-              <ChoiceButton onClick={skipMoneySchedule} secondary>Not now</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "planned-finished" && controlsReady ? (
-            <div className="mt-1 grid grid-cols-2 gap-2.5">
-              <ChoiceButton onClick={resetFlow}>Back to Log Expense</ChoiceButton>
-              <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "planned-list" && controlsReady ? (
-            <>
-              <section className="mt-1 rounded-[22px] border border-blue-200/12 bg-[#07142b]/88 p-3.5">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8ffff8]/66">CURRENT PLANNED BUDGET</p>
-                {plannedItems.length ? (
-                  <div className="mt-3 grid gap-2">
-                    {plannedItems.map((budget, index) => (
-                      <div key={budget?.id || `${titleFromBudget(budget)}-${index}`} className="flex items-center justify-between gap-3 rounded-[16px] border border-white/8 bg-white/[0.035] px-3.5 py-3">
-                        <span className="min-w-0 truncate text-[12.5px] font-black text-white/92">{titleFromBudget(budget)}</span>
-                        {amountFromBudget(budget) > 0 ? <span className="shrink-0 text-[12px] font-black text-[#8ffff8]/82">{money(amountFromBudget(budget))}</span> : null}
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-              </section>
-              <div className="mt-1">
-                <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
-              </div>
-            </>
           ) : null}
 
           {phase === "amount" && controlsReady ? (
