@@ -143,7 +143,7 @@ export function buildClaraBridgeDailyMoneyTip() {
     text: tip.text,
     category: tip.category || "money",
     source: tip.source || "fallback",
-    note: "Fallback daily tip is readable. Admin/Supabase daily tip can be connected later.",
+    note: "Fallback daily tip is readable. Backend-managed daily tip content can be connected when available.",
   };
 }
 
