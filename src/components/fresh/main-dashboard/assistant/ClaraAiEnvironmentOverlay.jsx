@@ -144,6 +144,32 @@ export default function ClaraAiEnvironmentOverlay(props) {
     setEntryMode("log-expense");
   };
 
+  useEffect(() => {
+    if (entryMode !== "wallet" || walletHandoff?.returnMode !== "log-expense") {
+      return;
+    }
+
+    const walletCountBefore = Number(walletHandoff?.walletCountBefore) || 0;
+    const financeRevisionBefore = Number(walletHandoff?.financeRevisionBefore) || 0;
+    const currentWalletCount = Array.isArray(enrichedAssistantContext?.wallets)
+      ? enrichedAssistantContext.wallets.length
+      : 0;
+    const currentFinanceRevision = Number(enrichedAssistantContext?.financeRevision) || 0;
+
+    const walletWasCreated = currentWalletCount > walletCountBefore;
+    const financeWasUpdated = currentFinanceRevision > financeRevisionBefore;
+    if (!walletWasCreated && !financeWasUpdated) return;
+
+    returnToLogExpense();
+  }, [
+    entryMode,
+    walletHandoff?.returnMode,
+    walletHandoff?.walletCountBefore,
+    walletHandoff?.financeRevisionBefore,
+    enrichedAssistantContext?.wallets,
+    enrichedAssistantContext?.financeRevision,
+  ]);
+
   if (logExpenseMode) {
     const closeLogExpense = () => {
       setEntryMode(null);
@@ -153,6 +179,11 @@ export default function ClaraAiEnvironmentOverlay(props) {
     };
 
     const openWalletChat = (detail = {}) => {
+      const walletCountBefore = Array.isArray(enrichedAssistantContext?.wallets)
+        ? enrichedAssistantContext.wallets.length
+        : 0;
+      const financeRevisionBefore = Number(enrichedAssistantContext?.financeRevision) || 0;
+
       setLogExpenseResume({
         amount: Number(detail?.amount) || 0,
         item: String(detail?.item || "").trim(),
@@ -162,6 +193,8 @@ export default function ClaraAiEnvironmentOverlay(props) {
         intent: detail?.intent === "create" ? undefined : detail?.intent,
         source: "log-expense",
         returnMode: "log-expense",
+        walletCountBefore,
+        financeRevisionBefore,
       });
       setEntryMode("wallet");
     };
