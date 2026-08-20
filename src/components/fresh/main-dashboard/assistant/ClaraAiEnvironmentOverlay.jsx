@@ -53,10 +53,14 @@ function restoreReadyStateWhenWeeklyCheckWasNotStarted(user) {
 
 export default function ClaraAiEnvironmentOverlay(props) {
   const guidePreview = props?.layoutVariant === "guide-preview";
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [entryMode, setEntryMode] = useState(null);
   const routeMode = searchParams.get("mode");
-  const weeklyMoneyCheckMode = !guidePreview && routeMode === "weekly-money-check";
+  const weeklyMoneyCheckLaunchRequested =
+    !guidePreview && routeMode === "weekly-money-check";
+  const [weeklyMoneyCheckMode, setWeeklyMoneyCheckMode] = useState(
+    () => weeklyMoneyCheckLaunchRequested
+  );
   const logExpenseMode = !guidePreview && entryMode === "log-expense";
   const walletMode = !guidePreview && entryMode === "wallet";
   const moneyScheduleMode = !guidePreview && entryMode === "money-schedule";
@@ -88,6 +92,23 @@ export default function ClaraAiEnvironmentOverlay(props) {
     window.addEventListener(CLARA_PAUSE_OPEN_REQUEST_EVENT, handlePauseOpenRequest);
     return () => window.removeEventListener(CLARA_PAUSE_OPEN_REQUEST_EVENT, handlePauseOpenRequest);
   }, []);
+
+  useEffect(() => {
+    if (!weeklyMoneyCheckLaunchRequested) return undefined;
+
+    // `mode=weekly-money-check` and its source are launch metadata, not the
+    // persistent identity of the Community Orb page. Latch the workflow into
+    // React state before consuming the command so URL normalization cannot
+    // close the Weekly Money Check that was just intentionally opened.
+    setWeeklyMoneyCheckMode(true);
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("mode");
+    nextParams.delete("source");
+    setSearchParams(nextParams, { replace: true });
+
+    return undefined;
+  }, [searchParams, setSearchParams, weeklyMoneyCheckLaunchRequested]);
 
   useEffect(() => {
     if (!weeklyMoneyCheckMode) {
@@ -164,6 +185,7 @@ export default function ClaraAiEnvironmentOverlay(props) {
 
   if (weeklyMoneyCheckMode) {
     const closeWeeklyMoneyCheck = () => {
+      setWeeklyMoneyCheckMode(false);
       restoreReadyStateWhenWeeklyCheckWasNotStarted(enrichedAssistantContext?.user);
       props?.onClose?.();
     };
