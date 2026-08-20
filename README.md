@@ -1,26 +1,41 @@
 # CLARA App
 
-A financial behavior and accountability system designed to help users take control of their money, build discipline, and achieve real financial growth.
+CLARA is a financial behavior and accountability system designed to help users make better money decisions, build discipline, and protect their resources.
 
----
+## Architecture
+
+- Private finance data is local-first and stored in the CLARA IndexedDB vault.
+- Authentication, account services, community, support, notifications, and other shared services use the CLARA Backend.
+- The frontend does not depend on a third-party database client.
 
 ## Getting Started
 
-### 1. Clone the repo
+### 1. Clone the repository
+
 ```bash
 git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git
 cd YOUR_REPO
 ```
 
-### 2. Configure environment variables
-Create a `.env` file (for local development) with:
+### 2. Configure the CLARA Backend URL
+
+Create a `.env` file for local development when you need to override the default backend URL:
 
 ```bash
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_CLARA_API_URL=http://localhost:3000
 ```
 
-For GitHub Pages deployments, set the same keys as **repository secrets**:
+Production uses the configured CLARA Backend endpoint. Do not place private server credentials in frontend environment variables.
 
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
+### 3. Install and run
+
+```bash
+npm install
+npm run dev
+```
+
+Build the production app with:
+
+```bash
+npm run build
+```
