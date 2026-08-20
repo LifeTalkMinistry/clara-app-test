@@ -111,6 +111,29 @@ test("Money Schedule lets later days reuse or modify any completed day", () => {
   assert.match(moneyScheduleSource, /Start from \{day\.name\}/);
   assert.match(moneyScheduleSource, /Use Add, Remove, or Edit item/);
   assert.match(moneyScheduleSource, /will start empty/);
+  assert.match(moneyScheduleSource, /basisDayKey: sourceDay\.key/);
+  assert.match(moneyScheduleSource, /setCurrentBasisDayKey\(sourceDay\.key\)/);
+});
+
+test("Money Schedule warns before editing a basis day and invalidates all dependent copied days", () => {
+  assert.match(moneyScheduleSource, /findDependentDayIndexes/);
+  assert.match(moneyScheduleSource, /dependentKeys\.has\(basisKey\)/);
+  assert.match(moneyScheduleSource, /basisDayKeyFrom/);
+  assert.match(moneyScheduleSource, /phase === "basis-edit-warning"/);
+  assert.match(moneyScheduleSource, /data-clara-money-routine-basis-warning="true"/);
+  assert.match(moneyScheduleSource, /was used as the basis for/);
+  assert.match(moneyScheduleSource, /will be deleted and you’ll need to recreate/);
+  assert.match(moneyScheduleSource, /Continue editing \{pendingBasisEdit\.sourceDay\.name\}/);
+  assert.match(moneyScheduleSource, /nextDays\[index\] = undefined/);
+  assert.match(moneyScheduleSource, /invalidatedDayIndexes/);
+  assert.match(moneyScheduleSource, /Let’s recreate \$\{nextWeekday\.name\} now/);
+});
+
+test("Money Schedule basis warning can be cancelled without deleting copied days", () => {
+  assert.match(moneyScheduleSource, /cancelBasisDayEdit/);
+  assert.match(moneyScheduleSource, /No changes made/);
+  assert.match(moneyScheduleSource, /days based on it will stay as they are/);
+  assert.match(moneyScheduleSource, /context\.returnPhase/);
 });
 
 test("Money Schedule can edit a completed day without losing the current setup position", () => {
@@ -124,10 +147,26 @@ test("Money Schedule can edit a completed day without losing the current setup p
   assert.match(moneyScheduleSource, /Done editing/);
 });
 
+test("Money Schedule can rebuild invalidated days while preserving unaffected completed days", () => {
+  assert.match(moneyScheduleSource, /configuredDays = days\.slice\(0, dayIndex\)\.filter\(Boolean\)/);
+  assert.match(moneyScheduleSource, /findNextMissingDayIndex/);
+  assert.match(moneyScheduleSource, /skippedNames/);
+  assert.match(moneyScheduleSource, /already set, so now let’s set up/);
+  assert.match(moneyScheduleSource, /days\.filter\(Boolean\)\.map/);
+});
+
 test("Money Schedule weekly review lets every day reopen in the same editor", () => {
   assert.match(moneyScheduleSource, /choosePreviousDayToEdit\(day, "weekly-review"\)/);
   assert.match(moneyScheduleSource, /aria-label=\{`Edit \$\{day\.name\} routine`\}/);
   assert.match(moneyScheduleSource, /Your weekly review is refreshed/);
+});
+
+test("Money Schedule persists copied-day basis metadata and requires all seven days before save", () => {
+  assert.match(moneyScheduleRepositorySource, /normalizeBasisDayKey/);
+  assert.match(moneyScheduleRepositorySource, /basisDayKey/);
+  assert.match(moneyScheduleRepositorySource, /basis_day_key/);
+  assert.match(moneyScheduleRepositorySource, /hasEveryDay/);
+  assert.match(moneyScheduleRepositorySource, /Finish Monday through Sunday before saving your routine/);
 });
 
 test("Money Schedule persists a seven-day weekly routine until the user updates it", () => {
@@ -138,7 +177,6 @@ test("Money Schedule persists a seven-day weekly routine until the user updates 
   assert.match(moneyScheduleRepositorySource, /sunday/);
   assert.match(moneyScheduleRepositorySource, /repeatMode: "until_updated"/);
   assert.match(moneyScheduleRepositorySource, /weeklyTotalCentavos/);
-  assert.match(moneyScheduleRepositorySource, /days\.length !== CLARA_MONEY_ROUTINE_WEEKDAYS\.length/);
 });
 
 test("Money Schedule stores routine money as integer centavos", () => {
