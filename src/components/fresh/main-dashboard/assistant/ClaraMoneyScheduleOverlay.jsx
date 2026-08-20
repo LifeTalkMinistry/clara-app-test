@@ -156,16 +156,7 @@ function ChoiceButton({ children, onClick, disabled = false, secondary = false }
   );
 }
 
-function Composer({
-  value,
-  onChange,
-  onSubmit,
-  placeholder,
-  inputMode = "text",
-  multiline = false,
-}) {
-  const Input = multiline ? "textarea" : "input";
-
+function Composer({ value, onChange, onSubmit, placeholder, inputMode = "text" }) {
   return (
     <form
       data-clara-buy-check-react-form="true"
@@ -173,20 +164,15 @@ function Composer({
         event.preventDefault();
         onSubmit?.();
       }}
-      className={`flex gap-2 rounded-[22px] border border-blue-200/14 bg-[#07142b]/96 p-2 shadow-[0_14px_34px_rgba(0,0,0,0.28)] ${
-        multiline ? "items-end" : "items-center"
-      }`}
+      className="flex items-center gap-2 rounded-[22px] border border-blue-200/14 bg-[#07142b]/96 p-2 shadow-[0_14px_34px_rgba(0,0,0,0.28)]"
     >
-      <Input
+      <input
         autoFocus
         value={value}
         onChange={(event) => onChange?.(event.target.value)}
         placeholder={placeholder}
         inputMode={inputMode}
-        rows={multiline ? 4 : undefined}
-        className={`min-w-0 flex-1 bg-transparent px-3 text-[14px] font-semibold text-white outline-none placeholder:text-slate-400/55 ${
-          multiline ? "min-h-[104px] resize-none py-2 leading-6" : "min-h-11"
-        }`}
+        className="min-h-11 min-w-0 flex-1 bg-transparent px-3 text-[14px] font-semibold text-white outline-none placeholder:text-slate-400/55"
       />
       <button
         type="submit"
@@ -220,7 +206,7 @@ function ExpenseList({ items = [], totalLabel = "Daily total" }) {
           ))}
         </div>
       ) : (
-        <p className="text-[12px] font-semibold text-white/48">No routine expenses on this day.</p>
+        <p className="text-[12px] font-semibold text-white/48">No routine expenses added yet.</p>
       )}
       <div className="mt-3 flex items-center justify-between border-t border-white/8 pt-3">
         <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/36">
@@ -246,7 +232,6 @@ export default function ClaraMoneyScheduleOverlay({
   const [days, setDays] = useState([]);
   const [dayIndex, setDayIndex] = useState(0);
   const [draftText, setDraftText] = useState("");
-  const [pendingItems, setPendingItems] = useState([]);
   const [editItems, setEditItems] = useState([]);
   const [selectedItemId, setSelectedItemId] = useState("");
   const [amountInput, setAmountInput] = useState("");
@@ -346,7 +331,6 @@ export default function ClaraMoneyScheduleOverlay({
     setDays([]);
     setDayIndex(0);
     setDraftText("");
-    setPendingItems([]);
     setEditItems([]);
     setSelectedItemId("");
     setAmountInput("");
@@ -436,14 +420,16 @@ export default function ClaraMoneyScheduleOverlay({
 
   const startSetup = () => {
     if (!interactionReady) return;
+    setEditItems([]);
     setError("");
     appendUser("Yes, I’m ready");
     runAssistantSequence(
       [
         "Great! Let’s start with Monday.",
-        "Tell me what you normally need to spend on every Monday. Please leave out occasional or extra spending — only the things that are part of your usual routine.",
+        "We’ll build Monday one routine expense at a time. Tap Add whenever you want to add something you normally need on Monday, then press Done when the day is complete.",
+        "Please leave out occasional or extra spending — only include things that are part of your usual routine.",
       ],
-      "day-entry"
+      "day-edit"
     );
   };
 
@@ -459,7 +445,6 @@ export default function ClaraMoneyScheduleOverlay({
     nextDays[dayIndex] = normalizedDay;
     setDays(nextDays);
     setDraftText("");
-    setPendingItems([]);
     setEditItems([]);
     setSelectedItemId("");
     setAmountInput("");
@@ -490,51 +475,6 @@ export default function ClaraMoneyScheduleOverlay({
     );
   };
 
-  const submitDayExpenses = () => {
-    if (!interactionReady) return;
-    const parsed = parseRoutineExpenses(draftText);
-    if (!parsed.items.length || parsed.invalidLines.length) {
-      setError(
-        "List each routine expense on its own line like “Transportation - 100” or “Coffee - 25”."
-      );
-      return;
-    }
-
-    const submittedText = draftText;
-    setPendingItems(parsed.items);
-    setDraftText("");
-    setError("");
-    appendUser(submittedText);
-    runAssistantSequence(
-      [`Here’s what I understood for ${currentWeekday.name}. Check it once before we continue.`],
-      "day-review"
-    );
-  };
-
-  const confirmPendingDay = () => {
-    if (!interactionReady) return;
-    appendUser("Looks right");
-    moveToNextDay(pendingItems);
-  };
-
-  const enterDayAgain = () => {
-    if (!interactionReady) return;
-    setPendingItems([]);
-    setDraftText("");
-    setError("");
-    appendUser("I need to change it");
-    runAssistantSequence(
-      [`No problem. Send the normal ${currentWeekday.name} expenses again, one item per line.`],
-      "day-entry"
-    );
-  };
-
-  const setNoRoutineExpenses = () => {
-    if (!interactionReady) return;
-    appendUser(`No routine expenses on ${currentWeekday.name}`);
-    moveToNextDay([], [`Got it. I’ll keep ${currentWeekday.name} at ₱0 for your normal routine.`]);
-  };
-
   const useSameDay = (sourceDay) => {
     if (!interactionReady) return;
     appendUser(`Same as ${sourceDay.name}`);
@@ -560,7 +500,7 @@ export default function ClaraMoneyScheduleOverlay({
     runAssistantSequence(
       [
         `Done. I copied ${sourceDay.name}.`,
-        `Now tell me what needs to change for ${currentWeekday.name}.`,
+        `Now use Add, Remove, or Change amount for anything that is different on ${currentWeekday.name}.`,
       ],
       "day-edit"
     );
@@ -569,14 +509,15 @@ export default function ClaraMoneyScheduleOverlay({
   const chooseCompletelyDifferent = () => {
     if (!interactionReady) return;
     setDraftText("");
+    setEditItems([]);
     setError("");
     appendUser("Completely different setup");
     runAssistantSequence(
       [
-        `Okay. Tell me the normal ${currentWeekday.name} expenses from scratch.`,
-        "Leave out occasional extras and list one routine expense per line.",
+        `Okay. ${currentWeekday.name} will start empty.`,
+        `Use Add to build the normal ${currentWeekday.name} routine one expense at a time, then press Done when you’re finished.`,
       ],
-      "day-entry"
+      "day-edit"
     );
   };
 
@@ -585,14 +526,17 @@ export default function ClaraMoneyScheduleOverlay({
     setDraftText("");
     setError("");
     appendUser("Add something");
-    runAssistantSequence([`What should I add to ${currentWeekday.name}?`], "edit-add");
+    runAssistantSequence(
+      [`What should I add to ${currentWeekday.name}? You can say something like “Transportation 100”.`],
+      "edit-add"
+    );
   };
 
   const submitAddedExpense = () => {
     if (!interactionReady) return;
     const parsed = parseRoutineExpenses(draftText);
     if (!parsed.items.length || parsed.invalidLines.length) {
-      setError("Use the format “Expense - amount”, for example “Extra commute - 80”.");
+      setError("Use the format “Expense amount”, for example “Transportation 100”.");
       return;
     }
 
@@ -602,7 +546,7 @@ export default function ClaraMoneyScheduleOverlay({
     setError("");
     appendUser(submittedText);
     runAssistantSequence(
-      ["Added. You can make another change or finish this day."],
+      ["Added. You can add another expense, remove one, change an amount, or press Done for this day."],
       "day-edit"
     );
   };
@@ -675,7 +619,12 @@ export default function ClaraMoneyScheduleOverlay({
   const finishEditedDay = () => {
     if (!interactionReady) return;
     appendUser(`Done with ${currentWeekday.name}`);
-    moveToNextDay(editItems);
+    moveToNextDay(
+      editItems,
+      editItems.length
+        ? []
+        : [`Got it. I’ll keep ${currentWeekday.name} at ₱0 because you didn’t add any routine expenses.`]
+    );
   };
 
   const saveRoutine = () => {
@@ -701,9 +650,7 @@ export default function ClaraMoneyScheduleOverlay({
     }
   };
 
-  const resetFlow = () => {
-    startOpeningConversation();
-  };
+  const resetFlow = () => startOpeningConversation();
 
   const closeChat = () => {
     cancelConversationPacing();
@@ -750,40 +697,13 @@ export default function ClaraMoneyScheduleOverlay({
             <Bubble key={entry.id} role={entry.role}>{entry.text}</Bubble>
           ))}
 
-          {pendingMessage ? (
-            <Bubble role="assistant" typing>{typedText}</Bubble>
-          ) : null}
+          {pendingMessage ? <Bubble role="assistant" typing>{typedText}</Bubble> : null}
 
           {phase === "welcome" && controlsReady ? (
             <div className="mt-auto grid gap-2.5 pt-3">
               <ChoiceButton onClick={startSetup}>Yes, let’s set it up</ChoiceButton>
               <ChoiceButton onClick={closeChat} secondary>Not now</ChoiceButton>
             </div>
-          ) : null}
-
-          {phase === "day-entry" && controlsReady ? (
-            <div className="mt-auto grid gap-2.5 pt-3">
-              <Composer
-                value={draftText}
-                onChange={setDraftText}
-                onSubmit={submitDayExpenses}
-                placeholder={"Transportation - 100\nCoffee - 25\nLunch - 120"}
-                multiline
-              />
-              <ChoiceButton onClick={setNoRoutineExpenses} secondary>
-                No routine expenses this day
-              </ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "day-review" && controlsReady ? (
-            <>
-              <ExpenseList items={pendingItems} />
-              <div className="grid grid-cols-2 gap-2.5">
-                <ChoiceButton onClick={confirmPendingDay}>Looks right</ChoiceButton>
-                <ChoiceButton onClick={enterDayAgain} secondary>Change it</ChoiceButton>
-              </div>
-            </>
           ) : null}
 
           {phase === "day-choice" && controlsReady ? (
@@ -815,7 +735,7 @@ export default function ClaraMoneyScheduleOverlay({
           {phase === "day-edit" && controlsReady ? (
             <>
               <ExpenseList items={editItems} />
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-2 gap-2.5" data-clara-money-routine-day-controls="true">
                 <button
                   type="button"
                   onClick={startAddExpense}
@@ -850,8 +770,7 @@ export default function ClaraMoneyScheduleOverlay({
                 value={draftText}
                 onChange={setDraftText}
                 onSubmit={submitAddedExpense}
-                placeholder="Extra commute - 80"
-                multiline
+                placeholder="Transportation 100"
               />
             </div>
           ) : null}
