@@ -51,3 +51,11 @@ test("unfinished expense is restored after Wallet chat", () => {
   assert.match(environmentSource, /amount: Number\(detail\?\.amount\)/);
   assert.match(environmentSource, /item: String\(detail\?\.item/);
 });
+
+test("Wallet recovery returns after canonical finance state refreshes", () => {
+  assert.match(environmentSource, /walletCountBefore/);
+  assert.match(environmentSource, /financeRevisionBefore/);
+  assert.match(environmentSource, /currentWalletCount > walletCountBefore/);
+  assert.match(environmentSource, /currentFinanceRevision > financeRevisionBefore/);
+  assert.match(environmentSource, /returnToLogExpense\(\)/);
+});
