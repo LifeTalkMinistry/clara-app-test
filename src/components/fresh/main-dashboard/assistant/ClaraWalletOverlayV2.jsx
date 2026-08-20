@@ -432,9 +432,11 @@ export default function ClaraWalletOverlayV2({
                 <ChoiceButton onClick={closeWallet} secondary>Done</ChoiceButton>
               </div>
             ) : (
-              <div className="mt-1 grid gap-3 pt-1">
+              <div className="mt-1 flex min-h-0 flex-1 flex-col pt-1">
                 <Bubble>You don’t have a wallet yet. Create one to start tracking your money.</Bubble>
-                <ChoiceButton onClick={() => setPhase("create_name")} centered>Create a wallet</ChoiceButton>
+                <div className="mt-auto grid pt-3">
+                  <ChoiceButton onClick={() => setPhase("create_name")} centered>Create a wallet</ChoiceButton>
+                </div>
               </div>
             )
           ) : null}
