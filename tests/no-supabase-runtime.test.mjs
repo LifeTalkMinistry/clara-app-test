@@ -11,10 +11,22 @@ function read(relativePath) {
 
 test("CLARA app has no Supabase cloud runtime dependency", () => {
   const packageJson = JSON.parse(read("package.json"));
+  const packageLock = read("package-lock.json");
+
   assert.equal(
     Boolean(packageJson.dependencies?.["@supabase/supabase-js"]),
     false,
     "@supabase/supabase-js must not be installed"
+  );
+  assert.equal(
+    Boolean(packageJson.devDependencies?.supabase),
+    false,
+    "Supabase CLI must not be installed"
+  );
+  assert.doesNotMatch(
+    packageLock,
+    /"@supabase\/supabase-js"|"node_modules\/@supabase\/|"node_modules\/supabase"/,
+    "package-lock.json must not retain Supabase SDK or CLI packages"
   );
 
   assert.equal(
