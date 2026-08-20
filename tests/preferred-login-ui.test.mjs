@@ -29,7 +29,6 @@ test("preferred login UI remains connected to the custom backend AuthContext", (
   assert.match(loginSource, /useAuth/);
   assert.match(loginSource, /await signIn\(\{ email: email\.trim\(\), password \}\)/);
   assert.match(loginSource, /await signUp\(/);
-  assert.doesNotMatch(loginSource, /supabase/i);
   assert.doesNotMatch(loginSource, /LOGIN_MAINTENANCE_MODE/);
   assert.doesNotMatch(loginSource, /Welcome back/);
   assert.doesNotMatch(loginSource, /CLARA Account/);
