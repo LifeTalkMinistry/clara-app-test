@@ -531,6 +531,8 @@ export default function ClaraMoneyScheduleOverlay({
   const [dayIndex, setDayIndex] = useState(0);
   const [currentBasisDayKey, setCurrentBasisDayKey] = useState("");
   const [draftText, setDraftText] = useState("");
+  const [addItemOpen, setAddItemOpen] = useState(false);
+  const [addAmountInput, setAddAmountInput] = useState("");
   const [editItems, setEditItems] = useState([]);
   const [itemEditMode, setItemEditMode] = useState(false);
   const [inlineEditingItemId, setInlineEditingItemId] = useState("");
@@ -652,11 +654,17 @@ export default function ClaraMoneyScheduleOverlay({
     setError("");
   };
 
+  const resetAddExpenseDraft = () => {
+    setAddItemOpen(false);
+    setDraftText("");
+    setAddAmountInput("");
+  };
+
   const resetRoutineFields = () => {
     setDays([]);
     setDayIndex(0);
     setCurrentBasisDayKey("");
-    setDraftText("");
+    resetAddExpenseDraft();
     setEditItems([]);
     resetInlineItemEditing();
     setReviewEditingDayKey("");
@@ -757,6 +765,7 @@ export default function ClaraMoneyScheduleOverlay({
     if (!interactionReady) return;
     setEditItems([]);
     setCurrentBasisDayKey("");
+    resetAddExpenseDraft();
     resetInlineItemEditing();
     setError("");
     appendUser("Yes, I’m ready");
@@ -783,7 +792,7 @@ export default function ClaraMoneyScheduleOverlay({
     const nextDays = [...days];
     nextDays[dayIndex] = normalizedDay;
     setDays(nextDays);
-    setDraftText("");
+    resetAddExpenseDraft();
     setEditItems([]);
     setCurrentBasisDayKey("");
     resetInlineItemEditing();
@@ -842,6 +851,7 @@ export default function ClaraMoneyScheduleOverlay({
 
   const chooseCopySource = (sourceDay) => {
     if (!interactionReady) return;
+    resetAddExpenseDraft();
     setEditItems(cloneItems(sourceDay.items));
     setCurrentBasisDayKey(sourceDay.key);
     resetInlineItemEditing();
@@ -858,7 +868,7 @@ export default function ClaraMoneyScheduleOverlay({
 
   const chooseCompletelyDifferent = () => {
     if (!interactionReady) return;
-    setDraftText("");
+    resetAddExpenseDraft();
     setEditItems([]);
     setCurrentBasisDayKey("");
     resetInlineItemEditing();
@@ -900,7 +910,7 @@ export default function ClaraMoneyScheduleOverlay({
     });
     setDayIndex(targetIndex);
     setCurrentBasisDayKey(basisDayKeyFrom(sourceDay));
-    setDraftText("");
+    resetAddExpenseDraft();
     setEditItems(cloneItems(sourceDay.items));
     resetInlineItemEditing();
     setError("");
@@ -995,42 +1005,40 @@ export default function ClaraMoneyScheduleOverlay({
   };
 
   const startAddExpense = () => {
-    if (!interactionReady) return;
+    if (!interactionReady || addItemOpen) return;
     setDraftText("");
+    setAddAmountInput("");
+    setAddItemOpen(true);
     resetInlineItemEditing();
     setError("");
-    appendUser("Add something");
-    runAssistantSequence(
-      [`What should I add to ${currentWeekday.name}? You can say something like “Transportation 100”.`],
-      "edit-add"
-    );
+  };
+
+  const cancelAddExpense = () => {
+    resetAddExpenseDraft();
+    setError("");
   };
 
   const submitAddedExpense = () => {
-    if (!interactionReady) return;
-    const parsed = parseRoutineExpenses(draftText);
-    if (!parsed.items.length || parsed.invalidLines.length) {
-      setError("Use the format “Expense amount”, for example “Transportation 100”.");
+    if (!interactionReady || !addItemOpen) return;
+    const label = cleanText(draftText);
+    const amountCentavos = parseAmountToCentavos(addAmountInput);
+
+    if (!label) {
+      setError("Type the item name first.");
+      return;
+    }
+    if (amountCentavos <= 0) {
+      setError("Enter an amount greater than zero.");
       return;
     }
 
-    const submittedText = draftText;
-    setEditItems((current) => [...current, ...parsed.items]);
-    setDraftText("");
+    setEditItems((current) => [...current, createUiItem(label, amountCentavos)]);
+    resetAddExpenseDraft();
     setError("");
-    appendUser(submittedText);
-    runAssistantSequence(
-      [
-        editReturnContext
-          ? "Updated. You can make another correction or press Done editing."
-          : "Added. You can add another expense, remove one, edit an item, or press Done for this day.",
-      ],
-      "day-edit"
-    );
   };
 
   const startRemoveExpense = () => {
-    if (!interactionReady || !editItems.length) return;
+    if (!interactionReady || !editItems.length || addItemOpen) return;
     resetInlineItemEditing();
     setError("");
     appendUser("Remove something");
@@ -1051,7 +1059,7 @@ export default function ClaraMoneyScheduleOverlay({
   };
 
   const toggleItemEditMode = () => {
-    if (!interactionReady || !editItems.length) return;
+    if (!interactionReady || !editItems.length || addItemOpen) return;
     setError("");
     setItemEditMode((current) => !current);
     setInlineEditingItemId("");
@@ -1286,7 +1294,7 @@ export default function ClaraMoneyScheduleOverlay({
     resetReviewInlineEditing();
     setDayIndex(index);
     setCurrentBasisDayKey("");
-    setDraftText("");
+    resetAddExpenseDraft();
     setEditItems([]);
     setError("");
     runAssistantSequence(
@@ -1321,7 +1329,7 @@ export default function ClaraMoneyScheduleOverlay({
 
     appendUser(`Done editing ${editedWeekday.name}`);
     setEditReturnContext(null);
-    setDraftText("");
+    resetAddExpenseDraft();
     setEditItems([]);
     setCurrentBasisDayKey("");
     resetInlineItemEditing();
@@ -1365,6 +1373,10 @@ export default function ClaraMoneyScheduleOverlay({
 
   const finishEditedDay = () => {
     if (!interactionReady) return;
+    if (addItemOpen) {
+      setError("Add this item or cancel the add section before finishing the day.");
+      return;
+    }
     const finalItems = materializeInlineEdit(editItems);
     if (finishPreviousDayEdit(finalItems)) return;
 
@@ -1532,18 +1544,88 @@ export default function ClaraMoneyScheduleOverlay({
                 onCommitAmountEdit={commitInlineAmountEdit}
                 onCancelInlineEdit={cancelInlineEdit}
               />
+
+              {addItemOpen ? (
+                <form
+                  data-clara-money-routine-inline-add="true"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    submitAddedExpense();
+                  }}
+                  className="rounded-[18px] border border-white/10 bg-[#030711]/96 p-3 shadow-[0_12px_28px_rgba(0,0,0,0.24)]"
+                >
+                  <div className="grid grid-cols-[minmax(0,1fr)_104px] gap-2">
+                    <label className="min-w-0">
+                      <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-white/36">
+                        Item
+                      </span>
+                      <input
+                        autoFocus
+                        value={draftText}
+                        onChange={(event) => {
+                          setDraftText(event.target.value);
+                          if (error) setError("");
+                        }}
+                        placeholder="Transportation"
+                        className="h-10 w-full rounded-[12px] border border-white/10 bg-black/25 px-3 text-[12px] font-bold text-white outline-none placeholder:text-white/28 focus:border-cyan-200/24"
+                      />
+                    </label>
+                    <label>
+                      <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-white/36">
+                        Amount
+                      </span>
+                      <div className="flex h-10 items-center rounded-[12px] border border-white/10 bg-black/25 px-2.5 focus-within:border-cyan-200/24">
+                        <span className="mr-1 text-[11px] font-black text-[#8ffff8]/72">₱</span>
+                        <input
+                          value={addAmountInput}
+                          onChange={(event) => {
+                            setAddAmountInput(sanitizeMoneyInput(event.target.value));
+                            if (error) setError("");
+                          }}
+                          inputMode="decimal"
+                          placeholder="0"
+                          className="min-w-0 flex-1 bg-transparent text-right text-[12px] font-black text-white outline-none placeholder:text-white/28"
+                        />
+                      </div>
+                    </label>
+                  </div>
+                  <div className="mt-2.5 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={cancelAddExpense}
+                      className="min-h-10 rounded-[13px] border border-white/10 bg-white/[0.03] px-3 text-[10.5px] font-black text-white/64 active:scale-[0.985]"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!cleanText(draftText) || parseAmountToCentavos(addAmountInput) <= 0}
+                      className="min-h-10 rounded-[13px] bg-[#1769ff] px-3 text-[10.5px] font-black text-white active:scale-[0.985] disabled:opacity-35"
+                    >
+                      Add item
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+
               <div className="grid grid-cols-2 gap-2.5" data-clara-money-routine-day-controls="true">
                 <button
                   type="button"
                   onClick={startAddExpense}
-                  className="flex min-h-12 items-center justify-center gap-2 rounded-[18px] border border-blue-300/18 bg-white/[0.04] px-3 text-[12px] font-black text-white/88 active:scale-[0.985]"
+                  disabled={addItemOpen}
+                  aria-pressed={addItemOpen}
+                  className={`flex min-h-12 items-center justify-center gap-2 rounded-[18px] border px-3 text-[12px] font-black active:scale-[0.985] disabled:opacity-45 ${
+                    addItemOpen
+                      ? "border-cyan-200/24 bg-cyan-200/[0.07] text-cyan-50"
+                      : "border-blue-300/18 bg-white/[0.04] text-white/88"
+                  }`}
                 >
                   <PlusCircle className="h-4 w-4" /> Add
                 </button>
                 <button
                   type="button"
                   onClick={startRemoveExpense}
-                  disabled={!editItems.length}
+                  disabled={!editItems.length || addItemOpen}
                   className="flex min-h-12 items-center justify-center gap-2 rounded-[18px] border border-blue-300/18 bg-white/[0.04] px-3 text-[12px] font-black text-white/88 active:scale-[0.985] disabled:opacity-35"
                 >
                   <MinusCircle className="h-4 w-4" /> Remove
@@ -1551,7 +1633,7 @@ export default function ClaraMoneyScheduleOverlay({
                 <button
                   type="button"
                   onClick={toggleItemEditMode}
-                  disabled={!editItems.length}
+                  disabled={!editItems.length || addItemOpen}
                   aria-pressed={itemEditMode}
                   className={`flex min-h-12 items-center justify-center gap-2 rounded-[18px] border px-3 text-[12px] font-black active:scale-[0.985] disabled:opacity-35 ${
                     itemEditMode
@@ -1562,22 +1644,11 @@ export default function ClaraMoneyScheduleOverlay({
                   <PencilLine className="h-4 w-4" />
                   {itemEditMode ? "Done editing items" : "Edit item"}
                 </button>
-                <ChoiceButton onClick={finishEditedDay}>
+                <ChoiceButton onClick={finishEditedDay} disabled={addItemOpen}>
                   {editReturnContext ? "Done editing" : "Done"}
                 </ChoiceButton>
               </div>
             </>
-          ) : null}
-
-          {phase === "edit-add" && controlsReady ? (
-            <div className="mt-auto pt-3">
-              <Composer
-                value={draftText}
-                onChange={setDraftText}
-                onSubmit={submitAddedExpense}
-                placeholder="Transportation 100"
-              />
-            </div>
           ) : null}
 
           {phase === "edit-remove" && controlsReady ? (
