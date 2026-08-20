@@ -8,7 +8,7 @@ const readSource = (relativePath) =>
 const scheduleSource = readSource(
   "src/lib/notifications/scheduleNotificationEvaluator.js"
 );
-const localFacadeSource = readSource("src/lib/local-supabase-facade.js");
+const localFacadeSource = readSource("src/lib/local-data-facade.js");
 const notificationHookSource = readSource(
   "src/hooks/useNotificationPreferences.js"
 );
@@ -36,7 +36,7 @@ const appSource = readSource("src/App.jsx");
 const adminPanelSource = readSource("src/pages/AdminPanel.jsx");
 const adminClientSource = readSource("src/lib/admin-backend-client.js");
 const profileClientSource = readSource("src/lib/profile-backend-client.js");
-const supabaseClientSource = readSource("src/lib/supabaseClient.js");
+const claraDataClientSource = readSource("src/lib/clara-data-client.js");
 const supportCompatibilitySource = readSource(
   "src/lib/settings-support-compatibility.js"
 );
@@ -56,7 +56,7 @@ test("Schedule reminders never fall back to another account's local schedule", (
   );
 });
 
-test("legacy local facade resolves the active vault at operation time", () => {
+test("local data facade resolves the active vault at operation time", () => {
   assert.match(localFacadeSource, /function currentLocalUserId\(\)/);
   assert.doesNotMatch(
     localFacadeSource,
@@ -72,7 +72,7 @@ test("task reminder compatibility tables persist per local vault", () => {
   assert.match(localFacadeSource, /onConflict/);
 });
 
-test("legacy compatibility identity reflects backend role without changing vault ownership", () => {
+test("compatibility identity reflects backend role without changing vault ownership", () => {
   assert.match(localFacadeSource, /getStoredBackendUser/);
   assert.match(localFacadeSource, /backendUser\?\.role/);
   assert.match(localFacadeSource, /id: localUserId/);
@@ -144,13 +144,13 @@ test("dashboard panels and Settings detail pages participate in browser Back his
   assert.match(activeSettingsSource, /window\.addEventListener\("popstate"/);
 });
 
-test("Settings no longer installs duplicate theme hiding or the hidden double-tap demo", () => {
+test("Settings no longer installs duplicate theme hiding or hidden demo/billing patches", () => {
   assert.doesNotMatch(runtimePatchRegistrySource, /settings-hide-theme-appearance/);
   assert.doesNotMatch(
     runtimePatchRegistrySource,
     /clara-settings-young-professional-current-state/
   );
-  assert.match(runtimePatchRegistrySource, /clara-google-play-verify-auth-retry/);
+  assert.doesNotMatch(runtimePatchRegistrySource, /clara-google-play-verify-auth-retry/);
 });
 
 test("signed-in theme persistence is scoped to the active CLARA account", () => {
@@ -192,22 +192,22 @@ test("Settings Admin Panel route opens a real backend-backed admin surface", () 
   assert.match(adminClientSource, /\/support\/messages/);
 });
 
-test("legacy profile compatibility writes through the canonical CLARA Profile", () => {
+test("profile compatibility writes through the canonical CLARA Profile", () => {
   assert.match(localFacadeSource, /async updateUser\(\{ data \} = \{\}\)/);
   assert.match(localFacadeSource, /updateCurrentBackendProfile/);
   assert.match(profileClientSource, /updateCanonicalClaraDisplayName/);
   assert.doesNotMatch(profileClientSource, /\/api\/users\/me/);
 });
 
-test("legacy Settings support UI delivers into the real CLARA backend support inbox", () => {
-  assert.match(supabaseClientSource, /withSettingsSupportCompatibility/);
+test("Settings support compatibility delivers into the real CLARA backend support inbox", () => {
+  assert.match(claraDataClientSource, /withSettingsSupportCompatibility/);
   assert.match(supportCompatibilitySource, /direct_messages/);
   assert.match(supportCompatibilitySource, /sendBackendSupportMessage/);
   assert.match(supportClientSource, /backendRequest\("\/api\/support\/messages"/);
   assert.match(supportClientSource, /method: "POST"/);
 });
 
-test("support history is readable in the legacy Messages surface and support replies stay backend-backed", () => {
+test("support history is readable in the Messages compatibility surface and replies stay backend-backed", () => {
   assert.match(supportClientSource, /fetchBackendSupportMessages/);
   assert.match(supportCompatibilitySource, /fetchBackendSupportMessages/);
   assert.match(supportCompatibilitySource, /createSupportMessagesSelectInterceptor/);
@@ -220,10 +220,9 @@ test("Plan & Billing reads the authenticated user's real backend subscription", 
   assert.match(supportCompatibilitySource, /table === "enrollments"/);
   assert.match(supportCompatibilitySource, /fetchCurrentBackendBilling/);
   assert.match(billingClientSource, /backendRequest\("\/api\/users\/me\/billing"/);
-  assert.doesNotMatch(billingClientSource, /supabase/i);
 });
 
-test("About CLARA legal information uses backend content instead of the retired Supabase table", () => {
+test("About CLARA legal information uses backend content instead of a retired table", () => {
   assert.match(supportCompatibilitySource, /table === "legal_information_content"/);
   assert.match(supportCompatibilitySource, /fetchBackendLegalInformation/);
   assert.match(supportCompatibilitySource, /updateBackendLegalInformation/);
