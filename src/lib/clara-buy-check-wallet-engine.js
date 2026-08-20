@@ -1,134 +1,168 @@
-import { syncWalletProtectedAllocations } from "./clara-wallet-money-semantics.js";
+import {
+  getWalletSpendableBalance as getCanonicalWalletSpendableBalance,
+  syncWalletProtectedAllocations,
+} from "./clara-wallet-money-semantics.js";
 
-function cleanWalletValue(value = "") {
-  return String(value ?? "").replace(/\s+/g, " ").trim();
+function toNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
 }
 
-function toWalletNumber(value) {
-  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-  const parsed = Number(String(value ?? "").replace(/[₱,\s]/g, ""));
-  return Number.isFinite(parsed) ? parsed : 0;
+function clean(value = "") {
+  return String(value || "").replace(/\s+/g, " ").trim();
 }
 
-function walletId(value = {}) {
-  return cleanWalletValue(value.id ?? value.wallet_id ?? value.walletId ?? value.key ?? value.uuid ?? "");
-}
-
-function walletName(value = {}) {
-  return cleanWalletValue(value.name || value.wallet_name || value.title || value.label || value.type || "Wallet");
-}
-
-function walletBalance(value = {}) {
-  return toWalletNumber(value.derived_balance ?? value.balance ?? value.current_balance ?? value.wallet_balance ?? value.available_balance ?? value.starting_balance ?? 0);
-}
-
-function walletReservedBalance(value = {}) {
-  const reservedValues = [
-    value.reserved_balance,
-    value.reservedBalance,
-    value.reserved_amount,
-    value.reservedAmount,
-    value.protected_balance,
-    value.protectedBalance,
-    value.protected_amount,
-    value.protectedAmount,
-    value.total_protected_amount,
-    value.totalProtectedAmount,
-  ];
-
-  return Math.max(0, ...reservedValues.map(toWalletNumber));
-}
-
-function explicitTrue(value) {
-  return value === true || value === 1 || String(value ?? "").toLowerCase() === "true";
+function lower(value = "") {
+  return clean(value).toLowerCase();
 }
 
 function explicitFalse(value) {
-  return value === false || value === 0 || String(value ?? "").toLowerCase() === "false";
+  return value === false || value === 0 || lower(value) === "false" || lower(value) === "no" || lower(value) === "blocked";
 }
 
-function isProtectedWallet(value = {}) {
-  if (explicitTrue(value.is_protected ?? value.isProtected ?? value.protected)) return true;
-  if ((value.is_spendable !== undefined || value.isSpendable !== undefined) && explicitFalse(value.is_spendable ?? value.isSpendable)) return true;
-  const metadata = `${value.purpose || ""} ${value.wallet_type || value.walletType || ""} ${value.type || ""}`.toLowerCase();
-  if (/\b(emergency|reserve|savings?|goal|investment)\b/.test(metadata)) return true;
-  return /\b(emergency|reserve|savings?|goal)\b/.test(walletName(value).toLowerCase());
+function explicitTrue(value) {
+  return value === true || value === 1 || lower(value) === "true" || lower(value) === "yes";
+}
+
+function walletId(value = {}) {
+  return clean(value.id || value.wallet_id || value.walletId || value.local_id || value.localId || value.uuid || value.name || "");
+}
+
+function walletName(value = {}) {
+  return clean(value.name || value.wallet_name || value.walletName || value.label || value.title || "Wallet") || "Wallet";
+}
+
+function walletBalance(value = {}) {
+  return toNumber(value.currentBalance ?? value.balance ?? value.current_balance ?? value.wallet_balance ?? value.derived_balance ?? value.starting_balance ?? 0);
+}
+
+function walletReservedBalance(value = {}) {
+  return Math.max(toNumber(value.totalProtectedAmount ?? value.total_protected_amount ?? 0), 0);
 }
 
 function walletSpendableBalance(value = {}) {
-  if (isProtectedWallet(value)) return 0;
-  const explicit = value.available_to_spend ?? value.availableToSpend ?? value.spendable_balance ?? value.spendableBalance;
-  if (explicit !== undefined && explicit !== null && explicit !== "") return Math.max(0, toWalletNumber(explicit));
-  return Math.max(0, walletBalance(value) - walletReservedBalance(value));
+  return getCanonicalWalletSpendableBalance(value);
+}
+
+function isActiveWallet(value = {}) {
+  if (!walletId(value)) return false;
+  if (value.deletedAt || value.deleted_at) return false;
+  if (value.is_archived === true || explicitTrue(value.archived)) return false;
+  if (explicitFalse(value.active) || explicitFalse(value.is_active) || explicitFalse(value.isActive)) return false;
+  if (["archived", "deleted", "closed", "inactive"].includes(lower(value.status))) return false;
+  return true;
+}
+
+function getWalletSpendability(value = {}) {
+  const status = lower(value.spendabilityStatus || value.spendability_status);
+  if (status === "blocked") {
+    return {
+      status: "blocked",
+      reason: clean(value.spendabilityBlockReason || value.spendability_block_reason || "Wallet is blocked for spending."),
+    };
+  }
+  if (status === "eligible") return { status: "eligible", reason: "" };
+
+  if (
+    explicitFalse(value.is_spendable) ||
+    explicitFalse(value.isSpendable) ||
+    explicitTrue(value.is_protected) ||
+    explicitTrue(value.isProtected) ||
+    explicitTrue(value.protected)
+  ) {
+    return {
+      status: "blocked",
+      reason: clean(value.protectionReason || value.protection_reason || "Wallet is explicitly blocked for spending."),
+    };
+  }
+
+  return { status: "eligible", reason: "" };
+}
+
+function isProtectedWallet(value = {}) {
+  return getWalletSpendability(value).status === "blocked";
+}
+
+function walletProtectionReason(value = {}) {
+  return getWalletSpendability(value).reason;
 }
 
 function getWalletBreakdown(context = {}, amount = 0) {
-  const target = toWalletNumber(amount);
-  const sourceWallets = Array.isArray(context.wallets) ? context.wallets : [];
-  const spendabilityAwareWallets = syncWalletProtectedAllocations({
-    rows: sourceWallets,
-    allWallets: sourceWallets,
+  const target = Math.max(toNumber(amount), 0);
+  const rawWallets = Array.isArray(context.wallets) ? context.wallets : [];
+  const wallets = syncWalletProtectedAllocations({
+    rows: rawWallets,
+    allWallets: rawWallets,
     emergencyFund: context.emergencyFund || null,
     savingsGoals: Array.isArray(context.savingsGoals) ? context.savingsGoals : [],
   });
-  const seen = new Set();
-  const wallets = spendabilityAwareWallets.map((wallet) => {
+
+  return wallets.filter(isActiveWallet).map((wallet) => {
     const id = walletId(wallet);
     const name = walletName(wallet);
-    const key = id || name.toLowerCase();
-    if (!key || seen.has(key)) return null;
-    seen.add(key);
-    const grossBalance = Math.max(0, walletBalance(wallet));
-    const reservedBalance = Math.min(grossBalance, walletReservedBalance(wallet));
-    const protectedWallet = isProtectedWallet(wallet);
+    const currentBalance = walletBalance(wallet);
+    const totalProtectedAmount = walletReservedBalance(wallet);
     const spendableBalance = walletSpendableBalance(wallet);
+    const spendability = getWalletSpendability(wallet);
+    const blocked = spendability.status === "blocked";
+
     return {
       id,
       name,
-      grossBalance,
-      reservedBalance,
+      rawBalance: currentBalance,
+      currentBalance,
+      reservedAmount: totalProtectedAmount,
+      totalProtectedAmount,
+      spendable: spendableBalance,
       spendableBalance,
-      protected: protectedWallet,
-      enough: Boolean(id) && !protectedWallet && spendableBalance >= target,
-      protectionReason: protectedWallet ? "protected_wallet" : reservedBalance > 0 ? "reserved_balance" : "none",
+      protected: blocked,
+      spendabilityStatus: spendability.status,
+      spendabilityBlockReason: spendability.reason,
+      enough: Boolean(id) && !blocked && spendableBalance >= target,
+      protectionReason: spendability.reason,
+      raw: wallet,
     };
-  }).filter(Boolean);
+  });
+}
 
-  const eligibleFundingWallets = wallets.filter((wallet) => !wallet.protected && wallet.spendableBalance > 0);
-  const spendableTotal = eligibleFundingWallets.reduce((sum, wallet) => sum + wallet.spendableBalance, 0);
-  const largestEligibleBalance = eligibleFundingWallets.reduce((largest, wallet) => Math.max(largest, wallet.spendableBalance), 0);
-  const protectedTotal = wallets.filter((wallet) => wallet.protected).reduce((sum, wallet) => sum + wallet.grossBalance, 0);
-  const reservedAmount = wallets.reduce((sum, wallet) => sum + wallet.reservedBalance, 0);
+export function getWalletOptions(context = {}, amount = 0) {
+  return getWalletBreakdown(context, amount)
+    .filter((wallet) => wallet.spendabilityStatus === "eligible" && wallet.spendableBalance > 0)
+    .map((wallet) => ({ id: wallet.id, name: wallet.name, balance: wallet.spendableBalance, enough: wallet.enough }));
+}
+
+export function getEligibleSpendableTotal(context = {}) {
+  return getWalletBreakdown(context, 0)
+    .filter((wallet) => wallet.spendabilityStatus === "eligible")
+    .reduce((sum, wallet) => sum + wallet.spendableBalance, 0);
+}
+
+export function getProtectedMoneyNeeded(context = {}, amount = 0) {
+  const target = Math.max(toNumber(amount), 0);
+  const wallets = getWalletBreakdown(context, target);
+  const eligible = wallets.filter((wallet) => wallet.spendabilityStatus === "eligible");
+  const eligibleTotal = eligible.reduce((sum, wallet) => sum + wallet.spendableBalance, 0);
+  if (eligibleTotal >= target) return null;
+
+  const protectedAmount = wallets.reduce((sum, wallet) => sum + wallet.totalProtectedAmount, 0);
+  if (eligibleTotal + protectedAmount < target) return null;
 
   return {
-    wallets,
-    eligibleFundingWallets,
-    spendableTotal,
-    largestEligibleBalance,
-    fundingWalletCount: eligibleFundingWallets.filter((wallet) => wallet.spendableBalance >= target).length,
-    combinedEnough: spendableTotal >= target,
-    individualEnough: largestEligibleBalance >= target,
-    protectedTotal,
-    reservedAmount,
-    protectedMoneyNeeded: largestEligibleBalance < target && spendableTotal < target && (protectedTotal > 0 || reservedAmount > 0),
+    amountNeeded: Math.max(target - eligibleTotal, 0),
+    protectedAmount,
+    eligibleTotal,
   };
 }
 
-function getWalletOptions(context = {}, amount = 0) {
-  return getWalletBreakdown(context, amount).eligibleFundingWallets
-    .map((wallet) => ({ id: wallet.id, name: wallet.name, balance: wallet.spendableBalance, enough: wallet.enough }))
-    .sort((left, right) => Number(right.enough) - Number(left.enough) || right.balance - left.balance);
-}
-
 export {
-  cleanWalletValue,
-  toWalletNumber,
+  getWalletBreakdown,
+  getWalletSpendability,
+  isActiveWallet,
+  isProtectedWallet,
+  walletBalance,
   walletId,
   walletName,
-  walletBalance,
+  walletProtectionReason,
   walletReservedBalance,
   walletSpendableBalance,
-  isProtectedWallet,
-  getWalletBreakdown,
-  getWalletOptions,
 };
