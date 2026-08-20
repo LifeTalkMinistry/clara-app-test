@@ -32,30 +32,23 @@ const commandChatRoutingSource = await readFile(
   "utf8"
 );
 
-test("Log Expense chat starts with greeting and planned versus unplanned choice", () => {
+test("Log Expense starts with an unplanned-spending reminder and goes straight to amount", () => {
   assert.match(overlaySource, /Hi \$\{firstName\}!/);
-  assert.match(overlaySource, /scheduled budget, or was it unplanned spending/i);
-  assert.match(overlaySource, />Scheduled \/ Planned</);
-  assert.match(overlaySource, />Unplanned Spending</);
+  assert.match(overlaySource, /Anything you log here will be treated as unplanned spending/i);
+  assert.match(overlaySource, /planned routine expenses are already covered by Money Schedule/i);
+  assert.match(overlaySource, /How much did you spend\?/);
+  assert.match(overlaySource, /sequencePhaseRef = useRef\("amount"\)/);
+  assert.doesNotMatch(overlaySource, /scheduled budget, or was it unplanned spending/i);
+  assert.doesNotMatch(overlaySource, />Scheduled \/ Planned</);
+  assert.doesNotMatch(overlaySource, />Unplanned Spending</);
 });
 
-test("planned spending branch explicitly avoids duplicate logging", () => {
-  assert.match(overlaySource, /you don’t have to log it again/i);
-  assert.match(overlaySource, /count it twice/i);
-  assert.match(overlaySource, /Show my planned list/);
-});
-
-test("empty planned list hands directly into Money Schedule chat instead of the Calendar", () => {
-  assert.match(overlaySource, /I don’t see an active planned budget or Money Schedule yet/);
-  assert.match(overlaySource, /Would you like to set up your Money Schedule now\?/);
-  assert.match(overlaySource, />Yes, set it up</);
-  assert.match(overlaySource, />Not now</);
-  assert.match(overlaySource, /phase === "money-schedule-offer"/);
-  assert.match(overlaySource, /CLARA_PAUSE_OPEN_REQUEST_EVENT/);
-  assert.match(overlaySource, /mode: "money-schedule"/);
-  assert.match(overlaySource, /commandId: "money-schedule"/);
-  assert.doesNotMatch(overlaySource, /navigate\("\/community\?view=schedule"\)/);
-  assert.doesNotMatch(overlaySource, /window\.location\.assign\("\/community\?view=schedule"\)/);
+test("Log Expense no longer owns the planned-spending or Money Schedule handoff branch", () => {
+  assert.doesNotMatch(overlaySource, /choosePlanned/);
+  assert.doesNotMatch(overlaySource, /showCurrentPlannedList/);
+  assert.doesNotMatch(overlaySource, /money-schedule-offer/);
+  assert.doesNotMatch(overlaySource, /CLARA_PAUSE_OPEN_REQUEST_EVENT/);
+  assert.doesNotMatch(overlaySource, /CURRENT PLANNED BUDGET/);
 });
 
 test("Money Schedule starts from the user's daily routine instead of a calendar event form", () => {
@@ -232,9 +225,9 @@ test("Log Expense hides controls until CLARA finishes typing", () => {
   assert.match(overlaySource, /setInteractionReady\(false\)/);
   assert.match(overlaySource, /setInteractionReady\(true\)/);
   assert.match(overlaySource, /controlsReady = interactionReady/);
-  assert.match(overlaySource, /phase === "planning-choice" && controlsReady/);
   assert.match(overlaySource, /phase === "amount" && controlsReady/);
   assert.match(overlaySource, /phase === "confirm" && controlsReady/);
+  assert.doesNotMatch(overlaySource, /phase === "planning-choice" && controlsReady/);
 });
 
 test("Log Expense free-text composer registers with the canonical CLARA keyboard guard", () => {
