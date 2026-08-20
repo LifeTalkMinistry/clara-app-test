@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -203,4 +204,21 @@ test("unknown Orb commands do not open a CLARA command chat", async () => {
     globalThis.window = previousWindow;
     globalThis.CustomEvent = previousCustomEvent;
   }
+});
+
+test("Weekly Money Check consumes launch-only route state and stays internally active", async () => {
+  const source = await readFile(
+    new URL(
+      "../src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay.jsx",
+      import.meta.url
+    ),
+    "utf8"
+  );
+
+  assert.match(source, /weeklyMoneyCheckLaunchRequested/);
+  assert.match(source, /useState\(\s*\(\) => weeklyMoneyCheckLaunchRequested\s*\)/);
+  assert.match(source, /nextParams\.delete\("mode"\)/);
+  assert.match(source, /nextParams\.delete\("source"\)/);
+  assert.match(source, /setSearchParams\(nextParams, \{ replace: true \}\)/);
+  assert.match(source, /setWeeklyMoneyCheckMode\(false\)/);
 });
