@@ -1,41 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowUp, CalendarDays, CheckCircle2, X } from "lucide-react";
-import { appendClaraMoneyScheduleEvent } from "@/lib/clara-money-schedule-repository";
-
-const SCHEDULE_TYPES = ["Bill", "Payday", "Health", "Work", "Family", "Relationship", "Personal"];
+import {
+  ArrowUp,
+  CheckCircle2,
+  MinusCircle,
+  PencilLine,
+  PlusCircle,
+  X,
+} from "lucide-react";
+import {
+  CLARA_MONEY_ROUTINE_WEEKDAYS,
+  saveClaraMoneyRoutine,
+} from "@/lib/clara-money-schedule-repository";
 
 function cleanText(value) {
   return String(value || "").trim();
-}
-
-function todayKey() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-}
-
-function cleanAmount(value) {
-  const cleaned = String(value || "").replace(/[^0-9.]/g, "");
-  const [whole = "", ...rest] = cleaned.split(".");
-  const decimals = rest.join("").slice(0, 2);
-  return decimals ? `${whole || "0"}.${decimals}` : whole;
-}
-
-function formatMoney(value) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return "Amount pending";
-  return `₱${parsed.toLocaleString("en-PH", { maximumFractionDigits: 2 })}`;
-}
-
-function formatDate(value) {
-  const match = cleanText(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return cleanText(value) || "No date";
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  return date.toLocaleDateString("en-PH", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 }
 
 function firstNameFromUser(user = {}) {
@@ -56,10 +34,84 @@ function firstNameFromUser(user = {}) {
 
 function chatMessage(role, text) {
   return {
-    id: `money-schedule-chat-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    id: `money-routine-chat-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     role,
     text,
   };
+}
+
+function createUiItem(label, amountCentavos) {
+  return {
+    id: `routine-ui-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    label: cleanText(label),
+    amountCentavos: Math.max(0, Math.round(Number(amountCentavos) || 0)),
+  };
+}
+
+function parseAmountToCentavos(value) {
+  const cleaned = String(value ?? "")
+    .replace(/php/gi, "")
+    .replace(/[₱,\s]/g, "")
+    .replace(/[^0-9.]/g, "");
+  if (!cleaned) return 0;
+
+  const parts = cleaned.split(".");
+  const whole = Number(parts.shift() || 0);
+  const fraction = Number(parts.join("").slice(0, 2).padEnd(2, "0") || 0);
+  if (!Number.isFinite(whole) || !Number.isFinite(fraction)) return 0;
+  return Math.max(0, Math.round(whole * 100 + fraction));
+}
+
+function formatMoneyCentavos(value) {
+  const amount = Math.max(0, Math.round(Number(value) || 0)) / 100;
+  return `₱${amount.toLocaleString("en-PH", {
+    minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function parseRoutineExpenses(value) {
+  const lines = String(value || "")
+    .split(/\n|;/)
+    .map((line) => line.replace(/^\s*[-•*]\s*/, "").trim())
+    .filter(Boolean);
+
+  const items = [];
+  const invalidLines = [];
+
+  lines.forEach((line) => {
+    const match = line.match(
+      /^(.*?)(?:\s*[-–—:=]\s*|\s+)(?:₱\s*|PHP\s*)?([0-9][0-9,]*(?:\.[0-9]{1,2})?)$/i
+    );
+    if (!match) {
+      invalidLines.push(line);
+      return;
+    }
+
+    const label = cleanText(match[1]);
+    const amountCentavos = parseAmountToCentavos(match[2]);
+    if (!label || amountCentavos <= 0) {
+      invalidLines.push(line);
+      return;
+    }
+
+    items.push(createUiItem(label, amountCentavos));
+  });
+
+  return { items, invalidLines };
+}
+
+function cloneItems(items = []) {
+  return (Array.isArray(items) ? items : []).map((item) =>
+    createUiItem(item.label, item.amountCentavos)
+  );
+}
+
+function totalItems(items = []) {
+  return (Array.isArray(items) ? items : []).reduce(
+    (sum, item) => sum + Math.max(0, Math.round(Number(item?.amountCentavos) || 0)),
+    0
+  );
 }
 
 function Bubble({ role, children }) {
@@ -85,7 +137,7 @@ function ChoiceButton({ children, onClick, disabled = false, secondary = false }
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`min-h-12 w-full rounded-[18px] border px-4 text-[13px] font-black transition active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-45 ${
+      className={`min-h-12 w-full rounded-[18px] border px-4 text-[13px] font-black transition active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-40 ${
         secondary
           ? "border-white/10 bg-white/[0.035] text-white/88"
           : "border-blue-300/25 bg-[linear-gradient(135deg,rgba(23,105,255,0.96),rgba(13,79,198,0.96))] text-white shadow-[0_12px_30px_rgba(23,105,255,0.22)]"
@@ -96,7 +148,16 @@ function ChoiceButton({ children, onClick, disabled = false, secondary = false }
   );
 }
 
-function Composer({ value, onChange, onSubmit, placeholder, inputMode = "text" }) {
+function Composer({
+  value,
+  onChange,
+  onSubmit,
+  placeholder,
+  inputMode = "text",
+  multiline = false,
+}) {
+  const Input = multiline ? "textarea" : "input";
+
   return (
     <form
       data-clara-buy-check-react-form="true"
@@ -104,15 +165,20 @@ function Composer({ value, onChange, onSubmit, placeholder, inputMode = "text" }
         event.preventDefault();
         onSubmit?.();
       }}
-      className="flex items-center gap-2 rounded-[22px] border border-blue-200/14 bg-[#07142b]/96 p-2 shadow-[0_14px_34px_rgba(0,0,0,0.28)]"
+      className={`flex gap-2 rounded-[22px] border border-blue-200/14 bg-[#07142b]/96 p-2 shadow-[0_14px_34px_rgba(0,0,0,0.28)] ${
+        multiline ? "items-end" : "items-center"
+      }`}
     >
-      <input
+      <Input
         autoFocus
         value={value}
         onChange={(event) => onChange?.(event.target.value)}
         placeholder={placeholder}
         inputMode={inputMode}
-        className="min-h-11 min-w-0 flex-1 bg-transparent px-3 text-[14px] font-semibold text-white outline-none placeholder:text-slate-400/62"
+        rows={multiline ? 4 : undefined}
+        className={`min-w-0 flex-1 bg-transparent px-3 text-[14px] font-semibold text-white outline-none placeholder:text-slate-400/55 ${
+          multiline ? "min-h-[104px] resize-none py-2 leading-6" : "min-h-11"
+        }`}
       />
       <button
         type="submit"
@@ -126,12 +192,37 @@ function Composer({ value, onChange, onSubmit, placeholder, inputMode = "text" }
   );
 }
 
-function ReviewRow({ label, value }) {
+function ExpenseList({ items = [], totalLabel = "Daily total" }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-white/7 py-2.5 last:border-b-0">
-      <span className="text-[10px] font-black uppercase tracking-[0.13em] text-white/36">{label}</span>
-      <span className="max-w-[68%] text-right text-[12px] font-black leading-5 text-white/86">{value}</span>
-    </div>
+    <section className="rounded-[22px] border border-blue-200/12 bg-[#07142b]/88 p-3.5">
+      {items.length ? (
+        <div className="grid gap-2">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-center justify-between gap-3 rounded-[15px] border border-white/8 bg-white/[0.035] px-3.5 py-3"
+            >
+              <span className="min-w-0 truncate text-[12.5px] font-black text-white/90">
+                {item.label}
+              </span>
+              <span className="shrink-0 text-[12px] font-black text-[#8ffff8]/82">
+                {formatMoneyCentavos(item.amountCentavos)}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-[12px] font-semibold text-white/48">No routine expenses on this day.</p>
+      )}
+      <div className="mt-3 flex items-center justify-between border-t border-white/8 pt-3">
+        <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/36">
+          {totalLabel}
+        </span>
+        <span className="text-[13px] font-black text-white">
+          {formatMoneyCentavos(totalItems(items))}
+        </span>
+      </div>
+    </section>
   );
 }
 
@@ -140,28 +231,25 @@ export default function ClaraMoneyScheduleOverlay({
   claraAssistantContext = {},
   onClose,
 }) {
-  const navigate = useNavigate();
   const user = claraAssistantContext?.user || {};
   const firstName = firstNameFromUser(user);
-  const [phase, setPhase] = useState("title");
+  const [phase, setPhase] = useState("welcome");
   const [messages, setMessages] = useState([]);
-  const [draft, setDraft] = useState(() => ({
-    title: "",
-    date: todayKey(),
-    time: "",
-    direction: "out",
-    amountKnown: true,
-    amount: "",
-    type: "Personal",
-    note: "",
-  }));
-  const [titleInput, setTitleInput] = useState("");
+  const [days, setDays] = useState([]);
+  const [dayIndex, setDayIndex] = useState(0);
+  const [draftText, setDraftText] = useState("");
+  const [pendingItems, setPendingItems] = useState([]);
+  const [editItems, setEditItems] = useState([]);
+  const [selectedItemId, setSelectedItemId] = useState("");
   const [amountInput, setAmountInput] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [savedEvent, setSavedEvent] = useState(null);
+  const [savedRoutine, setSavedRoutine] = useState(null);
   const viewportRef = useRef(null);
   const previousActiveRef = useRef(false);
+
+  const currentWeekday = CLARA_MONEY_ROUTINE_WEEKDAYS[dayIndex] || CLARA_MONEY_ROUTINE_WEEKDAYS[0];
+  const configuredDays = days.slice(0, dayIndex);
 
   const scrollToLatest = () => {
     if (typeof window === "undefined") return;
@@ -177,34 +265,30 @@ export default function ClaraMoneyScheduleOverlay({
   };
 
   const resetFlow = () => {
-    setPhase("title");
-    setDraft({
-      title: "",
-      date: todayKey(),
-      time: "",
-      direction: "out",
-      amountKnown: true,
-      amount: "",
-      type: "Personal",
-      note: "",
-    });
-    setTitleInput("");
+    setPhase("welcome");
+    setDays([]);
+    setDayIndex(0);
+    setDraftText("");
+    setPendingItems([]);
+    setEditItems([]);
+    setSelectedItemId("");
     setAmountInput("");
     setError("");
     setBusy(false);
-    setSavedEvent(null);
+    setSavedRoutine(null);
     setMessages([
       chatMessage(
         "assistant",
-        `Hi ${firstName}! Let’s plan a money event before it reaches you. What are you expecting to pay for or receive?`
+        `Hi ${firstName}! Ready to help me understand your usual daily routine expenses?`
       ),
     ]);
   };
 
   useEffect(() => {
     if (isActive && !previousActiveRef.current) resetFlow();
+    if (!isActive && previousActiveRef.current) resetFlow();
     previousActiveRef.current = isActive;
-  }, [isActive]);
+  }, [isActive, firstName]);
 
   useEffect(() => {
     if (!isActive || typeof window === "undefined") return undefined;
@@ -221,110 +305,269 @@ export default function ClaraMoneyScheduleOverlay({
 
   if (!isActive) return null;
 
-  const submitTitle = () => {
-    const title = cleanText(titleInput);
-    if (!title) return;
-    setDraft((current) => ({ ...current, title }));
-    setTitleInput("");
+  const startSetup = () => {
     setError("");
     append(
-      chatMessage("user", title),
-      chatMessage("assistant", "When should this happen? Add the date, and time too if it matters.")
+      chatMessage("user", "Yes, I’m ready"),
+      chatMessage(
+        "assistant",
+        "Great! Let’s start with Monday. Tell me what you normally need to spend on every Monday. Please leave out occasional or extra spending — only the things that are part of your usual routine."
+      )
     );
-    setPhase("date");
+    setPhase("day-entry");
   };
 
-  const submitDate = () => {
-    if (!draft.date) {
-      setError("Choose a date before continuing.");
+  const moveToNextDay = (items) => {
+    const weekday = currentWeekday;
+    const normalizedDay = {
+      key: weekday.key,
+      name: weekday.name,
+      weekdayIndex: weekday.weekdayIndex,
+      items: cloneItems(items),
+    };
+    const nextDays = [...days];
+    nextDays[dayIndex] = normalizedDay;
+    setDays(nextDays);
+    setDraftText("");
+    setPendingItems([]);
+    setEditItems([]);
+    setSelectedItemId("");
+    setAmountInput("");
+    setError("");
+
+    if (dayIndex >= CLARA_MONEY_ROUTINE_WEEKDAYS.length - 1) {
+      append(
+        chatMessage(
+          "assistant",
+          "Sunday is done. I now have your normal Monday-to-Sunday routine. Review it once before I save it as your current weekly Money Schedule."
+        )
+      );
+      setPhase("weekly-review");
       return;
     }
-    setError("");
+
+    const nextIndex = dayIndex + 1;
+    const nextWeekday = CLARA_MONEY_ROUTINE_WEEKDAYS[nextIndex];
     append(
-      chatMessage("user", `${formatDate(draft.date)}${draft.time ? ` at ${draft.time}` : ""}`),
-      chatMessage("assistant", "Will this bring money in, or take money out?")
+      chatMessage(
+        "assistant",
+        `${weekday.name} is done. Now let’s set up ${nextWeekday.name}. You can reuse a day you already finished, copy one and change it, or make ${nextWeekday.name} completely different.`
+      )
     );
-    setPhase("direction");
+    setDayIndex(nextIndex);
+    setPhase("day-choice");
   };
 
-  const chooseDirection = (direction) => {
-    const normalized = direction === "in" ? "in" : "out";
-    setDraft((current) => ({
-      ...current,
-      direction: normalized,
-      type: normalized === "in" && current.type === "Personal" ? "Payday" : current.type,
-    }));
-    setError("");
-    append(
-      chatMessage("user", normalized === "in" ? "Money in" : "Money out"),
-      chatMessage("assistant", `How much do you expect ${normalized === "in" ? "to receive" : "to spend"}?`)
-    );
-    setPhase("amount");
-  };
-
-  const submitAmount = () => {
-    const amount = cleanAmount(amountInput);
-    if (!amount || Number(amount) <= 0) {
-      setError("Enter the expected amount, or choose “Not sure yet”.");
+  const submitDayExpenses = () => {
+    const parsed = parseRoutineExpenses(draftText);
+    if (!parsed.items.length || parsed.invalidLines.length) {
+      setError(
+        "List each routine expense on its own line like “Transportation - 100” or “Coffee - 25”."
+      );
       return;
     }
-    setDraft((current) => ({ ...current, amountKnown: true, amount }));
+
+    setPendingItems(parsed.items);
+    setError("");
+    append(
+      chatMessage("user", draftText),
+      chatMessage(
+        "assistant",
+        `Here’s what I understood for ${currentWeekday.name}. Check it once before we continue.`
+      )
+    );
+    setDraftText("");
+    setPhase("day-review");
+  };
+
+  const confirmPendingDay = () => {
+    append(chatMessage("user", "Looks right"));
+    moveToNextDay(pendingItems);
+  };
+
+  const enterDayAgain = () => {
+    append(
+      chatMessage("user", "I need to change it"),
+      chatMessage(
+        "assistant",
+        `No problem. Send the normal ${currentWeekday.name} expenses again, one item per line.`
+      )
+    );
+    setPendingItems([]);
+    setDraftText("");
+    setError("");
+    setPhase("day-entry");
+  };
+
+  const setNoRoutineExpenses = () => {
+    append(
+      chatMessage("user", `No routine expenses on ${currentWeekday.name}`),
+      chatMessage("assistant", `Got it. I’ll keep ${currentWeekday.name} at ₱0 for your normal routine.`)
+    );
+    moveToNextDay([]);
+  };
+
+  const useSameDay = (sourceDay) => {
+    append(
+      chatMessage("user", `Same as ${sourceDay.name}`),
+      chatMessage(
+        "assistant",
+        `Got it. ${currentWeekday.name} will use the same routine as ${sourceDay.name}.`
+      )
+    );
+    moveToNextDay(sourceDay.items);
+  };
+
+  const chooseCopyAndChange = () => {
+    append(
+      chatMessage("user", "Copy a previous day and change it"),
+      chatMessage("assistant", `Which day should I use as the starting point for ${currentWeekday.name}?`)
+    );
+    setPhase("copy-source");
+  };
+
+  const chooseCopySource = (sourceDay) => {
+    const copied = cloneItems(sourceDay.items);
+    setEditItems(copied);
+    setError("");
+    append(
+      chatMessage("user", `Start from ${sourceDay.name}`),
+      chatMessage(
+        "assistant",
+        `Done. I copied ${sourceDay.name}. Now tell me what needs to change for ${currentWeekday.name}.`
+      )
+    );
+    setPhase("day-edit");
+  };
+
+  const chooseCompletelyDifferent = () => {
+    setDraftText("");
+    setError("");
+    append(
+      chatMessage("user", "Completely different setup"),
+      chatMessage(
+        "assistant",
+        `Okay. Tell me the normal ${currentWeekday.name} expenses from scratch. Leave out occasional extras and list one routine expense per line.`
+      )
+    );
+    setPhase("day-entry");
+  };
+
+  const startAddExpense = () => {
+    setDraftText("");
+    setError("");
+    append(chatMessage("assistant", `What should I add to ${currentWeekday.name}?`));
+    setPhase("edit-add");
+  };
+
+  const submitAddedExpense = () => {
+    const parsed = parseRoutineExpenses(draftText);
+    if (!parsed.items.length || parsed.invalidLines.length) {
+      setError("Use the format “Expense - amount”, for example “Extra commute - 80”.");
+      return;
+    }
+
+    setEditItems((current) => [...current, ...parsed.items]);
+    append(
+      chatMessage("user", draftText),
+      chatMessage("assistant", "Added. You can make another change or finish this day.")
+    );
+    setDraftText("");
+    setError("");
+    setPhase("day-edit");
+  };
+
+  const startRemoveExpense = () => {
+    if (!editItems.length) return;
+    setError("");
+    append(chatMessage("assistant", `Which ${currentWeekday.name} expense should I remove?`));
+    setPhase("edit-remove");
+  };
+
+  const removeExpense = (item) => {
+    setEditItems((current) => current.filter((candidate) => candidate.id !== item.id));
+    append(
+      chatMessage("user", `Remove ${item.label}`),
+      chatMessage("assistant", `${item.label} removed from ${currentWeekday.name}.`)
+    );
+    setPhase("day-edit");
+  };
+
+  const startChangeAmount = () => {
+    if (!editItems.length) return;
+    setError("");
+    append(chatMessage("assistant", "Which expense amount should I change?"));
+    setPhase("edit-change-select");
+  };
+
+  const chooseAmountItem = (item) => {
+    setSelectedItemId(item.id);
     setAmountInput("");
     setError("");
     append(
-      chatMessage("user", formatMoney(amount)),
-      chatMessage("assistant", "Good. Add a category and any detail you want CLARA to remember.")
+      chatMessage("user", item.label),
+      chatMessage("assistant", `What should the usual amount for ${item.label} be on ${currentWeekday.name}?`)
     );
-    setPhase("details");
+    setPhase("edit-change-amount");
   };
 
-  const markAmountPending = () => {
-    setDraft((current) => ({ ...current, amountKnown: false, amount: "" }));
+  const submitChangedAmount = () => {
+    const amountCentavos = parseAmountToCentavos(amountInput);
+    if (amountCentavos <= 0) {
+      setError("Enter an amount greater than zero.");
+      return;
+    }
+
+    const item = editItems.find((candidate) => candidate.id === selectedItemId);
+    setEditItems((current) =>
+      current.map((candidate) =>
+        candidate.id === selectedItemId ? { ...candidate, amountCentavos } : candidate
+      )
+    );
+    append(
+      chatMessage("user", formatMoneyCentavos(amountCentavos)),
+      chatMessage(
+        "assistant",
+        `${item?.label || "That expense"} is now ${formatMoneyCentavos(amountCentavos)} on ${currentWeekday.name}.`
+      )
+    );
     setAmountInput("");
+    setSelectedItemId("");
     setError("");
-    append(
-      chatMessage("user", "Not sure yet"),
-      chatMessage("assistant", "That’s okay. I’ll mark the amount as pending. Add a category and any useful detail.")
-    );
-    setPhase("details");
+    setPhase("day-edit");
   };
 
-  const reviewSchedule = () => {
-    setError("");
-    append(
-      chatMessage("user", draft.note ? `${draft.type} — ${draft.note}` : draft.type),
-      chatMessage("assistant", "Here’s your Money Schedule. Check it once before I save it to your Calendar.")
-    );
-    setPhase("review");
+  const finishEditedDay = () => {
+    append(chatMessage("user", `Done with ${currentWeekday.name}`));
+    moveToNextDay(editItems);
   };
 
-  const saveSchedule = () => {
+  const saveRoutine = () => {
     if (busy) return;
     setBusy(true);
     setError("");
 
     try {
-      const event = appendClaraMoneyScheduleEvent({ user, draft });
-      setSavedEvent(event);
+      const routine = saveClaraMoneyRoutine({ user, days });
+      setSavedRoutine(routine);
       append(
-        chatMessage("user", "Save Money Schedule"),
-        chatMessage("assistant", "Done. I added it to your Calendar so CLARA can see this money event when helping you make decisions.")
+        chatMessage("user", "Save my routine"),
+        chatMessage(
+          "assistant",
+          "Done. I now understand your normal Monday-to-Sunday routine expenses. I’ll treat this as your current weekly routine until you update it."
+        )
       );
       setPhase("saved");
     } catch (nextError) {
-      setError(cleanText(nextError?.message) || "I couldn’t save that Money Schedule. Please try again.");
+      setError(cleanText(nextError?.message) || "I couldn’t save your routine. Please try again.");
     } finally {
       setBusy(false);
     }
   };
 
-  const openCalendar = () => {
-    onClose?.();
-    navigate("/community?view=schedule");
-  };
-
   const closeChat = () => onClose?.();
-  const amountSummary = draft.amountKnown ? formatMoney(draft.amount) : "Amount pending";
+
+  const weeklyTotal = days.reduce((sum, day) => sum + totalItems(day?.items), 0);
 
   return (
     <div
@@ -333,14 +576,15 @@ export default function ClaraMoneyScheduleOverlay({
       data-clara-pause-overlay="true"
       data-clara-buy-check-react-owner="true"
       data-clara-money-schedule-chat="true"
+      data-clara-money-routine-flow="true"
     >
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_5%_4%,rgba(23,105,255,0.28),transparent_34%),radial-gradient(circle_at_96%_8%,rgba(245,200,75,0.10),transparent_34%),linear-gradient(180deg,#06152e_0%,#040b1a_44%,#020714_100%)]" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_5%_4%,rgba(23,105,255,0.28),transparent_34%),radial-gradient(circle_at_96%_8%,rgba(43,225,216,0.10),transparent_34%),linear-gradient(180deg,#06152e_0%,#040b1a_44%,#020714_100%)]" />
 
-      <header className="relative z-20 mx-1 shrink-0 overflow-hidden rounded-[24px] border border-blue-200/18 bg-[linear-gradient(115deg,rgba(5,26,62,0.98),rgba(7,22,48,0.98)_56%,rgba(34,28,14,0.92))] px-4 py-3.5 pr-14 shadow-[0_16px_38px_rgba(0,0,0,0.28)]">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,#1769ff,#2be1d8,#f5c84b)]" />
+      <header className="relative z-20 mx-1 shrink-0 overflow-hidden rounded-[24px] border border-blue-200/18 bg-[linear-gradient(115deg,rgba(5,26,62,0.98),rgba(7,22,48,0.98)_56%,rgba(7,31,38,0.94))] px-4 py-3.5 pr-14 shadow-[0_16px_38px_rgba(0,0,0,0.28)]">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,#1769ff,#2be1d8)]" />
         <p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#8ffff8]/78">CLARA CHAT</p>
         <h1 className="mt-1 text-[17px] font-black tracking-[-0.025em] text-white">Money Schedule</h1>
-        <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-100/42">Plan · Prepare · Protect</p>
+        <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-100/42">Daily routine · Monday to Sunday</p>
         <button
           type="button"
           onClick={closeChat}
@@ -361,107 +605,195 @@ export default function ClaraMoneyScheduleOverlay({
             <Bubble key={entry.id} role={entry.role}>{entry.text}</Bubble>
           ))}
 
-          {phase === "title" ? (
-            <div className="mt-auto pt-3">
-              <Composer value={titleInput} onChange={setTitleInput} onSubmit={submitTitle} placeholder="e.g. Rent, dentist, salary" />
+          {phase === "welcome" ? (
+            <div className="mt-auto grid gap-2.5 pt-3">
+              <ChoiceButton onClick={startSetup}>Yes, let’s set it up</ChoiceButton>
+              <ChoiceButton onClick={closeChat} secondary>Not now</ChoiceButton>
             </div>
           ) : null}
 
-          {phase === "date" ? (
-            <form
-              data-clara-buy-check-react-form="true"
-              onSubmit={(event) => {
-                event.preventDefault();
-                submitDate();
-              }}
-              className="mt-1 grid gap-2.5 rounded-[22px] border border-blue-200/12 bg-[#07142b]/88 p-3.5"
-            >
-              <div className="grid grid-cols-2 gap-2.5">
-                <label className="grid gap-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-white/40">
-                  Date
-                  <input
-                    type="date"
-                    value={draft.date}
-                    onChange={(event) => setDraft((current) => ({ ...current, date: event.target.value }))}
-                    className="min-w-0 rounded-[16px] border border-white/10 bg-[#09182f] px-3 py-3 text-[12px] font-black text-white outline-none focus:border-blue-300/40"
-                  />
-                </label>
-                <label className="grid gap-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-white/40">
-                  Time · optional
-                  <input
-                    type="time"
-                    value={draft.time}
-                    onChange={(event) => setDraft((current) => ({ ...current, time: event.target.value }))}
-                    className="min-w-0 rounded-[16px] border border-white/10 bg-[#09182f] px-3 py-3 text-[12px] font-black text-white outline-none focus:border-blue-300/40"
-                  />
-                </label>
-              </div>
-              <ChoiceButton onClick={submitDate}>Continue</ChoiceButton>
-            </form>
-          ) : null}
-
-          {phase === "direction" ? (
-            <div className="mt-1 grid grid-cols-2 gap-2.5">
-              <ChoiceButton onClick={() => chooseDirection("out")}>Money out</ChoiceButton>
-              <ChoiceButton onClick={() => chooseDirection("in")} secondary>Money in</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "amount" ? (
+          {phase === "day-entry" ? (
             <div className="mt-auto grid gap-2.5 pt-3">
               <Composer
+                value={draftText}
+                onChange={setDraftText}
+                onSubmit={submitDayExpenses}
+                placeholder={"Transportation - 100\nCoffee - 25\nLunch - 120"}
+                multiline
+              />
+              <ChoiceButton onClick={setNoRoutineExpenses} secondary>
+                No routine expenses this day
+              </ChoiceButton>
+            </div>
+          ) : null}
+
+          {phase === "day-review" ? (
+            <>
+              <ExpenseList items={pendingItems} />
+              <div className="grid grid-cols-2 gap-2.5">
+                <ChoiceButton onClick={confirmPendingDay}>Looks right</ChoiceButton>
+                <ChoiceButton onClick={enterDayAgain} secondary>Change it</ChoiceButton>
+              </div>
+            </>
+          ) : null}
+
+          {phase === "day-choice" ? (
+            <div className="mt-1 grid gap-2.5">
+              {configuredDays.map((day) => (
+                <ChoiceButton key={day.key} onClick={() => useSameDay(day)}>
+                  Same as {day.name}
+                </ChoiceButton>
+              ))}
+              <ChoiceButton onClick={chooseCopyAndChange} secondary>
+                Copy a day & change it
+              </ChoiceButton>
+              <ChoiceButton onClick={chooseCompletelyDifferent} secondary>
+                Completely different setup
+              </ChoiceButton>
+            </div>
+          ) : null}
+
+          {phase === "copy-source" ? (
+            <div className="mt-1 grid gap-2.5">
+              {configuredDays.map((day) => (
+                <ChoiceButton key={day.key} onClick={() => chooseCopySource(day)}>
+                  Start from {day.name}
+                </ChoiceButton>
+              ))}
+            </div>
+          ) : null}
+
+          {phase === "day-edit" ? (
+            <>
+              <ExpenseList items={editItems} />
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={startAddExpense}
+                  className="flex min-h-12 items-center justify-center gap-2 rounded-[18px] border border-blue-300/18 bg-white/[0.04] px-3 text-[12px] font-black text-white/88 active:scale-[0.985]"
+                >
+                  <PlusCircle className="h-4 w-4" /> Add
+                </button>
+                <button
+                  type="button"
+                  onClick={startRemoveExpense}
+                  disabled={!editItems.length}
+                  className="flex min-h-12 items-center justify-center gap-2 rounded-[18px] border border-blue-300/18 bg-white/[0.04] px-3 text-[12px] font-black text-white/88 active:scale-[0.985] disabled:opacity-35"
+                >
+                  <MinusCircle className="h-4 w-4" /> Remove
+                </button>
+                <button
+                  type="button"
+                  onClick={startChangeAmount}
+                  disabled={!editItems.length}
+                  className="flex min-h-12 items-center justify-center gap-2 rounded-[18px] border border-blue-300/18 bg-white/[0.04] px-3 text-[12px] font-black text-white/88 active:scale-[0.985] disabled:opacity-35"
+                >
+                  <PencilLine className="h-4 w-4" /> Change amount
+                </button>
+                <ChoiceButton onClick={finishEditedDay}>Done</ChoiceButton>
+              </div>
+            </>
+          ) : null}
+
+          {phase === "edit-add" ? (
+            <div className="mt-auto pt-3">
+              <Composer
+                value={draftText}
+                onChange={setDraftText}
+                onSubmit={submitAddedExpense}
+                placeholder="Extra commute - 80"
+                multiline
+              />
+            </div>
+          ) : null}
+
+          {phase === "edit-remove" ? (
+            <div className="mt-1 grid gap-2">
+              {editItems.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => removeExpense(item)}
+                  className="flex min-h-12 items-center justify-between gap-3 rounded-[17px] border border-red-200/10 bg-red-400/[0.035] px-4 text-left active:scale-[0.985]"
+                >
+                  <span className="text-[12.5px] font-black text-white/88">{item.label}</span>
+                  <span className="text-[12px] font-black text-red-100/70">
+                    {formatMoneyCentavos(item.amountCentavos)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {phase === "edit-change-select" ? (
+            <div className="mt-1 grid gap-2">
+              {editItems.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => chooseAmountItem(item)}
+                  className="flex min-h-12 items-center justify-between gap-3 rounded-[17px] border border-blue-200/12 bg-white/[0.035] px-4 text-left active:scale-[0.985]"
+                >
+                  <span className="text-[12.5px] font-black text-white/88">{item.label}</span>
+                  <span className="text-[12px] font-black text-[#8ffff8]/78">
+                    {formatMoneyCentavos(item.amountCentavos)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {phase === "edit-change-amount" ? (
+            <div className="mt-auto pt-3">
+              <Composer
                 value={amountInput}
-                onChange={(value) => setAmountInput(cleanAmount(value))}
-                onSubmit={submitAmount}
-                placeholder="Expected amount"
+                onChange={setAmountInput}
+                onSubmit={submitChangedAmount}
+                placeholder="New usual amount"
                 inputMode="decimal"
               />
-              <ChoiceButton onClick={markAmountPending} secondary>Not sure yet</ChoiceButton>
             </div>
           ) : null}
 
-          {phase === "details" ? (
-            <div className="mt-1 grid gap-2.5 rounded-[22px] border border-blue-200/12 bg-[#07142b]/88 p-3.5">
-              <label className="grid gap-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-white/40">
-                Category
-                <select
-                  value={draft.type}
-                  onChange={(event) => setDraft((current) => ({ ...current, type: event.target.value }))}
-                  className="rounded-[16px] border border-white/10 bg-[#09182f] px-3 py-3 text-[12px] font-black text-white outline-none focus:border-blue-300/40"
-                >
-                  {SCHEDULE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
-                </select>
-              </label>
-              <label className="grid gap-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-white/40">
-                Note · optional
-                <textarea
-                  value={draft.note}
-                  onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))}
-                  placeholder="Anything CLARA should remember?"
-                  rows={2}
-                  className="resize-none rounded-[16px] border border-white/10 bg-[#09182f] px-3 py-3 text-[12px] font-semibold leading-5 text-white outline-none placeholder:text-white/25 focus:border-blue-300/40"
-                />
-              </label>
-              <ChoiceButton onClick={reviewSchedule}>Review Money Schedule</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "review" ? (
+          {phase === "weekly-review" ? (
             <>
-              <section className="mt-1 rounded-[22px] border border-[#f5c84b]/18 bg-[linear-gradient(145deg,rgba(7,20,43,.95),rgba(24,23,31,.94))] p-4 shadow-[0_14px_34px_rgba(0,0,0,.22)]">
-                <div className="mb-2 flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-[#f5c84b]" />
-                  <p className="text-[10px] font-black uppercase tracking-[0.17em] text-[#ffe69a]/72">Ready to schedule</p>
+              <section className="mt-1 rounded-[22px] border border-blue-200/12 bg-[#07142b]/88 p-3.5">
+                <div className="grid gap-2">
+                  {days.map((day) => (
+                    <div
+                      key={day.key}
+                      className="flex items-center justify-between gap-3 rounded-[15px] border border-white/8 bg-white/[0.035] px-3.5 py-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-[12.5px] font-black text-white/92">{day.name}</p>
+                        <p className="mt-0.5 truncate text-[10.5px] font-semibold text-white/40">
+                          {day.items.length
+                            ? day.items.map((item) => item.label).join(" · ")
+                            : "No routine expenses"}
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-[12px] font-black text-[#8ffff8]/82">
+                        {formatMoneyCentavos(totalItems(day.items))}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-                <ReviewRow label="Event" value={draft.title} />
-                <ReviewRow label="When" value={`${formatDate(draft.date)}${draft.time ? ` · ${draft.time}` : ""}`} />
-                <ReviewRow label="Impact" value={`${draft.direction === "in" ? "Money in" : "Money out"} · ${amountSummary}`} />
-                <ReviewRow label="Category" value={draft.type} />
-                {draft.note ? <ReviewRow label="Note" value={draft.note} /> : null}
+                <div className="mt-3 flex items-center justify-between border-t border-white/8 pt-3">
+                  <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/38">
+                    Normal weekly routine
+                  </span>
+                  <span className="text-[15px] font-black text-white">
+                    {formatMoneyCentavos(weeklyTotal)}
+                  </span>
+                </div>
               </section>
-              <div className="mt-1 grid grid-cols-2 gap-2.5">
-                <ChoiceButton onClick={saveSchedule} disabled={busy}>{busy ? "Saving..." : "Save"}</ChoiceButton>
-                <ChoiceButton onClick={() => setPhase("details")} disabled={busy} secondary>Edit</ChoiceButton>
+              <div className="grid gap-2.5">
+                <ChoiceButton onClick={saveRoutine} disabled={busy}>
+                  {busy ? "Saving..." : "Save my routine"}
+                </ChoiceButton>
+                <ChoiceButton onClick={resetFlow} disabled={busy} secondary>
+                  Start over
+                </ChoiceButton>
               </div>
             </>
           ) : null}
@@ -470,20 +802,25 @@ export default function ClaraMoneyScheduleOverlay({
             <>
               <section className="mt-1 rounded-[22px] border border-emerald-300/16 bg-emerald-300/[0.045] p-4 text-center">
                 <CheckCircle2 className="mx-auto h-6 w-6 text-[#8ffff8]" />
-                <p className="mt-2 text-[13px] font-black text-white">Money Schedule saved</p>
+                <p className="mt-2 text-[13px] font-black text-white">Daily routine saved</p>
                 <p className="mt-1 text-[11px] font-semibold leading-5 text-white/48">
-                  {savedEvent?.title} · {formatDate(savedEvent?.date)}
+                  Normal weekly routine · {formatMoneyCentavos(savedRoutine?.weeklyTotalCentavos || 0)}
                 </p>
               </section>
-              <div className="mt-1 grid grid-cols-2 gap-2.5">
-                <ChoiceButton onClick={openCalendar}>Open Calendar</ChoiceButton>
+              <div className="grid grid-cols-2 gap-2.5">
+                <ChoiceButton onClick={resetFlow}>Update routine</ChoiceButton>
                 <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
               </div>
             </>
           ) : null}
 
           {error ? (
-            <p className="rounded-[16px] border border-red-300/15 bg-red-500/[0.06] px-3.5 py-3 text-[11.5px] font-bold leading-5 text-red-100/88" aria-live="polite">{error}</p>
+            <p
+              className="rounded-[16px] border border-red-300/15 bg-red-500/[0.06] px-3.5 py-3 text-[11.5px] font-bold leading-5 text-red-100/88"
+              aria-live="polite"
+            >
+              {error}
+            </p>
           ) : null}
         </div>
       </main>
