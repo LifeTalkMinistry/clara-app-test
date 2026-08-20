@@ -97,6 +97,19 @@ test("Money Schedule stores routine money as integer centavos", () => {
   assert.match(moneyScheduleRepositorySource, /Math\.round\(wholeNumber \* 100 \+ fractionNumber\)/);
 });
 
+test("Money Schedule uses CLARA conversation pacing instead of static assistant replies", () => {
+  assert.match(moneyScheduleSource, /getClaraReplyDelay/);
+  assert.match(moneyScheduleSource, /getClaraTypingPlan/);
+  assert.match(moneyScheduleSource, /getClaraReadDelay/);
+  assert.match(moneyScheduleSource, /pendingMessage/);
+  assert.match(moneyScheduleSource, /typedText/);
+  assert.match(moneyScheduleSource, /interactionReady/);
+  assert.match(moneyScheduleSource, /runAssistantSequence/);
+  assert.match(moneyScheduleSource, /controlsReady = interactionReady/);
+  assert.match(moneyScheduleSource, /<Bubble role="assistant" typing>/);
+  assert.match(moneyScheduleSource, /data-clara-conversation-pacing="masterclass"/);
+});
+
 test("Log Expense uses the Emergency Fund Masterclass conversation rhythm", () => {
   assert.match(overlaySource, /getClaraReplyDelay/);
   assert.match(overlaySource, /getClaraTypingPlan/);
