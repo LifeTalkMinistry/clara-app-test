@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { claraData } from "@/lib/clara-data-client";
 import { useAuth } from "@/context/AuthContext";
 import {
   DEFAULT_THEME_KEY,
@@ -118,7 +118,7 @@ async function persistThemeToProfile(userId, themeKey) {
   if (!userId || !themeKey || isThemeProfileSyncDisabled()) return false;
 
   try {
-    const { error } = await supabase
+    const { error } = await claraData
       .from("profiles")
       .update({ [THEME_PROFILE_FIELD]: themeKey })
       .eq("id", userId);
