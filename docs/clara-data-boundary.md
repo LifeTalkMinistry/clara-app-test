@@ -1,119 +1,68 @@
 # CLARA Data Boundary
 
-**Phase:** 2A — Define CLARA Data Boundary Only  
-**Purpose:** Establish the internal architecture boundary for CLARA's future privacy-first, local-first system before changing any storage behavior.
+## Current Architecture
 
-This document is intentionally documentation-only. It does not migrate data, change Supabase logic, introduce IndexedDB, implement Private Sync, add encryption, or modify any financial read/write behavior.
+CLARA is a **local-first app with a dedicated CLARA backend**. The frontend must not connect directly to Supabase or another database provider.
 
----
+The purpose of this boundary is to keep private financial behavior data close to the user while allowing account, shared, administrative, and delivery features to use CLARA-controlled server APIs.
 
-## Core Principle
+## Device-Local Private Data
 
-CLARA is currently Supabase-first for private financial data. The future privacy-first architecture should move private financial and behavioral records toward local-first storage while keeping account identity, subscription verification, access control, and community/server features on Supabase or server infrastructure.
+The following records are device-local by default unless a specific feature explicitly documents a server-owned copy:
 
-The boundary below defines what belongs in the future local private vault versus what remains server-based.
-
----
-
-## Local-First Private Data
-
-The following data should eventually be stored locally by default inside the user's private local vault:
-
+- Wallets and wallet transactions
 - Expenses
-- Wallets
-- Wallet transactions
-- Transfers
 - Budgets
+- Money Schedule / calendar money context that is derived locally
 - Savings goals
 - Emergency fund
 - Survival expense
-- Life Profile
-- AI financial memory/history
-- Spending behavior patterns
-- Private preferences
+- Transfers
+- Life Profile and private financial context
+- Private spending behavior and decision context
+- Local preferences and dashboard state
 
-### Why this belongs locally
+These records are used to give CLARA practical decision context. They are not required to be mirrored into a cloud database in order for the core money-coaching experience to work.
 
-These records describe the user's private financial life, behavioral patterns, personal spending context, and decision history. In the final privacy-first architecture, CLARA should treat this category as private user-owned data.
+## CLARA Backend Data
 
----
+The dedicated CLARA backend owns server-verified or shared features, including where applicable:
 
-## Supabase / Server Data
+- Account authentication and account identity
+- Membership and billing status
+- Activation and access control
+- Admin-authorized content
+- Community/feed data
+- Messaging and support delivery
+- Coaching/server-owned access data
+- Push-notification registrations and server push delivery
+- Other features that explicitly require cross-device or shared server state
 
-The following data should remain server-based because it supports identity, access, subscriptions, admin control, community, or optional backup transport:
-
-- Authentication/account identity
-- Subscription tier
-- Google Play Billing status
-- Activation status
-- Admin access control
-- Feed/community
-- Messaging
-- Coaching access
-- Optional encrypted backup package storage only
-
-### Why this belongs on the server
-
-These records require verification, access control, multi-device account identity, billing checks, admin visibility, or shared/community behavior. They should remain server-based, but this does not mean readable private financial contents should remain server-readable in the final architecture.
-
----
+Frontend code must reach these capabilities through CLARA backend API clients. It must not contain database credentials or direct database-provider SDK calls.
 
 ## Architecture Rules
 
-1. Private financial data should eventually be stored locally by default.
-2. Supabase should not store readable private financial records in the final privacy-first architecture.
-3. If Private Sync is enabled later, CLARA should encrypt the backup locally first before upload.
-4. Supabase should store only the encrypted backup package/blob, not readable financial contents.
-5. Login/account access and subscription verification remain server-based.
-6. Guest/local-only mode must use a separate local vault.
-7. No private financial data should use global fallback keys.
-8. The stable local owner key should eventually be `localUserId`, mapped to Supabase auth `user.id` when logged in.
+1. Private financial data stays local-first by default.
+2. Account and shared data goes through the CLARA backend API.
+3. The frontend does not connect directly to Supabase, PostgreSQL, or another database service.
+4. Server credentials and privileged database access never ship in the app bundle.
+5. Browser/local vault ownership remains scoped to the active CLARA account or guest vault.
+6. Optional backup/sync features must be explicit, user-controlled, and designed so they do not silently turn local private data into general server-readable data.
+7. Push notification delivery is registered through the CLARA backend; Firebase/FCM is a delivery provider, not the app database.
+8. Compatibility adapters may preserve old query-shaped call sites during migration, but they must resolve only to device-local storage or CLARA backend APIs and must never restore a direct Supabase runtime.
 
----
+## Runtime Guardrail
 
-## Future Storage Direction
+The app repository intentionally blocks reintroduction of:
 
-### Guest / Local-Only Mode
+- `@supabase/supabase-js`
+- Supabase cloud frontend environment variables
+- the former cloud Supabase client
+- Supabase quota handling
+- the legacy `supabase/` migrations and edge-functions directory
 
-Guest users should use a separate local vault that is not automatically mixed with authenticated account data. If a guest later logs in, CLARA should intentionally map, import, or connect that vault only through a controlled migration or sync process.
+A regression test enforces these rules in CI.
 
-### Logged-In Mode
+## Product Context
 
-Logged-in users should still keep private financial records local-first. Supabase auth `user.id` may be mapped to a stable local owner key, but private records should not depend directly on readable Supabase tables in the final design.
-
-### Private Sync Mode
-
-Private Sync, when introduced later, should work as encrypted backup transport only:
-
-1. CLARA reads the user's local vault.
-2. CLARA encrypts the backup package locally on the device.
-3. CLARA uploads only the encrypted package/blob to Supabase.
-4. Supabase stores the encrypted backup but cannot read the financial contents.
-5. A new device downloads the encrypted package and decrypts it locally only after the user is authorized and the correct local unlock process is satisfied.
-
----
-
-## Non-Goals For Phase 2A
-
-This phase does **not** implement any of the following:
-
-- IndexedDB
-- Private Sync
-- Encryption
-- Data migration
-- Supabase removal
-- Financial storage behavior changes
-- UI changes
-- Dashboard changes
-- Navbar changes
-- Theme changes
-- Glass/glow styling changes
-- Existing behavior changes
-
----
-
-## Recommended Next Step
-
-Proceed next with **Phase 2B — Local IndexedDB Foundation**.
-
-Phase 2B should introduce the local storage foundation carefully, without changing the current financial read/write behavior yet unless explicitly approved in that phase.
+CLARA's goal is decision clarity and accountability, not accounting-grade real-time reconciliation. Local financial records and scheduled/assumed money context exist to help the user make wiser money decisions, while actual bank, cash, e-wallet, debt, and other authoritative records remain outside CLARA's claim of financial accuracy.
