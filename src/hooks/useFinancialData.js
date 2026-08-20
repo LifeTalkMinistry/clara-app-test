@@ -3,9 +3,9 @@ import useFinancialDataBase, {
   useFinancialData as useFinancialDataBaseNamed,
 } from "./useFinancialDataBase.js";
 import {
-  getTotalWalletSpendableBalance,
-  syncWalletProtectedAllocations,
+  buildCanonicalWalletState,
 } from "@/lib/clara-wallet-money-semantics";
+import { getFinanceDataRevision } from "@/lib/financeRepository";
 
 const EMERGENCY_ACTIVITY_KEYS = [
   "emergencyActivityLog",
@@ -243,27 +243,15 @@ function withSharedWalletSemantics(financeData = {}) {
   const sourceWallets = Array.isArray(financeData?.wallets) ? financeData.wallets : [];
   const savingsGoals = Array.isArray(financeData?.savingsGoals) ? financeData.savingsGoals : [];
   const emergencyFund = financeData?.emergencyFund || null;
-
-  const wallets = syncWalletProtectedAllocations({
-    rows: sourceWallets,
-    allWallets: sourceWallets,
-    emergencyFund,
-    savingsGoals,
-  });
-
-  const totalEmergencyProtected = wallets.reduce(
-    (sum, wallet) => sum + Number(wallet?.emergencyProtectedAmount || 0),
-    0
-  );
-  const totalSavingsProtected = wallets.reduce(
-    (sum, wallet) => sum + Number(wallet?.savingsProtectedAmount || 0),
-    0
-  );
-  const totalSpendableWalletBalance = getTotalWalletSpendableBalance({
+  const { wallets, walletTotals } = buildCanonicalWalletState({
     wallets: sourceWallets,
     emergencyFund,
     savingsGoals,
   });
+  const financeRevision = Math.max(
+    Number(financeData?.financeRevision || 0),
+    Number(getFinanceDataRevision() || 0)
+  );
 
   const baseDeleteEmergencyFundAllocation = financeData?.deleteEmergencyFundAllocation;
   const deleteEmergencyFundAllocation = async (transaction) => {
@@ -355,9 +343,30 @@ function withSharedWalletSemantics(financeData = {}) {
   return {
     ...financeData,
     wallets,
-    totalEmergencyProtected,
-    totalSavingsProtected,
-    totalSpendableWalletBalance,
+    walletTotals,
+    totalWalletBalance: walletTotals.currentBalance,
+    totalEmergencyProtected: walletTotals.emergencyProtectedAmount,
+    totalSavingsProtected: walletTotals.savingsProtectedAmount,
+    totalOtherProtected: walletTotals.otherProtectedAmount,
+    totalProtectedWalletBalance: walletTotals.totalProtectedAmount,
+    totalSpendableWalletBalance: walletTotals.spendableBalance,
+    financeRevision,
+    canonicalFinancialState: {
+      wallets,
+      walletTotals,
+      budgets: financeData?.budgets || [],
+      monthlyBudgetPlan: financeData?.monthlyBudgetPlan || null,
+      emergencyFund,
+      savingsGoals,
+      incomes: financeData?.incomes || [],
+      incomeHubSnapshot: financeData?.incomeHubSnapshot || null,
+      expenses: financeData?.expenses || [],
+      walletTransactions: financeData?.walletTransactions || [],
+      transfers: financeData?.transfers || [],
+      debtObligations: financeData?.debtObligations || [],
+      revision: financeRevision,
+      generatedAt: new Date().toISOString(),
+    },
     deleteEmergencyFundAllocation,
   };
 }
