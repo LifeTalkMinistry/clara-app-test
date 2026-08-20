@@ -21,8 +21,21 @@ jobs:
           ref: remove-supabase-completely
           fetch-depth: 0
 
-      - name: Apply provider-removal migration
-        run: node .github/scripts/remove-supabase-completely.mjs
+      - name: Apply provider-removal migration with diagnostics
+        shell: bash
+        run: |
+          set +e
+          node .github/scripts/remove-supabase-completely.mjs > cleanup-run.log 2>&1
+          status=$?
+          cat cleanup-run.log
+          if [ "$status" -ne 0 ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -- cleanup-run.log
+            git commit -m "Record provider-removal migration failure" || true
+            git push origin HEAD:remove-supabase-completely || true
+            exit "$status"
+          fi
 
       - name: Refresh package lock without legacy provider dependency
         run: npm install --package-lock-only --ignore-scripts
@@ -30,6 +43,7 @@ jobs:
       - name: Prove zero provider references remain
         shell: bash
         run: |
+          rm -f cleanup-run.log
           if grep -RniI --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist "supabase" .; then
             echo "Legacy provider references remain."
             exit 1
@@ -49,7 +63,5 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify tests and production build
+      - name: Verify production build
         run: npm run build
-
-# Trigger cleanup execution.
