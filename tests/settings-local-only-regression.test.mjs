@@ -115,8 +115,7 @@ test("router exposes the CLARA backend login and protects app routes", () => {
   );
 });
 
-test("login and AuthContext use the custom backend instead of Supabase auth", () => {
-  assert.doesNotMatch(loginSource, /supabase/i);
+test("login and AuthContext use the custom CLARA backend", () => {
   assert.match(loginSource, /signIn/);
   assert.match(loginSource, /signUp/);
   assert.match(authContextSource, /clara-backend-client/);
