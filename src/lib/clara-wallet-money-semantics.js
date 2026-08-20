@@ -64,6 +64,7 @@ const SAVINGS_AMOUNT_KEYS = [
 ];
 
 const CURRENT_BALANCE_KEYS = [
+  "currentBalance",
   "balance",
   "current_balance",
   "wallet_balance",
@@ -83,6 +84,13 @@ const EXPLICIT_SPENDABLE_KEYS = [
 const EXPLICIT_PROTECTED_KEYS = [
   "totalProtectedAmount",
   "total_protected_amount",
+];
+
+const OTHER_PROTECTED_KEYS = [
+  "otherProtectedAmount",
+  "other_protected_amount",
+  "otherReservedAmount",
+  "other_reserved_amount",
 ];
 
 function toMoney(value) {
@@ -221,12 +229,19 @@ export function getWalletProtectedAmounts({
     requestedSavingsProtectedAmount,
     Math.max(currentBalance - emergencyProtectedAmount, 0)
   );
-  const totalProtectedAmount = emergencyProtectedAmount + savingsProtectedAmount;
+  const requestedOtherProtectedAmount = Math.max(firstNumber(wallet, OTHER_PROTECTED_KEYS), 0);
+  const otherProtectedAmount = Math.min(
+    requestedOtherProtectedAmount,
+    Math.max(currentBalance - emergencyProtectedAmount - savingsProtectedAmount, 0)
+  );
+  const totalProtectedAmount =
+    emergencyProtectedAmount + savingsProtectedAmount + otherProtectedAmount;
 
   return {
     currentBalance,
     emergencyProtectedAmount,
     savingsProtectedAmount,
+    otherProtectedAmount,
     totalProtectedAmount,
     savingsGoalCount: activeSavingsGoals.length,
     isEmergencyStorageWallet,
@@ -302,6 +317,8 @@ export function syncWalletProtectedAllocations({
       savings_protected_amount: semantics.savingsProtectedAmount,
       protectedSavingsAmount: semantics.savingsProtectedAmount,
       protected_savings_amount: semantics.savingsProtectedAmount,
+      otherProtectedAmount: semantics.otherProtectedAmount,
+      other_protected_amount: semantics.otherProtectedAmount,
       savingsGoalCount: semantics.savingsGoalCount,
       savings_goal_count: semantics.savingsGoalCount,
       totalProtectedAmount: semantics.totalProtectedAmount,
@@ -330,10 +347,76 @@ export function syncWalletProtectedAllocations({
   });
 }
 
-export function getTotalWalletCurrentBalance(wallets = []) {
+export function getWalletTotals(wallets = []) {
   return (Array.isArray(wallets) ? wallets : [])
     .filter(isActiveWalletForMoneySemantics)
-    .reduce((sum, wallet) => sum + getWalletCurrentBalance(wallet), 0);
+    .reduce(
+      (totals, wallet) => {
+        const currentBalance = Math.max(getWalletCurrentBalance(wallet), 0);
+        const emergencyProtectedAmount = Math.max(
+          firstNumber(wallet, ["emergencyProtectedAmount", "emergency_protected_amount"]),
+          0
+        );
+        const savingsProtectedAmount = Math.max(
+          firstNumber(wallet, ["savingsProtectedAmount", "savings_protected_amount"]),
+          0
+        );
+        const otherProtectedAmount = Math.max(
+          firstNumber(wallet, ["otherProtectedAmount", "other_protected_amount"]),
+          0
+        );
+        const totalProtectedAmount = Math.max(
+          firstNumber(wallet, EXPLICIT_PROTECTED_KEYS),
+          0
+        );
+        const spendableBalance = Math.max(
+          toMoney(firstDefinedValue(wallet, EXPLICIT_SPENDABLE_KEYS, 0)),
+          0
+        );
+
+        return {
+          currentBalance: totals.currentBalance + currentBalance,
+          emergencyProtectedAmount:
+            totals.emergencyProtectedAmount + emergencyProtectedAmount,
+          savingsProtectedAmount:
+            totals.savingsProtectedAmount + savingsProtectedAmount,
+          otherProtectedAmount:
+            totals.otherProtectedAmount + otherProtectedAmount,
+          totalProtectedAmount: totals.totalProtectedAmount + totalProtectedAmount,
+          spendableBalance: totals.spendableBalance + spendableBalance,
+        };
+      },
+      {
+        currentBalance: 0,
+        emergencyProtectedAmount: 0,
+        savingsProtectedAmount: 0,
+        otherProtectedAmount: 0,
+        totalProtectedAmount: 0,
+        spendableBalance: 0,
+      }
+    );
+}
+
+export function buildCanonicalWalletState({
+  wallets = [],
+  emergencyFund = null,
+  savingsGoals = [],
+} = {}) {
+  const normalizedWallets = syncWalletProtectedAllocations({
+    rows: wallets,
+    allWallets: wallets,
+    emergencyFund,
+    savingsGoals,
+  });
+
+  return {
+    wallets: normalizedWallets,
+    walletTotals: getWalletTotals(normalizedWallets),
+  };
+}
+
+export function getTotalWalletCurrentBalance(wallets = []) {
+  return getWalletTotals(wallets).currentBalance;
 }
 
 export function getTotalWalletSpendableBalance({
@@ -341,12 +424,6 @@ export function getTotalWalletSpendableBalance({
   emergencyFund = null,
   savingsGoals = [],
 } = {}) {
-  return syncWalletProtectedAllocations({
-    rows: wallets,
-    allWallets: wallets,
-    emergencyFund,
-    savingsGoals,
-  })
-    .filter(isActiveWalletForMoneySemantics)
-    .reduce((sum, wallet) => sum + getWalletSpendableBalance(wallet), 0);
+  return buildCanonicalWalletState({ wallets, emergencyFund, savingsGoals }).walletTotals
+    .spendableBalance;
 }
