@@ -67,7 +67,7 @@ export default function AppPreview() {
           <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
             <p className="text-sm font-semibold text-white">Preview note</p>
             <p className="mt-1 text-xs leading-relaxed text-white/50">
-              This screen lets testers see the CLARA interface during maintenance. It does not connect to Supabase.
+              This screen lets testers see the CLARA interface during maintenance. It does not connect to account services.
             </p>
           </div>
         </div>
