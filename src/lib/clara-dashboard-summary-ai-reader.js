@@ -1,5 +1,11 @@
 import { buildClaraFinanceSnapshot } from "@/lib/clara-local-brain";
 import {
+  getWalletCurrentBalance,
+  getWalletId as getCanonicalWalletId,
+  getWalletName as getCanonicalWalletName,
+  isActiveWalletForMoneySemantics,
+} from "@/lib/clara-wallet-money-semantics";
+import {
   getPHMonthKey,
   getTransactionDate,
   INCOME_TRANSACTION_TYPES,
@@ -7,7 +13,6 @@ import {
 } from "@/utils/dashboard/dashboardHelpers";
 
 const DASHBOARD_SUMMARY_READER_LOG_PREFIX = "[CLARA Dashboard Summary AI Reader]";
-const CLARA_EMERGENCY_RESERVE_WALLET_ID = "clara-emergency-reserve-wallet";
 
 function isDevLoggingEnabled() {
   return Boolean(import.meta?.env?.DEV || import.meta?.env?.VITE_CLARA_DEBUG_AI === "true");
@@ -60,55 +65,52 @@ function peso(value) {
 }
 
 function getWalletId(wallet = {}) {
-  return String(wallet.id || wallet.wallet_id || wallet.walletId || wallet.local_id || wallet.localId || "").trim();
+  return getCanonicalWalletId(wallet);
 }
 
 function getWalletName(wallet = {}) {
-  return String(wallet.name || wallet.wallet_name || wallet.title || wallet.label || "Wallet").trim() || "Wallet";
-}
-
-function getWalletVisibleBalance(wallet = {}) {
-  return firstNumber(
-    wallet.derived_balance,
-    wallet.balance,
-    wallet.current_balance,
-    wallet.wallet_balance,
-    wallet.available_balance,
-    wallet.starting_balance,
-    wallet.amount
-  );
-}
-
-function isStandaloneEmergencyReserveWallet(wallet = {}) {
-  const id = getWalletId(wallet);
-  return Boolean(
-    id === CLARA_EMERGENCY_RESERVE_WALLET_ID ||
-      wallet.wallet_id === CLARA_EMERGENCY_RESERVE_WALLET_ID ||
-      wallet.walletId === CLARA_EMERGENCY_RESERVE_WALLET_ID ||
-      wallet.isEmergencyReserveWallet ||
-      wallet.protected_reserve
-  );
+  return getCanonicalWalletName(wallet) || "Wallet";
 }
 
 function getReadableWallets(wallets = []) {
   return safeArray(wallets)
-    .filter((wallet) => !isStandaloneEmergencyReserveWallet(wallet))
-    .map((wallet) => {
-      const balance = getWalletVisibleBalance(wallet);
-      return {
-        id: getWalletId(wallet) || getWalletName(wallet),
-        name: getWalletName(wallet),
-        balance,
-        hasReadableBalance: balance !== null,
-        protectedAmount: firstNumber(
-          wallet.protected_balance,
-          wallet.reserve_balance,
-          wallet.emergencyProtectedAmount,
-          wallet.emergency_protected_amount
-        ) ?? 0,
-        raw: wallet,
-      };
-    });
+    .filter(isActiveWalletForMoneySemantics)
+    .map((wallet) => ({
+      id: getWalletId(wallet) || getWalletName(wallet),
+      name: getWalletName(wallet),
+      currentBalance: getWalletCurrentBalance(wallet),
+      emergencyProtectedAmount: firstNumber(wallet.emergencyProtectedAmount, wallet.emergency_protected_amount) ?? 0,
+      savingsProtectedAmount: firstNumber(wallet.savingsProtectedAmount, wallet.savings_protected_amount) ?? 0,
+      otherProtectedAmount: firstNumber(wallet.otherProtectedAmount, wallet.other_protected_amount) ?? 0,
+      totalProtectedAmount: firstNumber(wallet.totalProtectedAmount, wallet.total_protected_amount) ?? 0,
+      spendableBalance: firstNumber(wallet.spendableBalance, wallet.spendable_balance, wallet.walletSpendableBalance, wallet.wallet_spendable_balance),
+      hasReadableBalance: Number.isFinite(getWalletCurrentBalance(wallet)),
+      raw: wallet,
+    }));
+}
+
+function readCanonicalWalletTotals(context = {}, wallets = []) {
+  const totals = context.walletTotals || context.canonicalFinancialState?.walletTotals || null;
+  if (totals) {
+    return {
+      currentBalance: cleanNumber(totals.currentBalance),
+      emergencyProtectedAmount: cleanNumber(totals.emergencyProtectedAmount),
+      savingsProtectedAmount: cleanNumber(totals.savingsProtectedAmount),
+      otherProtectedAmount: cleanNumber(totals.otherProtectedAmount),
+      totalProtectedAmount: cleanNumber(totals.totalProtectedAmount),
+      spendableBalance: cleanNumber(totals.spendableBalance),
+    };
+  }
+
+  const canonicalRows = safeArray(wallets).filter((wallet) => wallet.spendableBalance !== null);
+  return {
+    currentBalance: canonicalRows.reduce((sum, wallet) => sum + cleanNumber(wallet.currentBalance), 0),
+    emergencyProtectedAmount: canonicalRows.reduce((sum, wallet) => sum + cleanNumber(wallet.emergencyProtectedAmount), 0),
+    savingsProtectedAmount: canonicalRows.reduce((sum, wallet) => sum + cleanNumber(wallet.savingsProtectedAmount), 0),
+    otherProtectedAmount: canonicalRows.reduce((sum, wallet) => sum + cleanNumber(wallet.otherProtectedAmount), 0),
+    totalProtectedAmount: canonicalRows.reduce((sum, wallet) => sum + cleanNumber(wallet.totalProtectedAmount), 0),
+    spendableBalance: canonicalRows.reduce((sum, wallet) => sum + cleanNumber(wallet.spendableBalance), 0),
+  };
 }
 
 function getRecordMonthKey(record = {}) {
@@ -176,27 +178,6 @@ function getCurrentMonthTransferRecords({ transfers = [], transactionHubSnapshot
     .filter((transaction) => isCurrentMonthRecord(transaction, now));
 }
 
-function getEmergencyProtectedAmount(emergencyFund = null, wallets = [], totalWalletBalance = 0) {
-  const fund = emergencyFund && typeof emergencyFund === "object" ? emergencyFund : {};
-  const walletProtectedAmount = safeArray(wallets).reduce((sum, wallet) => sum + cleanNumber(wallet.protectedAmount), 0);
-  const fundSavedAmount = firstNumber(
-    fund.saved,
-    fund.current,
-    fund.currentAmount,
-    fund.current_amount,
-    fund.amount,
-    fund.saved_amount,
-    fund.balance,
-    fund.protectedAmount,
-    fund.protected_amount,
-    fund.reserveAmount,
-    fund.reserve_amount
-  ) ?? 0;
-
-  const protectedAmount = Math.max(walletProtectedAmount, fundSavedAmount);
-  return Math.min(Math.max(protectedAmount, 0), Math.max(totalWalletBalance, 0));
-}
-
 function buildCategoryBreakdown(records = []) {
   const totals = new Map();
 
@@ -220,13 +201,13 @@ function getBudgetRemaining(finance = {}) {
   return null;
 }
 
-function buildDataCompleteness({ walletCount, expenseCountThisMonth, incomeCountThisMonth, transferCountThisMonth, emergencyProtectedAmount, budgetRemaining }) {
+function buildDataCompleteness({ walletCount, expenseCountThisMonth, incomeCountThisMonth, transferCountThisMonth, totalProtectedAmount, budgetRemaining }) {
   const readableGroups = [
     walletCount > 0,
     expenseCountThisMonth > 0,
     incomeCountThisMonth > 0,
     transferCountThisMonth > 0,
-    emergencyProtectedAmount > 0,
+    totalProtectedAmount > 0,
     budgetRemaining !== null,
   ].filter(Boolean).length;
   const totalGroups = 6;
@@ -240,13 +221,13 @@ function buildDataCompleteness({ walletCount, expenseCountThisMonth, incomeCount
   };
 }
 
-function buildMissingData({ walletCount, expenseCountThisMonth, incomeCountThisMonth, transferCountThisMonth, emergencyProtectedAmount, budgetRemaining }) {
+function buildMissingData({ walletCount, expenseCountThisMonth, incomeCountThisMonth, transferCountThisMonth, totalProtectedAmount, budgetRemaining }) {
   const missing = [];
   if (!walletCount) missing.push("wallets");
   if (!expenseCountThisMonth) missing.push("expenses_this_month");
   if (!incomeCountThisMonth) missing.push("income_this_month");
   if (!transferCountThisMonth) missing.push("transfers_this_month");
-  if (!emergencyProtectedAmount) missing.push("emergency_fund_protection");
+  if (!totalProtectedAmount) missing.push("protected_money");
   if (budgetRemaining === null) missing.push("active_budget_remaining");
   return missing;
 }
@@ -256,9 +237,13 @@ export function buildDashboardSummaryAiSnapshot(context = {}) {
   const rawWallets = safeArray(context.wallets);
   const wallets = getReadableWallets(rawWallets);
   const readableWallets = wallets.filter((wallet) => wallet.hasReadableBalance);
-  const totalWalletBalance = readableWallets.reduce((sum, wallet) => sum + cleanNumber(wallet.balance), 0);
-  const emergencyProtectedAmount = getEmergencyProtectedAmount(context.emergencyFund, wallets, totalWalletBalance);
-  const safeSpendableMoney = Math.max(totalWalletBalance - emergencyProtectedAmount, 0);
+  const walletTotals = readCanonicalWalletTotals(context, readableWallets);
+  const totalWalletBalance = walletTotals.currentBalance;
+  const emergencyProtectedAmount = walletTotals.emergencyProtectedAmount;
+  const savingsProtectedAmount = walletTotals.savingsProtectedAmount;
+  const otherProtectedAmount = walletTotals.otherProtectedAmount;
+  const totalProtectedAmount = walletTotals.totalProtectedAmount;
+  const safeSpendableMoney = walletTotals.spendableBalance;
 
   const expensesThisMonth = safeArray(context.expenses).filter((expense) => isCurrentMonthRecord(expense, now));
   const totalExpenseThisMonth = expensesThisMonth.reduce((sum, expense) => sum + getExpenseAmount(expense), 0);
@@ -270,7 +255,7 @@ export function buildDashboardSummaryAiSnapshot(context = {}) {
   const totalTransferVolumeThisMonth = transferRecordsThisMonth.reduce((sum, transfer) => sum + getTransferAmount(transfer), 0);
   const finance = buildClaraFinanceSnapshot({ ...context, wallets: readableWallets.map((wallet) => wallet.raw), expenses: expensesThisMonth });
   const budgetRemaining = getBudgetRemaining(finance);
-  const topWallet = readableWallets.slice().sort((left, right) => cleanNumber(right.balance) - cleanNumber(left.balance))[0] || null;
+  const topWallet = readableWallets.slice().sort((left, right) => cleanNumber(right.currentBalance) - cleanNumber(left.currentBalance))[0] || null;
   const topExpenseCategory = categoryBreakdown[0] || null;
 
   const walletCount = readableWallets.length;
@@ -282,7 +267,7 @@ export function buildDashboardSummaryAiSnapshot(context = {}) {
     expenseCountThisMonth,
     incomeCountThisMonth,
     transferCountThisMonth,
-    emergencyProtectedAmount,
+    totalProtectedAmount,
     budgetRemaining,
   });
   const missingData = buildMissingData({
@@ -290,7 +275,7 @@ export function buildDashboardSummaryAiSnapshot(context = {}) {
     expenseCountThisMonth,
     incomeCountThisMonth,
     transferCountThisMonth,
-    emergencyProtectedAmount,
+    totalProtectedAmount,
     budgetRemaining,
   });
 
@@ -313,6 +298,9 @@ export function buildDashboardSummaryAiSnapshot(context = {}) {
     totalWalletBalance,
     safeSpendableMoney,
     emergencyProtectedAmount,
+    savingsProtectedAmount,
+    otherProtectedAmount,
+    totalProtectedAmount,
     totalExpenseThisMonth,
     totalIncomeThisMonth,
     netFlowThisMonth: totalIncomeThisMonth - totalExpenseThisMonth,
@@ -324,7 +312,9 @@ export function buildDashboardSummaryAiSnapshot(context = {}) {
       ? {
           id: topWallet.id,
           name: topWallet.name,
-          balance: cleanNumber(topWallet.balance),
+          balance: cleanNumber(topWallet.currentBalance),
+          currentBalance: cleanNumber(topWallet.currentBalance),
+          spendableBalance: cleanNumber(topWallet.spendableBalance),
         }
       : null,
     topExpenseCategory,
@@ -343,6 +333,8 @@ export function buildDashboardSummaryAiSnapshot(context = {}) {
     incomeCountThisMonth: snapshot.incomeCountThisMonth,
     transferCountThisMonth: snapshot.transferCountThisMonth,
     moneyLeft: snapshot.moneyLeft,
+    safeSpendableMoney: snapshot.safeSpendableMoney,
+    totalProtectedAmount: snapshot.totalProtectedAmount,
     totalExpenseThisMonth: snapshot.totalExpenseThisMonth,
     generatedAt: snapshot.generatedAt,
   });
@@ -378,7 +370,7 @@ function hasUsableDashboardSummaryData(snapshot = {}) {
         snapshot.expenseCountThisMonth > 0 ||
         snapshot.incomeCountThisMonth > 0 ||
         snapshot.transferCountThisMonth > 0 ||
-        snapshot.emergencyProtectedAmount > 0)
+        snapshot.totalProtectedAmount > 0)
   );
 }
 
@@ -391,8 +383,8 @@ function noUsableDataReply(snapshot = {}) {
 }
 
 function moneyLeftReply(snapshot = {}) {
-  const protectedLine = snapshot.emergencyProtectedAmount > 0
-    ? `\n\nYou also have ${peso(snapshot.emergencyProtectedAmount)} protected for your Emergency Fund, so your safe spendable money is ${peso(snapshot.safeSpendableMoney)}.`
+  const protectedLine = snapshot.totalProtectedAmount > 0
+    ? `\n\nYou also have ${peso(snapshot.totalProtectedAmount)} protected across your financial allocations, so your safe spendable money is ${peso(snapshot.safeSpendableMoney)}.`
     : "";
 
   return `I checked your dashboard summary. Your current Money Left is ${peso(snapshot.moneyLeft)}.${protectedLine}\n\nThat comes from ${snapshot.walletCount} readable wallet ${snapshot.walletCount === 1 ? "balance" : "balances"}.`;
@@ -407,11 +399,11 @@ function totalExpenseReply(snapshot = {}) {
 }
 
 function spendableReply(snapshot = {}) {
-  if (snapshot.emergencyProtectedAmount > 0) {
-    return `I checked your dashboard summary. Your total wallet balance is ${peso(snapshot.totalWalletBalance)}, but your safe spendable money is ${peso(snapshot.safeSpendableMoney)} because ${peso(snapshot.emergencyProtectedAmount)} is protected for your Emergency Fund.`;
+  if (snapshot.totalProtectedAmount > 0) {
+    return `I checked your dashboard summary. Your total wallet balance is ${peso(snapshot.totalWalletBalance)}, but your safe spendable money is ${peso(snapshot.safeSpendableMoney)} because ${peso(snapshot.totalProtectedAmount)} is protected across your financial allocations.`;
   }
 
-  return `I checked your dashboard summary. Your safe spendable money is ${peso(snapshot.safeSpendableMoney)}. I don’t see protected Emergency Fund money reducing it right now.`;
+  return `I checked your dashboard summary. Your safe spendable money is ${peso(snapshot.safeSpendableMoney)}. I don’t see protected money reducing it right now.`;
 }
 
 function moneyLeftReasonReply(snapshot = {}) {
@@ -421,8 +413,8 @@ function moneyLeftReasonReply(snapshot = {}) {
     lines.push(`Your biggest wallet is ${snapshot.topWallet.name} with ${peso(snapshot.topWallet.balance)}.`);
   }
 
-  if (snapshot.emergencyProtectedAmount > 0) {
-    lines.push(`${peso(snapshot.emergencyProtectedAmount)} is protected for Emergency Fund, so your safer spendable amount is ${peso(snapshot.safeSpendableMoney)}.`);
+  if (snapshot.totalProtectedAmount > 0) {
+    lines.push(`${peso(snapshot.totalProtectedAmount)} is protected, so your safer spendable amount is ${peso(snapshot.safeSpendableMoney)}.`);
   }
 
   if (snapshot.totalExpenseThisMonth > 0) {
@@ -437,8 +429,8 @@ function dashboardSummaryReply(snapshot = {}) {
     ? `${snapshot.topExpenseCategory.category} at ${peso(snapshot.topExpenseCategory.amount)}`
     : "no top expense category yet";
 
-  const protectedLine = snapshot.emergencyProtectedAmount > 0
-    ? `\n\nProtected money: ${peso(snapshot.emergencyProtectedAmount)} for Emergency Fund. Safe spendable: ${peso(snapshot.safeSpendableMoney)}.`
+  const protectedLine = snapshot.totalProtectedAmount > 0
+    ? `\n\nProtected money: ${peso(snapshot.totalProtectedAmount)}. Safe spendable: ${peso(snapshot.safeSpendableMoney)}.`
     : "";
 
   return `I checked your dashboard summary. Money Left is ${peso(snapshot.moneyLeft)}, Total Expense this month is ${peso(snapshot.totalExpenseThisMonth)}, and recorded income this month is ${peso(snapshot.totalIncomeThisMonth)}.\n\nYour net flow this month is ${peso(snapshot.netFlowThisMonth)}. Biggest spending category: ${topCategory}.${protectedLine}`;
