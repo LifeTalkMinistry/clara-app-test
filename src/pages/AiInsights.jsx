@@ -97,7 +97,7 @@ export default function AiInsights() {
                 CLARA Intelligence
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-white/70">
-                Version-aware financial guidance generated from your real Supabase
+                Version-aware financial guidance generated from your local CLARA
                 expenses, wallet transactions, and current access state.
               </p>
             </div>
