@@ -47,11 +47,10 @@ test("successful empty ownership query downgrades while failed query becomes unk
   assert.match(source, /if \(!purchase\)[\s\S]*state: "inactive"/);
 });
 
-test("Android local beta selects the local facade", async () => {
+test("Android local beta uses CLARA's local data facade", async () => {
   const runtime = await read("src/lib/clara-runtime-mode.js");
-  const facade = await read("src/lib/supabaseClient.js");
+  const facade = await read("src/lib/clara-data-client.js");
   assert.match(runtime, /Capacitor\.isNativePlatform\(\)/);
   assert.match(runtime, /LOCAL_BETA/);
-  assert.match(facade, /createLocalSupabaseFacade/);
-  assert.match(facade, /isLocalBetaMode\(\)/);
+  assert.match(facade, /createLocalDataFacade/);
 });
