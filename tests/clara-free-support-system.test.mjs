@@ -130,12 +130,13 @@ test("legacy enrollment can no longer force or sell a core feature unlock", () =
   assert.match(financialPlanAccess, /meetsFinancialPlanRequirement = \(\) => true/);
 });
 
-test("support verifier never mutates CLARA profile entitlements", () => {
-  const verifier = read("supabase/functions/verify-clara-support-purchase/index.ts");
-  assert.match(verifier, /support_subscriptions/);
-  assert.doesNotMatch(verifier, /process_google_play_purchase/);
-  assert.doesNotMatch(verifier, /\.from\("profiles"\)/);
-  assert.match(verifier, /app_access_changed: false/);
+test("support transport stays backend-owned and separate from core access", () => {
+  const supportClient = read("src/lib/support-backend-client.js");
+  const supportHook = read("src/hooks/useClaraSupport.js");
+  assert.match(supportClient, /backendRequest/);
+  assert.match(supportClient, /\/api\/support\/messages/);
+  assert.match(supportHook, /accountPlan/);
+  assert.doesNotMatch(supportHook, /shouldForceEnrollment/);
 });
 
 test("Support CLARA owns a persistent app-level overlay world and animation clock", () => {
