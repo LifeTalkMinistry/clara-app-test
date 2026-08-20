@@ -75,7 +75,7 @@ test("Money Schedule uses the same editable day controls on Monday and copied da
   assert.match(moneyScheduleSource, /<PlusCircle className="h-4 w-4" \/> Add/);
   assert.match(moneyScheduleSource, /<MinusCircle className="h-4 w-4" \/> Remove/);
   assert.match(moneyScheduleSource, /<PencilLine className="h-4 w-4" \/> Change amount/);
-  assert.match(moneyScheduleSource, /<ChoiceButton onClick=\{finishEditedDay\}>Done<\/ChoiceButton>/);
+  assert.match(moneyScheduleSource, /editReturnContext \? "Done editing" : "Done"/);
   assert.doesNotMatch(moneyScheduleSource, /phase === "day-review"/);
   assert.doesNotMatch(moneyScheduleSource, /Looks right/);
 });
@@ -87,6 +87,23 @@ test("Money Schedule lets later days reuse or modify any completed day", () => {
   assert.match(moneyScheduleSource, /Start from \{day\.name\}/);
   assert.match(moneyScheduleSource, /Use Add, Remove, or Change amount/);
   assert.match(moneyScheduleSource, /will start empty/);
+});
+
+test("Money Schedule can edit a completed day without losing the current setup position", () => {
+  assert.match(moneyScheduleSource, /Edit a previous day/);
+  assert.match(moneyScheduleSource, /phase === "edit-previous-source"/);
+  assert.match(moneyScheduleSource, /data-clara-money-routine-edit-previous="true"/);
+  assert.match(moneyScheduleSource, /editReturnContext/);
+  assert.match(moneyScheduleSource, /returnDayIndex/);
+  assert.match(moneyScheduleSource, /setDayIndex\(returnDayIndex\)/);
+  assert.match(moneyScheduleSource, /Now let’s continue setting up/);
+  assert.match(moneyScheduleSource, /Done editing/);
+});
+
+test("Money Schedule weekly review lets every day reopen in the same editor", () => {
+  assert.match(moneyScheduleSource, /choosePreviousDayToEdit\(day, "weekly-review"\)/);
+  assert.match(moneyScheduleSource, /aria-label=\{`Edit \$\{day\.name\} routine`\}/);
+  assert.match(moneyScheduleSource, /Your weekly review is refreshed/);
 });
 
 test("Money Schedule persists a seven-day weekly routine until the user updates it", () => {
