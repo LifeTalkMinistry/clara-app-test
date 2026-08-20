@@ -7,6 +7,7 @@ import {
   getWalletSpendableBalance,
   syncWalletProtectedAllocations,
 } from "../src/lib/clara-wallet-money-semantics.js";
+import { getWalletOptions } from "../src/lib/clara-buy-check-wallet-engine.js";
 import { buildHomeSpendableMoneyProjection } from "../src/lib/clara-home-spendable-money.js";
 import { getWalletBalance } from "../src/utils/financialEngine.js";
 
@@ -239,4 +240,34 @@ test("unlinked Emergency Fund data cannot silently protect an unrelated wallet",
 
   assert.equal(semantics.emergencyProtectedAmount, 0);
   assert.equal(getWalletSpendableBalance({ ...gcash, ...semantics }), 2177.28);
+});
+
+test("Log Expense excludes a wallet when Emergency Fund and Savings Goal protect its full balance", () => {
+  const wallet = { id: "maya", name: "Maya Wallet", balance: 1000 };
+  const options = getWalletOptions(
+    {
+      wallets: [wallet],
+      emergencyFund: { savedAmount: 700, storageWalletId: "maya" },
+      savingsGoals: [{ id: "goal", wallet_id: "maya", saved_amount: 300, status: "active" }],
+    },
+    20
+  );
+
+  assert.deepEqual(options, []);
+});
+
+test("Log Expense only uses the legitimate spendable remainder of a protected wallet", () => {
+  const wallet = { id: "maya", name: "Maya Wallet", balance: 1000 };
+  const context = {
+    wallets: [wallet],
+    emergencyFund: { savedAmount: 800, storageWalletId: "maya" },
+    savingsGoals: [],
+  };
+
+  assert.deepEqual(getWalletOptions(context, 150), [
+    { id: "maya", name: "Maya Wallet", balance: 200, enough: true },
+  ]);
+  assert.deepEqual(getWalletOptions(context, 250), [
+    { id: "maya", name: "Maya Wallet", balance: 200, enough: false },
+  ]);
 });
