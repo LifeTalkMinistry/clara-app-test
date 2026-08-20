@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "npm test && npm run lint:buy-check",
+    "prebuild": "node scripts/verify-provider-removal.mjs && npm test && npm run lint:buy-check",
     "build": "vite build --base=./",
     "build:android": "vite build --base=./",
     "android:fresh": "node scripts/android-fresh-run.mjs",
