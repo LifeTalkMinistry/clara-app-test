@@ -1,5 +1,5 @@
 import { isLocalBetaMode } from "@/lib/clara-runtime-mode";
-import { supabase } from "@/lib/supabaseClient";
+import { claraData } from "@/lib/clara-data-client";
 import { syncGooglePlayEntitlement } from "@/lib/google-play-billing";
 
 let started = false;
@@ -13,7 +13,7 @@ async function runCheck(reason, force = false) {
 
   lastCheckAt = Date.now();
   activeCheck = (async () => {
-    const { data, error } = await supabase.auth.getUser();
+    const { data, error } = await claraData.auth.getUser();
     if (error || !data?.user?.id) return null;
 
     return syncGooglePlayEntitlement({
@@ -42,9 +42,7 @@ export function startLocalEntitlementLifecycle() {
   window.setTimeout(() => runCheck("app_launch", true), 0);
 
   const onVisibilityChange = () => {
-    if (document.visibilityState === "visible") {
-      runCheck("app_resume");
-    }
+    if (document.visibilityState === "visible") runCheck("app_resume");
   };
   const onFocus = () => runCheck("app_resume");
   const onOnline = () => runCheck("billing_reconnected", true);
