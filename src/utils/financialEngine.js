@@ -157,7 +157,7 @@ const getLatestTransactionNextBalance = (wallet, transactions = [], transfers = 
        * newly stored balance.
        *
        * This fixes transfer display cases where the source wallet balance was
-       * updated correctly in Supabase but the UI still showed an older balance
+       * updated correctly in storage but the UI still showed an older balance
        * from a previous transaction's details.next_balance.
        */
       return item.time >= walletUpdatedAt;
