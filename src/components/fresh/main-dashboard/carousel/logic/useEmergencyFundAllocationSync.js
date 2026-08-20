@@ -186,7 +186,7 @@ const broadcastFinanceRefresh = () => {
 
 // Data integrity rule:
 // This hook reconciles legacy Emergency Fund Allocation expense records into protected wallet movement.
-// It must be guarded to avoid duplicate transfers, repeated deletes, or refresh loops.
+// It must be guarded to avoid duplicate transfers, repeated deletes, refresh loops, and synthetic wallet refunds.
 export function useEmergencyFundAllocationSync({
   user,
   expenses = [],
@@ -263,13 +263,25 @@ export function useEmergencyFundAllocationSync({
               "linked_wallet_name",
             ]) || "Emergency Fund wallet";
           const createdAt = activity?.created_at || activity?.createdAt || expense?.created_at || expense?.date || new Date().toISOString();
+          const sameWalletAllocation = Boolean(
+            fromWalletId && toWalletId && fromWalletId === toWalletId
+          );
+
+          // A same-wallet Emergency Fund allocation is classification only.
+          // There is no real wallet movement to migrate. Calling deleteExpense here
+          // would "refund" the legacy expense into the wallet and can manufacture
+          // money (for example ₱2,500 -> ₱4,500 after protecting ₱2,000).
+          // Keep the ambiguous legacy record untouched instead of changing Current Balance.
+          if (sameWalletAllocation) {
+            processedIdsRef.current.add(processingKey);
+            continue;
+          }
 
           try {
             if (
               amount > 0 &&
               fromWalletId &&
               toWalletId &&
-              fromWalletId !== toWalletId &&
               typeof transferBetweenWallets === "function" &&
               !transferExists(transfers, id)
             ) {
