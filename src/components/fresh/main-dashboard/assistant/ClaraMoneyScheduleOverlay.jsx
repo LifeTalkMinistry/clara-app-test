@@ -238,6 +238,7 @@ export default function ClaraMoneyScheduleOverlay({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [savedRoutine, setSavedRoutine] = useState(null);
+  const [editReturnContext, setEditReturnContext] = useState(null);
   const [pendingMessage, setPendingMessage] = useState(null);
   const [typedText, setTypedText] = useState("");
   const [interactionReady, setInteractionReady] = useState(false);
@@ -249,7 +250,8 @@ export default function ClaraMoneyScheduleOverlay({
   const sequencePhaseRef = useRef("welcome");
   const sequenceTokenRef = useRef(0);
 
-  const currentWeekday = CLARA_MONEY_ROUTINE_WEEKDAYS[dayIndex] || CLARA_MONEY_ROUTINE_WEEKDAYS[0];
+  const currentWeekday =
+    CLARA_MONEY_ROUTINE_WEEKDAYS[dayIndex] || CLARA_MONEY_ROUTINE_WEEKDAYS[0];
   const configuredDays = days.slice(0, dayIndex);
 
   const scrollToLatest = () => {
@@ -337,6 +339,7 @@ export default function ClaraMoneyScheduleOverlay({
     setError("");
     setBusy(false);
     setSavedRoutine(null);
+    setEditReturnContext(null);
   };
 
   const startOpeningConversation = () => {
@@ -469,7 +472,7 @@ export default function ClaraMoneyScheduleOverlay({
       [
         ...leadReplies,
         `${weekday.name} is done. Now let’s set up ${nextWeekday.name}.`,
-        `You can reuse a day you already finished, copy one and change it, or make ${nextWeekday.name} completely different.`,
+        `You can reuse a day you already finished, copy one and change it, make ${nextWeekday.name} completely different, or go back and edit a completed day.`,
       ],
       "day-choice"
     );
@@ -521,6 +524,50 @@ export default function ClaraMoneyScheduleOverlay({
     );
   };
 
+  const openPreviousDayPicker = () => {
+    if (!interactionReady || !configuredDays.length) return;
+    appendUser("Edit a previous day");
+    runAssistantSequence(
+      ["Sure. Which completed day would you like to edit?"],
+      "edit-previous-source"
+    );
+  };
+
+  const choosePreviousDayToEdit = (sourceDay, returnPhase = "day-choice") => {
+    if (!interactionReady) return;
+    const targetIndex = days.findIndex((day) => day?.key === sourceDay?.key);
+    if (targetIndex < 0) return;
+
+    const returnDayIndex = dayIndex;
+    setEditReturnContext({
+      returnDayIndex,
+      returnPhase,
+    });
+    setDayIndex(targetIndex);
+    setDraftText("");
+    setEditItems(cloneItems(sourceDay.items));
+    setSelectedItemId("");
+    setAmountInput("");
+    setError("");
+    appendUser(`Edit ${sourceDay.name}`);
+    runAssistantSequence(
+      [
+        `Here’s your current ${sourceDay.name} routine.`,
+        "Use Add, Remove, or Change amount for anything you want to correct, then press Done editing.",
+      ],
+      "day-edit"
+    );
+  };
+
+  const cancelPreviousDayPicker = () => {
+    if (!interactionReady) return;
+    appendUser(`Keep setting up ${currentWeekday.name}`);
+    runAssistantSequence(
+      [`No problem. Let’s continue with ${currentWeekday.name}.`],
+      "day-choice"
+    );
+  };
+
   const startAddExpense = () => {
     if (!interactionReady) return;
     setDraftText("");
@@ -546,7 +593,11 @@ export default function ClaraMoneyScheduleOverlay({
     setError("");
     appendUser(submittedText);
     runAssistantSequence(
-      ["Added. You can add another expense, remove one, change an amount, or press Done for this day."],
+      [
+        editReturnContext
+          ? "Updated. You can make another correction or press Done editing."
+          : "Added. You can add another expense, remove one, change an amount, or press Done for this day.",
+      ],
       "day-edit"
     );
   };
@@ -616,8 +667,60 @@ export default function ClaraMoneyScheduleOverlay({
     );
   };
 
+  const finishPreviousDayEdit = () => {
+    const context = editReturnContext;
+    if (!context) return false;
+
+    const editedWeekday = currentWeekday;
+    const editedDayIndex = dayIndex;
+    const nextItems = cloneItems(editItems);
+    const returnDayIndex = context.returnDayIndex;
+    const returnWeekday = CLARA_MONEY_ROUTINE_WEEKDAYS[returnDayIndex];
+
+    setDays((current) => {
+      const nextDays = [...current];
+      const existingDay = nextDays[editedDayIndex] || {};
+      nextDays[editedDayIndex] = {
+        ...existingDay,
+        key: editedWeekday.key,
+        name: editedWeekday.name,
+        weekdayIndex: editedWeekday.weekdayIndex,
+        items: nextItems,
+      };
+      return nextDays;
+    });
+
+    appendUser(`Done editing ${editedWeekday.name}`);
+    setEditReturnContext(null);
+    setDayIndex(returnDayIndex);
+    setDraftText("");
+    setEditItems([]);
+    setSelectedItemId("");
+    setAmountInput("");
+    setError("");
+
+    if (context.returnPhase === "weekly-review") {
+      runAssistantSequence(
+        [`${editedWeekday.name} updated. Your weekly review is refreshed.`],
+        "weekly-review"
+      );
+    } else {
+      runAssistantSequence(
+        [
+          `${editedWeekday.name} updated.`,
+          `Now let’s continue setting up ${returnWeekday?.name || "your current day"}.`,
+        ],
+        "day-choice"
+      );
+    }
+
+    return true;
+  };
+
   const finishEditedDay = () => {
     if (!interactionReady) return;
+    if (finishPreviousDayEdit()) return;
+
     appendUser(`Done with ${currentWeekday.name}`);
     moveToNextDay(
       editItems,
@@ -719,6 +822,9 @@ export default function ClaraMoneyScheduleOverlay({
               <ChoiceButton onClick={chooseCompletelyDifferent} secondary>
                 Completely different setup
               </ChoiceButton>
+              <ChoiceButton onClick={openPreviousDayPicker} secondary>
+                Edit a previous day
+              </ChoiceButton>
             </div>
           ) : null}
 
@@ -729,6 +835,19 @@ export default function ClaraMoneyScheduleOverlay({
                   Start from {day.name}
                 </ChoiceButton>
               ))}
+            </div>
+          ) : null}
+
+          {phase === "edit-previous-source" && controlsReady ? (
+            <div className="mt-1 grid gap-2.5" data-clara-money-routine-edit-previous="true">
+              {configuredDays.map((day) => (
+                <ChoiceButton key={day.key} onClick={() => choosePreviousDayToEdit(day)}>
+                  Edit {day.name}
+                </ChoiceButton>
+              ))}
+              <ChoiceButton onClick={cancelPreviousDayPicker} secondary>
+                Back to {currentWeekday.name}
+              </ChoiceButton>
             </div>
           ) : null}
 
@@ -759,7 +878,9 @@ export default function ClaraMoneyScheduleOverlay({
                 >
                   <PencilLine className="h-4 w-4" /> Change amount
                 </button>
-                <ChoiceButton onClick={finishEditedDay}>Done</ChoiceButton>
+                <ChoiceButton onClick={finishEditedDay}>
+                  {editReturnContext ? "Done editing" : "Done"}
+                </ChoiceButton>
               </div>
             </>
           ) : null}
@@ -828,9 +949,12 @@ export default function ClaraMoneyScheduleOverlay({
               <section className="mt-1 rounded-[22px] border border-blue-200/12 bg-[#07142b]/88 p-3.5">
                 <div className="grid gap-2">
                   {days.map((day) => (
-                    <div
+                    <button
                       key={day.key}
-                      className="flex items-center justify-between gap-3 rounded-[15px] border border-white/8 bg-white/[0.035] px-3.5 py-3"
+                      type="button"
+                      onClick={() => choosePreviousDayToEdit(day, "weekly-review")}
+                      className="flex items-center justify-between gap-3 rounded-[15px] border border-white/8 bg-white/[0.035] px-3.5 py-3 text-left transition active:scale-[0.99]"
+                      aria-label={`Edit ${day.name} routine`}
                     >
                       <div className="min-w-0">
                         <p className="text-[12.5px] font-black text-white/92">{day.name}</p>
@@ -840,10 +964,15 @@ export default function ClaraMoneyScheduleOverlay({
                             : "No routine expenses"}
                         </p>
                       </div>
-                      <span className="shrink-0 text-[12px] font-black text-[#8ffff8]/82">
-                        {formatMoneyCentavos(totalItems(day.items))}
-                      </span>
-                    </div>
+                      <div className="shrink-0 text-right">
+                        <span className="block text-[12px] font-black text-[#8ffff8]/82">
+                          {formatMoneyCentavos(totalItems(day.items))}
+                        </span>
+                        <span className="mt-0.5 block text-[9px] font-black uppercase tracking-[0.12em] text-white/34">
+                          Edit
+                        </span>
+                      </div>
+                    </button>
                   ))}
                 </div>
                 <div className="mt-3 flex items-center justify-between border-t border-white/8 pt-3">
