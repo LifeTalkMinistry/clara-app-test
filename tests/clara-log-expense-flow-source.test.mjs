@@ -62,11 +62,22 @@ test("Money Schedule starts from the user's daily routine instead of a calendar 
   assert.match(moneyScheduleSource, /usual daily routine expenses/i);
   assert.match(moneyScheduleSource, /Let’s start with Monday/i);
   assert.match(moneyScheduleSource, /leave out occasional or extra spending/i);
-  assert.match(moneyScheduleSource, /Transportation - 100/);
-  assert.match(moneyScheduleSource, /Coffee - 25/);
-  assert.match(moneyScheduleSource, /No routine expenses this day/);
+  assert.match(moneyScheduleSource, /build Monday one routine expense at a time/i);
+  assert.match(moneyScheduleSource, /Transportation 100/);
   assert.doesNotMatch(moneyScheduleSource, /What are you expecting to pay for or receive/);
   assert.doesNotMatch(moneyScheduleSource, /When should this happen/);
+});
+
+test("Money Schedule uses the same editable day controls on Monday and copied days", () => {
+  assert.match(moneyScheduleSource, /setEditItems\(\[\]\)/);
+  assert.match(moneyScheduleSource, /"day-edit"/);
+  assert.match(moneyScheduleSource, /data-clara-money-routine-day-controls="true"/);
+  assert.match(moneyScheduleSource, /<PlusCircle className="h-4 w-4" \/> Add/);
+  assert.match(moneyScheduleSource, /<MinusCircle className="h-4 w-4" \/> Remove/);
+  assert.match(moneyScheduleSource, /<PencilLine className="h-4 w-4" \/> Change amount/);
+  assert.match(moneyScheduleSource, /<ChoiceButton onClick=\{finishEditedDay\}>Done<\/ChoiceButton>/);
+  assert.doesNotMatch(moneyScheduleSource, /phase === "day-review"/);
+  assert.doesNotMatch(moneyScheduleSource, /Looks right/);
 });
 
 test("Money Schedule lets later days reuse or modify any completed day", () => {
@@ -74,9 +85,8 @@ test("Money Schedule lets later days reuse or modify any completed day", () => {
   assert.match(moneyScheduleSource, /Copy a day & change it/);
   assert.match(moneyScheduleSource, /Completely different setup/);
   assert.match(moneyScheduleSource, /Start from \{day\.name\}/);
-  assert.match(moneyScheduleSource, /Add/);
-  assert.match(moneyScheduleSource, /Remove/);
-  assert.match(moneyScheduleSource, /Change amount/);
+  assert.match(moneyScheduleSource, /Use Add, Remove, or Change amount/);
+  assert.match(moneyScheduleSource, /will start empty/);
 });
 
 test("Money Schedule persists a seven-day weekly routine until the user updates it", () => {
