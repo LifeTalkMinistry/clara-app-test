@@ -144,6 +144,48 @@ function compactRelevantBudget(pkg = {}) {
   };
 }
 
+function compactMoneySchedule(pkg = {}) {
+  const schedule = safeRecord(pkg.moneySchedule);
+  if (!schedule.connected) return null;
+
+  const passedRoutine = safeRecord(schedule.passedRoutine);
+  const remainingRoutine = safeRecord(schedule.remainingRoutine);
+
+  return {
+    weeklyRoutineTotal: toNumber(schedule.weeklyRoutineTotal),
+    passedRoutine: {
+      days: safeList(passedRoutine.days).slice(0, 7).map((day) => clean(day)).filter(Boolean),
+      amount: toNumber(passedRoutine.amount),
+      instruction: "Historical only. Do NOT subtract this amount again.",
+    },
+    remainingRoutine: {
+      days: safeList(remainingRoutine.days).slice(0, 7).map((entry) => {
+        const day = safeRecord(entry);
+        return {
+          day: clean(day.day),
+          occurrences: toNumber(day.occurrences),
+          amountPerOccurrence: toNumber(day.amountPerOccurrence),
+          totalAmount: toNumber(day.totalAmount),
+        };
+      }),
+      amount: toNumber(remainingRoutine.amount),
+    },
+    remainingAssumedRoutineSpending: toNumber(schedule.remainingAssumedRoutineSpending),
+    horizonStart: schedule.horizonStart || null,
+    horizonEnd: schedule.horizonEnd || null,
+    horizonBasis: clean(schedule.horizonBasis),
+    includesToday: schedule.includesToday !== false,
+    repeatMode: clean(schedule.repeatMode || "until_updated"),
+    interpretation: {
+      currentWalletIsActualCurrentMoney: true,
+      passedRoutineMustNotBeDeductedAgain: true,
+      remainingRoutineIsFutureExpectedSpending: true,
+      remainingRoutineNotYetDeductedFromCurrentWallet: true,
+      remainingRoutineShouldAffectSafeToSpend: true,
+    },
+  };
+}
+
 function buildConversationFinancialContext(assistantContext = {}, evidence = {}) {
   const understood = sanitizeEvidence(evidence);
   const purchase = {
@@ -216,10 +258,12 @@ function buildConversationFinancialContext(assistantContext = {}, evidence = {})
       nearestDue: dueObligations[0] || null,
       dueBeforeNextIncome: dueObligations,
     },
+    moneySchedule: compactMoneySchedule(pkg),
     nearestUpcomingSchedule: upcomingSchedule[0] || null,
     upcomingSchedule,
     safety: {
       commitmentsBeforeNextIncome: toNumber(safety.commitmentsBeforeNextIncome),
+      moneyScheduleIncludedInCommitments: toNumber(safety.moneyScheduleIncludedInCommitments),
       safeToSpendBeforePurchase: toNumber(safety.safeToSpendBeforePurchase),
       safeToSpendAfterPurchase: price > 0 && Number.isFinite(Number(safety.safeToSpendAfterPurchase))
         ? Number(safety.safeToSpendAfterPurchase)
@@ -255,11 +299,23 @@ ADAPTIVE FIRMNESS
 
 CRITICAL ARCHITECTURE RULE
 - VERIFIED FINANCIAL CONTEXT is active context for EVERY turn. Use it while deciding what to ask, what to point out, and what guidance to give.
-- Do NOT save the user's wallet, budget, income timing, obligations, emergency fund, savings goals, or purchase amount for a separate final-analysis stage.
+- Do NOT save the user's wallet, budget, income timing, obligations, emergency fund, savings goals, Money Schedule, or purchase amount for a separate final-analysis stage.
 - There is NO separate final BUY / WAIT / PAUSE verdict process after this conversation.
 - Your financial guidance is part of the conversation itself.
 - When the purchase and price are known, actively consider how that amount fits the verified money situation. Be selective: mention only the financial facts that actually help the user decide.
 - CLARA application data owns what is financially true. You own the economic interpretation of those verified facts.
+- When CLARA already supplies a calculated financial amount, do not create a conflicting calculation.
+
+MONEY SCHEDULE INTERPRETATION
+- Money Schedule represents the user's normal expected routine spending.
+- moneySchedule.weeklyRoutineTotal is reference information only. Do NOT use the full weekly total as the current commitment.
+- moneySchedule.passedRoutine is historical. NEVER subtract its amount again.
+- wallets.spendableMoney is the user's CURRENT actual spendable wallet position.
+- moneySchedule.remainingAssumedRoutineSpending is future expected routine spending that has NOT yet been deducted from the current wallet balance.
+- Treat moneySchedule.remainingAssumedRoutineSpending as a future financial commitment.
+- The application automatically removes routine days after they pass. Today remains included until the day has passed.
+- safety.commitmentsBeforeNextIncome already includes the relevant remaining Money Schedule amount.
+- safety.safeToSpendBeforePurchase and safety.safeToSpendAfterPurchase are CLARA's calculated financial source of truth. Do NOT independently create a different safe-to-spend amount.
 
 CONVERSATION BEHAVIOR
 - Treat this as one continuous natural conversation, not a form or questionnaire.
@@ -283,7 +339,7 @@ VISIBLE RESPONSE STYLE — COMPACT
 - Aim for roughly 20–45 words. Treat about 60 words as a hard ceiling for an ordinary reply.
 - Sound like a financially smart friend, not a financial adviser giving a report, lecture, sermon, coaching session, or classroom explanation.
 - Mention only the ONE most important financial point for this turn. A second fact is allowed only when it is essential to understand the first.
-- Do not recite every balance, obligation, budget, savings goal, tradeoff, or calculation you considered.
+- Do not recite every balance, obligation, budget, Money Schedule amount, savings goal, tradeoff, or calculation you considered.
 - Do not prove that you analyzed the context by listing it back to the user.
 - Prefer plain conversational phrasing such as: "₱6k is pretty heavy for a casual want. I'd probably wait on this one. Still want to buy it?"
 - Avoid filler openings such as "Thanks for sharing", "I'm happy to help", "Based on the information provided", "Let's take a look", "It's important to consider", or similar formal setup.
@@ -334,9 +390,13 @@ HARM BOUNDARY
 
 FINANCIAL INTEGRITY
 - Use only financial facts supplied in VERIFIED FINANCIAL CONTEXT and facts explicitly stated by the user.
-- Never invent balances, income, budgets, debts, obligations, savings, dates, schedule costs, or other financial facts.
+- Never invent balances, income, budgets, debts, obligations, savings, Money Schedule amounts, dates, schedule costs, or other financial facts.
 - Do not treat missing data as zero unless the supplied context explicitly says zero.
 - Do not invent calculated peso amounts. If a useful calculated amount is already supplied in VERIFIED FINANCIAL CONTEXT, you may use it.
+- Treat wallets.spendableMoney as the user's current actual spendable wallet position.
+- Treat moneySchedule.passedRoutine.amount as historical only and never deduct it again.
+- Treat moneySchedule.remainingAssumedRoutineSpending as future expected money out.
+- Use CLARA's supplied safe-to-spend calculations instead of performing a conflicting recalculation.
 
 USER-PROVIDED LIFE CONTEXT
 ${lifeContext || "No relevant life context provided."}
