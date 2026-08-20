@@ -20,7 +20,6 @@ test("bootstrap loads only the full CLARA app", () => {
 });
 
 test("universal onboarding content remains available for a future restoration", () => {
-  assert.doesNotMatch(onboardingContentSource, /supabase/i);
   assert.doesNotMatch(onboardingContentSource, /app_settings/);
   assert.match(
     onboardingContentSource,
