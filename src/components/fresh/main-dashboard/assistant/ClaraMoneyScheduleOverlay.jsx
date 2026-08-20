@@ -384,6 +384,140 @@ function ExpenseList({
   );
 }
 
+function WeeklyReviewDayCard({
+  day,
+  editingDayKey,
+  editingItemId,
+  editingField,
+  inlineLabelInput,
+  inlineAmountInput,
+  onRequestEdit,
+  onLabelChange,
+  onAmountChange,
+  onCommitLabel,
+  onCommitAmount,
+  onCancelEdit,
+}) {
+  return (
+    <article
+      className="rounded-[18px] border border-white/10 bg-white/[0.035] px-3.5 py-3"
+      data-clara-money-routine-review-day={day.key}
+    >
+      <div className="flex items-center justify-between gap-3 border-b border-white/8 pb-2.5">
+        <span className="text-[13px] font-black text-white/94">{day.name}</span>
+        <span className="text-[13px] font-black text-white">
+          {formatMoneyCentavos(totalItems(day.items))}
+        </span>
+      </div>
+
+      {day.items.length ? (
+        <div className="mt-2 grid gap-1.5">
+          {day.items.map((item) => {
+            const editingLabel =
+              editingDayKey === day.key &&
+              editingItemId === item.id &&
+              editingField === "label";
+            const editingAmount =
+              editingDayKey === day.key &&
+              editingItemId === item.id &&
+              editingField === "amount";
+
+            return (
+              <div
+                key={item.id}
+                className="flex min-h-9 items-center justify-between gap-2 rounded-[12px] px-1.5"
+                data-clara-money-routine-review-item="true"
+              >
+                {editingLabel ? (
+                  <div
+                    className="min-w-0 flex-1 rounded-[10px] border border-cyan-200/24 bg-cyan-200/[0.055] px-2 py-1"
+                    data-clara-money-routine-review-inline-label="true"
+                  >
+                    <input
+                      autoFocus
+                      value={inlineLabelInput}
+                      onChange={(event) => onLabelChange?.(event.target.value)}
+                      onFocus={(event) => event.currentTarget.select()}
+                      onBlur={() => onCommitLabel?.(day, item, { revertInvalid: true })}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          onCommitLabel?.(day, item);
+                        }
+                        if (event.key === "Escape") {
+                          event.preventDefault();
+                          onCancelEdit?.();
+                        }
+                      }}
+                      aria-label={`Edit ${day.name} ${item.label} name`}
+                      className="w-full bg-transparent text-[11.5px] font-black text-white outline-none"
+                    />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onRequestEdit?.(day, item, "label")}
+                    className="flex min-w-0 flex-1 items-center gap-1.5 py-1 text-left text-white/78 transition active:scale-[0.99]"
+                    aria-label={`Edit ${day.name} ${item.label} name`}
+                  >
+                    <span className="min-w-0 truncate text-[11.5px] font-bold">{item.label}</span>
+                    <PencilLine className="h-3 w-3 shrink-0 text-cyan-100/58" />
+                  </button>
+                )}
+
+                <span className="shrink-0 text-[10px] font-bold text-white/22">—</span>
+
+                {editingAmount ? (
+                  <div
+                    className="flex w-[82px] shrink-0 items-center justify-end gap-1 rounded-[10px] border border-cyan-200/24 bg-cyan-200/[0.055] px-2 py-1"
+                    data-clara-money-routine-review-inline-amount="true"
+                  >
+                    <span className="text-[11px] font-black text-[#8ffff8]/82">₱</span>
+                    <input
+                      autoFocus
+                      value={inlineAmountInput}
+                      onChange={(event) => onAmountChange?.(event.target.value)}
+                      onFocus={(event) => event.currentTarget.select()}
+                      onBlur={() => onCommitAmount?.(day, item, { revertInvalid: true })}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          onCommitAmount?.(day, item);
+                        }
+                        if (event.key === "Escape") {
+                          event.preventDefault();
+                          onCancelEdit?.();
+                        }
+                      }}
+                      inputMode="decimal"
+                      aria-label={`Edit ${day.name} ${item.label} amount`}
+                      className="w-full bg-transparent text-right text-[11.5px] font-black text-white outline-none"
+                    />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onRequestEdit?.(day, item, "amount")}
+                    className="flex shrink-0 items-center justify-end gap-1.5 py-1 text-[#8ffff8]/78 transition active:scale-95"
+                    aria-label={`Edit ${day.name} ${item.label} amount`}
+                  >
+                    <span className="text-[11.5px] font-black">
+                      {formatMoneyCentavos(item.amountCentavos)}
+                    </span>
+                    <PencilLine className="h-3 w-3 text-cyan-100/58" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="mt-2 text-[11px] font-semibold text-white/36">No routine expenses.</p>
+      )}
+    </article>
+  );
+}
+
 export default function ClaraMoneyScheduleOverlay({
   isActive = false,
   claraAssistantContext = {},
@@ -403,6 +537,9 @@ export default function ClaraMoneyScheduleOverlay({
   const [inlineEditingField, setInlineEditingField] = useState("");
   const [inlineLabelInput, setInlineLabelInput] = useState("");
   const [inlineAmountInput, setInlineAmountInput] = useState("");
+  const [reviewEditingDayKey, setReviewEditingDayKey] = useState("");
+  const [pendingReviewBasisEdit, setPendingReviewBasisEdit] = useState(null);
+  const [reviewInvalidationNotice, setReviewInvalidationNotice] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [savedRoutine, setSavedRoutine] = useState(null);
@@ -506,6 +643,15 @@ export default function ClaraMoneyScheduleOverlay({
     setInlineAmountInput("");
   };
 
+  const resetReviewInlineEditing = () => {
+    setReviewEditingDayKey("");
+    setInlineEditingItemId("");
+    setInlineEditingField("");
+    setInlineLabelInput("");
+    setInlineAmountInput("");
+    setError("");
+  };
+
   const resetRoutineFields = () => {
     setDays([]);
     setDayIndex(0);
@@ -513,6 +659,9 @@ export default function ClaraMoneyScheduleOverlay({
     setDraftText("");
     setEditItems([]);
     resetInlineItemEditing();
+    setReviewEditingDayKey("");
+    setPendingReviewBasisEdit(null);
+    setReviewInvalidationNotice(null);
     setError("");
     setBusy(false);
     setSavedRoutine(null);
@@ -586,7 +735,8 @@ export default function ClaraMoneyScheduleOverlay({
     const onKeyDown = (event) => {
       if (event.key === "Escape") {
         if (inlineEditingItemId) {
-          resetInlineItemEditing({ keepMode: true });
+          if (phase === "weekly-review") resetReviewInlineEditing();
+          else resetInlineItemEditing({ keepMode: true });
           return;
         }
         cancelConversationPacing();
@@ -595,7 +745,7 @@ export default function ClaraMoneyScheduleOverlay({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isActive, onClose, inlineEditingItemId]);
+  }, [isActive, onClose, inlineEditingItemId, phase]);
 
   useEffect(() => {
     scrollToLatest();
@@ -637,6 +787,7 @@ export default function ClaraMoneyScheduleOverlay({
     setEditItems([]);
     setCurrentBasisDayKey("");
     resetInlineItemEditing();
+    setReviewInvalidationNotice(null);
     setError("");
 
     const nextIndex = findNextMissingDayIndex(nextDays, dayIndex + 1);
@@ -1015,6 +1166,138 @@ export default function ClaraMoneyScheduleOverlay({
     );
   };
 
+  const beginReviewInlineEdit = (day, item, field) => {
+    setReviewEditingDayKey(day.key);
+    setInlineEditingItemId(item.id);
+    setInlineEditingField(field);
+    setInlineLabelInput(field === "label" ? item.label : "");
+    setInlineAmountInput(field === "amount" ? formatEditableAmount(item.amountCentavos) : "");
+    setError("");
+  };
+
+  const requestReviewInlineEdit = (day, item, field) => {
+    if (!interactionReady || pendingReviewBasisEdit) return;
+
+    const dependentIndexes = findDependentDayIndexes(days, day.key);
+    if (dependentIndexes.length) {
+      const dependentNames = dependentIndexes
+        .map((index) => days[index]?.name)
+        .filter(Boolean);
+      resetReviewInlineEditing();
+      setPendingReviewBasisEdit({
+        sourceDayKey: day.key,
+        sourceDayName: day.name,
+        itemId: item.id,
+        field,
+        dependentIndexes,
+        dependentNames,
+      });
+      return;
+    }
+
+    beginReviewInlineEdit(day, item, field);
+  };
+
+  const continueReviewBasisEdit = () => {
+    if (!pendingReviewBasisEdit) return;
+    const context = pendingReviewBasisEdit;
+    const nextDays = [...days];
+    context.dependentIndexes.forEach((index) => {
+      nextDays[index] = undefined;
+    });
+    setDays(nextDays);
+    setPendingReviewBasisEdit(null);
+    setReviewInvalidationNotice({
+      sourceDayName: context.sourceDayName,
+      dependentNames: context.dependentNames,
+    });
+
+    const sourceDay = nextDays.find((day) => day?.key === context.sourceDayKey);
+    const item = sourceDay?.items?.find((candidate) => candidate.id === context.itemId);
+    if (sourceDay && item) beginReviewInlineEdit(sourceDay, item, context.field);
+  };
+
+  const cancelReviewBasisEdit = () => {
+    setPendingReviewBasisEdit(null);
+    resetReviewInlineEditing();
+  };
+
+  const commitReviewLabelEdit = (day, item, options = {}) => {
+    const label = cleanText(inlineLabelInput);
+    if (!label) {
+      if (options.revertInvalid) {
+        resetReviewInlineEditing();
+        return false;
+      }
+      setError("Item name cannot be empty.");
+      return false;
+    }
+
+    setDays((current) =>
+      current.map((candidateDay) =>
+        candidateDay?.key === day.key
+          ? {
+              ...candidateDay,
+              items: candidateDay.items.map((candidate) =>
+                candidate.id === item.id ? { ...candidate, label } : candidate
+              ),
+            }
+          : candidateDay
+      )
+    );
+    resetReviewInlineEditing();
+    return true;
+  };
+
+  const commitReviewAmountEdit = (day, item, options = {}) => {
+    const amountCentavos = parseAmountToCentavos(inlineAmountInput);
+    if (amountCentavos <= 0) {
+      if (options.revertInvalid) {
+        resetReviewInlineEditing();
+        return false;
+      }
+      setError("Enter an amount greater than zero.");
+      return false;
+    }
+
+    setDays((current) =>
+      current.map((candidateDay) =>
+        candidateDay?.key === day.key
+          ? {
+              ...candidateDay,
+              items: candidateDay.items.map((candidate) =>
+                candidate.id === item.id ? { ...candidate, amountCentavos } : candidate
+              ),
+            }
+          : candidateDay
+      )
+    );
+    resetReviewInlineEditing();
+    return true;
+  };
+
+  const recreateMissingDayFromReview = (index) => {
+    if (!interactionReady) return;
+    const weekday = CLARA_MONEY_ROUTINE_WEEKDAYS[index];
+    if (!weekday) return;
+
+    setPendingReviewBasisEdit(null);
+    setReviewInvalidationNotice(null);
+    resetReviewInlineEditing();
+    setDayIndex(index);
+    setCurrentBasisDayKey("");
+    setDraftText("");
+    setEditItems([]);
+    setError("");
+    runAssistantSequence(
+      [
+        `Let’s recreate ${weekday.name}.`,
+        `Choose a completed day to reuse, copy one and change it, or make ${weekday.name} completely different.`,
+      ],
+      "day-choice"
+    );
+  };
+
   const finishPreviousDayEdit = (finalItems = editItems) => {
     const context = editReturnContext;
     if (!context) return false;
@@ -1095,7 +1378,12 @@ export default function ClaraMoneyScheduleOverlay({
   };
 
   const saveRoutine = () => {
-    if (busy || !interactionReady) return;
+    if (busy || !interactionReady || reviewEditingDayKey) return;
+    if (findNextMissingDayIndex(days, 0) >= 0) {
+      setError("Recreate every cleared day before saving your routine.");
+      return;
+    }
+
     setBusy(true);
     setError("");
 
@@ -1125,6 +1413,7 @@ export default function ClaraMoneyScheduleOverlay({
   };
 
   const weeklyTotal = days.reduce((sum, day) => sum + totalItems(day?.items), 0);
+  const routineComplete = findNextMissingDayIndex(days, 0) < 0;
   const controlsReady = interactionReady && !pendingMessage && phase !== "responding" && !busy;
 
   return (
@@ -1311,35 +1600,95 @@ export default function ClaraMoneyScheduleOverlay({
 
           {phase === "weekly-review" && controlsReady ? (
             <>
-              <section className="mt-1 rounded-[22px] border border-blue-200/12 bg-[#07142b]/88 p-3.5">
-                <div className="grid gap-2">
-                  {days.filter(Boolean).map((day) => (
-                    <button
-                      key={day.key}
-                      type="button"
-                      onClick={() => choosePreviousDayToEdit(day, "weekly-review")}
-                      className="flex items-center justify-between gap-3 rounded-[15px] border border-white/8 bg-white/[0.035] px-3.5 py-3 text-left transition active:scale-[0.99]"
-                      aria-label={`Edit ${day.name} routine`}
-                    >
-                      <div className="min-w-0">
-                        <p className="text-[12.5px] font-black text-white/92">{day.name}</p>
-                        <p className="mt-0.5 truncate text-[10.5px] font-semibold text-white/40">
-                          {day.items.length
-                            ? day.items.map((item) => item.label).join(" · ")
-                            : "No routine expenses"}
-                        </p>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <span className="block text-[12px] font-black text-[#8ffff8]/82">
-                          {formatMoneyCentavos(totalItems(day.items))}
-                        </span>
-                        <span className="mt-0.5 block text-[9px] font-black uppercase tracking-[0.12em] text-white/34">
-                          Edit
-                        </span>
-                      </div>
-                    </button>
-                  ))}
+              <section
+                className="mt-1 rounded-[22px] border border-blue-200/12 bg-[#07142b]/88 p-3.5"
+                data-clara-money-routine-weekly-review="true"
+              >
+                {pendingReviewBasisEdit ? (
+                  <div
+                    className="mb-3 rounded-[16px] border border-amber-200/18 bg-amber-300/[0.055] p-3"
+                    data-clara-money-routine-review-basis-warning="true"
+                  >
+                    <p className="text-[11.5px] font-black leading-5 text-amber-50/92">
+                      {pendingReviewBasisEdit.sourceDayName} is the basis for {joinDayNames(pendingReviewBasisEdit.dependentNames)}.
+                    </p>
+                    <p className="mt-1 text-[10.5px] font-semibold leading-4 text-white/52">
+                      Continuing will delete {pendingReviewBasisEdit.dependentNames.length === 1 ? "that copied day" : "those copied days"}. You’ll need to recreate {pendingReviewBasisEdit.dependentNames.length === 1 ? "it" : "them"} before saving.
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={continueReviewBasisEdit}
+                        className="min-h-10 rounded-[13px] bg-amber-200/14 px-3 text-[10.5px] font-black text-amber-50 active:scale-[0.985]"
+                      >
+                        Continue
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelReviewBasisEdit}
+                        className="min-h-10 rounded-[13px] border border-white/10 bg-white/[0.035] px-3 text-[10.5px] font-black text-white/72 active:scale-[0.985]"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {reviewInvalidationNotice ? (
+                  <div className="mb-3 rounded-[16px] border border-cyan-200/14 bg-cyan-200/[0.04] px-3 py-2.5">
+                    <p className="text-[10.5px] font-bold leading-4 text-white/58">
+                      {joinDayNames(reviewInvalidationNotice.dependentNames)} {reviewInvalidationNotice.dependentNames.length === 1 ? "was" : "were"} cleared because {reviewInvalidationNotice.dependentNames.length === 1 ? "it was" : "they were"} based on {reviewInvalidationNotice.sourceDayName}. Recreate {reviewInvalidationNotice.dependentNames.length === 1 ? "that day" : "those days"} below before saving.
+                    </p>
+                  </div>
+                ) : null}
+
+                <div className="grid gap-2.5">
+                  {CLARA_MONEY_ROUTINE_WEEKDAYS.map((weekday, index) => {
+                    const day = days[index];
+                    if (!day) {
+                      return (
+                        <div
+                          key={weekday.key}
+                          className="rounded-[18px] border border-dashed border-amber-200/18 bg-amber-300/[0.03] px-3.5 py-3"
+                          data-clara-money-routine-review-missing-day={weekday.key}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-[13px] font-black text-white/82">{weekday.name}</span>
+                            <span className="text-[9.5px] font-black uppercase tracking-[0.1em] text-amber-100/62">
+                              Needs recreation
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => recreateMissingDayFromReview(index)}
+                            className="mt-2 min-h-9 w-full rounded-[12px] border border-amber-100/14 bg-amber-200/[0.06] px-3 text-[10.5px] font-black text-amber-50/88 active:scale-[0.99]"
+                          >
+                            Recreate {weekday.name}
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <WeeklyReviewDayCard
+                        key={day.key}
+                        day={day}
+                        editingDayKey={reviewEditingDayKey}
+                        editingItemId={inlineEditingItemId}
+                        editingField={inlineEditingField}
+                        inlineLabelInput={inlineLabelInput}
+                        inlineAmountInput={inlineAmountInput}
+                        onRequestEdit={requestReviewInlineEdit}
+                        onLabelChange={changeInlineLabelInput}
+                        onAmountChange={changeInlineAmountInput}
+                        onCommitLabel={commitReviewLabelEdit}
+                        onCommitAmount={commitReviewAmountEdit}
+                        onCancelEdit={resetReviewInlineEditing}
+                      />
+                    );
+                  })}
                 </div>
+
                 <div className="mt-3 flex items-center justify-between border-t border-white/8 pt-3">
                   <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/38">
                     Normal weekly routine
@@ -1350,8 +1699,15 @@ export default function ClaraMoneyScheduleOverlay({
                 </div>
               </section>
               <div className="grid gap-2.5">
-                <ChoiceButton onClick={saveRoutine} disabled={busy}>
-                  {busy ? "Saving..." : "Save my routine"}
+                <ChoiceButton
+                  onClick={saveRoutine}
+                  disabled={busy || !routineComplete || Boolean(reviewEditingDayKey)}
+                >
+                  {busy
+                    ? "Saving..."
+                    : !routineComplete
+                      ? "Recreate missing days first"
+                      : "Save my routine"}
                 </ChoiceButton>
                 <ChoiceButton onClick={resetFlow} disabled={busy} secondary>
                   Start over
