@@ -3,7 +3,6 @@ import {
   readClaraMoneyRoutine,
 } from "./clara-money-schedule-repository.js";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_HORIZON_DAYS = 62;
 
 const clean = (value = "") => String(value ?? "").replace(/\s+/g, " ").trim();
@@ -11,7 +10,9 @@ const safeList = (value) => Array.isArray(value) ? value.filter(Boolean) : [];
 const safeRecord = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
 
 function toCentavos(value) {
-  if (Number.isInteger(value) && value >= 0) return value;
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? Math.max(0, Math.round(value * 100)) : 0;
+  }
   const parsed = Number(String(value ?? "").replace(/[₱,\s]/g, ""));
   return Number.isFinite(parsed) ? Math.max(0, Math.round(parsed * 100)) : 0;
 }
@@ -160,7 +161,6 @@ function analyzeMoneyScheduleRoutine(context = {}, incomeRunway = {}, options = 
     remainingCentavos += routineDay.totalCentavos;
     const current = byWeekday.get(routineDay.key) || {
       day: routineDay.name,
-      weekdayIndex: routineDay.weekdayIndex,
       occurrences: 0,
       amountPerOccurrenceCentavos: routineDay.totalCentavos,
       totalCentavos: 0,
