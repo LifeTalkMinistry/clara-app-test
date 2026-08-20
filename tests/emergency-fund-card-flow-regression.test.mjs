@@ -28,6 +28,22 @@ test("adding reserve money moves wallets directly instead of creating a temporar
   assert.doesNotMatch(card, /finalStorageWallet = activeStorageWallet \|\| sourceWallet/);
 });
 
+test("same-wallet reserve allocation is classification only and does not move wallet money", () => {
+  assert.match(card, /const shouldMoveWalletMoney = sourceWalletId !== finalStorageId/);
+  assert.match(card, /if \(shouldMoveWalletMoney\) \{/);
+  assert.match(card, /Protected inside \$\{finalStorageName\}/);
+});
+
+test("legacy same-wallet allocation migration cannot synthesize a wallet refund", () => {
+  assert.match(allocationSync, /const sameWalletAllocation = Boolean/);
+  assert.match(allocationSync, /fromWalletId === toWalletId/);
+  const guardBlock = allocationSync.match(/if \(sameWalletAllocation\) \{[\s\S]*?continue;\n\s*\}/)?.[0] || "";
+  assert.ok(guardBlock);
+  assert.match(guardBlock, /processedIdsRef\.current\.add\(processingKey\)/);
+  assert.doesNotMatch(guardBlock, /deleteExpense|transferBetweenWallets/);
+  assert.match(allocationSync, /can manufacture[\s\S]*₱2,500 -> ₱4,500/);
+});
+
 test("using the reserve creates a real wallet expense and rolls it back if protection cannot save", () => {
   assert.match(card, /category: "Emergency Fund Used"/);
   assert.match(card, /planning_status: "unplanned"/);
