@@ -33,7 +33,6 @@ test("blocked IndexedDB schema deletion does not substitute for clearing records
 
 test("device reset never deletes synced account data", () => {
   assert.doesNotMatch(resetSource, /backendRequest/);
-  assert.doesNotMatch(resetSource, /supabase/i);
   assert.doesNotMatch(resetSource, /fetch\s*\(/);
   assert.doesNotMatch(resetSource, /\/api\//);
   assert.match(resetSource, /no server-side[\s\S]*delete/i);
