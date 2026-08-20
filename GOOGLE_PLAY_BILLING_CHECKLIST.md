@@ -1,83 +1,50 @@
 # CLARA Google Play Billing Checklist
 
-## Current customer subscription
+## Product rule
 
-- Product ID: `clara_commitment_249`
-- Base plan ID / plan key: `committed_249`
-- Base plan status: active
-- Type: monthly subscription
-- Price: ₱249/month
-- Canonical plan: `committed_249`
-- Canonical access level: `committed`
-- Free trial requirement: none
+CLARA core app access is free. A Google Play purchase must not be used to unlock or restrict normal finance, AI, dashboard, community, or accountability features.
 
-The current app must not query, display, or sell any retired product ID.
+Paid flows are support/coaching flows and must stay separate from core app entitlement.
 
-## Trusted activation flow
+## Android purchase requirements
 
-1. The Android client opens Google Play for `clara_commitment_249`.
-2. `/enroll`, onboarding, and the dashboard commitment modal must request the monthly committed subscription flow.
-3. The app must not require or validate a free-trial offer token.
-4. The client receives a purchase token.
-5. The token is sent to `verify-google-play-purchase`.
-6. The Edge Function authenticates the CLARA user and verifies the token with Google Play.
-7. The backend calls `process_google_play_purchase`.
-8. Supabase writes the canonical membership fields, including `subscription_expires_at`.
-9. The client refreshes the profile and the shared membership resolver unlocks access.
+- Use the native Google Play Billing bridge for product discovery, purchase launch, ownership queries, and acknowledgement.
+- Never treat a successful client-side purchase callback by itself as trusted server verification.
+- Pending purchases must not be treated as completed purchases.
+- Purchased items should be acknowledged when required by Google Play.
+- Keep purchase tokens and order identifiers out of logs except for safely masked diagnostics.
 
-A successful client-side order call alone must never activate membership.
+## Backend ownership
 
-## Active access handling
+Any future server-verified Google Play purchase flow must be implemented by the CLARA Backend. The app must send the minimum required purchase evidence to a dedicated authenticated CLARA Backend endpoint and receive a canonical support/payment result.
 
-- `active`, `approved`, `committed`, and other trusted paid/verified backend statuses can unlock committed access after trusted backend verification.
-- `cancelled`, `canceled`, `expired`, `revoked`, `payment_failed`, and `account_hold` must not be treated as active access states.
-- `subscription_expires_at` must always be stored when Google returns `expiryTimeMillis`.
+Do not reintroduce a frontend database SDK or direct database writes for billing verification.
 
-## Lifecycle sync
+At the time of this checklist, do not assume a server purchase-verification endpoint exists unless it is present and tested in `clara-backend`.
 
-`verify-google-play-purchase` handles the first trusted activation only. Ongoing access must be maintained by `sync-google-play-entitlements`.
+## Support and entitlement separation
 
-The lifecycle sync must run on a schedule to handle:
+A support purchase may update supporter state or payment history, but it must not mutate the user's normal CLARA app access.
 
-- cancellation
-- expiry
-- payment failure
-- account hold / payment pending states
-- renewal expiry changes
+Expected invariant:
 
-Admin override users must not be downgraded by lifecycle sync.
-
-Recommended Supabase cron setup:
-
-- Deploy `supabase/functions/sync-google-play-entitlements`.
-- Configure `GOOGLE_SERVICE_ACCOUNT_JSON` and `SUPABASE_SERVICE_ROLE_KEY`.
-- Optionally configure `GOOGLE_PLAY_SYNC_SECRET`.
-- Schedule the function every 15 to 60 minutes while testing, then adjust based on production need.
-- Call the function with either `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>` or `x-sync-secret: <GOOGLE_PLAY_SYNC_SECRET>`.
+```text
+support/payment state changes
+!=
+core CLARA feature entitlement changes
+```
 
 ## Play testing requirements
 
-Real billing tests must use an app installed from a Google Play testing track. Sideloaded builds, wrong tester accounts, unaccepted tester invitations, stale Play Store cache, or product propagation delays can make the product/base plan appear unavailable even when the code is correct.
+Real billing tests must use an app installed from a Google Play testing track. Sideloaded builds, the wrong tester account, an unaccepted tester invitation, stale Play Store cache, or product propagation delays can make a product unavailable even when the native integration is correct.
 
-## Historical receipts
+## Release checklist
 
-Retired product IDs may remain only in the Edge Function and SQL product mapper as a legacy receipt allowlist. They are normalized to `committed_249` after trusted verification and are never offered for a new purchase.
-
-## Required profile result after verification
-
-- `plan = committed_249`
-- `plan_key = committed_249`
-- `subscription_plan = committed_249`
-- `access_level = committed`
-- `subscription_status = active`
-- `subscription_label = CLARA Commitment`
-- `subscription_expires_at` set from Google `expiryTimeMillis`
-- `enrollment_status = approved`
-- `status = active`
-- `is_enrolled = true`
-- `program_active = true`
-- `entitlement_status = active`
-- `activation_status = active`
-- `is_activated = true`
-- `activated_at` set by the backend
-- `last_billing_sync_at` set by verification/sync
+- Correct application package id and signing configuration.
+- Correct Play testing track and tester account.
+- Product/base plan is active when a paid product is intentionally offered.
+- Pending state does not grant completed purchase status.
+- Purchase acknowledgement succeeds when required.
+- Restore/ownership query handles an already-owned item safely.
+- Failed network/server verification cannot create trusted paid state.
+- Core CLARA features remain available independently of support/payment state.
