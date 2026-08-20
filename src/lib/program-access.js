@@ -22,7 +22,7 @@ export async function maybeSingle(query) {
 }
 
 export async function ensureUserProgramAccess({
-  supabase,
+  dataClient,
   user,
   profile,
   enrollment = null,
@@ -37,7 +37,7 @@ export async function ensureUserProgramAccess({
   if (!hasEligibleTask) return null;
 
   const existing = await maybeSingle(
-    supabase.from("user_programs").select("*").eq("user_id", user.id)
+    dataClient.from("user_programs").select("*").eq("user_id", user.id)
   );
 
   if (existing) return existing;
@@ -53,7 +53,7 @@ export async function ensureUserProgramAccess({
     current_day_status: "not_started",
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await dataClient
     .from("user_programs")
     .insert([payload])
     .select("*")
@@ -64,7 +64,7 @@ export async function ensureUserProgramAccess({
   return data;
 }
 
-export async function startUserChallenge({ supabase, user, profile, programRecord = null }) {
+export async function startUserChallenge({ dataClient, user, profile, programRecord = null }) {
   if (!user?.id) return null;
 
   const now = new Date();
@@ -92,13 +92,13 @@ export async function startUserChallenge({ supabase, user, profile, programRecor
   };
 
   const query = programRecord?.id
-    ? supabase.from("user_programs").update(payload).eq("id", programRecord.id)
-    : supabase.from("user_programs").upsert(payload, { onConflict: "user_id" });
+    ? dataClient.from("user_programs").update(payload).eq("id", programRecord.id)
+    : dataClient.from("user_programs").upsert(payload, { onConflict: "user_id" });
 
   const { data, error } = await query.select("*").single();
   if (error) throw error;
 
-  await supabase
+  await dataClient
     .from("profiles")
     .update({
       program_started_at: payload.program_started_at,
@@ -118,7 +118,7 @@ export async function startUserChallenge({ supabase, user, profile, programRecor
   return data;
 }
 
-export async function syncChallengeDaySummary({ supabase, userId, programRecord }) {
+export async function syncChallengeDaySummary({ dataClient, userId, programRecord }) {
   if (!userId || !programRecord?.challenge_started) return null;
 
   const activeDay = getCurrentChallengeDay(
@@ -131,7 +131,7 @@ export async function syncChallengeDaySummary({ supabase, userId, programRecord 
     updated_at: new Date().toISOString(),
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await dataClient
     .from("user_programs")
     .update(patch)
     .eq("user_id", userId)
@@ -140,7 +140,7 @@ export async function syncChallengeDaySummary({ supabase, userId, programRecord 
 
   if (error) throw error;
 
-  await supabase
+  await dataClient
     .from("profiles")
     .update({
       active_day_number: activeDay,
@@ -151,14 +151,14 @@ export async function syncChallengeDaySummary({ supabase, userId, programRecord 
   return data || { ...programRecord, ...patch };
 }
 
-export async function completeUserProgram({ supabase, userId, profile, programRecord }) {
+export async function completeUserProgram({ dataClient, userId, profile, programRecord }) {
   if (!userId || profile?.program_completed_at) return null;
 
   const completionPatch = buildProgramCompletionPatch(profile, new Date());
 
-  const profileResult = await supabase.from("profiles").update(completionPatch).eq("id", userId);
+  const profileResult = await dataClient.from("profiles").update(completionPatch).eq("id", userId);
   const programResult = programRecord?.id
-    ? await supabase
+    ? await dataClient
         .from("user_programs")
         .update({
           program_completed_at: completionPatch.program_completed_at,
@@ -176,22 +176,22 @@ export async function completeUserProgram({ supabase, userId, profile, programRe
   return completionPatch;
 }
 
-export async function fetchUserProgramRecord({ supabase, userId }) {
+export async function fetchUserProgramRecord({ dataClient, userId }) {
   if (!userId) return null;
 
   return maybeSingle(
-    supabase.from("user_programs").select("*").eq("user_id", userId)
+    dataClient.from("user_programs").select("*").eq("user_id", userId)
   );
 }
 
 export async function resetUserProgramProgress({
-  supabase,
+  dataClient,
   userId,
   programTaskIds = [],
 }) {
   const today = new Date().toISOString().slice(0, 10);
 
-  await supabase
+  await dataClient
     .from("user_programs")
     .update({
       program_start_date: today,
@@ -202,7 +202,7 @@ export async function resetUserProgramProgress({
     .eq("user_id", userId);
 
   if (programTaskIds.length > 0) {
-    await supabase
+    await dataClient
       .from("task_submissions")
       .delete()
       .eq("user_id", userId)
@@ -211,13 +211,13 @@ export async function resetUserProgramProgress({
 }
 
 export async function overrideUserProgramDay({
-  supabase,
+  dataClient,
   userId,
   unlockUntil,
 }) {
   const nextValue = Number(unlockUntil) || 1;
 
-  const { error } = await supabase
+  const { error } = await dataClient
     .from("user_programs")
     .update({
       manual_unlock_until: nextValue,
