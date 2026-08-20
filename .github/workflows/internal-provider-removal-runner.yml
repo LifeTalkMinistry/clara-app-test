@@ -1,4 +1,4 @@
-name: Internal provider removal runner
+name: Internal provider removal verifier
 
 on:
   issues:
@@ -8,46 +8,49 @@ permissions:
   contents: write
 
 jobs:
-  remove-provider:
-    if: github.event.issue.title == '[CLARA_INTERNAL] remove legacy provider'
+  verify-provider-removal:
+    if: github.event.issue.title == '[CLARA_INTERNAL] verify provider removal'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
-      - name: Check out cleanup branch
+      - name: Check out prepared verification branch
         uses: actions/checkout@v4
         with:
-          ref: remove-supabase-completely
+          ref: provider-removal-verify-main
           fetch-depth: 0
           token: ${{ github.token }}
-
-      - name: Apply source migration
-        run: node .github/scripts/remove-supabase-completely.mjs
 
       - name: Refresh dependency lock
         run: npm install --package-lock-only --ignore-scripts
 
-      - name: Prove zero legacy-provider references
-        shell: bash
-        run: |
-          if grep -RniI --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist 'supabase' .; then
-            echo 'Legacy provider references remain.'
-            exit 1
-          fi
-
-      - name: Install dependencies
+      - name: Install exact dependencies
         run: npm ci
 
       - name: Verify production build
         run: npm run build
 
-      - name: Commit verified migration
+      - name: Remove branch-only verifier
+        run: rm -f .github/workflows/verify-provider-removal.yml
+
+      - name: Prove zero legacy-provider references
+        shell: bash
+        run: |
+          needle='supa''base'
+          if grep -RniI --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist "$needle" .; then
+            echo 'Legacy provider references remain.'
+            exit 1
+          fi
+
+      - name: Commit verified branch state
         shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git diff --name-only -z | xargs -0 -r git add --
-          git ls-files --others --exclude-standard -z | xargs -0 -r git add --
-          git status --short
-          git commit -m 'Remove Supabase completely from CLARA app'
-          git push origin HEAD:remove-supabase-completely
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No verification changes to commit.'
+          else
+            git commit -m 'Finalize provider removal on latest main'
+            git push origin HEAD:provider-removal-verify-main
+          fi
