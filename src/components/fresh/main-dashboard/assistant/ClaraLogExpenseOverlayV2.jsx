@@ -14,6 +14,15 @@ import {
   getClaraReplyDelay,
   getClaraTypingPlan,
 } from "@/lib/clara-conversation-pacing";
+import {
+  requestClaraWalletCreation,
+  requestClaraWalletFunding,
+} from "@/lib/clara-wallet-action-events";
+import {
+  getWalletId,
+  getWalletName,
+  isActiveWalletForMoneySemantics,
+} from "@/lib/clara-wallet-money-semantics";
 
 function money(value = 0) {
   const parsed = Number(value);
@@ -133,6 +142,7 @@ export default function ClaraLogExpenseOverlayV2({
   const [pendingMessage, setPendingMessage] = useState(null);
   const [typedText, setTypedText] = useState("");
   const [interactionReady, setInteractionReady] = useState(false);
+  const [walletHandoffActive, setWalletHandoffActive] = useState(false);
   const viewportRef = useRef(null);
   const timerIdsRef = useRef(new Set());
   const typingTimerRef = useRef(null);
@@ -144,6 +154,21 @@ export default function ClaraLogExpenseOverlayV2({
   const walletOptions = useMemo(
     () => getWalletOptions(claraAssistantContext, amount),
     [claraAssistantContext, amount]
+  );
+
+  const activeWallets = useMemo(
+    () =>
+      (Array.isArray(claraAssistantContext?.wallets)
+        ? claraAssistantContext.wallets
+        : []
+      )
+        .filter(isActiveWalletForMoneySemantics)
+        .map((wallet) => ({
+          id: getWalletId(wallet),
+          name: getWalletName(wallet) || "Wallet",
+        }))
+        .filter((wallet) => wallet.id),
+    [claraAssistantContext?.wallets]
   );
 
   const scrollToLatest = () => {
@@ -227,6 +252,7 @@ export default function ClaraLogExpenseOverlayV2({
     setWalletId("");
     setBusy(false);
     setError("");
+    setWalletHandoffActive(false);
   };
 
   const startOpeningConversation = () => {
@@ -336,6 +362,36 @@ export default function ClaraLogExpenseOverlayV2({
     );
   };
 
+  const handOffToWalletFlow = (callback) => {
+    setWalletHandoffActive(true);
+    if (typeof window === "undefined") {
+      callback();
+      return;
+    }
+    window.requestAnimationFrame(callback);
+  };
+
+  const createWalletAndReturn = () => {
+    handOffToWalletFlow(() =>
+      requestClaraWalletCreation({
+        source: "log-expense",
+        amount,
+        item,
+      })
+    );
+  };
+
+  const fundWalletAndReturn = (wallet) => {
+    if (!wallet?.id) return;
+    handOffToWalletFlow(() =>
+      requestClaraWalletFunding(wallet.id, {
+        source: "log-expense",
+        amount,
+        item,
+      })
+    );
+  };
+
   const logExpense = async () => {
     if (busy || !interactionReady) return;
     const wallet = walletOptions.find((option) => option.id === walletId);
@@ -394,11 +450,12 @@ export default function ClaraLogExpenseOverlayV2({
 
   return (
     <div
-      className="fixed inset-0 z-[250] mx-auto flex w-full max-w-[430px] flex-col overflow-hidden bg-[#020714]/98 px-2 pb-[max(env(safe-area-inset-bottom),14px)] pt-[max(env(safe-area-inset-top),10px)] text-white"
+      className={`fixed inset-0 ${walletHandoffActive ? "z-[100]" : "z-[250]"} mx-auto flex w-full max-w-[430px] flex-col overflow-hidden bg-[#020714]/98 px-2 pb-[max(env(safe-area-inset-bottom),14px)] pt-[max(env(safe-area-inset-top),10px)] text-white`}
       data-clara-ai-layout-variant="log-expense"
       data-clara-pause-overlay="true"
       data-clara-buy-check-react-owner="true"
       data-clara-log-expense-chat="true"
+      data-clara-log-expense-wallet-handoff={walletHandoffActive ? "true" : "false"}
       data-clara-conversation-pacing="masterclass"
     >
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_5%_4%,rgba(23,105,255,0.28),transparent_34%),radial-gradient(circle_at_96%_8%,rgba(43,225,216,0.12),transparent_34%),linear-gradient(180deg,#06152e_0%,#040b1a_44%,#020714_100%)]" />
@@ -460,8 +517,22 @@ export default function ClaraLogExpenseOverlayV2({
                   </span>
                   <span className="shrink-0 text-[12px] font-black text-[#8ffff8]/82">{money(wallet.balance)}</span>
                 </button>
-              )) : (
-                <Bubble role="assistant">I can’t find a spendable wallet yet. Add or fund a wallet first, then come back here.</Bubble>
+              )) : activeWallets.length ? (
+                <>
+                  <Bubble role="assistant">I can see your wallet setup, but there isn’t any spendable money available yet. Add money to a wallet and we can continue.</Bubble>
+                  {activeWallets.map((wallet) => (
+                    <ChoiceButton key={wallet.id} onClick={() => fundWalletAndReturn(wallet)}>
+                      Add money to {wallet.name}
+                    </ChoiceButton>
+                  ))}
+                  <ChoiceButton onClick={closeChat} secondary>Not now</ChoiceButton>
+                </>
+              ) : (
+                <>
+                  <Bubble role="assistant">It looks like you don’t have a wallet yet. You’ll need one before I can log this expense. Want to create one now?</Bubble>
+                  <ChoiceButton onClick={createWalletAndReturn}>Create a Wallet</ChoiceButton>
+                  <ChoiceButton onClick={closeChat} secondary>Not now</ChoiceButton>
+                </>
               )}
             </div>
           ) : null}

@@ -14,6 +14,10 @@ import {
 } from "./shared/financialCarouselFocus";
 import "./shared/financialCarouselGuideMatchedVisual.css";
 import useEmergencyFundAllocationSync from "@/components/fresh/main-dashboard/carousel/logic/useEmergencyFundAllocationSync";
+import {
+  CLARA_OPEN_ADD_MONEY_EVENT,
+  CLARA_OPEN_CREATE_WALLET_EVENT,
+} from "@/lib/clara-wallet-action-events";
 import { COMMITTED_PLAN_KEY, FREE_PLAN_KEY } from "@/lib/membership";
 
 export default function FinancialCarousel(props) {
@@ -48,6 +52,8 @@ export default function FinancialCarousel(props) {
     guideAllowedSwipeDirection = null,
     guideMaxStepPerInteraction = null,
     guideCarouselLocked = false,
+    onCreateWallet,
+    onAddMoney,
   } = props;
 
   const effectiveUser = isGuideMode ? null : user;
@@ -153,6 +159,37 @@ export default function FinancialCarousel(props) {
     root.classList.toggle(FINANCIAL_CAROUSEL_FOCUS_CLASS, isInlineFocusExpanded);
     return () => root.classList.remove(FINANCIAL_CAROUSEL_FOCUS_CLASS);
   }, [isInlineFocusExpanded]);
+
+  useEffect(() => {
+    if (isGuideMode || typeof window === "undefined") return undefined;
+
+    const handleCreateWalletRequest = () => {
+      onCreateWallet?.();
+    };
+
+    const handleAddMoneyRequest = (event) => {
+      const requestedWalletId = String(
+        event?.detail?.walletId || event?.detail?.wallet_id || ""
+      ).trim();
+      if (!requestedWalletId) return;
+
+      const wallet = (Array.isArray(wallets) ? wallets : []).find((entry) =>
+        String(
+          entry?.id || entry?.wallet_id || entry?.walletId || entry?.local_id || ""
+        ) === requestedWalletId
+      );
+
+      if (wallet) onAddMoney?.(wallet);
+    };
+
+    window.addEventListener(CLARA_OPEN_CREATE_WALLET_EVENT, handleCreateWalletRequest);
+    window.addEventListener(CLARA_OPEN_ADD_MONEY_EVENT, handleAddMoneyRequest);
+
+    return () => {
+      window.removeEventListener(CLARA_OPEN_CREATE_WALLET_EVENT, handleCreateWalletRequest);
+      window.removeEventListener(CLARA_OPEN_ADD_MONEY_EVENT, handleAddMoneyRequest);
+    };
+  }, [isGuideMode, onAddMoney, onCreateWallet, wallets]);
 
   useEffect(() => {
     if (!isGuideMode || typeof onGuideCarouselIndexChange !== "function") return undefined;
