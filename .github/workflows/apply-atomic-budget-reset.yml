@@ -75,3 +75,5 @@ jobs:
           git diff --cached --stat
           git commit -m "Canonicalize financial source of truth"
           git push origin HEAD:fix/atomic-budget-reset-ready
+
+# retrigger canonical finance repair
