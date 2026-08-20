@@ -159,6 +159,7 @@ export default function ClaraAiEnvironmentOverlay(props) {
       });
       setWalletHandoff({
         ...detail,
+        intent: detail?.intent === "create" ? undefined : detail?.intent,
         source: "log-expense",
         returnMode: "log-expense",
       });
