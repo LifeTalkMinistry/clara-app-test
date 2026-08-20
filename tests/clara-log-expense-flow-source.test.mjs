@@ -152,13 +152,31 @@ test("Money Schedule can rebuild invalidated days while preserving unaffected co
   assert.match(moneyScheduleSource, /findNextMissingDayIndex/);
   assert.match(moneyScheduleSource, /skippedNames/);
   assert.match(moneyScheduleSource, /already set, so now let’s set up/);
-  assert.match(moneyScheduleSource, /days\.filter\(Boolean\)\.map/);
+  assert.match(moneyScheduleSource, /data-clara-money-routine-review-missing-day/);
+  assert.match(moneyScheduleSource, /recreateMissingDayFromReview/);
 });
 
-test("Money Schedule weekly review lets every day reopen in the same editor", () => {
-  assert.match(moneyScheduleSource, /choosePreviousDayToEdit\(day, "weekly-review"\)/);
-  assert.match(moneyScheduleSource, /aria-label=\{`Edit \$\{day\.name\} routine`\}/);
-  assert.match(moneyScheduleSource, /Your weekly review is refreshed/);
+test("Money Schedule weekly review shows each day total with directly editable item names and amounts", () => {
+  assert.match(moneyScheduleSource, /function WeeklyReviewDayCard/);
+  assert.match(moneyScheduleSource, /data-clara-money-routine-weekly-review="true"/);
+  assert.match(moneyScheduleSource, /data-clara-money-routine-review-day=\{day\.key\}/);
+  assert.match(moneyScheduleSource, /data-clara-money-routine-review-item="true"/);
+  assert.match(moneyScheduleSource, /formatMoneyCentavos\(totalItems\(day\.items\)\)/);
+  assert.match(moneyScheduleSource, /onRequestEdit\?\.\(day, item, "label"\)/);
+  assert.match(moneyScheduleSource, /onRequestEdit\?\.\(day, item, "amount"\)/);
+  assert.match(moneyScheduleSource, /data-clara-money-routine-review-inline-label="true"/);
+  assert.match(moneyScheduleSource, /data-clara-money-routine-review-inline-amount="true"/);
+  assert.match(moneyScheduleSource, /commitReviewLabelEdit/);
+  assert.match(moneyScheduleSource, /commitReviewAmountEdit/);
+});
+
+test("Money Schedule weekly review keeps basis-day invalidation inside the review before direct editing", () => {
+  assert.match(moneyScheduleSource, /pendingReviewBasisEdit/);
+  assert.match(moneyScheduleSource, /data-clara-money-routine-review-basis-warning="true"/);
+  assert.match(moneyScheduleSource, /Continuing will delete/);
+  assert.match(moneyScheduleSource, /continueReviewBasisEdit/);
+  assert.match(moneyScheduleSource, /cancelReviewBasisEdit/);
+  assert.match(moneyScheduleSource, /Recreate missing days first/);
 });
 
 test("Money Schedule persists copied-day basis metadata and requires all seven days before save", () => {
