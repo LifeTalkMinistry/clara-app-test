@@ -11,6 +11,11 @@ import {
   CLARA_MONEY_ROUTINE_WEEKDAYS,
   saveClaraMoneyRoutine,
 } from "@/lib/clara-money-schedule-repository";
+import {
+  getClaraReadDelay,
+  getClaraReplyDelay,
+  getClaraTypingPlan,
+} from "@/lib/clara-conversation-pacing";
 
 function cleanText(value) {
   return String(value || "").trim();
@@ -114,7 +119,7 @@ function totalItems(items = []) {
   );
 }
 
-function Bubble({ role, children }) {
+function Bubble({ role, children, typing = false }) {
   const assistant = role === "assistant";
   return (
     <div className={`flex ${assistant ? "justify-start" : "justify-end"}`}>
@@ -126,6 +131,9 @@ function Bubble({ role, children }) {
         }`}
       >
         <span className="whitespace-pre-wrap">{children}</span>
+        {typing ? (
+          <span className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[2px] animate-pulse rounded-full bg-cyan-100/75" />
+        ) : null}
       </div>
     </div>
   );
@@ -233,7 +241,7 @@ export default function ClaraMoneyScheduleOverlay({
 }) {
   const user = claraAssistantContext?.user || {};
   const firstName = firstNameFromUser(user);
-  const [phase, setPhase] = useState("welcome");
+  const [phase, setPhase] = useState("opening");
   const [messages, setMessages] = useState([]);
   const [days, setDays] = useState([]);
   const [dayIndex, setDayIndex] = useState(0);
@@ -245,8 +253,16 @@ export default function ClaraMoneyScheduleOverlay({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [savedRoutine, setSavedRoutine] = useState(null);
+  const [pendingMessage, setPendingMessage] = useState(null);
+  const [typedText, setTypedText] = useState("");
+  const [interactionReady, setInteractionReady] = useState(false);
   const viewportRef = useRef(null);
   const previousActiveRef = useRef(false);
+  const timerIdsRef = useRef(new Set());
+  const typingTimerRef = useRef(null);
+  const sequenceRef = useRef([]);
+  const sequencePhaseRef = useRef("welcome");
+  const sequenceTokenRef = useRef(0);
 
   const currentWeekday = CLARA_MONEY_ROUTINE_WEEKDAYS[dayIndex] || CLARA_MONEY_ROUTINE_WEEKDAYS[0];
   const configuredDays = days.slice(0, dayIndex);
@@ -259,13 +275,74 @@ export default function ClaraMoneyScheduleOverlay({
     });
   };
 
-  const append = (...nextMessages) => {
-    setMessages((current) => [...current, ...nextMessages]);
+  const appendUser = (text) => {
+    if (!cleanText(text)) return;
+    setMessages((current) => [...current, chatMessage("user", text)]);
     scrollToLatest();
   };
 
-  const resetFlow = () => {
-    setPhase("welcome");
+  const registerTimeout = (callback, delay) => {
+    const id = window.setTimeout(() => {
+      timerIdsRef.current.delete(id);
+      callback();
+    }, delay);
+    timerIdsRef.current.add(id);
+    return id;
+  };
+
+  const clearPacingTimers = () => {
+    if (typingTimerRef.current) window.clearInterval(typingTimerRef.current);
+    typingTimerRef.current = null;
+    timerIdsRef.current.forEach((id) => window.clearTimeout(id));
+    timerIdsRef.current.clear();
+  };
+
+  const cancelConversationPacing = () => {
+    sequenceTokenRef.current += 1;
+    clearPacingTimers();
+    sequenceRef.current = [];
+    setPendingMessage(null);
+    setTypedText("");
+    setInteractionReady(false);
+  };
+
+  const queueNextAssistantMessage = (token, skipDelay = false) => {
+    if (token !== sequenceTokenRef.current) return;
+    const nextText = sequenceRef.current.shift();
+
+    if (!nextText) {
+      setPendingMessage(null);
+      setTypedText("");
+      setPhase(sequencePhaseRef.current);
+      registerTimeout(() => {
+        if (token === sequenceTokenRef.current) setInteractionReady(true);
+      }, getClaraReadDelay());
+      return;
+    }
+
+    const show = () => {
+      if (token !== sequenceTokenRef.current) return;
+      setTypedText("");
+      setPendingMessage(chatMessage("assistant", nextText));
+      scrollToLatest();
+    };
+
+    if (skipDelay) show();
+    else registerTimeout(show, getClaraReplyDelay());
+  };
+
+  const runAssistantSequence = (replyTexts, nextPhase, options = {}) => {
+    cancelConversationPacing();
+    const replies = replyTexts.map((text) => cleanText(text)).filter(Boolean);
+    const token = sequenceTokenRef.current;
+    sequenceRef.current = replies;
+    sequencePhaseRef.current = nextPhase;
+    setPhase("responding");
+    setInteractionReady(false);
+    queueNextAssistantMessage(token, options.skipInitialDelay === true);
+  };
+
+  const resetRoutineFields = () => {
     setDays([]);
     setDayIndex(0);
     setDraftText("");
@@ -276,24 +353,76 @@ export default function ClaraMoneyScheduleOverlay({
     setError("");
     setBusy(false);
     setSavedRoutine(null);
-    setMessages([
-      chatMessage(
-        "assistant",
-        `Hi ${firstName}! Ready to help me understand your usual daily routine expenses?`
-      ),
-    ]);
+  };
+
+  const startOpeningConversation = () => {
+    cancelConversationPacing();
+    resetRoutineFields();
+    setMessages([]);
+    runAssistantSequence(
+      [`Hi ${firstName}! Ready to help me understand your usual daily routine expenses?`],
+      "welcome",
+      { skipInitialDelay: true }
+    );
   };
 
   useEffect(() => {
-    if (isActive && !previousActiveRef.current) resetFlow();
-    if (!isActive && previousActiveRef.current) resetFlow();
+    if (!pendingMessage) return undefined;
+    const token = sequenceTokenRef.current;
+    const plan = getClaraTypingPlan(pendingMessage.text);
+    let index = 0;
+
+    setTypedText("");
+    typingTimerRef.current = window.setInterval(() => {
+      if (token !== sequenceTokenRef.current) return;
+      index = Math.min(plan.source.length, index + plan.charsPerTick);
+      setTypedText(plan.source.slice(0, index));
+      scrollToLatest();
+
+      if (index >= plan.source.length) {
+        window.clearInterval(typingTimerRef.current);
+        typingTimerRef.current = null;
+        const completedMessage = pendingMessage;
+        setMessages((current) => [...current, completedMessage]);
+        setPendingMessage(null);
+        setTypedText("");
+        scrollToLatest();
+        queueNextAssistantMessage(token);
+      }
+    }, plan.tickMs);
+
+    return () => {
+      if (typingTimerRef.current) window.clearInterval(typingTimerRef.current);
+      typingTimerRef.current = null;
+    };
+  }, [pendingMessage]);
+
+  useEffect(() => {
+    if (isActive && !previousActiveRef.current) startOpeningConversation();
+    if (!isActive && previousActiveRef.current) {
+      cancelConversationPacing();
+      resetRoutineFields();
+      setMessages([]);
+      setPhase("opening");
+    }
     previousActiveRef.current = isActive;
   }, [isActive, firstName]);
+
+  useEffect(
+    () => () => {
+      sequenceTokenRef.current += 1;
+      clearPacingTimers();
+    },
+    []
+  );
 
   useEffect(() => {
     if (!isActive || typeof window === "undefined") return undefined;
     const onKeyDown = (event) => {
-      if (event.key === "Escape") onClose?.();
+      if (event.key === "Escape") {
+        cancelConversationPacing();
+        onClose?.();
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -301,23 +430,24 @@ export default function ClaraMoneyScheduleOverlay({
 
   useEffect(() => {
     scrollToLatest();
-  }, [messages, phase]);
+  }, [messages, pendingMessage, phase]);
 
   if (!isActive) return null;
 
   const startSetup = () => {
+    if (!interactionReady) return;
     setError("");
-    append(
-      chatMessage("user", "Yes, I’m ready"),
-      chatMessage(
-        "assistant",
-        "Great! Let’s start with Monday. Tell me what you normally need to spend on every Monday. Please leave out occasional or extra spending — only the things that are part of your usual routine."
-      )
+    appendUser("Yes, I’m ready");
+    runAssistantSequence(
+      [
+        "Great! Let’s start with Monday.",
+        "Tell me what you normally need to spend on every Monday. Please leave out occasional or extra spending — only the things that are part of your usual routine.",
+      ],
+      "day-entry"
     );
-    setPhase("day-entry");
   };
 
-  const moveToNextDay = (items) => {
+  const moveToNextDay = (items, leadReplies = []) => {
     const weekday = currentWeekday;
     const normalizedDay = {
       key: weekday.key,
@@ -336,29 +466,32 @@ export default function ClaraMoneyScheduleOverlay({
     setError("");
 
     if (dayIndex >= CLARA_MONEY_ROUTINE_WEEKDAYS.length - 1) {
-      append(
-        chatMessage(
-          "assistant",
-          "Sunday is done. I now have your normal Monday-to-Sunday routine. Review it once before I save it as your current weekly Money Schedule."
-        )
+      runAssistantSequence(
+        [
+          ...leadReplies,
+          "Sunday is done. I now have your normal Monday-to-Sunday routine.",
+          "Review it once before I save it as your current weekly Money Schedule.",
+        ],
+        "weekly-review"
       );
-      setPhase("weekly-review");
       return;
     }
 
     const nextIndex = dayIndex + 1;
     const nextWeekday = CLARA_MONEY_ROUTINE_WEEKDAYS[nextIndex];
-    append(
-      chatMessage(
-        "assistant",
-        `${weekday.name} is done. Now let’s set up ${nextWeekday.name}. You can reuse a day you already finished, copy one and change it, or make ${nextWeekday.name} completely different.`
-      )
-    );
     setDayIndex(nextIndex);
-    setPhase("day-choice");
+    runAssistantSequence(
+      [
+        ...leadReplies,
+        `${weekday.name} is done. Now let’s set up ${nextWeekday.name}.`,
+        `You can reuse a day you already finished, copy one and change it, or make ${nextWeekday.name} completely different.`,
+      ],
+      "day-choice"
+    );
   };
 
   const submitDayExpenses = () => {
+    if (!interactionReady) return;
     const parsed = parseRoutineExpenses(draftText);
     if (!parsed.items.length || parsed.invalidLines.length) {
       setError(
@@ -367,151 +500,154 @@ export default function ClaraMoneyScheduleOverlay({
       return;
     }
 
+    const submittedText = draftText;
     setPendingItems(parsed.items);
-    setError("");
-    append(
-      chatMessage("user", draftText),
-      chatMessage(
-        "assistant",
-        `Here’s what I understood for ${currentWeekday.name}. Check it once before we continue.`
-      )
-    );
     setDraftText("");
-    setPhase("day-review");
+    setError("");
+    appendUser(submittedText);
+    runAssistantSequence(
+      [`Here’s what I understood for ${currentWeekday.name}. Check it once before we continue.`],
+      "day-review"
+    );
   };
 
   const confirmPendingDay = () => {
-    append(chatMessage("user", "Looks right"));
+    if (!interactionReady) return;
+    appendUser("Looks right");
     moveToNextDay(pendingItems);
   };
 
   const enterDayAgain = () => {
-    append(
-      chatMessage("user", "I need to change it"),
-      chatMessage(
-        "assistant",
-        `No problem. Send the normal ${currentWeekday.name} expenses again, one item per line.`
-      )
-    );
+    if (!interactionReady) return;
     setPendingItems([]);
     setDraftText("");
     setError("");
-    setPhase("day-entry");
+    appendUser("I need to change it");
+    runAssistantSequence(
+      [`No problem. Send the normal ${currentWeekday.name} expenses again, one item per line.`],
+      "day-entry"
+    );
   };
 
   const setNoRoutineExpenses = () => {
-    append(
-      chatMessage("user", `No routine expenses on ${currentWeekday.name}`),
-      chatMessage("assistant", `Got it. I’ll keep ${currentWeekday.name} at ₱0 for your normal routine.`)
-    );
-    moveToNextDay([]);
+    if (!interactionReady) return;
+    appendUser(`No routine expenses on ${currentWeekday.name}`);
+    moveToNextDay([], [`Got it. I’ll keep ${currentWeekday.name} at ₱0 for your normal routine.`]);
   };
 
   const useSameDay = (sourceDay) => {
-    append(
-      chatMessage("user", `Same as ${sourceDay.name}`),
-      chatMessage(
-        "assistant",
-        `Got it. ${currentWeekday.name} will use the same routine as ${sourceDay.name}.`
-      )
-    );
-    moveToNextDay(sourceDay.items);
+    if (!interactionReady) return;
+    appendUser(`Same as ${sourceDay.name}`);
+    moveToNextDay(sourceDay.items, [
+      `Got it. ${currentWeekday.name} will use the same routine as ${sourceDay.name}.`,
+    ]);
   };
 
   const chooseCopyAndChange = () => {
-    append(
-      chatMessage("user", "Copy a previous day and change it"),
-      chatMessage("assistant", `Which day should I use as the starting point for ${currentWeekday.name}?`)
+    if (!interactionReady) return;
+    appendUser("Copy a previous day and change it");
+    runAssistantSequence(
+      [`Which day should I use as the starting point for ${currentWeekday.name}?`],
+      "copy-source"
     );
-    setPhase("copy-source");
   };
 
   const chooseCopySource = (sourceDay) => {
-    const copied = cloneItems(sourceDay.items);
-    setEditItems(copied);
+    if (!interactionReady) return;
+    setEditItems(cloneItems(sourceDay.items));
     setError("");
-    append(
-      chatMessage("user", `Start from ${sourceDay.name}`),
-      chatMessage(
-        "assistant",
-        `Done. I copied ${sourceDay.name}. Now tell me what needs to change for ${currentWeekday.name}.`
-      )
+    appendUser(`Start from ${sourceDay.name}`);
+    runAssistantSequence(
+      [
+        `Done. I copied ${sourceDay.name}.`,
+        `Now tell me what needs to change for ${currentWeekday.name}.`,
+      ],
+      "day-edit"
     );
-    setPhase("day-edit");
   };
 
   const chooseCompletelyDifferent = () => {
+    if (!interactionReady) return;
     setDraftText("");
     setError("");
-    append(
-      chatMessage("user", "Completely different setup"),
-      chatMessage(
-        "assistant",
-        `Okay. Tell me the normal ${currentWeekday.name} expenses from scratch. Leave out occasional extras and list one routine expense per line.`
-      )
+    appendUser("Completely different setup");
+    runAssistantSequence(
+      [
+        `Okay. Tell me the normal ${currentWeekday.name} expenses from scratch.`,
+        "Leave out occasional extras and list one routine expense per line.",
+      ],
+      "day-entry"
     );
-    setPhase("day-entry");
   };
 
   const startAddExpense = () => {
+    if (!interactionReady) return;
     setDraftText("");
     setError("");
-    append(chatMessage("assistant", `What should I add to ${currentWeekday.name}?`));
-    setPhase("edit-add");
+    appendUser("Add something");
+    runAssistantSequence([`What should I add to ${currentWeekday.name}?`], "edit-add");
   };
 
   const submitAddedExpense = () => {
+    if (!interactionReady) return;
     const parsed = parseRoutineExpenses(draftText);
     if (!parsed.items.length || parsed.invalidLines.length) {
       setError("Use the format “Expense - amount”, for example “Extra commute - 80”.");
       return;
     }
 
+    const submittedText = draftText;
     setEditItems((current) => [...current, ...parsed.items]);
-    append(
-      chatMessage("user", draftText),
-      chatMessage("assistant", "Added. You can make another change or finish this day.")
-    );
     setDraftText("");
     setError("");
-    setPhase("day-edit");
+    appendUser(submittedText);
+    runAssistantSequence(
+      ["Added. You can make another change or finish this day."],
+      "day-edit"
+    );
   };
 
   const startRemoveExpense = () => {
-    if (!editItems.length) return;
+    if (!interactionReady || !editItems.length) return;
     setError("");
-    append(chatMessage("assistant", `Which ${currentWeekday.name} expense should I remove?`));
-    setPhase("edit-remove");
+    appendUser("Remove something");
+    runAssistantSequence(
+      [`Which ${currentWeekday.name} expense should I remove?`],
+      "edit-remove"
+    );
   };
 
   const removeExpense = (item) => {
+    if (!interactionReady) return;
     setEditItems((current) => current.filter((candidate) => candidate.id !== item.id));
-    append(
-      chatMessage("user", `Remove ${item.label}`),
-      chatMessage("assistant", `${item.label} removed from ${currentWeekday.name}.`)
+    appendUser(`Remove ${item.label}`);
+    runAssistantSequence(
+      [`${item.label} removed from ${currentWeekday.name}.`],
+      "day-edit"
     );
-    setPhase("day-edit");
   };
 
   const startChangeAmount = () => {
-    if (!editItems.length) return;
+    if (!interactionReady || !editItems.length) return;
     setError("");
-    append(chatMessage("assistant", "Which expense amount should I change?"));
-    setPhase("edit-change-select");
+    appendUser("Change an amount");
+    runAssistantSequence(["Which expense amount should I change?"], "edit-change-select");
   };
 
   const chooseAmountItem = (item) => {
+    if (!interactionReady) return;
     setSelectedItemId(item.id);
     setAmountInput("");
     setError("");
-    append(
-      chatMessage("user", item.label),
-      chatMessage("assistant", `What should the usual amount for ${item.label} be on ${currentWeekday.name}?`)
+    appendUser(item.label);
+    runAssistantSequence(
+      [`What should the usual amount for ${item.label} be on ${currentWeekday.name}?`],
+      "edit-change-amount"
     );
-    setPhase("edit-change-amount");
   };
 
   const submitChangedAmount = () => {
+    if (!interactionReady) return;
     const amountCentavos = parseAmountToCentavos(amountInput);
     if (amountCentavos <= 0) {
       setError("Enter an amount greater than zero.");
@@ -524,50 +660,58 @@ export default function ClaraMoneyScheduleOverlay({
         candidate.id === selectedItemId ? { ...candidate, amountCentavos } : candidate
       )
     );
-    append(
-      chatMessage("user", formatMoneyCentavos(amountCentavos)),
-      chatMessage(
-        "assistant",
-        `${item?.label || "That expense"} is now ${formatMoneyCentavos(amountCentavos)} on ${currentWeekday.name}.`
-      )
-    );
     setAmountInput("");
     setSelectedItemId("");
     setError("");
-    setPhase("day-edit");
+    appendUser(formatMoneyCentavos(amountCentavos));
+    runAssistantSequence(
+      [
+        `${item?.label || "That expense"} is now ${formatMoneyCentavos(amountCentavos)} on ${currentWeekday.name}.`,
+      ],
+      "day-edit"
+    );
   };
 
   const finishEditedDay = () => {
-    append(chatMessage("user", `Done with ${currentWeekday.name}`));
+    if (!interactionReady) return;
+    appendUser(`Done with ${currentWeekday.name}`);
     moveToNextDay(editItems);
   };
 
   const saveRoutine = () => {
-    if (busy) return;
+    if (busy || !interactionReady) return;
     setBusy(true);
     setError("");
 
     try {
       const routine = saveClaraMoneyRoutine({ user, days });
       setSavedRoutine(routine);
-      append(
-        chatMessage("user", "Save my routine"),
-        chatMessage(
-          "assistant",
-          "Done. I now understand your normal Monday-to-Sunday routine expenses. I’ll treat this as your current weekly routine until you update it."
-        )
-      );
-      setPhase("saved");
-    } catch (nextError) {
-      setError(cleanText(nextError?.message) || "I couldn’t save your routine. Please try again.");
-    } finally {
       setBusy(false);
+      appendUser("Save my routine");
+      runAssistantSequence(
+        [
+          "Done. I now understand your normal Monday-to-Sunday routine expenses.",
+          "I’ll treat this as your current weekly routine until you update it.",
+        ],
+        "saved"
+      );
+    } catch (nextError) {
+      setBusy(false);
+      setError(cleanText(nextError?.message) || "I couldn’t save your routine. Please try again.");
     }
   };
 
-  const closeChat = () => onClose?.();
+  const resetFlow = () => {
+    startOpeningConversation();
+  };
+
+  const closeChat = () => {
+    cancelConversationPacing();
+    onClose?.();
+  };
 
   const weeklyTotal = days.reduce((sum, day) => sum + totalItems(day?.items), 0);
+  const controlsReady = interactionReady && !pendingMessage && phase !== "responding" && !busy;
 
   return (
     <div
@@ -577,6 +721,7 @@ export default function ClaraMoneyScheduleOverlay({
       data-clara-buy-check-react-owner="true"
       data-clara-money-schedule-chat="true"
       data-clara-money-routine-flow="true"
+      data-clara-conversation-pacing="masterclass"
     >
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_5%_4%,rgba(23,105,255,0.28),transparent_34%),radial-gradient(circle_at_96%_8%,rgba(43,225,216,0.10),transparent_34%),linear-gradient(180deg,#06152e_0%,#040b1a_44%,#020714_100%)]" />
 
@@ -605,14 +750,18 @@ export default function ClaraMoneyScheduleOverlay({
             <Bubble key={entry.id} role={entry.role}>{entry.text}</Bubble>
           ))}
 
-          {phase === "welcome" ? (
+          {pendingMessage ? (
+            <Bubble role="assistant" typing>{typedText}</Bubble>
+          ) : null}
+
+          {phase === "welcome" && controlsReady ? (
             <div className="mt-auto grid gap-2.5 pt-3">
               <ChoiceButton onClick={startSetup}>Yes, let’s set it up</ChoiceButton>
               <ChoiceButton onClick={closeChat} secondary>Not now</ChoiceButton>
             </div>
           ) : null}
 
-          {phase === "day-entry" ? (
+          {phase === "day-entry" && controlsReady ? (
             <div className="mt-auto grid gap-2.5 pt-3">
               <Composer
                 value={draftText}
@@ -627,7 +776,7 @@ export default function ClaraMoneyScheduleOverlay({
             </div>
           ) : null}
 
-          {phase === "day-review" ? (
+          {phase === "day-review" && controlsReady ? (
             <>
               <ExpenseList items={pendingItems} />
               <div className="grid grid-cols-2 gap-2.5">
@@ -637,7 +786,7 @@ export default function ClaraMoneyScheduleOverlay({
             </>
           ) : null}
 
-          {phase === "day-choice" ? (
+          {phase === "day-choice" && controlsReady ? (
             <div className="mt-1 grid gap-2.5">
               {configuredDays.map((day) => (
                 <ChoiceButton key={day.key} onClick={() => useSameDay(day)}>
@@ -653,7 +802,7 @@ export default function ClaraMoneyScheduleOverlay({
             </div>
           ) : null}
 
-          {phase === "copy-source" ? (
+          {phase === "copy-source" && controlsReady ? (
             <div className="mt-1 grid gap-2.5">
               {configuredDays.map((day) => (
                 <ChoiceButton key={day.key} onClick={() => chooseCopySource(day)}>
@@ -663,7 +812,7 @@ export default function ClaraMoneyScheduleOverlay({
             </div>
           ) : null}
 
-          {phase === "day-edit" ? (
+          {phase === "day-edit" && controlsReady ? (
             <>
               <ExpenseList items={editItems} />
               <div className="grid grid-cols-2 gap-2.5">
@@ -695,7 +844,7 @@ export default function ClaraMoneyScheduleOverlay({
             </>
           ) : null}
 
-          {phase === "edit-add" ? (
+          {phase === "edit-add" && controlsReady ? (
             <div className="mt-auto pt-3">
               <Composer
                 value={draftText}
@@ -707,7 +856,7 @@ export default function ClaraMoneyScheduleOverlay({
             </div>
           ) : null}
 
-          {phase === "edit-remove" ? (
+          {phase === "edit-remove" && controlsReady ? (
             <div className="mt-1 grid gap-2">
               {editItems.map((item) => (
                 <button
@@ -725,7 +874,7 @@ export default function ClaraMoneyScheduleOverlay({
             </div>
           ) : null}
 
-          {phase === "edit-change-select" ? (
+          {phase === "edit-change-select" && controlsReady ? (
             <div className="mt-1 grid gap-2">
               {editItems.map((item) => (
                 <button
@@ -743,7 +892,7 @@ export default function ClaraMoneyScheduleOverlay({
             </div>
           ) : null}
 
-          {phase === "edit-change-amount" ? (
+          {phase === "edit-change-amount" && controlsReady ? (
             <div className="mt-auto pt-3">
               <Composer
                 value={amountInput}
@@ -755,7 +904,7 @@ export default function ClaraMoneyScheduleOverlay({
             </div>
           ) : null}
 
-          {phase === "weekly-review" ? (
+          {phase === "weekly-review" && controlsReady ? (
             <>
               <section className="mt-1 rounded-[22px] border border-blue-200/12 bg-[#07142b]/88 p-3.5">
                 <div className="grid gap-2">
@@ -798,7 +947,7 @@ export default function ClaraMoneyScheduleOverlay({
             </>
           ) : null}
 
-          {phase === "saved" ? (
+          {phase === "saved" && controlsReady ? (
             <>
               <section className="mt-1 rounded-[22px] border border-emerald-300/16 bg-emerald-300/[0.045] p-4 text-center">
                 <CheckCircle2 className="mx-auto h-6 w-6 text-[#8ffff8]" />
@@ -814,7 +963,7 @@ export default function ClaraMoneyScheduleOverlay({
             </>
           ) : null}
 
-          {error ? (
+          {error && phase !== "responding" ? (
             <p
               className="rounded-[16px] border border-red-300/15 bg-red-500/[0.06] px-3.5 py-3 text-[11.5px] font-bold leading-5 text-red-100/88"
               aria-live="polite"
