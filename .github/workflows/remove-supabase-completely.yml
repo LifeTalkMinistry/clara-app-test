@@ -51,3 +51,5 @@ jobs:
 
       - name: Verify tests and production build
         run: npm run build
+
+# Trigger cleanup execution.
