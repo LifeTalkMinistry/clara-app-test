@@ -13,8 +13,8 @@ import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
 import useUserRole from "../hooks/useUserRole";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabaseClient";
-import { formatSupabaseError } from "@/lib/admin-panel-utils";
+import { claraData } from "@/lib/clara-data-client";
+import { formatClaraDataError } from "@/lib/admin-panel-utils";
 
 const ACHIEVEMENTS = [
   { id: "first", label: "First Referral", icon: "Target", requirement: (s) => s.total_referrals >= 1 },
@@ -60,12 +60,12 @@ export default function Referrals() {
       setErrorText("");
 
       const [referralRes, materialsRes] = await Promise.all([
-        supabase
+        claraData
           .from("referrals")
           .select("*")
           .or(`referrer_email.eq.${user.email},created_by.eq.${user.email}`)
           .order("created_at", { ascending: false }),
-        supabase
+        claraData
           .from("referral_materials")
           .select("*")
           .eq("is_active", true)
@@ -81,7 +81,7 @@ export default function Referrals() {
       console.error("Failed to load referrals page:", error);
       setReferrals([]);
       setMaterials([]);
-      setErrorText(formatSupabaseError(error, "Failed to load referral data."));
+      setErrorText(formatClaraDataError(error, "Failed to load referral data."));
     } finally {
       setLoading(false);
     }
