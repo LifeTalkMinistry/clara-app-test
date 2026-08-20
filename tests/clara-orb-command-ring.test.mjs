@@ -109,6 +109,17 @@ test("label clearance does not move the command circles off their bounded ring",
   assert.match(orbCommandRingCss, /data-clara-orb-command-id="debt-obligation"/);
 });
 
+test("Money Schedule routine UI uses a restrained ledger hierarchy instead of nested form cards", () => {
+  assert.match(orbCommandRingCss, /data-clara-money-routine-day-controls="true"/);
+  assert.match(orbCommandRingCss, /section:has\(\+ \[data-clara-money-routine-day-controls="true"\]\)/);
+  assert.match(orbCommandRingCss, /data-clara-money-routine-weekly-review="true"/);
+  assert.match(orbCommandRingCss, /data-clara-money-routine-review-day/);
+  assert.match(orbCommandRingCss, /data-clara-money-routine-review-item="true"/);
+  assert.match(orbCommandRingCss, /border-bottom:\s*1px solid rgba\(255, 255, 255, 0\.07\)/);
+  assert.match(orbCommandRingCss, /data-clara-money-routine-day-controls="true"\] > button:not\(:last-child\)/);
+  assert.match(orbCommandRingCss, /data-clara-money-routine-day-controls="true"\] > button:last-child/);
+});
+
 test("production Orb preserves tap behavior while adding pointer-driven hold selection", () => {
   assert.match(orbPage, /onClick=\{handleOrbClick\}/);
   assert.match(orbPage, /onPointerDown=\{handleOrbPointerDown\}/);
