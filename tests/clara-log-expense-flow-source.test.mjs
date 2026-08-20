@@ -12,6 +12,11 @@ const moneyScheduleSource = await readFile(
   "utf8"
 );
 
+const moneyScheduleRepositorySource = await readFile(
+  new URL("../src/lib/clara-money-schedule-repository.js", import.meta.url),
+  "utf8"
+);
+
 const environmentSource = await readFile(
   new URL("../src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay.jsx", import.meta.url),
   "utf8"
@@ -53,10 +58,43 @@ test("empty planned list hands directly into Money Schedule chat instead of the 
   assert.doesNotMatch(overlaySource, /window\.location\.assign\("\/community\?view=schedule"\)/);
 });
 
-test("Money Schedule Open Calendar stays inside the app router", () => {
-  assert.match(moneyScheduleSource, /useNavigate/);
-  assert.match(moneyScheduleSource, /navigate\("\/community\?view=schedule"\)/);
-  assert.doesNotMatch(moneyScheduleSource, /window\.location\.assign\("\/community\?view=schedule"\)/);
+test("Money Schedule starts from the user's daily routine instead of a calendar event form", () => {
+  assert.match(moneyScheduleSource, /usual daily routine expenses/i);
+  assert.match(moneyScheduleSource, /Let’s start with Monday/i);
+  assert.match(moneyScheduleSource, /leave out occasional or extra spending/i);
+  assert.match(moneyScheduleSource, /Transportation - 100/);
+  assert.match(moneyScheduleSource, /Coffee - 25/);
+  assert.match(moneyScheduleSource, /No routine expenses this day/);
+  assert.doesNotMatch(moneyScheduleSource, /What are you expecting to pay for or receive/);
+  assert.doesNotMatch(moneyScheduleSource, /When should this happen/);
+});
+
+test("Money Schedule lets later days reuse or modify any completed day", () => {
+  assert.match(moneyScheduleSource, /Same as \{day\.name\}/);
+  assert.match(moneyScheduleSource, /Copy a day & change it/);
+  assert.match(moneyScheduleSource, /Completely different setup/);
+  assert.match(moneyScheduleSource, /Start from \{day\.name\}/);
+  assert.match(moneyScheduleSource, /Add/);
+  assert.match(moneyScheduleSource, /Remove/);
+  assert.match(moneyScheduleSource, /Change amount/);
+});
+
+test("Money Schedule persists a seven-day weekly routine until the user updates it", () => {
+  assert.match(moneyScheduleSource, /saveClaraMoneyRoutine/);
+  assert.match(moneyScheduleSource, /current weekly routine until you update it/i);
+  assert.match(moneyScheduleRepositorySource, /CLARA_MONEY_ROUTINE_WEEKDAYS/);
+  assert.match(moneyScheduleRepositorySource, /monday/);
+  assert.match(moneyScheduleRepositorySource, /sunday/);
+  assert.match(moneyScheduleRepositorySource, /repeatMode: "until_updated"/);
+  assert.match(moneyScheduleRepositorySource, /weeklyTotalCentavos/);
+  assert.match(moneyScheduleRepositorySource, /days\.length !== CLARA_MONEY_ROUTINE_WEEKDAYS\.length/);
+});
+
+test("Money Schedule stores routine money as integer centavos", () => {
+  assert.match(moneyScheduleRepositorySource, /amountCentavos/);
+  assert.match(moneyScheduleRepositorySource, /amount_centavos/);
+  assert.match(moneyScheduleRepositorySource, /moneyTextToCentavos/);
+  assert.match(moneyScheduleRepositorySource, /Math\.round\(wholeNumber \* 100 \+ fractionNumber\)/);
 });
 
 test("Log Expense uses the Emergency Fund Masterclass conversation rhythm", () => {
