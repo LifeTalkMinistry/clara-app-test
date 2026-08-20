@@ -11,15 +11,18 @@ const WALLET_QUERY_PATTERNS = [
   /\bmy\s+wallets?\b/,
   /\bclara\s+wallets?\b/,
   /\bsee\s+my\s+wallets?\b/,
-  /\bwhy\s+(you\s+)?cant\s+see\s+my\s+wallet\b/,
-  /\bwhy\s+(you\s+)?cannot\s+see\s+my\s+wallet\b/,
   /\bwallet\s+balance\b/,
+  /\bcurrent\s+balance\b/,
+  /\brecorded\s+balance\b/,
   /\bavailable\s+money\b/,
-  /\bavailable\s+across\s+accounts\b/,
-  /\baccount\s+balances?\b/,
-  /\bbalances?\b/,
+  /\bavailable\s+to\s+spend\b/,
+  /\bcan\s+i\s+spend\b/,
+  /\bhow\s+much\s+can\s+i\s+spend\b/,
   /\bmoney\s+safe\s+to\s+use\b/,
+  /\bsafe\s+to\s+use\b/,
   /\bspendable\s+money\b/,
+  /\bprotected\s+money\b/,
+  /\bprotected\b/,
   /\bgcash\s+wallet\b/,
   /\bmaya\s+wallet\b/,
   /\bcash\s+wallet\b/,
@@ -45,12 +48,7 @@ function normalizeText(value) {
 
 function toNumber(value) {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-  const number = Number(
-    String(value ?? "0")
-      .replace(/php/gi, "")
-      .replace(/[₱,\s]/g, "")
-      .replace(/[^0-9.-]/g, "")
-  );
+  const number = Number(String(value ?? "0").replace(/php/gi, "").replace(/[₱,\s]/g, "").replace(/[^0-9.-]/g, ""));
   return Number.isFinite(number) ? number : 0;
 }
 
@@ -60,7 +58,7 @@ function firstNumber(...values) {
     const number = toNumber(value);
     if (Number.isFinite(number)) return number;
   }
-  return 0;
+  return null;
 }
 
 function peso(value) {
@@ -81,12 +79,25 @@ function getWalletName(wallet = {}) {
 
 function getWalletBalance(wallet = {}) {
   return firstNumber(
+    wallet.currentBalance,
     wallet.balance,
-    wallet.derived_balance,
     wallet.current_balance,
     wallet.wallet_balance,
-    wallet.available_balance,
+    wallet.derived_balance,
     wallet.starting_balance
+  ) ?? 0;
+}
+
+function getWalletProtectedBalance(wallet = {}) {
+  return firstNumber(wallet.totalProtectedAmount, wallet.total_protected_amount) ?? 0;
+}
+
+function getWalletSpendableBalance(wallet = {}) {
+  return firstNumber(
+    wallet.spendableBalance,
+    wallet.spendable_balance,
+    wallet.walletSpendableBalance,
+    wallet.wallet_spendable_balance
   );
 }
 
@@ -106,6 +117,18 @@ function detectWalletQuery(message = "") {
   return WALLET_QUERY_PATTERNS.some((pattern) => pattern.test(text));
 }
 
+function detectWalletMoneyConcept(message = "") {
+  const text = normalizeText(message);
+  if (/\b(protected|protection|reserved)\b/.test(text)) return "protected";
+  if (/\b(spendable|available to spend|safe to use|safe money|money i can spend|can i spend|can spend|how much can i spend)\b/.test(text)) {
+    return "spendable";
+  }
+  if (/\b(current balance|recorded balance|wallet balance|money is in|money in my|currently in)\b/.test(text)) {
+    return "current";
+  }
+  return "current";
+}
+
 function parsePesoText(value) {
   return toNumber(value);
 }
@@ -114,7 +137,6 @@ function getWalletCardSnapshot(context = {}) {
   const cards = Array.isArray(context.dashboardCardsLiveSnapshot?.cards)
     ? context.dashboardCardsLiveSnapshot.cards
     : [];
-
   return cards.find((card) => card?.key === "wallet" || card?.type === "wallet") || null;
 }
 
@@ -127,13 +149,22 @@ function summarizeWallets(context = {}) {
       .map((wallet) => ({
         id: getWalletId(wallet),
         name: getWalletName(wallet),
-        balance: getWalletBalance(wallet),
+        currentBalance: getWalletBalance(wallet),
+        protectedBalance: getWalletProtectedBalance(wallet),
+        spendableBalance: getWalletSpendableBalance(wallet),
       }));
 
+    const walletTotals = context.walletTotals || context.canonicalFinancialState?.walletTotals || null;
     return {
       connected: true,
       wallets,
-      totalBalance: wallets.reduce((sum, wallet) => sum + wallet.balance, 0),
+      currentBalance: firstNumber(walletTotals?.currentBalance) ?? wallets.reduce((sum, wallet) => sum + wallet.currentBalance, 0),
+      protectedBalance: firstNumber(walletTotals?.totalProtectedAmount) ?? wallets.reduce((sum, wallet) => sum + wallet.protectedBalance, 0),
+      spendableBalance: firstNumber(walletTotals?.spendableBalance) ?? (
+        wallets.every((wallet) => wallet.spendableBalance !== null && wallet.spendableBalance !== undefined)
+          ? wallets.reduce((sum, wallet) => sum + wallet.spendableBalance, 0)
+          : null
+      ),
       walletCount: wallets.length,
       source: "wallets",
     };
@@ -141,13 +172,14 @@ function summarizeWallets(context = {}) {
 
   const walletCard = getWalletCardSnapshot(context);
   if (walletCard) {
-    const totalBalance = parsePesoText(walletCard.primaryValue);
+    const currentBalance = parsePesoText(walletCard.primaryValue);
     const walletCount = Number(walletCard.recordCount || 0);
-
     return {
       connected: true,
       wallets: [],
-      totalBalance,
+      currentBalance,
+      protectedBalance: null,
+      spendableBalance: null,
       walletCount: Number.isFinite(walletCount) ? walletCount : 0,
       source: "dashboardCardsLiveSnapshot",
     };
@@ -156,7 +188,9 @@ function summarizeWallets(context = {}) {
   return {
     connected: false,
     wallets: [],
-    totalBalance: 0,
+    currentBalance: 0,
+    protectedBalance: null,
+    spendableBalance: null,
     walletCount: 0,
     source: "missing",
   };
@@ -168,50 +202,63 @@ function findRequestedWallet(message = "", wallets = []) {
 
   const matchedWallet = wallets.find((wallet) => {
     const name = normalizeText(wallet.name);
-    return name && (text.includes(name) || name.includes(text.replace(/\b(show|check|my|wallet|balance|how much|in)\b/g, "").trim()));
+    return name && (text.includes(name) || name.includes(text.replace(/\b(show|check|my|wallet|balance|how much|in|from|can|spend)\b/g, "").trim()));
   });
 
   if (matchedWallet) return { wallet: matchedWallet, label: matchedWallet.name };
 
   const knownTerm = KNOWN_WALLET_TERMS.find((term) => new RegExp(`\\b${term.key}\\b`).test(text));
-  return { wallet: null, label: knownTerm?.label || "" };
+  if (!knownTerm) return { wallet: null, label: "" };
+
+  const wallet = wallets.find((entry) => normalizeText(entry.name).includes(knownTerm.key)) || null;
+  return { wallet, label: knownTerm.label };
 }
 
-function walletLine(wallet, index) {
-  return `${index + 1}. ${wallet.name} — ${peso(wallet.balance)}`;
+function walletCurrentLine(wallet, index) {
+  return `${index + 1}. ${wallet.name} — ${peso(wallet.currentBalance)}`;
 }
 
 function buildWalletListReply(summary) {
   const visibleWallets = summary.wallets.slice(0, 6);
   const moreCount = Math.max(summary.wallets.length - visibleWallets.length, 0);
-  const lines = visibleWallets.map(walletLine).join("\n");
+  const lines = visibleWallets.map(walletCurrentLine).join("\n");
   const moreLine = moreCount > 0 ? `\nPlus ${moreCount} more wallet(s).` : "";
 
-  return `I checked your CLARA Wallets. You have ${peso(summary.totalBalance)} visible across ${summary.walletCount} wallet(s).\n\nWallets I can see:\n${lines}${moreLine}\n\nSo yes — inside CLARA, when you say “my wallet,” I treat that as your CLARA Wallets, not a physical wallet.`;
+  return `I checked your CLARA Wallets. You have ${peso(summary.currentBalance)} recorded across ${summary.walletCount} wallet(s).\n\nWallets I can see:\n${lines}${moreLine}`;
 }
 
 function buildWalletCardFallbackReply(summary) {
   if (summary.walletCount > 0) {
-    return `I checked your CLARA Wallets. Wallet Hub shows ${peso(summary.totalBalance)} visible across ${summary.walletCount} wallet(s), but detailed wallet names are not loaded in this chat yet.`;
+    return `I checked your CLARA Wallets. Wallet Hub shows ${peso(summary.currentBalance)} recorded across ${summary.walletCount} wallet(s), but detailed wallet facts are not loaded in this chat yet.`;
   }
-
   return "I checked your CLARA Wallets, but I don’t see any saved wallets yet.";
+}
+
+function conceptValue(wallet, concept) {
+  if (concept === "protected") return wallet.protectedBalance;
+  if (concept === "spendable") return wallet.spendableBalance;
+  return wallet.currentBalance;
+}
+
+function conceptLabel(concept) {
+  if (concept === "protected") return "protected";
+  if (concept === "spendable") return "spendable";
+  return "currently recorded";
 }
 
 export function buildWalletDirectReply(message = "", context = {}) {
   if (!detectWalletQuery(message)) return "";
 
   const summary = summarizeWallets(context);
+  const concept = detectWalletMoneyConcept(message);
   const hasWalletData = summary.wallets.length > 0 || summary.walletCount > 0;
 
   if ((context.loading || context.refreshing) && !hasWalletData) {
     return "I’m still loading your CLARA wallet data. Try again in a moment.";
   }
-
   if (!summary.connected) {
     return "I checked CLARA’s Wallets context, but wallet data is not connected to this chat yet.";
   }
-
   if (!summary.wallets.length) {
     return summary.source === "dashboardCardsLiveSnapshot"
       ? buildWalletCardFallbackReply(summary)
@@ -223,18 +270,37 @@ export function buildWalletDirectReply(message = "", context = {}) {
     if (!requested.wallet) {
       return `I checked your CLARA Wallets, but I don’t see a ${requested.label} wallet saved yet.`;
     }
+    const value = conceptValue(requested.wallet, concept);
+    if (value === null || value === undefined) {
+      return `I checked your CLARA Wallets. ${requested.wallet.name} is loaded, but its canonical ${conceptLabel(concept)} amount is not available in this chat context yet.`;
+    }
+    return `I checked your CLARA Wallets. ${requested.wallet.name} has ${peso(value)} ${conceptLabel(concept)}.`;
+  }
 
-    return `I checked your CLARA Wallets. ${requested.wallet.name} shows ${peso(requested.wallet.balance)}.\n\nAcross all visible wallets, you have ${peso(summary.totalBalance)} across ${summary.walletCount} wallet(s).`;
+  if (concept === "spendable") {
+    if (summary.spendableBalance === null || summary.spendableBalance === undefined) {
+      return "I checked your CLARA Wallets, but canonical spendable totals are not loaded in this chat context yet.";
+    }
+    return `I checked your CLARA Wallets. You have ${peso(summary.spendableBalance)} spendable across your active wallets.`;
+  }
+  if (concept === "protected") {
+    if (summary.protectedBalance === null || summary.protectedBalance === undefined) {
+      return "I checked your CLARA Wallets, but canonical protected totals are not loaded in this chat context yet.";
+    }
+    return `I checked your CLARA Wallets. ${peso(summary.protectedBalance)} is protected across your active wallets.`;
   }
 
   return buildWalletListReply(summary);
 }
 
 export {
+  detectWalletMoneyConcept,
   detectWalletQuery,
   getWalletBalance,
   getWalletId,
   getWalletName,
+  getWalletProtectedBalance,
+  getWalletSpendableBalance,
   isActiveWallet,
   normalizeText,
   peso,

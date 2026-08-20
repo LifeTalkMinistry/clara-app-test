@@ -64,6 +64,7 @@ function percent(saved, target) {
 
 function moneyField(wallet = {}) {
   return toNumber(
+    wallet.currentBalance,
     wallet.derived_balance,
     wallet.balance,
     wallet.current_balance,
@@ -74,13 +75,25 @@ function moneyField(wallet = {}) {
 }
 
 function normalizeWallet(wallet = {}) {
-  const balance = moneyField(wallet);
+  const currentBalance = moneyField(wallet);
+  const spendableBalance = toNumber(
+    wallet.spendableBalance,
+    wallet.spendable_balance,
+    wallet.walletSpendableBalance,
+    wallet.wallet_spendable_balance
+  );
   return {
     id: text(wallet.id, wallet.wallet_id, wallet.walletId, wallet.local_id, wallet.name, "wallet"),
     name: text(wallet.name, wallet.wallet_name, wallet.title, wallet.label, "Wallet"),
-    balance,
-    hasReadableBalance: balance !== null,
-    protectedAmount: toNumber(wallet.protected_balance, wallet.reserve_balance, wallet.emergencyProtectedAmount, wallet.emergency_protected_amount) ?? 0,
+    balance: currentBalance,
+    currentBalance,
+    hasReadableBalance: currentBalance !== null,
+    emergencyProtectedAmount: toNumber(wallet.emergencyProtectedAmount, wallet.emergency_protected_amount) ?? 0,
+    savingsProtectedAmount: toNumber(wallet.savingsProtectedAmount, wallet.savings_protected_amount) ?? 0,
+    otherProtectedAmount: toNumber(wallet.otherProtectedAmount, wallet.other_protected_amount) ?? 0,
+    totalProtectedAmount: toNumber(wallet.totalProtectedAmount, wallet.total_protected_amount) ?? 0,
+    protectedAmount: toNumber(wallet.totalProtectedAmount, wallet.total_protected_amount) ?? 0,
+    spendableBalance,
     raw: wallet,
   };
 }
@@ -113,7 +126,9 @@ function emergencyFundSnapshot(source = {}, wallets = []) {
   const fund = source.emergencyFund || source.emergency_fund || {};
   const saved = toNumber(fund.saved, fund.current, fund.currentAmount, fund.current_amount, fund.amount, fund.saved_amount, source.emergencyFundSaved, source.emergency_fund_saved);
   const target = toNumber(fund.target, fund.goal, fund.targetAmount, fund.target_amount, fund.goal_amount, source.emergencyFundTarget, source.emergency_fund_target, source.survivalExpense);
-  const protectedAmount = Math.min(sum(wallets.map((wallet) => wallet.protectedAmount)), sum(wallets.map((wallet) => wallet.balance)));
+  const totals = source.walletTotals || source.canonicalFinancialState?.walletTotals || {};
+  const protectedAmount = toNumber(totals.emergencyProtectedAmount) ??
+    sum(wallets.map((wallet) => wallet.emergencyProtectedAmount));
   return {
     saved,
     target,
@@ -135,12 +150,20 @@ export function buildClaraFinanceSnapshot(context = {}) {
   const budgetPlan = buildClaraBudgetSnapshot({ ...source, expenses: rawExpenses });
   const savingsGoals = firstArray(source, ["savingsGoals", "savings_goals", "goals", "finance.savingsGoals"]).map(normalizeSavingsGoal);
   const readableWallets = wallets.filter((wallet) => wallet.hasReadableBalance);
-  const totalWalletBalance = readableWallets.length ? sum(readableWallets.map((wallet) => wallet.balance)) : 0;
-  const emergencyFund = emergencyFundSnapshot(source, wallets);
-  const protectedEmergencyAmount = readableWallets.length ? Math.min(emergencyFund.protectedAmount || 0, totalWalletBalance) : 0;
-  const safeSpendableAmount = readableWallets.length ? Math.max(totalWalletBalance - protectedEmergencyAmount, 0) : null;
+  const canonicalTotals = source.walletTotals || source.canonicalFinancialState?.walletTotals || {};
+  const totalWalletBalance = toNumber(canonicalTotals.currentBalance) ??
+    (readableWallets.length ? sum(readableWallets.map((wallet) => wallet.currentBalance)) : 0);
+  const protectedEmergencyAmount = toNumber(canonicalTotals.emergencyProtectedAmount) ??
+    sum(readableWallets.map((wallet) => wallet.emergencyProtectedAmount));
+  const totalProtectedAmount = toNumber(canonicalTotals.totalProtectedAmount) ??
+    sum(readableWallets.map((wallet) => wallet.totalProtectedAmount));
+  const safeSpendableAmount = toNumber(canonicalTotals.spendableBalance) ??
+    (readableWallets.length && readableWallets.every((wallet) => wallet.spendableBalance !== null)
+      ? sum(readableWallets.map((wallet) => wallet.spendableBalance))
+      : null);
+  const emergencyFund = emergencyFundSnapshot({ ...source, walletTotals: canonicalTotals }, wallets);
   const walletStatus = !wallets.length ? "no_wallets" : readableWallets.length ? "active_wallets" : "wallet_balance_unreadable";
-  const topWallet = readableWallets.slice().sort((a, b) => (b.balance ?? 0) - (a.balance ?? 0))[0] || null;
+  const topWallet = readableWallets.slice().sort((a, b) => (b.currentBalance ?? 0) - (a.currentBalance ?? 0))[0] || null;
   const monthlySpent = firstNumber(source, ["monthlySpent", "totalExpensesThisMonth", "thisMonthSpent", "monthlyExpenses", "spentThisMonth", "finance.monthlySpent"]) ?? (expenses.length ? sum(expenses.map((expense) => expense.amount)) : null);
   const savingsSaved = firstNumber(source, ["totalSavingsSaved", "savingsSaved", "savedAmount"]) ?? (savingsGoals.length ? sum(savingsGoals.map((goal) => goal.saved)) : null);
   const savingsTarget = firstNumber(source, ["totalSavingsTarget", "savingsTarget", "targetSavings"]) ?? (savingsGoals.length ? sum(savingsGoals.map((goal) => goal.target)) : null);
@@ -155,7 +178,7 @@ export function buildClaraFinanceSnapshot(context = {}) {
     hasWallets: wallets.length > 0,
     hasReadableWalletBalances: readableWallets.length > 0,
     walletStatus,
-    walletRows: wallets.map((wallet) => ({ id: wallet.id, name: wallet.name, balance: wallet.balance, protectedAmount: wallet.protectedAmount, hasReadableBalance: wallet.hasReadableBalance })),
+    walletRows: wallets.map((wallet) => ({ id: wallet.id, name: wallet.name, balance: wallet.currentBalance, currentBalance: wallet.currentBalance, protectedAmount: wallet.totalProtectedAmount, totalProtectedAmount: wallet.totalProtectedAmount, spendableBalance: wallet.spendableBalance, hasReadableBalance: wallet.hasReadableBalance })),
     wallets,
     walletCount: wallets.length,
     walletBalances: wallets,
@@ -163,6 +186,7 @@ export function buildClaraFinanceSnapshot(context = {}) {
     totalBalance: totalWalletBalance,
     totalWalletBalance,
     protectedEmergencyAmount,
+    totalProtectedAmount,
     safeSpendableAmount,
     availableMoney: safeSpendableAmount,
     expenses,

@@ -60,19 +60,15 @@ function firstProfileValue(effectiveContext = {}, fallbackContext = {}, keys = [
 }
 
 function getWalletBalance(wallet = {}) {
-  return toNumber(wallet.balance ?? wallet.currentBalance ?? wallet.current_balance ?? wallet.derived_balance ?? 0);
+  return toNumber(wallet.currentBalance ?? wallet.balance ?? wallet.current_balance ?? wallet.derived_balance ?? 0);
 }
 
 function getProtectedWalletAmount(wallet = {}) {
-  return toNumber(
-    wallet.emergencyProtectedAmount ??
-      wallet.emergency_protected_amount ??
-      wallet.protectedEmergencyAmount ??
-      wallet.protected_emergency_amount ??
-      wallet.protectedAmount ??
-      wallet.protected_amount ??
-      0
-  );
+  return toNumber(wallet.totalProtectedAmount ?? wallet.total_protected_amount ?? 0);
+}
+
+function getSpendableWalletAmount(wallet = {}) {
+  return toNumber(wallet.spendableBalance ?? wallet.spendable_balance ?? wallet.walletSpendableBalance ?? wallet.wallet_spendable_balance ?? 0);
 }
 
 function getEmergencySaved(emergencyFund = {}) {
@@ -169,12 +165,20 @@ export function buildClaraForecastPhaseOneSnapshot(effectiveContext = {}, fallba
   const savingsGoals = asArray(effectiveContext.savingsGoals);
   const debtObligations = asArray(effectiveContext.debtObligations);
   const emergencyFund = effectiveContext.emergencyFund || null;
-  const totalWalletBalance = sumValues(wallets, getWalletBalance);
+  const walletTotals = effectiveContext.walletTotals || effectiveContext.canonicalFinancialState?.walletTotals || {};
+  const totalWalletBalance = hasValue(walletTotals.currentBalance)
+    ? toNumber(walletTotals.currentBalance)
+    : sumValues(wallets, getWalletBalance);
+  const protectedWalletBalance = hasValue(walletTotals.totalProtectedAmount)
+    ? toNumber(walletTotals.totalProtectedAmount)
+    : sumValues(wallets, getProtectedWalletAmount);
+  const emergencyProtectedAmount = hasValue(walletTotals.emergencyProtectedAmount)
+    ? toNumber(walletTotals.emergencyProtectedAmount)
+    : sumValues(wallets, (wallet) => wallet.emergencyProtectedAmount ?? wallet.emergency_protected_amount ?? 0);
+  const spendableWalletBalance = hasValue(walletTotals.spendableBalance)
+    ? toNumber(walletTotals.spendableBalance)
+    : sumValues(wallets, getSpendableWalletAmount);
   const emergencySaved = getEmergencySaved(emergencyFund || {});
-  const protectedWalletBalance = sumValues(wallets, getProtectedWalletAmount);
-  const emergencyProtectedAmount = emergencySaved || protectedWalletBalance || 0;
-  const protectedMoney = Math.max(emergencyProtectedAmount, protectedWalletBalance, 0);
-  const spendableWalletBalance = Math.max(totalWalletBalance - protectedMoney, 0);
 
   const paydayTiming = firstProfileValue(effectiveContext, fallbackContext, ["paydayCycle", "payday", "incomeTiming", "incomePattern"]);
   const workSchedule = firstProfileValue(effectiveContext, fallbackContext, ["scheduleRoutine", "workSchedule", "workType"]);
