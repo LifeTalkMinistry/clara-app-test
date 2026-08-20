@@ -6,46 +6,48 @@ const overlaySource = await readFile(
   new URL("../src/components/fresh/main-dashboard/assistant/ClaraLogExpenseOverlayV2.jsx", import.meta.url),
   "utf8"
 );
-const carouselSource = await readFile(
-  new URL("../src/components/financial-carousel/FinancialCarousel.jsx", import.meta.url),
+const environmentSource = await readFile(
+  new URL("../src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay.jsx", import.meta.url),
   "utf8"
 );
-const walletActionEventsSource = await readFile(
-  new URL("../src/lib/clara-wallet-action-events.js", import.meta.url),
+const walletSource = await readFile(
+  new URL("../src/components/fresh/main-dashboard/assistant/ClaraWalletOverlayV2.jsx", import.meta.url),
   "utf8"
 );
 
-test("Log Expense offers wallet creation when no wallet exists", () => {
-  assert.match(overlaySource, /you don’t have a wallet yet/i);
-  assert.match(overlaySource, /Want to create one now\?/i);
+test("Log Expense sends no-wallet recovery directly into Wallet chat", () => {
+  assert.match(overlaySource, /onOpenWalletChat/);
+  assert.match(overlaySource, /intent: "create"/);
   assert.match(overlaySource, />Create a Wallet</);
-  assert.match(overlaySource, /requestClaraWalletCreation/);
-  assert.doesNotMatch(overlaySource, /Add or fund a wallet first, then come back here/i);
+  assert.doesNotMatch(overlaySource, /requestClaraWalletCreation/);
+  assert.doesNotMatch(overlaySource, /requestClaraWalletFunding/);
 });
 
-test("Log Expense offers wallet funding when wallets exist but none are spendable", () => {
-  assert.match(overlaySource, /there isn’t any spendable money available yet/i);
-  assert.match(overlaySource, /Add money to \{wallet\.name\}/);
-  assert.match(overlaySource, /requestClaraWalletFunding/);
+test("Log Expense stays above dashboard floating controls", () => {
+  assert.match(overlaySource, /z-\[400\]/);
+  assert.match(overlaySource, /touch-manipulation/);
+  assert.doesNotMatch(overlaySource, /walletHandoffActive/);
+  assert.doesNotMatch(overlaySource, /z-\[100\]/);
 });
 
-test("wallet handoff preserves the unfinished Log Expense conversation", () => {
-  assert.match(overlaySource, /walletHandoffActive/);
-  assert.match(overlaySource, /z-\[100\]/);
-  assert.match(overlaySource, /amount,\n\s*item/);
-  assert.match(overlaySource, /data-clara-log-expense-wallet-handoff/);
+test("environment switches chat modes without routing to Financial Dashboard", () => {
+  assert.match(environmentSource, /setEntryMode\("wallet"\)/);
+  assert.match(environmentSource, /walletHandoff/);
+  assert.match(environmentSource, /resumeState=\{logExpenseResume\}/);
+  assert.match(environmentSource, /returnMode: "log-expense"/);
 });
 
-test("Financial Carousel routes recovery requests into existing wallet handlers", () => {
-  assert.match(carouselSource, /CLARA_OPEN_CREATE_WALLET_EVENT/);
-  assert.match(carouselSource, /CLARA_OPEN_ADD_MONEY_EVENT/);
-  assert.match(carouselSource, /onCreateWallet\?\.\(\)/);
-  assert.match(carouselSource, /onAddMoney\?\.\(wallet\)/);
+test("Wallet chat owns wallet creation and funding", () => {
+  assert.match(walletSource, /addWallet\(localUserId/);
+  assert.match(walletSource, /addMoney\(localUserId/);
+  assert.match(walletSource, /no Financial Dashboard needed/i);
+  assert.match(walletSource, /onWalletReady/);
+  assert.match(walletSource, /data-clara-wallet-chat-intent/);
 });
 
-test("wallet recovery uses a shared event contract", () => {
-  assert.match(walletActionEventsSource, /clara:open-create-wallet/);
-  assert.match(walletActionEventsSource, /clara:open-add-money/);
-  assert.match(walletActionEventsSource, /requestClaraWalletCreation/);
-  assert.match(walletActionEventsSource, /requestClaraWalletFunding/);
+test("unfinished expense is restored after Wallet chat", () => {
+  assert.match(overlaySource, /I kept \$\{money\(resumedAmount\)\} for \$\{resumedItem\}/);
+  assert.match(overlaySource, /Which wallet did you use\?/);
+  assert.match(environmentSource, /amount: Number\(detail\?\.amount\)/);
+  assert.match(environmentSource, /item: String\(detail\?\.item/);
 });

@@ -55,6 +55,8 @@ export default function ClaraAiEnvironmentOverlay(props) {
   const guidePreview = props?.layoutVariant === "guide-preview";
   const [searchParams, setSearchParams] = useSearchParams();
   const [entryMode, setEntryMode] = useState(null);
+  const [walletHandoff, setWalletHandoff] = useState(null);
+  const [logExpenseResume, setLogExpenseResume] = useState(null);
   const routeMode = searchParams.get("mode");
   const weeklyMoneyCheckLaunchRequested =
     !guidePreview && routeMode === "weekly-money-check";
@@ -86,7 +88,10 @@ export default function ClaraAiEnvironmentOverlay(props) {
 
     const handlePauseOpenRequest = (event) => {
       const mode = String(event?.detail?.mode || "").trim();
-      setEntryMode(ORB_ENTRY_MODES.has(mode) ? mode : null);
+      const nextMode = ORB_ENTRY_MODES.has(mode) ? mode : null;
+      setEntryMode(nextMode);
+      setWalletHandoff(null);
+      if (nextMode === "log-expense") setLogExpenseResume(null);
     };
 
     window.addEventListener(CLARA_PAUSE_OPEN_REQUEST_EVENT, handlePauseOpenRequest);
@@ -96,10 +101,6 @@ export default function ClaraAiEnvironmentOverlay(props) {
   useEffect(() => {
     if (!weeklyMoneyCheckLaunchRequested) return undefined;
 
-    // `mode=weekly-money-check` and its source are launch metadata, not the
-    // persistent identity of the Community Orb page. Latch the workflow into
-    // React state before consuming the command so URL normalization cannot
-    // close the Weekly Money Check that was just intentionally opened.
     setWeeklyMoneyCheckMode(true);
 
     const nextParams = new URLSearchParams(searchParams);
@@ -138,16 +139,38 @@ export default function ClaraAiEnvironmentOverlay(props) {
     return () => window.clearTimeout(timerId);
   }, [props?.isActive, weeklyMoneyCheckMode]);
 
+  const returnToLogExpense = () => {
+    setWalletHandoff(null);
+    setEntryMode("log-expense");
+  };
+
   if (logExpenseMode) {
     const closeLogExpense = () => {
       setEntryMode(null);
+      setWalletHandoff(null);
+      setLogExpenseResume(null);
       props?.onClose?.();
+    };
+
+    const openWalletChat = (detail = {}) => {
+      setLogExpenseResume({
+        amount: Number(detail?.amount) || 0,
+        item: String(detail?.item || "").trim(),
+      });
+      setWalletHandoff({
+        ...detail,
+        source: "log-expense",
+        returnMode: "log-expense",
+      });
+      setEntryMode("wallet");
     };
 
     return (
       <ClaraLogExpenseOverlay
         {...props}
         claraAssistantContext={enrichedAssistantContext}
+        resumeState={logExpenseResume}
+        onOpenWalletChat={openWalletChat}
         onClose={closeLogExpense}
       />
     );
@@ -155,14 +178,27 @@ export default function ClaraAiEnvironmentOverlay(props) {
 
   if (walletMode) {
     const closeWallet = () => {
+      if (walletHandoff?.returnMode === "log-expense") {
+        returnToLogExpense();
+        return;
+      }
       setEntryMode(null);
+      setWalletHandoff(null);
       props?.onClose?.();
+    };
+
+    const walletReady = () => {
+      if (walletHandoff?.returnMode === "log-expense") {
+        returnToLogExpense();
+      }
     };
 
     return (
       <ClaraWalletOverlay
         {...props}
         claraAssistantContext={enrichedAssistantContext}
+        entryContext={walletHandoff}
+        onWalletReady={walletReady}
         onClose={closeWallet}
       />
     );
