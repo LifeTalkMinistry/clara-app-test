@@ -6,6 +6,7 @@ import { analyzeObligations } from "./clara-buy-check-obligation-engine.js";
 import { analyzeGoalProtection } from "./clara-buy-check-goal-protection-engine.js";
 import { analyzeCalendarImpact } from "./clara-buy-check-calendar-engine.js";
 import { analyzeLifeStageContext } from "./clara-buy-check-life-stage-engine.js";
+import { analyzeMoneyScheduleRoutine } from "./clara-buy-check-money-schedule-engine.js";
 
 const clean = (value = "") => String(value ?? "").replace(/\s+/g, " ").trim();
 const safeList = (value) => Array.isArray(value) ? value.filter(Boolean) : [];
@@ -77,6 +78,7 @@ function buildContextSignals(pkg) {
     savingsGoalRisk: pkg.savingsGoals?.wouldRequireWithdrawal ? "affected" : pkg.savingsGoals?.wouldBeAffected ? "present" : "not_affected",
     paydayTimingRisk: ["none", "low"].includes(pkg.incomeRunway?.confidence) ? "uncertain" : "measured",
     calendarRisk: pkg.calendar?.knownMoneyImpactTotal > 0 ? "present" : pkg.calendar?.unknownCostEvents?.length ? "unknown_cost" : "none",
+    moneyScheduleRisk: pkg.moneySchedule?.remainingAssumedRoutineSpending > 0 ? "present" : "none",
     lifeStageRisk: pkg.lifeStage?.relevance === "conflicting" ? "present" : "none",
     dataConfidence: pkg.safety?.dataConfidence || "low",
     upcomingObligation: pkg.obligations?.nearestDueObligation || null,
@@ -129,13 +131,14 @@ function buildBuyCheckContext(flowValue = {}, contextValue = {}, options = {}) {
     scannedBudgetCount: budgetAssessment.scannedBudgetCount,
   };
   const incomeRunway = analyzeIncomeRunway(context, { now });
+  const moneySchedule = analyzeMoneyScheduleRoutine(context, incomeRunway, { now });
   let calendar = analyzeCalendarImpact(context, incomeRunway, { now });
   const liquidMoneyAfterPurchase = wallet.spendableTotal - amount;
   const obligations = analyzeObligations(context, incomeRunway, { now, availableAfterPurchase: liquidMoneyAfterPurchase });
   calendar = dedupeCalendarAgainstObligations(calendar, obligations);
   const preliminaryGoals = analyzeGoalProtection(context, { now, safeAfterPurchase: liquidMoneyAfterPurchase });
   const survivalReserve = explicitSurvivalReserve(context);
-  const commitmentsBeforeNextIncome = obligations.totalDueBeforeNextIncome + preliminaryGoals.emergencyFund.stillRequiredThisCycle + preliminaryGoals.savingsGoals.stillRequiredThisCycle + calendar.knownMoneyImpactTotal + survivalReserve;
+  const commitmentsBeforeNextIncome = obligations.totalDueBeforeNextIncome + preliminaryGoals.emergencyFund.stillRequiredThisCycle + preliminaryGoals.savingsGoals.stillRequiredThisCycle + calendar.knownMoneyImpactTotal + moneySchedule.remainingAssumedRoutineSpending + survivalReserve;
   const safeToSpendBeforePurchase = wallet.spendableTotal - commitmentsBeforeNextIncome;
   const safeToSpendAfterPurchase = safeToSpendBeforePurchase - amount;
   const goals = analyzeGoalProtection(context, { now, safeAfterPurchase: safeToSpendAfterPurchase });
@@ -145,6 +148,7 @@ function buildBuyCheckContext(flowValue = {}, contextValue = {}, options = {}) {
   const safety = {
     liquidMoneyAfterPurchase,
     commitmentsBeforeNextIncome,
+    moneyScheduleIncludedInCommitments: moneySchedule.remainingAssumedRoutineSpending,
     survivalReserve,
     safeToSpendBeforePurchase,
     safeToSpendAfterPurchase,
@@ -163,6 +167,7 @@ function buildBuyCheckContext(flowValue = {}, contextValue = {}, options = {}) {
     obligations,
     emergencyFund: goals.emergencyFund,
     savingsGoals: goals.savingsGoals,
+    moneySchedule,
     calendar,
     lifeStage,
     safety,
@@ -173,6 +178,7 @@ function buildBuyCheckContext(flowValue = {}, contextValue = {}, options = {}) {
       debtObligations: Array.isArray(context.debtObligations),
       emergencyFund: Boolean(context.emergencyFund),
       savingsGoals: Array.isArray(context.savingsGoals),
+      moneySchedule: moneySchedule.connected,
       lifeStage: lifeStage.connected,
       schedule: calendar.connected,
     },
