@@ -65,13 +65,21 @@ function Bubble({ role = "assistant", children }) {
   );
 }
 
-function ChoiceButton({ children, onClick, secondary = false, disabled = false }) {
+function ChoiceButton({
+  children,
+  onClick,
+  secondary = false,
+  disabled = false,
+  centered = false,
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`relative z-10 min-h-12 touch-manipulation rounded-[17px] border px-4 py-3 text-left text-[12.5px] font-black transition active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-45 ${
+      className={`relative z-10 min-h-12 touch-manipulation rounded-[17px] border px-4 py-3 text-[12.5px] font-black transition active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-45 ${
+        centered ? "text-center" : "text-left"
+      } ${
         secondary
           ? "border-blue-100/12 bg-white/[0.035] text-slate-200"
           : "border-cyan-200/18 bg-[linear-gradient(135deg,rgba(23,105,255,0.22),rgba(43,225,216,0.10))] text-white"
@@ -151,6 +159,7 @@ export default function ClaraWalletOverlayV2({
   const [draftStartingBalance, setDraftStartingBalance] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
   const user = claraAssistantContext?.user || {};
   const firstName = getFirstName(user);
   const allWallets = Array.isArray(claraAssistantContext?.wallets) ? claraAssistantContext.wallets : [];
@@ -320,12 +329,12 @@ export default function ClaraWalletOverlayV2({
   };
 
   const openingCopy = intent === "create"
-    ? `Got it, ${firstName}. We’ll create the wallet right here in Wallet chat—no Financial Dashboard needed.`
+    ? `Got it, ${firstName}. We’ll create the wallet right here in Wallet chat.`
     : intent === "fund"
-      ? `Got it, ${firstName}. We’ll add money right here in Wallet chat, then return to Log Expense.`
-      : wallets.length
-        ? `Wallet is open, ${firstName}. I can see ${wallets.length} active wallet${wallets.length === 1 ? "" : "s"}. What would you like to check?`
-        : `Wallet is open, ${firstName}. I can’t find an active wallet yet.`;
+      ? `Got it, ${firstName}. We’ll add money here, then return to Log Expense.`
+      : `Wallet is open, ${firstName}. What would you like to check?`;
+
+  const emptyMenu = phase === "menu" && wallets.length === 0;
 
   return (
     <div
@@ -338,11 +347,14 @@ export default function ClaraWalletOverlayV2({
     >
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_5%_4%,rgba(23,105,255,0.28),transparent_34%),radial-gradient(circle_at_96%_8%,rgba(43,225,216,0.12),transparent_34%),linear-gradient(180deg,#06152e_0%,#040b1a_44%,#020714_100%)]" />
 
-      <header className="relative z-20 mx-1 shrink-0 overflow-hidden rounded-[24px] border border-blue-200/18 bg-[linear-gradient(115deg,rgba(5,26,62,0.98),rgba(7,22,48,0.98)_56%,rgba(7,31,38,0.96))] px-4 py-3.5 pr-14 shadow-[0_16px_38px_rgba(0,0,0,0.28)]">
+      <header className="relative z-20 mx-1 shrink-0 overflow-hidden rounded-[24px] border border-blue-200/18 bg-[linear-gradient(115deg,rgba(5,26,62,0.98),rgba(7,22,48,0.98)_56%,rgba(7,31,38,0.96))] px-14 py-4 shadow-[0_16px_38px_rgba(0,0,0,0.28)]">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,#1769ff,#2be1d8)]" />
-        <p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#8ffff8]/78">CLARA CHAT</p>
-        <h1 className="mt-1 text-[17px] font-black tracking-[-0.025em] text-white">Wallet</h1>
-        <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-100/42">Current · Protected · Spendable</p>
+        <h1 className="text-center text-[17px] font-black tracking-[-0.025em] text-white">Wallet</h1>
+        {wallets.length ? (
+          <p className="mt-1 text-center text-[9.5px] font-bold uppercase tracking-[0.13em] text-blue-100/38">
+            Current · Protected · Spendable
+          </p>
+        ) : null}
         <button
           type="button"
           onClick={closeWallet}
@@ -355,7 +367,7 @@ export default function ClaraWalletOverlayV2({
 
       <main className="relative z-10 min-h-0 flex-1 overflow-y-auto px-2 pb-5 pt-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex min-h-full flex-col gap-3">
-          <Bubble>{openingCopy}</Bubble>
+          {!emptyMenu ? <Bubble>{openingCopy}</Bubble> : null}
 
           {phase === "create_name" ? (
             <>
@@ -420,10 +432,9 @@ export default function ClaraWalletOverlayV2({
                 <ChoiceButton onClick={closeWallet} secondary>Done</ChoiceButton>
               </div>
             ) : (
-              <div className="mt-1 grid gap-2.5">
-                <Bubble>You don’t have an active wallet yet. We can create one here without leaving CLARA chat.</Bubble>
-                <ChoiceButton onClick={() => setPhase("create_name")}>Create a wallet</ChoiceButton>
-                <ChoiceButton onClick={closeWallet} secondary>Done</ChoiceButton>
+              <div className="mt-1 grid gap-3 pt-1">
+                <Bubble>You don’t have a wallet yet. Create one to start tracking your money.</Bubble>
+                <ChoiceButton onClick={() => setPhase("create_name")} centered>Create a wallet</ChoiceButton>
               </div>
             )
           ) : null}
