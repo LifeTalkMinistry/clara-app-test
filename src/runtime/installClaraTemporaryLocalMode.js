@@ -7,7 +7,7 @@ const LOCAL_MODE_EMAIL = "local@clara.app";
 
 function safeWriteSessionFlag() {
   try {
-    window.sessionStorage?.setItem("clara_supabase_quota_blocked", "1");
+    window.sessionStorage?.setItem("clara_account_service_fallback", "1");
   } catch {
     // Ignore unavailable storage.
   }
