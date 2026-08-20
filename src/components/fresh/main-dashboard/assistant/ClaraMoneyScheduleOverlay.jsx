@@ -138,6 +138,50 @@ function totalItems(items = []) {
   );
 }
 
+function basisDayKeyFrom(day = {}) {
+  return cleanText(day?.basisDayKey || day?.basis_day_key).toLowerCase();
+}
+
+function findDependentDayIndexes(days = [], sourceDayKey = "") {
+  const sourceKey = cleanText(sourceDayKey).toLowerCase();
+  if (!sourceKey) return [];
+
+  const dependentKeys = new Set();
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+    days.forEach((day) => {
+      if (!day?.key || dependentKeys.has(day.key)) return;
+      const basisKey = basisDayKeyFrom(day);
+      if (!basisKey) return;
+      if (basisKey === sourceKey || dependentKeys.has(basisKey)) {
+        dependentKeys.add(day.key);
+        changed = true;
+      }
+    });
+  }
+
+  return days
+    .map((day, index) => (day?.key && dependentKeys.has(day.key) ? index : -1))
+    .filter((index) => index >= 0);
+}
+
+function findNextMissingDayIndex(days = [], startIndex = 0) {
+  for (let index = Math.max(0, startIndex); index < CLARA_MONEY_ROUTINE_WEEKDAYS.length; index += 1) {
+    if (!days[index]) return index;
+  }
+  return -1;
+}
+
+function joinDayNames(names = []) {
+  const cleanNames = names.map((name) => cleanText(name)).filter(Boolean);
+  if (!cleanNames.length) return "";
+  if (cleanNames.length === 1) return cleanNames[0];
+  if (cleanNames.length === 2) return `${cleanNames[0]} and ${cleanNames[1]}`;
+  return `${cleanNames.slice(0, -1).join(", ")}, and ${cleanNames[cleanNames.length - 1]}`;
+}
+
 function Bubble({ role, children, typing = false }) {
   const assistant = role === "assistant";
   return (
@@ -351,6 +395,7 @@ export default function ClaraMoneyScheduleOverlay({
   const [messages, setMessages] = useState([]);
   const [days, setDays] = useState([]);
   const [dayIndex, setDayIndex] = useState(0);
+  const [currentBasisDayKey, setCurrentBasisDayKey] = useState("");
   const [draftText, setDraftText] = useState("");
   const [editItems, setEditItems] = useState([]);
   const [itemEditMode, setItemEditMode] = useState(false);
@@ -362,6 +407,7 @@ export default function ClaraMoneyScheduleOverlay({
   const [busy, setBusy] = useState(false);
   const [savedRoutine, setSavedRoutine] = useState(null);
   const [editReturnContext, setEditReturnContext] = useState(null);
+  const [pendingBasisEdit, setPendingBasisEdit] = useState(null);
   const [pendingMessage, setPendingMessage] = useState(null);
   const [typedText, setTypedText] = useState("");
   const [interactionReady, setInteractionReady] = useState(false);
@@ -375,7 +421,7 @@ export default function ClaraMoneyScheduleOverlay({
 
   const currentWeekday =
     CLARA_MONEY_ROUTINE_WEEKDAYS[dayIndex] || CLARA_MONEY_ROUTINE_WEEKDAYS[0];
-  const configuredDays = days.slice(0, dayIndex);
+  const configuredDays = days.slice(0, dayIndex).filter(Boolean);
 
   const scrollToLatest = () => {
     if (typeof window === "undefined") return;
@@ -463,6 +509,7 @@ export default function ClaraMoneyScheduleOverlay({
   const resetRoutineFields = () => {
     setDays([]);
     setDayIndex(0);
+    setCurrentBasisDayKey("");
     setDraftText("");
     setEditItems([]);
     resetInlineItemEditing();
@@ -470,6 +517,7 @@ export default function ClaraMoneyScheduleOverlay({
     setBusy(false);
     setSavedRoutine(null);
     setEditReturnContext(null);
+    setPendingBasisEdit(null);
   };
 
   const startOpeningConversation = () => {
@@ -558,6 +606,7 @@ export default function ClaraMoneyScheduleOverlay({
   const startSetup = () => {
     if (!interactionReady) return;
     setEditItems([]);
+    setCurrentBasisDayKey("");
     resetInlineItemEditing();
     setError("");
     appendUser("Yes, I’m ready");
@@ -571,12 +620,14 @@ export default function ClaraMoneyScheduleOverlay({
     );
   };
 
-  const moveToNextDay = (items, leadReplies = []) => {
+  const moveToNextDay = (items, leadReplies = [], options = {}) => {
     const weekday = currentWeekday;
+    const basisDayKey = cleanText(options.basisDayKey ?? currentBasisDayKey).toLowerCase() || null;
     const normalizedDay = {
       key: weekday.key,
       name: weekday.name,
       weekdayIndex: weekday.weekdayIndex,
+      basisDayKey,
       items: cloneItems(items),
     };
     const nextDays = [...days];
@@ -584,14 +635,16 @@ export default function ClaraMoneyScheduleOverlay({
     setDays(nextDays);
     setDraftText("");
     setEditItems([]);
+    setCurrentBasisDayKey("");
     resetInlineItemEditing();
     setError("");
 
-    if (dayIndex >= CLARA_MONEY_ROUTINE_WEEKDAYS.length - 1) {
+    const nextIndex = findNextMissingDayIndex(nextDays, dayIndex + 1);
+    if (nextIndex < 0) {
       runAssistantSequence(
         [
           ...leadReplies,
-          "Sunday is done. I now have your normal Monday-to-Sunday routine.",
+          `${weekday.name} is done. I now have your normal Monday-to-Sunday routine.`,
           "Review it once before I save it as your current weekly Money Schedule.",
         ],
         "weekly-review"
@@ -599,13 +652,18 @@ export default function ClaraMoneyScheduleOverlay({
       return;
     }
 
-    const nextIndex = dayIndex + 1;
     const nextWeekday = CLARA_MONEY_ROUTINE_WEEKDAYS[nextIndex];
+    const skippedNames = nextDays
+      .slice(dayIndex + 1, nextIndex)
+      .filter(Boolean)
+      .map((day) => day.name);
     setDayIndex(nextIndex);
     runAssistantSequence(
       [
         ...leadReplies,
-        `${weekday.name} is done. Now let’s set up ${nextWeekday.name}.`,
+        skippedNames.length
+          ? `${weekday.name} is done. ${joinDayNames(skippedNames)} ${skippedNames.length === 1 ? "is" : "are"} already set, so now let’s set up ${nextWeekday.name}.`
+          : `${weekday.name} is done. Now let’s set up ${nextWeekday.name}.`,
         `You can reuse a day you already finished, copy one and change it, make ${nextWeekday.name} completely different, or go back and edit a completed day.`,
       ],
       "day-choice"
@@ -615,9 +673,11 @@ export default function ClaraMoneyScheduleOverlay({
   const useSameDay = (sourceDay) => {
     if (!interactionReady) return;
     appendUser(`Same as ${sourceDay.name}`);
-    moveToNextDay(sourceDay.items, [
-      `Got it. ${currentWeekday.name} will use the same routine as ${sourceDay.name}.`,
-    ]);
+    moveToNextDay(
+      sourceDay.items,
+      [`Got it. ${currentWeekday.name} will use the same routine as ${sourceDay.name}.`],
+      { basisDayKey: sourceDay.key }
+    );
   };
 
   const chooseCopyAndChange = () => {
@@ -632,6 +692,7 @@ export default function ClaraMoneyScheduleOverlay({
   const chooseCopySource = (sourceDay) => {
     if (!interactionReady) return;
     setEditItems(cloneItems(sourceDay.items));
+    setCurrentBasisDayKey(sourceDay.key);
     resetInlineItemEditing();
     setError("");
     appendUser(`Start from ${sourceDay.name}`);
@@ -648,6 +709,7 @@ export default function ClaraMoneyScheduleOverlay({
     if (!interactionReady) return;
     setDraftText("");
     setEditItems([]);
+    setCurrentBasisDayKey("");
     resetInlineItemEditing();
     setError("");
     appendUser("Completely different setup");
@@ -669,28 +731,106 @@ export default function ClaraMoneyScheduleOverlay({
     );
   };
 
+  const beginPreviousDayEdit = ({
+    sourceDay,
+    returnPhase = "day-choice",
+    returnDayIndex = dayIndex,
+    invalidatedDayIndexes = [],
+    invalidatedDayNames = [],
+  }) => {
+    const targetIndex = days.findIndex((day) => day?.key === sourceDay?.key);
+    if (targetIndex < 0) return;
+
+    setEditReturnContext({
+      returnDayIndex,
+      returnPhase,
+      invalidatedDayIndexes,
+      invalidatedDayNames,
+    });
+    setDayIndex(targetIndex);
+    setCurrentBasisDayKey(basisDayKeyFrom(sourceDay));
+    setDraftText("");
+    setEditItems(cloneItems(sourceDay.items));
+    resetInlineItemEditing();
+    setError("");
+  };
+
   const choosePreviousDayToEdit = (sourceDay, returnPhase = "day-choice") => {
     if (!interactionReady) return;
     const targetIndex = days.findIndex((day) => day?.key === sourceDay?.key);
     if (targetIndex < 0) return;
 
+    const dependentIndexes = findDependentDayIndexes(days, sourceDay.key);
+    const dependentNames = dependentIndexes
+      .map((index) => days[index]?.name)
+      .filter(Boolean);
     const returnDayIndex = dayIndex;
-    setEditReturnContext({
-      returnDayIndex,
-      returnPhase,
-    });
-    setDayIndex(targetIndex);
-    setDraftText("");
-    setEditItems(cloneItems(sourceDay.items));
-    resetInlineItemEditing();
-    setError("");
+
     appendUser(`Edit ${sourceDay.name}`);
+
+    if (dependentIndexes.length) {
+      setPendingBasisEdit({
+        sourceDay,
+        returnPhase,
+        returnDayIndex,
+        dependentIndexes,
+        dependentNames,
+      });
+      runAssistantSequence(
+        [
+          `Heads up — ${sourceDay.name} was used as the basis for ${joinDayNames(dependentNames)}.`,
+          `If you continue editing ${sourceDay.name}, ${dependentNames.length === 1 ? "that day will" : "those days will"} be deleted and you’ll need to recreate ${dependentNames.length === 1 ? "it" : "them"} afterward.`,
+        ],
+        "basis-edit-warning"
+      );
+      return;
+    }
+
+    beginPreviousDayEdit({ sourceDay, returnPhase, returnDayIndex });
     runAssistantSequence(
       [
         `Here’s your current ${sourceDay.name} routine.`,
         "Use Add, Remove, or Edit item for anything you want to correct, then press Done editing.",
       ],
       "day-edit"
+    );
+  };
+
+  const continueBasisDayEdit = () => {
+    if (!interactionReady || !pendingBasisEdit) return;
+    const context = pendingBasisEdit;
+    const dependentIndexSet = new Set(context.dependentIndexes);
+    const nextDays = [...days];
+    context.dependentIndexes.forEach((index) => {
+      nextDays[index] = undefined;
+    });
+    setDays(nextDays);
+    setPendingBasisEdit(null);
+    appendUser(`Continue editing ${context.sourceDay.name}`);
+    beginPreviousDayEdit({
+      sourceDay: context.sourceDay,
+      returnPhase: context.returnPhase,
+      returnDayIndex: context.returnDayIndex,
+      invalidatedDayIndexes: [...dependentIndexSet],
+      invalidatedDayNames: context.dependentNames,
+    });
+    runAssistantSequence(
+      [
+        `${joinDayNames(context.dependentNames)} ${context.dependentNames.length === 1 ? "has" : "have"} been cleared because ${context.dependentNames.length === 1 ? "it was" : "they were"} based on ${context.sourceDay.name}.`,
+        `Here’s your current ${context.sourceDay.name} routine. Make your changes, then press Done editing.`,
+      ],
+      "day-edit"
+    );
+  };
+
+  const cancelBasisDayEdit = () => {
+    if (!interactionReady || !pendingBasisEdit) return;
+    const context = pendingBasisEdit;
+    setPendingBasisEdit(null);
+    appendUser("Cancel");
+    runAssistantSequence(
+      [`No changes made. ${context.sourceDay.name} and the days based on it will stay as they are.`],
+      context.returnPhase
     );
   };
 
@@ -884,28 +1024,44 @@ export default function ClaraMoneyScheduleOverlay({
     const nextItems = cloneItems(finalItems);
     const returnDayIndex = context.returnDayIndex;
     const returnWeekday = CLARA_MONEY_ROUTINE_WEEKDAYS[returnDayIndex];
-
-    setDays((current) => {
-      const nextDays = [...current];
-      const existingDay = nextDays[editedDayIndex] || {};
-      nextDays[editedDayIndex] = {
-        ...existingDay,
-        key: editedWeekday.key,
-        name: editedWeekday.name,
-        weekdayIndex: editedWeekday.weekdayIndex,
-        items: nextItems,
-      };
-      return nextDays;
-    });
+    const nextDays = [...days];
+    const existingDay = nextDays[editedDayIndex] || {};
+    nextDays[editedDayIndex] = {
+      ...existingDay,
+      key: editedWeekday.key,
+      name: editedWeekday.name,
+      weekdayIndex: editedWeekday.weekdayIndex,
+      basisDayKey: currentBasisDayKey || null,
+      items: nextItems,
+    };
+    setDays(nextDays);
 
     appendUser(`Done editing ${editedWeekday.name}`);
     setEditReturnContext(null);
-    setDayIndex(returnDayIndex);
     setDraftText("");
     setEditItems([]);
+    setCurrentBasisDayKey("");
     resetInlineItemEditing();
     setError("");
 
+    if (context.invalidatedDayIndexes?.length) {
+      const nextMissingIndex = findNextMissingDayIndex(nextDays, 0);
+      if (nextMissingIndex >= 0) {
+        const nextWeekday = CLARA_MONEY_ROUTINE_WEEKDAYS[nextMissingIndex];
+        setDayIndex(nextMissingIndex);
+        runAssistantSequence(
+          [
+            `${editedWeekday.name} updated.`,
+            `${joinDayNames(context.invalidatedDayNames)} ${context.invalidatedDayNames.length === 1 ? "was" : "were"} deleted because ${context.invalidatedDayNames.length === 1 ? "it was" : "they were"} based on the old ${editedWeekday.name} setup.`,
+            `Let’s recreate ${nextWeekday.name} now.`,
+          ],
+          "day-choice"
+        );
+        return true;
+      }
+    }
+
+    setDayIndex(returnDayIndex);
     if (context.returnPhase === "weekly-review") {
       runAssistantSequence(
         [`${editedWeekday.name} updated. Your weekly review is refreshed.`],
@@ -1059,6 +1215,17 @@ export default function ClaraMoneyScheduleOverlay({
             </div>
           ) : null}
 
+          {phase === "basis-edit-warning" && controlsReady && pendingBasisEdit ? (
+            <div className="mt-1 grid gap-2.5" data-clara-money-routine-basis-warning="true">
+              <ChoiceButton onClick={continueBasisDayEdit}>
+                Continue editing {pendingBasisEdit.sourceDay.name}
+              </ChoiceButton>
+              <ChoiceButton onClick={cancelBasisDayEdit} secondary>
+                Cancel
+              </ChoiceButton>
+            </div>
+          ) : null}
+
           {phase === "day-edit" && controlsReady ? (
             <>
               <ExpenseList
@@ -1146,7 +1313,7 @@ export default function ClaraMoneyScheduleOverlay({
             <>
               <section className="mt-1 rounded-[22px] border border-blue-200/12 bg-[#07142b]/88 p-3.5">
                 <div className="grid gap-2">
-                  {days.map((day) => (
+                  {days.filter(Boolean).map((day) => (
                     <button
                       key={day.key}
                       type="button"
