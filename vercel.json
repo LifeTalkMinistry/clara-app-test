@@ -6,7 +6,7 @@
       "*": false
     }
   },
-  "installCommand": "npm ci --ignore-scripts --no-audit --no-fund",
+  "installCommand": "npm install --ignore-scripts --no-audit --no-fund --package-lock=false",
   "buildCommand": "npx vite build --base=./",
   "outputDirectory": "dist"
 }
