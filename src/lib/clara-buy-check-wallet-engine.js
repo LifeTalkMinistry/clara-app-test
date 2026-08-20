@@ -1,3 +1,5 @@
+import { syncWalletProtectedAllocations } from "./clara-wallet-money-semantics.js";
+
 function cleanWalletValue(value = "") {
   return String(value ?? "").replace(/\s+/g, " ").trim();
 }
@@ -21,10 +23,20 @@ function walletBalance(value = {}) {
 }
 
 function walletReservedBalance(value = {}) {
-  return Math.max(0, toWalletNumber(
-    value.reserved_balance ?? value.reservedBalance ?? value.reserved_amount ?? value.reservedAmount ??
-    value.protected_balance ?? value.protectedBalance ?? value.protected_amount ?? value.protectedAmount ?? 0,
-  ));
+  const reservedValues = [
+    value.reserved_balance,
+    value.reservedBalance,
+    value.reserved_amount,
+    value.reservedAmount,
+    value.protected_balance,
+    value.protectedBalance,
+    value.protected_amount,
+    value.protectedAmount,
+    value.total_protected_amount,
+    value.totalProtectedAmount,
+  ];
+
+  return Math.max(0, ...reservedValues.map(toWalletNumber));
 }
 
 function explicitTrue(value) {
@@ -52,8 +64,15 @@ function walletSpendableBalance(value = {}) {
 
 function getWalletBreakdown(context = {}, amount = 0) {
   const target = toWalletNumber(amount);
+  const sourceWallets = Array.isArray(context.wallets) ? context.wallets : [];
+  const spendabilityAwareWallets = syncWalletProtectedAllocations({
+    rows: sourceWallets,
+    allWallets: sourceWallets,
+    emergencyFund: context.emergencyFund || null,
+    savingsGoals: Array.isArray(context.savingsGoals) ? context.savingsGoals : [],
+  });
   const seen = new Set();
-  const wallets = (Array.isArray(context.wallets) ? context.wallets : []).map((wallet) => {
+  const wallets = spendabilityAwareWallets.map((wallet) => {
     const id = walletId(wallet);
     const name = walletName(wallet);
     const key = id || name.toLowerCase();
