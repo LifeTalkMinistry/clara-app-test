@@ -1,0 +1,51 @@
+name: Remove Supabase Runtime Lock Residue
+
+on:
+  push:
+    branches:
+      - remove-supabase-runtime
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate-lock:
+    if: ${{ !contains(github.event.head_commit.message, '[lock-pruned]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout migration branch
+        uses: actions/checkout@v4
+        with:
+          ref: remove-supabase-runtime
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Regenerate package lock
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Verify Supabase packages are absent from root lock dependencies
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          const root = lock.packages?.[''] || {};
+          if (root.dependencies?.['@supabase/supabase-js']) process.exit(1);
+          if (root.devDependencies?.supabase) process.exit(1);
+          NODE
+
+      - name: Commit pruned lockfile
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo "package-lock.json already matches package.json"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "Prune Supabase packages from lockfile [lock-pruned]"
+          git push origin HEAD:remove-supabase-runtime
