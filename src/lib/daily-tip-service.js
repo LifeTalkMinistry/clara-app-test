@@ -1,5 +1,5 @@
 import {
-  formatSupabaseError,
+  formatClaraDataError,
   isSchemaMismatchError,
 } from "@/lib/admin-panel-utils";
 import {
@@ -9,7 +9,7 @@ import {
   normalizeTip,
   resolveDashboardTip,
 } from "@/lib/daily-tip-utils";
-import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
+import { claraData, isClaraDataConfigured } from "@/lib/clara-data-client";
 
 const DASHBOARD_CACHE_KEY = "clara_daily_tip_cache_v3";
 const FALLBACK_TIP_TEXTS = new Set(FALLBACK_MONEY_TIPS.map((tip) => tip.text));
@@ -89,7 +89,7 @@ export function getInitialDashboardTipState() {
 }
 
 export async function fetchDailyTipsSnapshot() {
-  if (!isSupabaseConfigured || !supabase) {
+  if (!isClaraDataConfigured || !claraData) {
     return {
       tableReady: false,
       tips: [],
@@ -99,7 +99,7 @@ export async function fetchDailyTipsSnapshot() {
     };
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await claraData
     .from("daily_tips")
     .select("*")
     .order("scheduled_date", { ascending: false })
@@ -114,13 +114,13 @@ export async function fetchDailyTipsSnapshot() {
     throw error;
   }
 
-    return {
-      tableReady: true,
-      tips: (data || []).map(normalizeTip),
-      missingTable: false,
-      configured: true,
-      error: null,
-    };
+  return {
+    tableReady: true,
+    tips: (data || []).map(normalizeTip),
+    missingTable: false,
+    configured: true,
+    error: null,
+  };
 }
 
 export async function getDashboardTipState() {
@@ -147,15 +147,15 @@ export async function getDashboardTipState() {
 }
 
 export function subscribeToDailyTips(onChange) {
-  if (!isSupabaseConfigured || !supabase) {
+  if (!isClaraDataConfigured || !claraData) {
     return () => {};
   }
 
-  const channel = supabase
+  const channel = claraData
     .channel("daily-tip-live")
     .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "daily_tips" },
+      "data_changes",
+      { event: "*", table: "daily_tips" },
       () => {
         onChange?.();
       }
@@ -163,16 +163,16 @@ export function subscribeToDailyTips(onChange) {
     .subscribe();
 
   return () => {
-    supabase.removeChannel(channel);
+    claraData.removeChannel(channel);
   };
 }
 
 export async function submitStudentTipSuggestion(payload) {
-  if (!isSupabaseConfigured || !supabase) {
-    throw new Error("Daily tip suggestions need a connected Supabase project.");
+  if (!isClaraDataConfigured || !claraData) {
+    throw new Error("Daily tip suggestions need a connected CLARA data service.");
   }
 
-  const { error } = await supabase.from("daily_tips").insert([
+  const { error } = await claraData.from("daily_tips").insert([
     {
       title: payload.title || null,
       text: payload.text,
@@ -186,7 +186,7 @@ export async function submitStudentTipSuggestion(payload) {
   ]);
 
   if (error) {
-    throw new Error(formatSupabaseError(error, "Failed to submit tip."));
+    throw new Error(formatClaraDataError(error, "Failed to submit tip."));
   }
 }
 
@@ -201,8 +201,8 @@ export async function loadAdminDailyTips() {
 }
 
 export async function saveAdminDailyTip({ editingId, form, approverEmail }) {
-  if (!isSupabaseConfigured || !supabase) {
-    throw new Error("Daily tip management needs a connected Supabase project.");
+  if (!isClaraDataConfigured || !claraData) {
+    throw new Error("Daily tip management needs a connected CLARA data service.");
   }
 
   const payload = {
@@ -217,9 +217,9 @@ export async function saveAdminDailyTip({ editingId, form, approverEmail }) {
   };
 
   if (editingId) {
-    const { error } = await supabase.from("daily_tips").update(payload).eq("id", editingId);
+    const { error } = await claraData.from("daily_tips").update(payload).eq("id", editingId);
     if (error) {
-      throw new Error(formatSupabaseError(error, "Failed to save daily tip."));
+      throw new Error(formatClaraDataError(error, "Failed to save daily tip."));
     }
 
     if (payload.status === "active") {
@@ -229,14 +229,14 @@ export async function saveAdminDailyTip({ editingId, form, approverEmail }) {
     return editingId;
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await claraData
     .from("daily_tips")
     .insert([payload])
     .select("id")
     .single();
 
   if (error) {
-    throw new Error(formatSupabaseError(error, "Failed to save daily tip."));
+    throw new Error(formatClaraDataError(error, "Failed to save daily tip."));
   }
 
   if (payload.status === "active" && data?.id) {
@@ -247,11 +247,11 @@ export async function saveAdminDailyTip({ editingId, form, approverEmail }) {
 }
 
 export async function activateAdminDailyTip(tipId, approverEmail) {
-  if (!isSupabaseConfigured || !supabase) {
-    throw new Error("Daily tip management needs a connected Supabase project.");
+  if (!isClaraDataConfigured || !claraData) {
+    throw new Error("Daily tip management needs a connected CLARA data service.");
   }
 
-  const { error: deactivateError } = await supabase
+  const { error: deactivateError } = await claraData
     .from("daily_tips")
     .update({
       status: "inactive",
@@ -262,10 +262,10 @@ export async function activateAdminDailyTip(tipId, approverEmail) {
     .neq("id", tipId);
 
   if (deactivateError) {
-    throw new Error(formatSupabaseError(deactivateError, "Failed to update live tip."));
+    throw new Error(formatClaraDataError(deactivateError, "Failed to update live tip."));
   }
 
-  const { error: activateError } = await supabase
+  const { error: activateError } = await claraData
     .from("daily_tips")
     .update({
       status: "active",
@@ -274,28 +274,28 @@ export async function activateAdminDailyTip(tipId, approverEmail) {
     .eq("id", tipId);
 
   if (activateError) {
-    throw new Error(formatSupabaseError(activateError, "Failed to activate tip."));
+    throw new Error(formatClaraDataError(activateError, "Failed to activate tip."));
   }
 }
 
 export async function updateDailyTipStatus(tipId, updates) {
-  if (!isSupabaseConfigured || !supabase) {
-    throw new Error("Daily tip management needs a connected Supabase project.");
+  if (!isClaraDataConfigured || !claraData) {
+    throw new Error("Daily tip management needs a connected CLARA data service.");
   }
 
-  const { error } = await supabase.from("daily_tips").update(updates).eq("id", tipId);
+  const { error } = await claraData.from("daily_tips").update(updates).eq("id", tipId);
   if (error) {
-    throw new Error(formatSupabaseError(error, "Failed to update daily tip."));
+    throw new Error(formatClaraDataError(error, "Failed to update daily tip."));
   }
 }
 
 export async function deleteDailyTip(tipId) {
-  if (!isSupabaseConfigured || !supabase) {
-    throw new Error("Daily tip management needs a connected Supabase project.");
+  if (!isClaraDataConfigured || !claraData) {
+    throw new Error("Daily tip management needs a connected CLARA data service.");
   }
 
-  const { error } = await supabase.from("daily_tips").delete().eq("id", tipId);
+  const { error } = await claraData.from("daily_tips").delete().eq("id", tipId);
   if (error) {
-    throw new Error(formatSupabaseError(error, "Failed to delete daily tip."));
+    throw new Error(formatClaraDataError(error, "Failed to delete daily tip."));
   }
 }

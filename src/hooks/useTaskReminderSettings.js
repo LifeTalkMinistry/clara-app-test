@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { claraData } from "@/lib/clara-data-client";
 import {
   coerceTaskReminderSettings,
   DEFAULT_TASK_REMINDER_SETTINGS,
@@ -15,7 +15,10 @@ import {
 
 function getInitialPermissionState(environment) {
   if (!environment?.supportsAnyDevicePush) return "unsupported";
-  if (environment.preferredChannel === "web_push" && typeof Notification !== "undefined") {
+  if (
+    environment.preferredChannel === "web_push" &&
+    typeof Notification !== "undefined"
+  ) {
     return Notification.permission;
   }
   return "default";
@@ -23,11 +26,15 @@ function getInitialPermissionState(environment) {
 
 export default function useTaskReminderSettings(userId) {
   const [settings, setSettings] = useState(DEFAULT_TASK_REMINDER_SETTINGS);
-  const [initialSettings, setInitialSettings] = useState(DEFAULT_TASK_REMINDER_SETTINGS);
+  const [initialSettings, setInitialSettings] = useState(
+    DEFAULT_TASK_REMINDER_SETTINGS
+  );
   const [loading, setLoading] = useState(Boolean(userId));
   const [saving, setSaving] = useState(false);
   const [pushEnabling, setPushEnabling] = useState(false);
-  const [notificationEnvironment, setNotificationEnvironment] = useState(getDeviceNotificationEnvironment());
+  const [notificationEnvironment, setNotificationEnvironment] = useState(
+    getDeviceNotificationEnvironment()
+  );
   const [permissionState, setPermissionState] = useState(() =>
     getInitialPermissionState(getDeviceNotificationEnvironment())
   );
@@ -57,10 +64,6 @@ export default function useTaskReminderSettings(userId) {
       return;
     }
 
-    // Native Android/iOS push is now owned by the CLARA backend, not the
-    // retired Supabase device table. Once permission has already been granted,
-    // re-registering is safe and refreshes the FCM/APNs token on the backend.
-    // This also self-heals app reinstalls and token rotations.
     if (environment.preferredChannel === "native_push") {
       if (permission !== "granted" || !userId) {
         setPushConfigured(false);
@@ -96,7 +99,10 @@ export default function useTaskReminderSettings(userId) {
 
     try {
       setLoading(true);
-      const nextSettings = await fetchTaskReminderSettings({ supabase, userId });
+      const nextSettings = await fetchTaskReminderSettings({
+        dataClient: claraData,
+        userId,
+      });
       setSettings(nextSettings);
       setInitialSettings(nextSettings);
       return nextSettings;
@@ -124,7 +130,10 @@ export default function useTaskReminderSettings(userId) {
       refreshPushStatus();
     };
     const handleVisibilityChange = () => {
-      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState === "visible"
+      ) {
         refreshPushStatus();
       }
     };
@@ -149,7 +158,7 @@ export default function useTaskReminderSettings(userId) {
       try {
         setSaving(true);
         const savedSettings = await upsertTaskReminderSettings({
-          supabase,
+          dataClient: claraData,
           userId,
           settings: nextSettings,
         });

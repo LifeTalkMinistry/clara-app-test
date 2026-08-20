@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabaseClient";
+import { claraData } from "@/lib/clara-data-client";
 import { getClaraEffectiveFinanceContext } from "@/lib/clara-effective-finance-context";
 import { buildClaraForecastPhaseOneSnapshot } from "@/lib/clara-forecast-phase-one-snapshot";
 
@@ -98,7 +98,7 @@ function delay(ms = 0) {
 
 async function getCurrentUser() {
   try {
-    const { data } = await supabase.auth.getUser();
+    const { data } = await claraData.auth.getUser();
     return data?.user || null;
   } catch {
     return null;

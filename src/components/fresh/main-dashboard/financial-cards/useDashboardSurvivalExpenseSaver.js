@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { claraData } from "@/lib/clara-data-client";
 import { persistStoredSurvivalExpense } from "@/components/fresh/main-dashboard/dashboard-theme/dashboardThemeRuntime";
 import { firstPositiveNumber } from "@/utils/dashboard/dashboardHelpers";
 
@@ -33,7 +33,7 @@ export default function useDashboardSurvivalExpenseSaver({
     });
 
     if (user?.id) {
-      const { error } = await supabase
+      const { error } = await claraData
         .from("profiles")
         .update({
           monthly_survival_expense: nextValue,

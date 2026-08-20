@@ -1,19 +1,17 @@
 import { withLocalAuthEvents } from "@/lib/local-auth-event-bridge";
-import { createLocalSupabaseFacade } from "@/lib/local-supabase-facade";
+import { createLocalDataFacade } from "@/lib/local-data-facade";
 import { withSettingsSupportCompatibility } from "@/lib/settings-support-compatibility";
 import { signOutFromClaraBackend } from "@/lib/clara-backend-client";
 
-// Compatibility exports for legacy data callers. Financial records remain device-local;
+// Provider-neutral compatibility client for local data callers. Financial records remain device-local;
 // account authentication and Settings support delivery are handled by the CLARA backend.
-export const supabaseUrl = "";
-export const supabaseAnonKey = "";
-export const isSupabaseConfigured = false;
+export const isClaraDataConfigured = false;
 
-const localFacade = withSettingsSupportCompatibility(createLocalSupabaseFacade());
+const localFacade = withSettingsSupportCompatibility(createLocalDataFacade());
 const localSignOut = localFacade.auth.signOut;
 localFacade.auth.signOut = async () => {
   signOutFromClaraBackend();
   return localSignOut();
 };
 
-export const supabase = withLocalAuthEvents(localFacade);
+export const claraData = withLocalAuthEvents(localFacade);

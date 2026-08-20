@@ -1,5 +1,5 @@
-import { supabase as legacySupabase } from "@/lib/supabaseClient";
-import { supabase as communityBackend } from "@/lib/community-backend-supabase-compat";
+import { claraData as localData } from "@/lib/clara-data-client";
+import { claraData as communityBackend } from "@/lib/community-backend-data-client";
 import "./installCommunityRealProfileAvatars";
 
 const COMMUNITY_TABLES = new Set([
@@ -16,23 +16,23 @@ function shouldUseCommunityChannel(name) {
 if (typeof window !== "undefined" && !window[INSTALL_KEY]) {
   window[INSTALL_KEY] = true;
 
-  const originalFrom = legacySupabase.from.bind(legacySupabase);
-  const originalChannel = legacySupabase.channel.bind(legacySupabase);
-  const originalRemoveChannel = legacySupabase.removeChannel.bind(legacySupabase);
+  const originalFrom = localData.from.bind(localData);
+  const originalChannel = localData.channel.bind(localData);
+  const originalRemoveChannel = localData.removeChannel.bind(localData);
 
-  legacySupabase.from = (table, ...args) =>
+  localData.from = (table, ...args) =>
     COMMUNITY_TABLES.has(String(table || ""))
       ? communityBackend.from(table)
       : originalFrom(table, ...args);
 
-  legacySupabase.channel = (name, ...args) => {
+  localData.channel = (name, ...args) => {
     if (!shouldUseCommunityChannel(name)) return originalChannel(name, ...args);
     const channel = communityBackend.channel(name);
     channel.__claraCommunityBackendChannel = true;
     return channel;
   };
 
-  legacySupabase.removeChannel = (channel) => {
+  localData.removeChannel = (channel) => {
     if (channel?.__claraCommunityBackendChannel) {
       return communityBackend.removeChannel(channel);
     }

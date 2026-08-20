@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient";
+import { claraData } from "./clara-data-client";
 import { LOCAL_FINANCE_STORES, runLocalFinanceTransaction } from "./localFinanceStore";
 
 export const ACTIVE_CURRENT_STATE_KEY = "CLARA_ACTIVE_CURRENT_STATE_V1";
@@ -89,7 +89,7 @@ async function getPossibleLocalUserIds() {
   const ids = new Set([FALLBACK_LOCAL_USER_ID, DEMO_LOCAL_USER_ID, SAMPLE_DATA_LOCAL_USER_ID]);
 
   try {
-    const { data } = await supabase.auth.getUser();
+    const { data } = await claraData.auth.getUser();
     const authUser = data?.user;
     ids.add(getRealLocalUserId(authUser));
     if (authUser?.id) ids.add(clean(authUser.id));

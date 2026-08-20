@@ -113,11 +113,12 @@ export function sanitizeReminderTimes(times, frequency = "once_daily") {
       ? times.split(",")
       : [];
 
-  const normalized = [...new Set(rawTimes.map(normalizeReminderTime).filter(Boolean))].sort(
-    (left, right) => timeToMinutes(left) - timeToMinutes(right)
-  );
+  const normalized = [
+    ...new Set(rawTimes.map(normalizeReminderTime).filter(Boolean)),
+  ].sort((left, right) => timeToMinutes(left) - timeToMinutes(right));
 
-  const defaults = DEFAULT_TIME_SETS[frequency] || DEFAULT_TIME_SETS.once_daily;
+  const defaults =
+    DEFAULT_TIME_SETS[frequency] || DEFAULT_TIME_SETS.once_daily;
 
   if (frequency === "once_daily") {
     return [normalized[0] || defaults[0]];
@@ -131,7 +132,9 @@ export function sanitizeReminderTimes(times, frequency = "once_daily") {
 }
 
 export function coerceTaskReminderSettings(value = {}) {
-  const reminderMode = REMINDER_MODE_OPTIONS.some((option) => option.value === value.reminder_mode)
+  const reminderMode = REMINDER_MODE_OPTIONS.some(
+    (option) => option.value === value.reminder_mode
+  )
     ? value.reminder_mode
     : DEFAULT_TASK_REMINDER_SETTINGS.reminder_mode;
 
@@ -150,7 +153,10 @@ export function coerceTaskReminderSettings(value = {}) {
         : DEFAULT_TASK_REMINDER_SETTINGS.reminders_enabled,
     reminder_mode: reminderMode,
     reminder_frequency: reminderFrequency,
-    preferred_times: sanitizeReminderTimes(value.preferred_times, reminderFrequency),
+    preferred_times: sanitizeReminderTimes(
+      value.preferred_times,
+      reminderFrequency
+    ),
     snooze_default_minutes:
       Number.isFinite(snoozeDefaultMinutes) && snoozeDefaultMinutes > 0
         ? snoozeDefaultMinutes
@@ -159,7 +165,9 @@ export function coerceTaskReminderSettings(value = {}) {
       typeof value.only_notify_if_incomplete === "boolean"
         ? value.only_notify_if_incomplete
         : DEFAULT_TASK_REMINDER_SETTINGS.only_notify_if_incomplete,
-    timezone: normalizeTimezone(value.timezone || DEFAULT_TASK_REMINDER_SETTINGS.timezone),
+    timezone: normalizeTimezone(
+      value.timezone || DEFAULT_TASK_REMINDER_SETTINGS.timezone
+    ),
     quiet_hours_enabled:
       typeof value.quiet_hours_enabled === "boolean"
         ? value.quiet_hours_enabled
@@ -197,9 +205,7 @@ export function getActiveReminderWindow(settings, now = new Date()) {
   let activeIndex = -1;
 
   for (let index = 0; index < windows.length; index += 1) {
-    if (windows[index].minutes <= currentMinutes) {
-      activeIndex = index;
-    }
+    if (windows[index].minutes <= currentMinutes) activeIndex = index;
   }
 
   if (activeIndex === -1) return null;
@@ -235,7 +241,6 @@ export function getReminderSnoozeChoices(defaultMinutes = 30) {
 
 export function isTaskReminderComplete(task) {
   if (!task) return true;
-
   if (task?.submissionMeta?.isComplete) return true;
 
   const status = normalizeString(task?.submission?.status).toLowerCase();
@@ -252,7 +257,8 @@ export function buildReminderStatePayload({
     user_id: userId,
     task_id: normalizeString(task?.id || ""),
     task_day: Number(task?.day || task?.day_number || 0) || null,
-    reminder_date: reminderWindow?.dateKey || getLocalDateKey(new Date()),
+    reminder_date:
+      reminderWindow?.dateKey || getLocalDateKey(new Date()),
     reminder_window_key: reminderWindow?.windowKey || "",
     last_shown_at: patch.last_shown_at ?? null,
     last_acknowledged_at: patch.last_acknowledged_at ?? null,
@@ -276,19 +282,28 @@ export function shouldSurfaceTaskReminder({
   if (task.state && !["active", "available"].includes(task.state)) return false;
   if (!normalizedSettings.reminders_enabled) return false;
   if (!modeSupportsInApp(normalizedSettings.reminder_mode)) return false;
-  if (normalizedSettings.only_notify_if_incomplete && isTaskReminderComplete(task)) {
+  if (
+    normalizedSettings.only_notify_if_incomplete &&
+    isTaskReminderComplete(task)
+  ) {
     return false;
   }
 
   if (!reminderState) return true;
   if (reminderState.last_acknowledged_at) return false;
-  if (reminderState.dismissed_in_window || reminderState.dismissed_for_day) return false;
+  if (reminderState.dismissed_in_window || reminderState.dismissed_for_day) {
+    return false;
+  }
 
   const snoozedUntil = reminderState.snoozed_until
     ? new Date(reminderState.snoozed_until)
     : null;
 
-  if (snoozedUntil && !Number.isNaN(snoozedUntil.getTime()) && snoozedUntil > now) {
+  if (
+    snoozedUntil &&
+    !Number.isNaN(snoozedUntil.getTime()) &&
+    snoozedUntil > now
+  ) {
     return false;
   }
 
@@ -309,27 +324,34 @@ export function shouldSuppressVisibleReminder({
   if (task.state && !["active", "available"].includes(task.state)) return true;
   if (!normalizedSettings.reminders_enabled) return true;
   if (!modeSupportsInApp(normalizedSettings.reminder_mode)) return true;
-  if (normalizedSettings.only_notify_if_incomplete && isTaskReminderComplete(task)) {
+  if (
+    normalizedSettings.only_notify_if_incomplete &&
+    isTaskReminderComplete(task)
+  ) {
     return true;
   }
 
   if (!reminderState) return false;
   if (reminderState.last_acknowledged_at) return true;
-  if (reminderState.dismissed_in_window || reminderState.dismissed_for_day) return true;
+  if (reminderState.dismissed_in_window || reminderState.dismissed_for_day) {
+    return true;
+  }
 
   const snoozedUntil = reminderState.snoozed_until
     ? new Date(reminderState.snoozed_until)
     : null;
 
   return Boolean(
-    snoozedUntil && !Number.isNaN(snoozedUntil.getTime()) && snoozedUntil > now
+    snoozedUntil &&
+      !Number.isNaN(snoozedUntil.getTime()) &&
+      snoozedUntil > now
   );
 }
 
-export async function fetchTaskReminderSettings({ supabase, userId }) {
-  if (!supabase || !userId) return coerceTaskReminderSettings();
+export async function fetchTaskReminderSettings({ dataClient, userId }) {
+  if (!dataClient || !userId) return coerceTaskReminderSettings();
 
-  const { data, error } = await supabase
+  const { data, error } = await dataClient
     .from("user_task_reminder_settings")
     .select("*")
     .eq("user_id", userId)
@@ -339,10 +361,12 @@ export async function fetchTaskReminderSettings({ supabase, userId }) {
   return coerceTaskReminderSettings(data || {});
 }
 
-export async function upsertTaskReminderSettings({ supabase, userId, settings }) {
-  if (!supabase || !userId) {
-    return coerceTaskReminderSettings(settings);
-  }
+export async function upsertTaskReminderSettings({
+  dataClient,
+  userId,
+  settings,
+}) {
+  if (!dataClient || !userId) return coerceTaskReminderSettings(settings);
 
   const normalizedSettings = coerceTaskReminderSettings(settings);
   const payload = {
@@ -351,7 +375,7 @@ export async function upsertTaskReminderSettings({ supabase, userId, settings })
     updated_at: new Date().toISOString(),
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await dataClient
     .from("user_task_reminder_settings")
     .upsert(payload, { onConflict: "user_id" })
     .select("*")
@@ -362,15 +386,17 @@ export async function upsertTaskReminderSettings({ supabase, userId, settings })
 }
 
 export async function fetchTaskReminderState({
-  supabase,
+  dataClient,
   userId,
   taskId,
   reminderDate,
   windowKey,
 }) {
-  if (!supabase || !userId || !taskId || !reminderDate || !windowKey) return null;
+  if (!dataClient || !userId || !taskId || !reminderDate || !windowKey) {
+    return null;
+  }
 
-  const { data, error } = await supabase
+  const { data, error } = await dataClient
     .from("user_task_reminder_states")
     .select("*")
     .eq("user_id", userId)
@@ -384,13 +410,15 @@ export async function fetchTaskReminderState({
 }
 
 export async function upsertTaskReminderState({
-  supabase,
+  dataClient,
   userId,
   task,
   reminderWindow,
   patch,
 }) {
-  if (!supabase || !userId || !task?.id || !reminderWindow?.windowKey) return null;
+  if (!dataClient || !userId || !task?.id || !reminderWindow?.windowKey) {
+    return null;
+  }
 
   const payload = buildReminderStatePayload({
     userId,
@@ -399,7 +427,7 @@ export async function upsertTaskReminderState({
     patch,
   });
 
-  const { data, error } = await supabase
+  const { data, error } = await dataClient
     .from("user_task_reminder_states")
     .upsert(payload, {
       onConflict: "user_id,task_id,reminder_date,reminder_window_key",

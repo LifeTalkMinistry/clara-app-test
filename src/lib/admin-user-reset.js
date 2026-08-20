@@ -1,6 +1,6 @@
-import { supabase } from "@/lib/supabaseClient";
+import { claraData } from "@/lib/clara-data-client";
 import {
-  formatSupabaseError,
+  formatClaraDataError,
   isMissingColumnError,
   isSchemaMismatchError,
   normalizeString,
@@ -74,11 +74,11 @@ function rowBelongsToUser(row, ownership) {
 }
 
 async function deleteOwnedRows(table, ownership) {
-  const { data, error } = await supabase.from(table).select("*");
+  const { data, error } = await claraData.from(table).select("*");
 
   if (error) {
     if (isSchemaMismatchError(error)) return;
-    throw new Error(formatSupabaseError(error, `Failed to inspect ${table}.`));
+    throw new Error(formatClaraDataError(error, `Failed to inspect ${table}.`));
   }
 
   const ownedIds = (data || [])
@@ -88,21 +88,21 @@ async function deleteOwnedRows(table, ownership) {
 
   if (ownedIds.length === 0) return;
 
-  const { error: deleteError } = await supabase.from(table).delete().in("id", ownedIds);
+  const { error: deleteError } = await claraData.from(table).delete().in("id", ownedIds);
 
   if (deleteError) {
     if (isSchemaMismatchError(deleteError)) return;
-    throw new Error(formatSupabaseError(deleteError, `Failed to reset ${table}.`));
+    throw new Error(formatClaraDataError(deleteError, `Failed to reset ${table}.`));
   }
 }
 
 async function deleteWalletLinkedTransactions(userId, email) {
   const ownership = getOwnershipTokens(userId, email);
-  const { data, error } = await supabase.from("wallets").select("*");
+  const { data, error } = await claraData.from("wallets").select("*");
 
   if (error) {
     if (isSchemaMismatchError(error)) return;
-    throw new Error(formatSupabaseError(error, "Failed to inspect wallets."));
+    throw new Error(formatClaraDataError(error, "Failed to inspect wallets."));
   }
 
   const walletIds = (data || [])
@@ -112,18 +112,18 @@ async function deleteWalletLinkedTransactions(userId, email) {
 
   if (walletIds.length === 0) return;
 
-  const { error: deleteError } = await supabase
+  const { error: deleteError } = await claraData
     .from("wallet_transactions")
     .delete()
     .in("wallet_id", walletIds);
 
   if (deleteError && !isSchemaMismatchError(deleteError)) {
-    throw new Error(formatSupabaseError(deleteError, "Failed to reset wallet transactions."));
+    throw new Error(formatClaraDataError(deleteError, "Failed to reset wallet transactions."));
   }
 }
 
 async function resetProfileFields(userId) {
-  const { error: profileError } = await supabase
+  const { error: profileError } = await claraData
     .from("profiles")
     .update(RESET_PROFILE_FIELDS)
     .eq("id", userId);
@@ -131,14 +131,14 @@ async function resetProfileFields(userId) {
   if (!profileError) return;
 
   if (!isMissingColumnError(profileError)) {
-    throw new Error(formatSupabaseError(profileError, "Failed to reset profile."));
+    throw new Error(formatClaraDataError(profileError, "Failed to reset profile."));
   }
 
   const appliedFields = [];
   const skippedFields = [];
 
   for (const [field, value] of Object.entries(RESET_PROFILE_FIELDS)) {
-    const { error: fieldError } = await supabase
+    const { error: fieldError } = await claraData
       .from("profiles")
       .update({ [field]: value })
       .eq("id", userId);
@@ -153,7 +153,7 @@ async function resetProfileFields(userId) {
       continue;
     }
 
-    throw new Error(formatSupabaseError(fieldError, `Failed to reset profile field ${field}.`));
+    throw new Error(formatClaraDataError(fieldError, `Failed to reset profile field ${field}.`));
   }
 
   const resetCanRouteToOnboarding = appliedFields.some((field) => ONBOARDING_RESET_FIELDS.has(field));
@@ -165,7 +165,7 @@ async function resetProfileFields(userId) {
   }
 
   if (skippedFields.length > 0) {
-    console.warn("Skipped optional profile reset fields missing from Supabase schema:", skippedFields);
+    console.warn("Skipped optional profile reset fields missing from the CLARA data schema:", skippedFields);
   }
 }
 
@@ -176,13 +176,13 @@ export async function resetUserAccount({ userId, email }) {
 
   const ownership = getOwnershipTokens(userId, email);
 
-  const { error: settingsError } = await supabase
+  const { error: settingsError } = await claraData
     .from("user_settings")
     .delete()
     .eq("id", userId);
 
   if (settingsError && !isSchemaMismatchError(settingsError)) {
-    throw new Error(formatSupabaseError(settingsError, "Failed to reset user settings."));
+    throw new Error(formatClaraDataError(settingsError, "Failed to reset user settings."));
   }
 
   await deleteWalletLinkedTransactions(userId, email);
