@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import {
   CLARA_MONEY_ROUTINE_WEEKDAYS,
+  readClaraMoneyRoutine,
   saveClaraMoneyRoutine,
 } from "@/lib/clara-money-schedule-repository";
 import {
@@ -681,6 +682,22 @@ export default function ClaraMoneyScheduleOverlay({
     cancelConversationPacing();
     resetRoutineFields();
     setMessages([]);
+
+    const existingRoutine = readClaraMoneyRoutine(user);
+    if (existingRoutine?.active && Array.isArray(existingRoutine.days)) {
+      setDays(existingRoutine.days);
+      setSavedRoutine(existingRoutine);
+      runAssistantSequence(
+        [
+          `Hi ${firstName}! Your Money Schedule is already set up.`,
+          "Here’s your current Monday-to-Sunday routine. If something changed, you can edit only that day.",
+        ],
+        "saved",
+        { skipInitialDelay: true }
+      );
+      return;
+    }
+
     runAssistantSequence(
       [`Hi ${firstName}! Ready to help me understand your usual daily routine expenses?`],
       "welcome",
@@ -889,6 +906,24 @@ export default function ClaraMoneyScheduleOverlay({
     runAssistantSequence(
       ["Sure. Which completed day would you like to edit?"],
       "edit-previous-source"
+    );
+  };
+
+  const openSavedDayPicker = () => {
+    if (!interactionReady || !days.some(Boolean)) return;
+    appendUser("Edit a day");
+    runAssistantSequence(
+      ["Sure. Which day would you like to update?"],
+      "saved-day-picker"
+    );
+  };
+
+  const cancelSavedDayPicker = () => {
+    if (!interactionReady) return;
+    appendUser("Back");
+    runAssistantSequence(
+      ["No problem. Your current Money Schedule is unchanged."],
+      "saved"
     );
   };
 
@@ -1516,6 +1551,22 @@ export default function ClaraMoneyScheduleOverlay({
             </div>
           ) : null}
 
+          {phase === "saved-day-picker" && controlsReady ? (
+            <div className="mt-1 grid gap-2.5" data-clara-money-routine-saved-day-picker="true">
+              {days.filter(Boolean).map((day) => (
+                <ChoiceButton
+                  key={day.key}
+                  onClick={() => choosePreviousDayToEdit(day, "weekly-review")}
+                >
+                  Edit {day.name}
+                </ChoiceButton>
+              ))}
+              <ChoiceButton onClick={cancelSavedDayPicker} secondary>
+                Back
+              </ChoiceButton>
+            </div>
+          ) : null}
+
           {phase === "basis-edit-warning" && controlsReady && pendingBasisEdit ? (
             <div className="mt-1 grid gap-2.5" data-clara-money-routine-basis-warning="true">
               <ChoiceButton onClick={continueBasisDayEdit}>
@@ -1781,7 +1832,7 @@ export default function ClaraMoneyScheduleOverlay({
                       : "Save my routine"}
                 </ChoiceButton>
                 <ChoiceButton onClick={resetFlow} disabled={busy} secondary>
-                  Start over
+                  {savedRoutine ? "Discard changes" : "Start over"}
                 </ChoiceButton>
               </div>
             </>
@@ -1789,15 +1840,33 @@ export default function ClaraMoneyScheduleOverlay({
 
           {phase === "saved" && controlsReady ? (
             <>
-              <section className="mt-1 rounded-[22px] border border-emerald-300/16 bg-emerald-300/[0.045] p-4 text-center">
-                <CheckCircle2 className="mx-auto h-6 w-6 text-[#8ffff8]" />
-                <p className="mt-2 text-[13px] font-black text-white">Daily routine saved</p>
-                <p className="mt-1 text-[11px] font-semibold leading-5 text-white/48">
-                  Normal weekly routine · {formatMoneyCentavos(savedRoutine?.weeklyTotalCentavos || 0)}
-                </p>
+              <section
+                className="mt-1 rounded-[22px] border border-emerald-300/16 bg-emerald-300/[0.045] p-4"
+                data-clara-money-routine-current-schedule="true"
+              >
+                <div className="text-center">
+                  <CheckCircle2 className="mx-auto h-6 w-6 text-[#8ffff8]" />
+                  <p className="mt-2 text-[13px] font-black text-white">Current Money Schedule</p>
+                  <p className="mt-1 text-[11px] font-semibold leading-5 text-white/48">
+                    Normal weekly routine · {formatMoneyCentavos(savedRoutine?.weeklyTotalCentavos || weeklyTotal)}
+                  </p>
+                </div>
+                <div className="mt-3 grid gap-1.5 border-t border-white/8 pt-3">
+                  {days.filter(Boolean).map((day) => (
+                    <div
+                      key={day.key}
+                      className="flex items-center justify-between gap-3 rounded-[12px] bg-white/[0.025] px-3 py-2"
+                    >
+                      <span className="text-[11.5px] font-black text-white/72">{day.name}</span>
+                      <span className="text-[11.5px] font-black text-[#8ffff8]/78">
+                        {formatMoneyCentavos(totalItems(day.items))}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </section>
               <div className="grid grid-cols-2 gap-2.5">
-                <ChoiceButton onClick={resetFlow}>Update routine</ChoiceButton>
+                <ChoiceButton onClick={openSavedDayPicker}>Edit a day</ChoiceButton>
                 <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
               </div>
             </>
