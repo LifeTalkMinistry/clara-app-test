@@ -9,10 +9,6 @@ import {
   isClaraOnline,
   normalizeString,
 } from "@/utils/dashboard/dashboardHelpers";
-import {
-  getSupabaseQuotaNotice,
-  isSupabaseQuotaBlocked,
-} from "@/lib/supabaseQuotaGuard";
 import { ensureActiveLocalVaultId } from "@/lib/localVaultIdentity";
 
 const LOCAL_AUTH_FALLBACK_USER_ID = "local-dev-user";
@@ -237,14 +233,6 @@ export default function useDashboardDataLoader({
           }
 
           const safeProfile = buildProfileFromAuth(currentUser, user);
-
-          if (isSupabaseQuotaBlocked()) {
-            setFinanceNotice({
-              message: getSupabaseQuotaNotice(),
-              type: "warning",
-            });
-          }
-
           const nextNickname = normalizeString(
             safeProfile?.display_name ||
               safeProfile?.nickname ||
