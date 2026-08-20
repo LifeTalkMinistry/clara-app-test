@@ -208,29 +208,74 @@ function Composer({ value, onChange, onSubmit, placeholder, inputMode = "text" }
 function ExpenseList({
   items = [],
   totalLabel = "Daily total",
-  amountEditMode = false,
+  itemEditMode = false,
   editingItemId = "",
+  editingField = "",
+  inlineLabelInput = "",
   inlineAmountInput = "",
+  onStartLabelEdit,
   onStartAmountEdit,
+  onInlineLabelChange,
   onInlineAmountChange,
+  onCommitLabelEdit,
   onCommitAmountEdit,
-  onCancelAmountEdit,
+  onCancelInlineEdit,
 }) {
   return (
     <section className="rounded-[22px] border border-blue-200/12 bg-[#07142b]/88 p-3.5">
       {items.length ? (
         <div className="grid gap-2">
           {items.map((item) => {
-            const editingAmount = amountEditMode && editingItemId === item.id;
+            const editingLabel =
+              itemEditMode && editingItemId === item.id && editingField === "label";
+            const editingAmount =
+              itemEditMode && editingItemId === item.id && editingField === "amount";
 
             return (
               <div
                 key={item.id}
                 className="flex items-center justify-between gap-3 rounded-[15px] border border-white/8 bg-white/[0.035] px-3.5 py-3"
               >
-                <span className="min-w-0 truncate text-[12.5px] font-black text-white/90">
-                  {item.label}
-                </span>
+                {editingLabel ? (
+                  <div
+                    className="min-w-0 flex-1 rounded-[12px] border border-cyan-200/24 bg-cyan-200/[0.055] px-2.5 py-1"
+                    data-clara-money-routine-inline-label="true"
+                  >
+                    <input
+                      autoFocus
+                      value={inlineLabelInput}
+                      onChange={(event) => onInlineLabelChange?.(event.target.value)}
+                      onFocus={(event) => event.currentTarget.select()}
+                      onBlur={() => onCommitLabelEdit?.(item, { revertInvalid: true })}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          onCommitLabelEdit?.(item);
+                        }
+                        if (event.key === "Escape") {
+                          event.preventDefault();
+                          onCancelInlineEdit?.();
+                        }
+                      }}
+                      aria-label={`Edit ${item.label} name`}
+                      className="w-full bg-transparent text-[12.5px] font-black text-white outline-none"
+                    />
+                  </div>
+                ) : itemEditMode ? (
+                  <button
+                    type="button"
+                    onClick={() => onStartLabelEdit?.(item)}
+                    className="flex min-w-0 flex-1 items-center gap-1.5 rounded-[12px] py-1 text-left text-white/90 transition active:scale-[0.99]"
+                    aria-label={`Change ${item.label} name`}
+                  >
+                    <span className="min-w-0 truncate text-[12.5px] font-black">{item.label}</span>
+                    <PencilLine className="h-3.5 w-3.5 shrink-0 text-cyan-100/72" />
+                  </button>
+                ) : (
+                  <span className="min-w-0 flex-1 truncate text-[12.5px] font-black text-white/90">
+                    {item.label}
+                  </span>
+                )}
 
                 {editingAmount ? (
                   <div
@@ -251,7 +296,7 @@ function ExpenseList({
                         }
                         if (event.key === "Escape") {
                           event.preventDefault();
-                          onCancelAmountEdit?.();
+                          onCancelInlineEdit?.();
                         }
                       }}
                       inputMode="decimal"
@@ -259,7 +304,7 @@ function ExpenseList({
                       className="w-[62px] bg-transparent text-right text-[12px] font-black text-white outline-none"
                     />
                   </div>
-                ) : amountEditMode ? (
+                ) : itemEditMode ? (
                   <button
                     type="button"
                     onClick={() => onStartAmountEdit?.(item)}
@@ -308,8 +353,10 @@ export default function ClaraMoneyScheduleOverlay({
   const [dayIndex, setDayIndex] = useState(0);
   const [draftText, setDraftText] = useState("");
   const [editItems, setEditItems] = useState([]);
-  const [amountEditMode, setAmountEditMode] = useState(false);
+  const [itemEditMode, setItemEditMode] = useState(false);
   const [inlineEditingItemId, setInlineEditingItemId] = useState("");
+  const [inlineEditingField, setInlineEditingField] = useState("");
+  const [inlineLabelInput, setInlineLabelInput] = useState("");
   const [inlineAmountInput, setInlineAmountInput] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -405,9 +452,11 @@ export default function ClaraMoneyScheduleOverlay({
     queueNextAssistantMessage(token, options.skipInitialDelay === true);
   };
 
-  const resetInlineAmountEditing = ({ keepMode = false } = {}) => {
-    if (!keepMode) setAmountEditMode(false);
+  const resetInlineItemEditing = ({ keepMode = false } = {}) => {
+    if (!keepMode) setItemEditMode(false);
     setInlineEditingItemId("");
+    setInlineEditingField("");
+    setInlineLabelInput("");
     setInlineAmountInput("");
   };
 
@@ -416,7 +465,7 @@ export default function ClaraMoneyScheduleOverlay({
     setDayIndex(0);
     setDraftText("");
     setEditItems([]);
-    resetInlineAmountEditing();
+    resetInlineItemEditing();
     setError("");
     setBusy(false);
     setSavedRoutine(null);
@@ -489,7 +538,7 @@ export default function ClaraMoneyScheduleOverlay({
     const onKeyDown = (event) => {
       if (event.key === "Escape") {
         if (inlineEditingItemId) {
-          resetInlineAmountEditing({ keepMode: true });
+          resetInlineItemEditing({ keepMode: true });
           return;
         }
         cancelConversationPacing();
@@ -509,7 +558,7 @@ export default function ClaraMoneyScheduleOverlay({
   const startSetup = () => {
     if (!interactionReady) return;
     setEditItems([]);
-    resetInlineAmountEditing();
+    resetInlineItemEditing();
     setError("");
     appendUser("Yes, I’m ready");
     runAssistantSequence(
@@ -535,7 +584,7 @@ export default function ClaraMoneyScheduleOverlay({
     setDays(nextDays);
     setDraftText("");
     setEditItems([]);
-    resetInlineAmountEditing();
+    resetInlineItemEditing();
     setError("");
 
     if (dayIndex >= CLARA_MONEY_ROUTINE_WEEKDAYS.length - 1) {
@@ -583,13 +632,13 @@ export default function ClaraMoneyScheduleOverlay({
   const chooseCopySource = (sourceDay) => {
     if (!interactionReady) return;
     setEditItems(cloneItems(sourceDay.items));
-    resetInlineAmountEditing();
+    resetInlineItemEditing();
     setError("");
     appendUser(`Start from ${sourceDay.name}`);
     runAssistantSequence(
       [
         `Done. I copied ${sourceDay.name}.`,
-        `Now use Add, Remove, or Change amount for anything that is different on ${currentWeekday.name}.`,
+        `Now use Add, Remove, or Edit item for anything that is different on ${currentWeekday.name}.`,
       ],
       "day-edit"
     );
@@ -599,7 +648,7 @@ export default function ClaraMoneyScheduleOverlay({
     if (!interactionReady) return;
     setDraftText("");
     setEditItems([]);
-    resetInlineAmountEditing();
+    resetInlineItemEditing();
     setError("");
     appendUser("Completely different setup");
     runAssistantSequence(
@@ -633,13 +682,13 @@ export default function ClaraMoneyScheduleOverlay({
     setDayIndex(targetIndex);
     setDraftText("");
     setEditItems(cloneItems(sourceDay.items));
-    resetInlineAmountEditing();
+    resetInlineItemEditing();
     setError("");
     appendUser(`Edit ${sourceDay.name}`);
     runAssistantSequence(
       [
         `Here’s your current ${sourceDay.name} routine.`,
-        "Use Add, Remove, or Change amount for anything you want to correct, then press Done editing.",
+        "Use Add, Remove, or Edit item for anything you want to correct, then press Done editing.",
       ],
       "day-edit"
     );
@@ -657,7 +706,7 @@ export default function ClaraMoneyScheduleOverlay({
   const startAddExpense = () => {
     if (!interactionReady) return;
     setDraftText("");
-    resetInlineAmountEditing();
+    resetInlineItemEditing();
     setError("");
     appendUser("Add something");
     runAssistantSequence(
@@ -683,7 +732,7 @@ export default function ClaraMoneyScheduleOverlay({
       [
         editReturnContext
           ? "Updated. You can make another correction or press Done editing."
-          : "Added. You can add another expense, remove one, change an amount, or press Done for this day.",
+          : "Added. You can add another expense, remove one, edit an item, or press Done for this day.",
       ],
       "day-edit"
     );
@@ -691,7 +740,7 @@ export default function ClaraMoneyScheduleOverlay({
 
   const startRemoveExpense = () => {
     if (!interactionReady || !editItems.length) return;
-    resetInlineAmountEditing();
+    resetInlineItemEditing();
     setError("");
     appendUser("Remove something");
     runAssistantSequence(
@@ -710,19 +759,37 @@ export default function ClaraMoneyScheduleOverlay({
     );
   };
 
-  const startChangeAmount = () => {
+  const toggleItemEditMode = () => {
     if (!interactionReady || !editItems.length) return;
     setError("");
-    setAmountEditMode((current) => !current);
+    setItemEditMode((current) => !current);
     setInlineEditingItemId("");
+    setInlineEditingField("");
+    setInlineLabelInput("");
     setInlineAmountInput("");
   };
 
-  const startInlineAmountEdit = (item) => {
-    if (!interactionReady || !amountEditMode) return;
+  const startInlineLabelEdit = (item) => {
+    if (!interactionReady || !itemEditMode) return;
     setInlineEditingItemId(item.id);
+    setInlineEditingField("label");
+    setInlineLabelInput(item.label);
+    setInlineAmountInput("");
+    setError("");
+  };
+
+  const startInlineAmountEdit = (item) => {
+    if (!interactionReady || !itemEditMode) return;
+    setInlineEditingItemId(item.id);
+    setInlineEditingField("amount");
+    setInlineLabelInput("");
     setInlineAmountInput(formatEditableAmount(item.amountCentavos));
     setError("");
+  };
+
+  const changeInlineLabelInput = (value) => {
+    setInlineLabelInput(String(value ?? ""));
+    if (error) setError("");
   };
 
   const changeInlineAmountInput = (value) => {
@@ -730,11 +797,38 @@ export default function ClaraMoneyScheduleOverlay({
     if (error) setError("");
   };
 
+  const commitInlineLabelEdit = (item, options = {}) => {
+    const label = cleanText(inlineLabelInput);
+    if (!label) {
+      if (options.revertInvalid) {
+        setInlineEditingItemId("");
+        setInlineEditingField("");
+        setInlineLabelInput("");
+        setError("");
+        return false;
+      }
+      setError("Item name cannot be empty.");
+      return false;
+    }
+
+    setEditItems((current) =>
+      current.map((candidate) =>
+        candidate.id === item.id ? { ...candidate, label } : candidate
+      )
+    );
+    setInlineEditingItemId("");
+    setInlineEditingField("");
+    setInlineLabelInput("");
+    setError("");
+    return true;
+  };
+
   const commitInlineAmountEdit = (item, options = {}) => {
     const amountCentavos = parseAmountToCentavos(inlineAmountInput);
     if (amountCentavos <= 0) {
       if (options.revertInvalid) {
         setInlineEditingItemId("");
+        setInlineEditingField("");
         setInlineAmountInput("");
         setError("");
         return false;
@@ -749,19 +843,31 @@ export default function ClaraMoneyScheduleOverlay({
       )
     );
     setInlineEditingItemId("");
+    setInlineEditingField("");
     setInlineAmountInput("");
     setError("");
     return true;
   };
 
-  const cancelInlineAmountEdit = () => {
+  const cancelInlineEdit = () => {
     setInlineEditingItemId("");
+    setInlineEditingField("");
+    setInlineLabelInput("");
     setInlineAmountInput("");
     setError("");
   };
 
-  const materializeInlineAmount = (items = editItems) => {
-    if (!inlineEditingItemId) return items;
+  const materializeInlineEdit = (items = editItems) => {
+    if (!inlineEditingItemId || !inlineEditingField) return items;
+
+    if (inlineEditingField === "label") {
+      const label = cleanText(inlineLabelInput);
+      if (!label) return items;
+      return items.map((candidate) =>
+        candidate.id === inlineEditingItemId ? { ...candidate, label } : candidate
+      );
+    }
+
     const amountCentavos = parseAmountToCentavos(inlineAmountInput);
     if (amountCentavos <= 0) return items;
     return items.map((candidate) =>
@@ -797,7 +903,7 @@ export default function ClaraMoneyScheduleOverlay({
     setDayIndex(returnDayIndex);
     setDraftText("");
     setEditItems([]);
-    resetInlineAmountEditing();
+    resetInlineItemEditing();
     setError("");
 
     if (context.returnPhase === "weekly-review") {
@@ -820,7 +926,7 @@ export default function ClaraMoneyScheduleOverlay({
 
   const finishEditedDay = () => {
     if (!interactionReady) return;
-    const finalItems = materializeInlineAmount(editItems);
+    const finalItems = materializeInlineEdit(editItems);
     if (finishPreviousDayEdit(finalItems)) return;
 
     appendUser(`Done with ${currentWeekday.name}`);
@@ -957,13 +1063,18 @@ export default function ClaraMoneyScheduleOverlay({
             <>
               <ExpenseList
                 items={editItems}
-                amountEditMode={amountEditMode}
+                itemEditMode={itemEditMode}
                 editingItemId={inlineEditingItemId}
+                editingField={inlineEditingField}
+                inlineLabelInput={inlineLabelInput}
                 inlineAmountInput={inlineAmountInput}
+                onStartLabelEdit={startInlineLabelEdit}
                 onStartAmountEdit={startInlineAmountEdit}
+                onInlineLabelChange={changeInlineLabelInput}
                 onInlineAmountChange={changeInlineAmountInput}
+                onCommitLabelEdit={commitInlineLabelEdit}
                 onCommitAmountEdit={commitInlineAmountEdit}
-                onCancelAmountEdit={cancelInlineAmountEdit}
+                onCancelInlineEdit={cancelInlineEdit}
               />
               <div className="grid grid-cols-2 gap-2.5" data-clara-money-routine-day-controls="true">
                 <button
@@ -983,17 +1094,17 @@ export default function ClaraMoneyScheduleOverlay({
                 </button>
                 <button
                   type="button"
-                  onClick={startChangeAmount}
+                  onClick={toggleItemEditMode}
                   disabled={!editItems.length}
-                  aria-pressed={amountEditMode}
+                  aria-pressed={itemEditMode}
                   className={`flex min-h-12 items-center justify-center gap-2 rounded-[18px] border px-3 text-[12px] font-black active:scale-[0.985] disabled:opacity-35 ${
-                    amountEditMode
+                    itemEditMode
                       ? "border-cyan-200/28 bg-cyan-200/[0.09] text-cyan-50"
                       : "border-blue-300/18 bg-white/[0.04] text-white/88"
                   }`}
                 >
                   <PencilLine className="h-4 w-4" />
-                  {amountEditMode ? "Done changing" : "Change amount"}
+                  {itemEditMode ? "Done editing items" : "Edit item"}
                 </button>
                 <ChoiceButton onClick={finishEditedDay}>
                   {editReturnContext ? "Done editing" : "Done"}
