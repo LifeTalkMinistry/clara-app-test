@@ -1,0 +1,53 @@
+name: Remove legacy data provider completely
+
+on:
+  push:
+    branches:
+      - remove-supabase-completely
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out cleanup branch
+        uses: actions/checkout@v4
+        with:
+          ref: remove-supabase-completely
+          fetch-depth: 0
+
+      - name: Apply provider-removal migration
+        run: node .github/scripts/remove-supabase-completely.mjs
+
+      - name: Refresh package lock without legacy provider dependency
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Prove zero provider references remain
+        shell: bash
+        run: |
+          if grep -RniI --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist "supabase" .; then
+            echo "Legacy provider references remain."
+            exit 1
+          fi
+
+      - name: Commit cleanup branch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git diff --name-only -z | xargs -0 -r git add --
+          git ls-files --others --exclude-standard -z | xargs -0 -r git add --
+          git status --short
+          git commit -m "Remove legacy cloud data provider completely"
+          git push origin HEAD:remove-supabase-completely
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify tests and production build
+        run: npm run build
