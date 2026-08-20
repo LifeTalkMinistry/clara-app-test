@@ -13,6 +13,8 @@ import { analyzeCalendarImpact } from "../src/lib/clara-buy-check-calendar-engin
 import { analyzeObligations } from "../src/lib/clara-buy-check-obligation-engine.js";
 import { analyzeGoalProtection } from "../src/lib/clara-buy-check-goal-protection-engine.js";
 import { analyzeLifeStageContext } from "../src/lib/clara-buy-check-life-stage-engine.js";
+import { analyzeMoneyScheduleRoutine } from "../src/lib/clara-buy-check-money-schedule-engine.js";
+import { buildBuyCheckContext } from "../src/lib/clara-buy-check-context-contract.js";
 import { readScheduleEventsForAI } from "../src/lib/clara-schedule-ai-context.js";
 
 const now = "2026-07-02T00:00:00.000Z";
@@ -27,6 +29,20 @@ const budget = (overrides = {}) => ({
 const expense = (overrides = {}) => ({ amount: 1000, category: "food", date: "2026-06-30", ...overrides });
 const wallet = (id, balance, extra = {}) => ({ id, name: id, balance, ...extra });
 const income = (date, amount = 10000, source = "Salary") => ({ id: `${source}-${date}`, date, amount, incomeSourceName: source });
+const moneyRoutine = (overrides = {}) => ({
+  active: true,
+  repeatMode: "until_updated",
+  days: [
+    { key: "monday", name: "Monday", totalCentavos: 30000 },
+    { key: "tuesday", name: "Tuesday", totalCentavos: 30000 },
+    { key: "wednesday", name: "Wednesday", totalCentavos: 30000 },
+    { key: "thursday", name: "Thursday", totalCentavos: 30000 },
+    { key: "friday", name: "Friday", totalCentavos: 20000 },
+    { key: "saturday", name: "Saturday", totalCentavos: 10000 },
+    { key: "sunday", name: "Sunday", totalCentavos: 10000 },
+  ],
+  ...overrides,
+});
 
 test("one expense is attributed to only one similar budget", () => {
   const result = analyzeBuyCheckBudgetCoverage("groceries", 500, {
@@ -134,6 +150,47 @@ test("explicit next-income schedule wins over inferred history", () => {
   }, { now });
   assert.equal(result.confidence, "high");
   assert.equal(result.estimatedNextIncomeDate.slice(0, 10), "2026-07-15");
+});
+
+test("Money Schedule drops passed days and keeps today through payday as future routine", () => {
+  const result = analyzeMoneyScheduleRoutine(
+    { moneyRoutine: moneyRoutine() },
+    { estimatedNextIncomeDate: "2026-08-21" },
+    { now: "2026-08-19" },
+  );
+
+  assert.equal(result.weeklyRoutineTotal, 1600);
+  assert.deepEqual(result.passedRoutine.days, ["Monday", "Tuesday"]);
+  assert.equal(result.passedRoutine.amount, 600);
+  assert.equal(result.remainingAssumedRoutineSpending, 800);
+  assert.equal(result.horizonStart, "2026-08-19");
+  assert.equal(result.horizonEnd, "2026-08-21");
+  assert.equal(result.includesToday, true);
+});
+
+test("Money Schedule remaining routine is included in Ask Before You Spend safe-to-spend math", () => {
+  const result = buildBuyCheckContext(
+    { item: "Shoes", price: 2000, reason: "I like them" },
+    {
+      wallets: [wallet("cash", 5000)],
+      budgets: [],
+      expenses: [],
+      savingsGoals: [],
+      emergencyFund: null,
+      debtObligations: [],
+      moneyRoutine: moneyRoutine(),
+      incomeSources: [{ name: "Salary", nextIncomeDate: "2026-08-21", expectedAmount: 10000 }],
+      scheduleEvents: { connected: true, source: "schedule_storage", upcomingEvents: [] },
+    },
+    { now: "2026-08-19" },
+  );
+
+  assert.equal(result.moneySchedule.passedRoutine.amount, 600);
+  assert.equal(result.moneySchedule.remainingAssumedRoutineSpending, 800);
+  assert.equal(result.safety.moneyScheduleIncludedInCommitments, 800);
+  assert.equal(result.safety.commitmentsBeforeNextIncome, 800);
+  assert.equal(result.safety.safeToSpendBeforePurchase, 4200);
+  assert.equal(result.safety.safeToSpendAfterPurchase, 2200);
 });
 
 test("seeded schedule events are ignored unless user confirmed", () => {
