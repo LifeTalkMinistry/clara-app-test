@@ -108,7 +108,7 @@ export default function Activation() {
               <p className="mt-2 text-sm leading-6 text-white/65">
                 {isPreActivation
                   ? "You can explore the foundation while your physical kit and activation step are completed."
-                  : "Dashboard, analytics, AI, customization, and guided actions now stay unlocked from Supabase."}
+                  : "Dashboard, analytics, AI, customization, and guided actions now stay unlocked through your CLARA account."}
               </p>
             </div>
           </div>
