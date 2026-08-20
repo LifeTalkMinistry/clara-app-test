@@ -74,10 +74,28 @@ test("Money Schedule uses the same editable day controls on Monday and copied da
   assert.match(moneyScheduleSource, /data-clara-money-routine-day-controls="true"/);
   assert.match(moneyScheduleSource, /<PlusCircle className="h-4 w-4" \/> Add/);
   assert.match(moneyScheduleSource, /<MinusCircle className="h-4 w-4" \/> Remove/);
-  assert.match(moneyScheduleSource, /<PencilLine className="h-4 w-4" \/> Change amount/);
+  assert.match(moneyScheduleSource, /Change amount/);
   assert.match(moneyScheduleSource, /editReturnContext \? "Done editing" : "Done"/);
   assert.doesNotMatch(moneyScheduleSource, /phase === "day-review"/);
   assert.doesNotMatch(moneyScheduleSource, /Looks right/);
+});
+
+test("Money Schedule edits amounts directly inside the routine card", () => {
+  assert.match(moneyScheduleSource, /amountEditMode/);
+  assert.match(moneyScheduleSource, /inlineEditingItemId/);
+  assert.match(moneyScheduleSource, /inlineAmountInput/);
+  assert.match(moneyScheduleSource, /data-clara-money-routine-inline-amount="true"/);
+  assert.match(moneyScheduleSource, /aria-label=\{`Change \$\{item\.label\} amount`\}/);
+  assert.match(moneyScheduleSource, /aria-label=\{`Edit \$\{item\.label\} amount`\}/);
+  assert.match(moneyScheduleSource, /<PencilLine className="h-3\.5 w-3\.5/);
+  assert.match(moneyScheduleSource, /setAmountEditMode\(\(current\) => !current\)/);
+  assert.match(moneyScheduleSource, /commitInlineAmountEdit/);
+  assert.match(moneyScheduleSource, /materializeInlineAmount/);
+  assert.match(moneyScheduleSource, /Done changing/);
+  assert.doesNotMatch(moneyScheduleSource, /Which expense amount should I change\?/);
+  assert.doesNotMatch(moneyScheduleSource, /What should the usual amount for .* be on/);
+  assert.doesNotMatch(moneyScheduleSource, /phase === "edit-change-select"/);
+  assert.doesNotMatch(moneyScheduleSource, /phase === "edit-change-amount"/);
 });
 
 test("Money Schedule lets later days reuse or modify any completed day", () => {
