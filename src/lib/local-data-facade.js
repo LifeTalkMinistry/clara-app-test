@@ -463,7 +463,7 @@ function createChannel() {
 const accountError = () =>
   new Error("Use your CLARA backend account to sign in.");
 
-export function createLocalSupabaseFacade() {
+export function createLocalDataFacade() {
   return {
     auth: {
       async getSession() {

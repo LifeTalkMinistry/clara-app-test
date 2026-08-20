@@ -1,9 +1,9 @@
 import { useEffect } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { claraData } from "@/lib/clara-data-client";
 
 export default function useFeedRealtime(fetchFeedPosts) {
   useEffect(() => {
-    const channel = supabase
+    const channel = claraData
       .channel("dashboard-full-feed-panel")
       .on(
         "postgres_changes",
@@ -26,7 +26,7 @@ export default function useFeedRealtime(fetchFeedPosts) {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      claraData.removeChannel(channel);
     };
   }, [fetchFeedPosts]);
 }

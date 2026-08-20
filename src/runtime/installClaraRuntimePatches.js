@@ -8,7 +8,7 @@
  * - localStorage/sessionStorage keys
  * - DOM selectors
  * - CSS selectors
- * - manual dashboard/billing/supabase smoke tests
+ * - manual dashboard and billing smoke tests
  */
 
 const ACCOUNT_RUNTIME_SUSPENDED_PATHS = new Set([
@@ -139,7 +139,6 @@ import "../clara-schedule-notification-runtime-bridge";
 
 // Google Play billing restore/activation bridge
 import "../google-play-already-owned-restore-bridge";
-import "../clara-google-play-verify-auth-retry";
 
 // Beta tester invitations are verified by the CLARA backend before the account
 // is refreshed into the Committed Version. No plan is granted locally.

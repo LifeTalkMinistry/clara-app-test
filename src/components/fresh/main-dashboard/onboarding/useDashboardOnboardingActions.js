@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { claraData } from "@/lib/clara-data-client";
 import { persistDashboardPrefs } from "@/components/fresh/main-dashboard/dashboard-settings/dashboardRuntimeSettings";
 import { hasCompletedProgramOnboarding } from "@/lib/access-control";
 import { normalizeString } from "@/utils/dashboard/dashboardHelpers";
@@ -23,13 +23,13 @@ export default function useDashboardOnboardingActions({
         has_completed_program_onboarding: true,
       };
 
-      const { error } = await supabase
+      const { error } = await claraData
         .from("profiles")
         .update(updates)
         .eq("id", user.id);
 
       if (error) {
-        console.warn("Profiles table does not accept onboarding fields yet:", error);
+        console.warn("Profiles data does not accept onboarding fields yet:", error);
       }
     } catch (error) {
       console.error("Failed to save onboarding completion:", error);
@@ -60,13 +60,13 @@ export default function useDashboardOnboardingActions({
         updates.full_name = nextName;
       }
 
-      const { error } = await supabase
+      const { error } = await claraData
         .from("profiles")
         .update(updates)
         .eq("id", user.id);
 
       if (error) {
-        console.warn("Optional onboarding fields were not saved to DB:", error);
+        console.warn("Optional onboarding fields were not saved to CLARA data:", error);
       }
 
       return true;

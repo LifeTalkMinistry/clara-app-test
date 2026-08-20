@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabaseClient";
+import { claraData } from "@/lib/clara-data-client";
 
 const ADMIN_RECOVERY_EMAILS = new Set([
   "jeromemirabuenos62@gmail.com",
@@ -16,14 +16,14 @@ async function isCurrentUserAdmin() {
 
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await claraData.auth.getUser();
 
     if (!user?.id) return false;
 
     const email = String(user.email || "").trim().toLowerCase();
     if (ADMIN_RECOVERY_EMAILS.has(email)) return true;
 
-    const { data } = await supabase
+    const { data } = await claraData
       .from("profiles")
       .select("role, plan, email")
       .eq("id", user.id)

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Users } from "lucide-react";
-import { supabase } from "../lib/supabaseClient";
+import { claraData } from "../lib/clara-data-client";
 
 const getInitials = (name = "") => {
   const safeName = String(name || "").trim();
@@ -26,7 +26,7 @@ export default function ClaraPeople() {
     setLoading(true);
 
     // ✅ SAFE QUERY (only real columns)
-    const { data, error } = await supabase
+    const { data, error } = await claraData
       .from("profiles")
       .select("id, full_name, email")
       .order("full_name", { ascending: true });

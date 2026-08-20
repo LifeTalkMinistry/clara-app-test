@@ -1,4 +1,4 @@
-import { supabase } from "../supabaseClient";
+import { claraData } from "../clara-data-client";
 import {
   LOCAL_FINANCE_STORES,
   runLocalFinanceTransaction,
@@ -36,7 +36,7 @@ async function resolveDemoLocalUserId(options = {}) {
   const explicit = clean(options.localUserId);
   if (explicit) return explicit;
   try {
-    const { data } = await supabase.auth.getUser();
+    const { data } = await claraData.auth.getUser();
     return clean(data?.user?.id || data?.user?.email) || SAMPLE_DATA_LOCAL_USER_ID;
   } catch {
     return SAMPLE_DATA_LOCAL_USER_ID;

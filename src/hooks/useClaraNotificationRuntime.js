@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabaseClient";
+import { claraData } from "@/lib/clara-data-client";
 import {
   fetchTaskReminderSettings,
   fetchTaskReminderState,
@@ -86,7 +86,10 @@ function writeCleanupTimestamp(userId, timestamp) {
 
 export function markDailyMoneyCheckInCompleted(userId, dateKey) {
   if (typeof window === "undefined" || !userId || !dateKey) return;
-  window.localStorage["set" + "Item"](dailyCompletionKey(userId, dateKey), "true");
+  window.localStorage["set" + "Item"](
+    dailyCompletionKey(userId, dateKey),
+    "true"
+  );
   window.dispatchEvent(
     new CustomEvent("clara:daily-money-check-in-completed", {
       detail: { userId, dateKey },
@@ -106,7 +109,8 @@ function shouldDelayForQuietHours(notification, preferences) {
 
 function taskDeliveryPreferencesDiffer(settings, preferences, syncEnabledState) {
   return (
-    (syncEnabledState && settings.reminders_enabled !== preferences.tasksAndCoaching) ||
+    (syncEnabledState &&
+      settings.reminders_enabled !== preferences.tasksAndCoaching) ||
     settings.timezone !== preferences.timezone ||
     settings.quiet_hours_enabled !== preferences.quietHoursEnabled ||
     settings.quiet_hours_start !== preferences.quietHoursStart ||
@@ -140,7 +144,9 @@ function hasLoggedExpenseToday(expenses, dateKey, timezone) {
       expense.updatedAt,
     ];
 
-    return possibleDateValues.some((value) => expenseDateKey(value, timezone) === dateKey);
+    return possibleDateValues.some(
+      (value) => expenseDateKey(value, timezone) === dateKey
+    );
   });
 }
 
@@ -148,9 +154,10 @@ function expenseLogReminderSlots(preferences) {
   const frequency = [1, 2, 3].includes(Number(preferences.expenseLogFrequency))
     ? Number(preferences.expenseLogFrequency)
     : 1;
-  const sourceTimes = Array.isArray(preferences.expenseLogTimes) && preferences.expenseLogTimes.length
-    ? preferences.expenseLogTimes
-    : [preferences.preferredTime || "12:30"];
+  const sourceTimes =
+    Array.isArray(preferences.expenseLogTimes) && preferences.expenseLogTimes.length
+      ? preferences.expenseLogTimes
+      : [preferences.preferredTime || "12:30"];
 
   return Array.from({ length: frequency }, (_, index) => {
     const time = sourceTimes[index] || sourceTimes[0] || "12:30";
@@ -169,7 +176,9 @@ function buildExpenseLogLocalSyncSignature(userId, preferences = {}) {
     expenseLogging: Boolean(preferences.expenseLogging),
     deliveryMode: preferences.deliveryMode || "in_app",
     expenseLogFrequency: Number(preferences.expenseLogFrequency || 1),
-    expenseLogTimes: Array.isArray(preferences.expenseLogTimes) ? preferences.expenseLogTimes : [],
+    expenseLogTimes: Array.isArray(preferences.expenseLogTimes)
+      ? preferences.expenseLogTimes
+      : [],
     expenseLogStopAfterLogged: Boolean(preferences.expenseLogStopAfterLogged),
   });
 }
@@ -210,7 +219,15 @@ export default function useClaraNotificationRuntime({
       activeTask,
       navigate,
     };
-  }, [activeTask, budgets, emergencyFund, expenses, navigate, savingsGoals, walletTransactions]);
+  }, [
+    activeTask,
+    budgets,
+    emergencyFund,
+    expenses,
+    navigate,
+    savingsGoals,
+    walletTransactions,
+  ]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -245,9 +262,6 @@ export default function useClaraNotificationRuntime({
 
       expenseLogLocalSyncSignatureRef.current = signature;
       try {
-        // deviceNotifications still accepts the historic `dailyCheckIn` field.
-        // Keep that bridge local to the adapter while the canonical preference
-        // is now `expenseLogging` everywhere else.
         await syncExpenseLogLocalNotifications({
           userId,
           preferences: {
@@ -257,11 +271,17 @@ export default function useClaraNotificationRuntime({
         });
       } catch (error) {
         expenseLogLocalSyncSignatureRef.current = "";
-        console.warn("CLARA expense log Android local notification sync failed:", error);
+        console.warn(
+          "CLARA expense log Android local notification sync failed:",
+          error
+        );
       }
     };
 
-    const deliverDeviceNotificationIfAllowed = async (notification, preferences) => {
+    const deliverDeviceNotificationIfAllowed = async (
+      notification,
+      preferences
+    ) => {
       if (preferences.deliveryMode !== "device_and_in_app") return;
       if (
         notification?.eventType === "daily_money_check_in" &&
@@ -294,8 +314,19 @@ export default function useClaraNotificationRuntime({
     };
 
     const deliverStoredNotification = async (notification, preferences) => {
-      if (!notification || notification.deliveredAt || notification.dismissedAt) return;
-      if (notification.snoozedUntil && new Date(notification.snoozedUntil) > new Date()) return;
+      if (
+        !notification ||
+        notification.deliveredAt ||
+        notification.dismissedAt
+      ) {
+        return;
+      }
+      if (
+        notification.snoozedUntil &&
+        new Date(notification.snoozedUntil) > new Date()
+      ) {
+        return;
+      }
       if (shouldDelayForQuietHours(notification, preferences)) return;
 
       const isDaily = notification.eventType === "daily_money_check_in";
@@ -303,11 +334,13 @@ export default function useClaraNotificationRuntime({
 
       if (isDaily && dateKey) {
         const completed = isDailyCheckInCompleted(userId, dateKey);
-        const alreadyLoggedExpense = preferences.expenseLogStopAfterLogged && hasLoggedExpenseToday(
-          latestDataRef.current.expenses,
-          dateKey,
-          preferences.timezone
-        );
+        const alreadyLoggedExpense =
+          preferences.expenseLogStopAfterLogged &&
+          hasLoggedExpenseToday(
+            latestDataRef.current.expenses,
+            dateKey,
+            preferences.timezone
+          );
 
         if (completed || alreadyLoggedExpense) {
           await dismissNotification(userId, notification.id);
@@ -323,7 +356,9 @@ export default function useClaraNotificationRuntime({
               label: isDaily ? "Log now" : "Open",
               onClick: () => {
                 markNotificationActed(userId, notification.id).catch(() => {});
-                if (isDaily && dateKey) markDailyMoneyCheckInCompleted(userId, dateKey);
+                if (isDaily && dateKey) {
+                  markDailyMoneyCheckInCompleted(userId, dateKey);
+                }
                 openDestination(notification.destination);
               },
             }
@@ -331,7 +366,6 @@ export default function useClaraNotificationRuntime({
       });
 
       await deliverDeviceNotificationIfAllowed(notification, preferences);
-
       await markNotificationDelivered(userId, notification.id);
     };
 
@@ -341,7 +375,11 @@ export default function useClaraNotificationRuntime({
       if (isDailyCheckInCompleted(userId, zoned.dateKey)) return;
       if (
         preferences.expenseLogStopAfterLogged &&
-        hasLoggedExpenseToday(latestDataRef.current.expenses, zoned.dateKey, preferences.timezone)
+        hasLoggedExpenseToday(
+          latestDataRef.current.expenses,
+          zoned.dateKey,
+          preferences.timezone
+        )
       ) {
         return;
       }
@@ -376,11 +414,20 @@ export default function useClaraNotificationRuntime({
       const syncEnabledState = hasStoredNotificationPreferences(userId);
       let settings;
       try {
-        settings = await fetchTaskReminderSettings({ supabase, userId });
+        settings = await fetchTaskReminderSettings({
+          dataClient: claraData,
+          userId,
+        });
 
-        if (taskDeliveryPreferencesDiffer(settings, preferences, syncEnabledState)) {
+        if (
+          taskDeliveryPreferencesDiffer(
+            settings,
+            preferences,
+            syncEnabledState
+          )
+        ) {
           settings = await upsertTaskReminderSettings({
-            supabase,
+            dataClient: claraData,
             userId,
             settings: {
               ...settings,
@@ -400,7 +447,9 @@ export default function useClaraNotificationRuntime({
       }
 
       if (!preferences.tasksAndCoaching) return;
-      if (!isNotificationEventAllowed("task_still_incomplete", preferences)) return;
+      if (!isNotificationEventAllowed("task_still_incomplete", preferences)) {
+        return;
+      }
 
       const reminderWindow = getActiveReminderWindow(settings, new Date());
       if (!reminderWindow) return;
@@ -409,7 +458,7 @@ export default function useClaraNotificationRuntime({
       let reminderState = null;
       try {
         reminderState = await fetchTaskReminderState({
-          supabase,
+          dataClient: claraData,
           userId,
           taskId: task.id,
           reminderDate: reminderWindow.dateKey,
@@ -432,13 +481,17 @@ export default function useClaraNotificationRuntime({
         return;
       }
 
-      const eventType = task.isToday ? "today_task_ready" : "task_still_incomplete";
+      const eventType = task.isToday
+        ? "today_task_ready"
+        : "task_still_incomplete";
       const dedupeKey = `${eventType}:${task.id}:${reminderWindow.dateKey}:${reminderWindow.time.replace(":", "")}`;
       const result = await createNotification(
         buildNotificationContract({
           eventType,
           dedupeKey,
-          title: task.isToday ? "Today’s CLARA task is ready" : "Your CLARA task is still waiting",
+          title: task.isToday
+            ? "Today’s CLARA task is ready"
+            : "Your CLARA task is still waiting",
           body: task.title
             ? `${task.title} is still incomplete. Open it when you are ready to continue.`
             : "Your active program task is still incomplete.",
@@ -457,10 +510,10 @@ export default function useClaraNotificationRuntime({
         : null;
       const snoozeExpired = Boolean(
         snoozedUntil &&
-        !Number.isNaN(snoozedUntil.getTime()) &&
-        snoozedUntil <= new Date() &&
-        !result.notification.dismissedAt &&
-        !result.notification.actedAt
+          !Number.isNaN(snoozedUntil.getTime()) &&
+          snoozedUntil <= new Date() &&
+          !result.notification.dismissedAt &&
+          !result.notification.actedAt
       );
 
       if (!result.created && !snoozeExpired) return;
@@ -473,7 +526,7 @@ export default function useClaraNotificationRuntime({
           onClick: () => {
             markNotificationActed(userId, result.notification.id).catch(() => {});
             upsertTaskReminderState({
-              supabase,
+              dataClient: claraData,
               userId,
               task,
               reminderWindow,
@@ -488,11 +541,19 @@ export default function useClaraNotificationRuntime({
         cancel: {
           label: "Later",
           onClick: () => {
-            const snoozeMinutes = Number(settings.snooze_default_minutes || preferences.snoozeMinutes || 30);
-            const nextSnoozedUntil = new Date(Date.now() + snoozeMinutes * 60_000).toISOString();
-            snoozeNotification(userId, result.notification.id, snoozeMinutes).catch(() => {});
+            const snoozeMinutes = Number(
+              settings.snooze_default_minutes || preferences.snoozeMinutes || 30
+            );
+            const nextSnoozedUntil = new Date(
+              Date.now() + snoozeMinutes * 60_000
+            ).toISOString();
+            snoozeNotification(
+              userId,
+              result.notification.id,
+              snoozeMinutes
+            ).catch(() => {});
             upsertTaskReminderState({
-              supabase,
+              dataClient: claraData,
               userId,
               task,
               reminderWindow,
@@ -510,7 +571,7 @@ export default function useClaraNotificationRuntime({
       await Promise.all([
         markNotificationDelivered(userId, result.notification.id),
         upsertTaskReminderState({
-          supabase,
+          dataClient: claraData,
           userId,
           task,
           reminderWindow,
@@ -524,7 +585,8 @@ export default function useClaraNotificationRuntime({
 
     const maybeCleanupOldNotifications = async () => {
       const now = Date.now();
-      const lastCleanupAt = lastCleanupAtRef.current || readCleanupTimestamp(userId);
+      const lastCleanupAt =
+        lastCleanupAtRef.current || readCleanupTimestamp(userId);
       if (now - lastCleanupAt < CLEANUP_COOLDOWN_MS) return;
 
       await cleanupOldNotifications(userId);
@@ -586,7 +648,13 @@ export default function useClaraNotificationRuntime({
         });
         for (const notification of pending) {
           if (!isRuntimeActive()) return;
-          if (["today_task_ready", "task_still_incomplete"].includes(notification.eventType)) continue;
+          if (
+            ["today_task_ready", "task_still_incomplete"].includes(
+              notification.eventType
+            )
+          ) {
+            continue;
+          }
           await deliverStoredNotification(notification, preferences);
         }
 
@@ -613,7 +681,9 @@ export default function useClaraNotificationRuntime({
 
       const now = Date.now();
       const elapsed = now - lastEvaluationAtRef.current;
-      const cooldownRemaining = force ? 0 : Math.max(0, EVALUATION_COOLDOWN_MS - elapsed);
+      const cooldownRemaining = force
+        ? 0
+        : Math.max(0, EVALUATION_COOLDOWN_MS - elapsed);
       const waitMs = Math.max(delay, cooldownRemaining);
 
       evaluateTimeoutRef.current = window.setTimeout(() => {
@@ -642,13 +712,21 @@ export default function useClaraNotificationRuntime({
 
     const handleVisibilityChange = () => {
       if (isDocumentVisible()) {
-        scheduleEvaluation("visible", { delay: 250, force: true, includeCleanup: true });
+        scheduleEvaluation("visible", {
+          delay: 250,
+          force: true,
+          includeCleanup: true,
+        });
       } else {
         clearPendingEvaluation();
       }
     };
 
-    scheduleEvaluation("mount", { delay: 500, force: true, includeCleanup: true });
+    scheduleEvaluation("mount", {
+      delay: 500,
+      force: true,
+      includeCleanup: true,
+    });
 
     const financeEventNames = [
       "clara:finance-data-updated",
@@ -657,9 +735,17 @@ export default function useClaraNotificationRuntime({
     ];
 
     window.addEventListener("focus", handleFocus);
-    financeEventNames.forEach((eventName) => window.addEventListener(eventName, handleFinanceUpdate));
-    window.addEventListener("clara:notification-preferences-updated", handlePreferencesUpdate);
-    window.addEventListener("clara:daily-money-check-in-completed", handleDailyCheckInCompleted);
+    financeEventNames.forEach((eventName) =>
+      window.addEventListener(eventName, handleFinanceUpdate)
+    );
+    window.addEventListener(
+      "clara:notification-preferences-updated",
+      handlePreferencesUpdate
+    );
+    window.addEventListener(
+      "clara:daily-money-check-in-completed",
+      handleDailyCheckInCompleted
+    );
     if (typeof document !== "undefined") {
       document.addEventListener("visibilitychange", handleVisibilityChange);
     }
@@ -667,9 +753,17 @@ export default function useClaraNotificationRuntime({
     return () => {
       clearPendingEvaluation();
       window.removeEventListener("focus", handleFocus);
-      financeEventNames.forEach((eventName) => window.removeEventListener(eventName, handleFinanceUpdate));
-      window.removeEventListener("clara:notification-preferences-updated", handlePreferencesUpdate);
-      window.removeEventListener("clara:daily-money-check-in-completed", handleDailyCheckInCompleted);
+      financeEventNames.forEach((eventName) =>
+        window.removeEventListener(eventName, handleFinanceUpdate)
+      );
+      window.removeEventListener(
+        "clara:notification-preferences-updated",
+        handlePreferencesUpdate
+      );
+      window.removeEventListener(
+        "clara:daily-money-check-in-completed",
+        handleDailyCheckInCompleted
+      );
       if (typeof document !== "undefined") {
         document.removeEventListener("visibilitychange", handleVisibilityChange);
       }
