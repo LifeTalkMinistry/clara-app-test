@@ -1,9 +1,9 @@
-name: Apply and verify CLARA Orb Guide
+name: Apply verified Money Schedule inline Add
 
 on:
   push:
     branches:
-      - fix/real-clara-orb-guide-production-ui
+      - fix/money-schedule-inline-add-verified
     paths:
       - .github/workflows/apply-clara-orb-guide-production-ui.yml
 
@@ -17,22 +17,12 @@ jobs:
       - name: Check out implementation branch
         uses: actions/checkout@v4
         with:
-          ref: fix/real-clara-orb-guide-production-ui
+          ref: fix/money-schedule-inline-add-verified
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Restore reviewed refactor script
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          mkdir -p scripts
-          gh api repos/${GITHUB_REPOSITORY}/git/blobs/dcea3fbea584fe315bb38aa0e0c628b2211f8c9f --jq .content \
-            | tr -d '\n' \
-            | base64 -d \
-            > scripts/apply_clara_orb_guide_refactor.py
-
-      - name: Apply strict refactor
-        run: python3 scripts/apply_clara_orb_guide_refactor.py
+      - name: Apply Money Schedule inline Add update
+        run: python3 scripts/apply_money_schedule_inline_add.py
 
       - name: Check patch formatting
         run: git diff --check
@@ -46,15 +36,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run focused Money Schedule regression tests
+        run: node --test tests/clara-log-expense-flow-source.test.mjs
+
       - name: Build production application
         run: npm run build
 
+      - name: Restore workflow and remove one-time patcher
+        run: |
+          git fetch origin main
+          git checkout origin/main -- .github/workflows/apply-clara-orb-guide-production-ui.yml
+          rm -f scripts/apply_money_schedule_inline_add.py
+
       - name: Commit verified implementation
         run: |
-          rm -f scripts/apply_clara_orb_guide_refactor.py
-          rm -f .github/workflows/apply-clara-orb-guide-production-ui.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "fix: use production UI in CLARA orb guide"
-          git push origin HEAD:fix/real-clara-orb-guide-production-ui
+          git commit -m "Make Money Schedule Add direct and inline"
+          git push origin HEAD:fix/money-schedule-inline-add-verified
