@@ -97,9 +97,9 @@ export default function WalletListItem({
   const walletId = wallet?.id ?? wallet?.wallet_id ?? wallet?.local_id;
   const provider = getWalletProviderFromWallet(wallet);
   const walletBalance = toWalletNumber(
-    wallet?.walletBalance,
-    wallet?.balance,
+    wallet?.currentBalance,
     wallet?.derived_balance,
+    wallet?.balance,
     wallet?.current_balance,
     wallet?.wallet_balance,
     wallet?.available_balance,
@@ -125,19 +125,15 @@ export default function WalletListItem({
   );
   const totalProtectedAmount = toWalletNumber(
     wallet?.totalProtectedAmount,
-    wallet?.total_protected_amount,
-    emergencyProtectedAmount + savingsProtectedAmount
+    wallet?.total_protected_amount
   );
   const hasProtectedAllocation = totalProtectedAmount > 0;
-  const spendableBalance = hasProtectedAllocation
-    ? toWalletNumber(
-        wallet?.spendableBalance,
-        wallet?.spendable_balance,
-        wallet?.walletSpendableBalance,
-        wallet?.wallet_spendable_balance,
-        Math.max(walletBalance - totalProtectedAmount, 0)
-      )
-    : walletBalance;
+  const spendableBalance = toWalletNumber(
+    wallet?.spendableBalance,
+    wallet?.spendable_balance,
+    wallet?.walletSpendableBalance,
+    wallet?.wallet_spendable_balance
+  );
 
   const updateMenuPosition = () => {
     if (typeof window === 'undefined') return;
