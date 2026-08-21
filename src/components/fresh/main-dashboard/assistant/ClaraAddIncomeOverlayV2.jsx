@@ -490,9 +490,9 @@ export default function ClaraAddIncomeOverlayV2({
       runAssistantSequence(
         [
           `${saved.name} is now set up as your income source.`,
-          "How much money came in?",
+          "Would you like to add money now, or are you done?",
         ],
-        "amount",
+        "source-created-choice",
         { skipInitialDelay: true }
       );
     } catch (nextError) {
@@ -646,6 +646,13 @@ export default function ClaraAddIncomeOverlayV2({
       startDate: localDateKey(),
       dayOfMonth,
     });
+  };
+
+  const addMoneyAfterSourceCreation = () => {
+    if (!interactionReady || !selectedSource) return;
+    setError("");
+    append(chatMessage("user", "Add money now"));
+    runAssistantSequence(["How much money came in?"], "amount");
   };
 
   const chooseSource = (source) => {
@@ -939,6 +946,13 @@ export default function ClaraAddIncomeOverlayV2({
                 inputMode="numeric"
                 pattern="[0-9]{1,2}"
               />
+            </div>
+          ) : null}
+
+          {phase === "source-created-choice" && controlsReady ? (
+            <div className="mt-1 grid grid-cols-2 gap-2.5" data-clara-income-source-created-choice="true">
+              <ChoiceButton onClick={addMoneyAfterSourceCreation}>Add money now</ChoiceButton>
+              <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
             </div>
           ) : null}
 
