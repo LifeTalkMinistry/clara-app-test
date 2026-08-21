@@ -31,6 +31,7 @@ const ORB_COMPOSITION_SELECTOR = '[data-clara-orb-composition="true"]';
 const ORB_LAUNCHER_SELECTOR = '[data-clara-orb-launcher="true"]';
 const ORB_IDLE_COPY_SELECTOR = ".clara-orb-idle-copy";
 const MEANS_METRIC_ATTR = "data-clara-orb-means-metric";
+const MEANS_PLACEHOLDER_ATTR = "data-clara-orb-means-placeholder";
 
 function resolveGreetingLabel() {
   return (
@@ -206,6 +207,28 @@ function metricTone(score) {
   return "#ff7f8d";
 }
 
+function ensureMeansPlaceholder(idleCopy) {
+  const placeholder = idleCopy?.querySelector?.(`[${MEANS_PLACEHOLDER_ATTR}="true"]`);
+  if (!placeholder || placeholder.dataset.claraMeansPremiumPlaceholder === "true") {
+    return placeholder;
+  }
+
+  placeholder.dataset.claraMeansPremiumPlaceholder = "true";
+  placeholder.style.marginTop = "9px";
+  placeholder.style.fontSize = "initial";
+  placeholder.style.fontWeight = "initial";
+  placeholder.style.letterSpacing = "initial";
+  placeholder.style.color = "inherit";
+  placeholder.innerHTML = `
+    <span style="display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:31px;padding:4px 11px 4px 5px;border:1px solid rgba(103,157,255,.14);border-radius:999px;background:linear-gradient(180deg,rgba(13,28,62,.68),rgba(4,10,31,.74));box-shadow:0 10px 28px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.035),0 0 20px rgba(46,110,255,.055);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)">
+      <strong style="display:inline-grid;place-items:center;min-width:27px;height:23px;padding:0 6px;border:1px solid rgba(255,255,255,.07);border-radius:999px;background:rgba(255,255,255,.035);font-size:11px;font-weight:900;line-height:1;color:rgba(255,255,255,.58)">—</strong>
+      <span style="font-size:8px;font-weight:900;line-height:1;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.34)">Means score</span>
+    </span>
+  `;
+
+  return placeholder;
+}
+
 function ensureMeansMetric(label, snapshot, onToggle) {
   const composition = label?.closest?.(ORB_COMPOSITION_SELECTOR);
   const idleCopy = composition?.querySelector?.(ORB_IDLE_COPY_SELECTOR);
@@ -213,6 +236,7 @@ function ensureMeansMetric(label, snapshot, onToggle) {
 
   const tapCopy = idleCopy.querySelector("p");
   if (tapCopy) tapCopy.style.display = "none";
+  ensureMeansPlaceholder(idleCopy);
 
   let root = idleCopy.querySelector(`[${MEANS_METRIC_ATTR}="true"]`);
   if (!snapshot) {
@@ -253,18 +277,20 @@ function ensureMeansMetric(label, snapshot, onToggle) {
 
   const tone = metricTone(snapshot.score);
   root.innerHTML = `
-    <span style="display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:11px;font-weight:800;line-height:1.25;letter-spacing:.005em;color:rgba(255,255,255,.48)">
-      <strong style="font-size:12px;color:${tone};font-weight:900">${snapshot.score}</strong>
-      <span style="opacity:.5">·</span>
-      <span>${statusForScore(snapshot.score)}</span>
-      <span style="font-size:9px;opacity:.38;transform:${expanded ? "rotate(180deg)" : "none"};transition:transform 160ms ease">⌄</span>
+    <span style="display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:31px;padding:4px 10px 4px 5px;border:1px solid rgba(103,157,255,.14);border-radius:999px;background:linear-gradient(180deg,rgba(13,28,62,.68),rgba(4,10,31,.74));box-shadow:0 10px 28px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.035),0 0 20px rgba(46,110,255,.055);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)">
+      <strong style="display:inline-grid;place-items:center;min-width:29px;height:23px;padding:0 6px;border:1px solid ${tone}33;border-radius:999px;background:${tone}0d;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 0 14px ${tone}12;font-size:11px;font-weight:900;line-height:1;color:${tone}">${snapshot.score}</strong>
+      <span style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;line-height:1">
+        <span style="font-size:7px;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.26)">Means score</span>
+        <span style="font-size:9px;font-weight:800;letter-spacing:-.01em;color:rgba(255,255,255,.62)">${statusForScore(snapshot.score)}</span>
+      </span>
+      <span style="margin-left:1px;font-size:9px;line-height:1;color:rgba(255,255,255,.25);transform:${expanded ? "rotate(180deg)" : "none"};transition:transform 160ms ease">⌄</span>
     </span>
-    <span data-clara-means-expanded="true" style="display:${expanded ? "block" : "none"};width:min(300px,78vw);margin:9px auto 1px;padding:10px 12px;border:1px solid rgba(126,160,214,.10);border-radius:14px;background:rgba(6,16,38,.42);box-shadow:0 8px 24px rgba(0,0,0,.10);backdrop-filter:blur(8px);text-align:left">
+    <span data-clara-means-expanded="true" style="display:${expanded ? "block" : "none"};width:min(300px,78vw);margin:10px auto 1px;padding:11px 12px;border:1px solid rgba(112,157,229,.13);border-radius:15px;background:linear-gradient(180deg,rgba(9,21,50,.72),rgba(4,11,31,.66));box-shadow:0 14px 34px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.025);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);text-align:left">
       <span style="display:flex;justify-content:space-between;gap:16px;font-size:10px;color:rgba(255,255,255,.38)"><span>Income this month</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.income)}</strong></span>
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.38)"><span>Already spent</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.spent)}</strong></span>
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.38)"><span>Upcoming commitments</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.upcoming)}</strong></span>
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.06);font-size:10px;color:rgba(255,255,255,.42)"><span>Projected room</span><strong style="color:${snapshot.projectedRoom >= 0 ? "#67e8c8" : "#ff7f8d"}">${snapshot.projectedRoom >= 0 ? "" : "−"}${money(Math.abs(snapshot.projectedRoom))}</strong></span>
-      <span style="display:block;margin-top:7px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">100 = living within your means</span>
+      <span style="display:block;margin-top:8px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">100 = living within your means</span>
     </span>
   `;
 
