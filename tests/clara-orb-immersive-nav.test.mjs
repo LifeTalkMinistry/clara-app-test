@@ -8,6 +8,7 @@ const readSource = (relativePath) =>
 const immersiveNavSource = readSource("src/runtime/installClaraOrbImmersiveNav.js");
 const formerHitTargetSource = readSource("src/runtime/installClaraOrbPreciseHitTarget.js");
 const orbPageSource = readSource("src/components/community/ClaraOrbPage.jsx");
+const orbGreetingSource = readSource("src/runtime/installClaraOrbGreeting.js");
 
 test("Orb page root owns pointer reveal behavior", () => {
   assert.match(immersiveNavSource, /PAGE_SELECTOR = "\\.clara-community-orb-view"/);
@@ -17,10 +18,14 @@ test("Orb page root owns pointer reveal behavior", () => {
   assert.doesNotMatch(immersiveNavSource, /document\.addEventListener\("pointerup"/);
 });
 
-test("the stable Orb launcher hierarchy is the only reveal exclusion", () => {
-  assert.match(immersiveNavSource, /ORB_INTERACTIVE_SELECTOR = '\[data-clara-orb-launcher="true"\]'/);
+test("the Orb launcher and Means Score are reveal exclusions", () => {
+  assert.match(
+    immersiveNavSource,
+    /ORB_INTERACTIVE_SELECTOR =\s*\n\s*'\[data-clara-orb-launcher="true"\], \[data-clara-orb-means-metric="true"\]'/
+  );
   assert.match(immersiveNavSource, /start\.orbOwned \|\| isOrbInteractionTarget\(event\.target, activePage\)/);
   assert.match(orbPageSource, /data-clara-orb-launcher="true"/);
+  assert.match(orbGreetingSource, /data-clara-orb-means-metric/);
   assert.doesNotMatch(immersiveNavSource, /a, button, input, textarea, select/);
 });
 
