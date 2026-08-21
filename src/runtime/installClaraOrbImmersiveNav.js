@@ -4,8 +4,9 @@
  * The Orb is the only Community view that owns a full-screen assistant canvas.
  * Its shared top navigation therefore becomes an overlay: hidden outside the
  * viewport by default, revealed by an Orb-page background/content interaction,
- * then automatically dismissed after a short idle period. The CLARA Orb itself
- * remains the sole intentional reveal exclusion and keeps its own interaction.
+ * then automatically dismissed after a short idle period. The CLARA Orb and
+ * its inline Means Score control remain intentional reveal exclusions so their
+ * own interactions never wake the shared navigation.
  */
 
 const RUNTIME_KEY = "__claraOrbImmersiveNavRuntime__";
@@ -13,7 +14,8 @@ const STYLE_ID = "clara-orb-immersive-nav-style";
 const ROOT_SELECTOR = ".clara-community-root";
 const PAGE_SELECTOR = ".clara-community-orb-view";
 const HEADER_SELECTOR = ".clara-community-shell-header";
-const ORB_INTERACTIVE_SELECTOR = '[data-clara-orb-launcher="true"]';
+const ORB_INTERACTIVE_SELECTOR =
+  '[data-clara-orb-launcher="true"], [data-clara-orb-means-metric="true"]';
 const AUTO_HIDE_MS = 3200;
 const SWIPE_THRESHOLD_PX = 38;
 
@@ -155,9 +157,9 @@ function installClaraOrbImmersiveNav() {
     if (!start || start.pointerId !== event.pointerId) return;
     if (!activeRoot || activeRoot.dataset.communityView !== "orb" || !activePage) return;
 
-    // The Orb launcher owns every interaction that begins or ends anywhere in
-    // its stable component boundary. Never turn an Orb interaction into a
-    // background navigation reveal.
+    // The Orb launcher and its Means Score control own every interaction that
+    // begins or ends inside their stable boundaries. Never turn either of those
+    // intentional interactions into a background navigation reveal.
     if (start.orbOwned || isOrbInteractionTarget(event.target, activePage)) return;
 
     const dx = event.clientX - start.x;
