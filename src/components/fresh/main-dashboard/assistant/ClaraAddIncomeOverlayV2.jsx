@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, X } from "lucide-react";
 import {
+  INCOME_SOURCE_CATEGORIES,
+  INCOME_SOURCE_STABILITY,
   addMoneyToIncomeSource,
+  appendIncomeSourceActivity,
   getIncomeHubLocalUserId,
   getIncomeSources,
   transferIncomeSourceToWallet,
+  upsertIncomeSource,
 } from "@/lib/incomeHubRepository";
 import {
   getWalletId,
@@ -18,6 +22,7 @@ import {
 } from "@/lib/clara-conversation-pacing";
 
 const clean = (value) => String(value ?? "").trim();
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 function money(value = 0) {
   const parsed = Number(value);
@@ -27,11 +32,34 @@ function money(value = 0) {
   })}`;
 }
 
+function parseMoney(value) {
+  const parsed = Number(String(value ?? "").replace(/[₱,\s]/g, ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function localDateKey() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
     now.getDate()
   ).padStart(2, "0")}`;
+}
+
+function isStableIncome(value) {
+  return clean(value).toLowerCase() === "stable";
+}
+
+function validDay(value) {
+  const day = Number(value);
+  return Number.isInteger(day) && day >= 1 && day <= 31 ? day : 0;
+}
+
+function parseTwiceMonthlyDays(value) {
+  const days = String(value ?? "")
+    .split(/[\s,;/]+/)
+    .map(validDay)
+    .filter(Boolean);
+  const unique = [...new Set(days)].sort((a, b) => a - b);
+  return unique.length >= 2 ? unique.slice(0, 2) : [];
 }
 
 function firstNameFromUser(user = {}) {
@@ -96,7 +124,16 @@ function ChoiceButton({ children, onClick, disabled = false, secondary = false }
   );
 }
 
-function Composer({ value, onChange, onSubmit, placeholder, disabled = false }) {
+function Composer({
+  value,
+  onChange,
+  onSubmit,
+  placeholder,
+  inputMode = "text",
+  type = "text",
+  pattern,
+  disabled = false,
+}) {
   return (
     <form
       data-clara-buy-check-react-form="true"
@@ -107,11 +144,12 @@ function Composer({ value, onChange, onSubmit, placeholder, disabled = false }) 
       className="relative z-20 flex items-center gap-2 rounded-[22px] border border-blue-200/14 bg-[#07142b]/96 p-2 shadow-[0_14px_34px_rgba(0,0,0,0.28)]"
     >
       <input
+        type={type}
         value={value}
         onChange={(event) => onChange?.(event.target.value)}
         placeholder={placeholder}
-        inputMode="decimal"
-        pattern="[0-9]*[.]?[0-9]{0,2}"
+        inputMode={inputMode}
+        pattern={pattern}
         autoComplete="off"
         disabled={disabled}
         className="min-h-11 min-w-0 flex-1 bg-transparent px-3 text-[14px] font-semibold text-white outline-none placeholder:text-slate-400/62 disabled:opacity-50"
@@ -149,6 +187,14 @@ export default function ClaraAddIncomeOverlayV2({
   const [pendingMessage, setPendingMessage] = useState(null);
   const [typedText, setTypedText] = useState("");
   const [interactionReady, setInteractionReady] = useState(false);
+
+  const [sourceNameInput, setSourceNameInput] = useState("");
+  const [sourceName, setSourceName] = useState("");
+  const [sourceCategory, setSourceCategory] = useState("Salary");
+  const [sourceStability, setSourceStability] = useState("Stable");
+  const [stableAmountInput, setStableAmountInput] = useState("");
+  const [stableMinimum, setStableMinimum] = useState(0);
+  const [scheduleInput, setScheduleInput] = useState("");
 
   const viewportRef = useRef(null);
   const timerIdsRef = useRef(new Set());
@@ -253,6 +299,16 @@ export default function ClaraAddIncomeOverlayV2({
     queueNextAssistantMessage(token, options.skipInitialDelay === true);
   };
 
+  const resetCreateSourceDraft = () => {
+    setSourceNameInput("");
+    setSourceName("");
+    setSourceCategory("Salary");
+    setSourceStability("Stable");
+    setStableAmountInput("");
+    setStableMinimum(0);
+    setScheduleInput("");
+  };
+
   const loadSourcesAndStart = async () => {
     cancelConversationPacing();
     setPhase("loading");
@@ -264,6 +320,7 @@ export default function ClaraAddIncomeOverlayV2({
     setBusy(false);
     setError("");
     setMessages([]);
+    resetCreateSourceDraft();
 
     try {
       const records = await getIncomeSources(localUserId);
@@ -274,10 +331,10 @@ export default function ClaraAddIncomeOverlayV2({
         runAssistantSequence(
           [
             `Hi ${firstName}! 👋`,
-            "I can add income here, but you don’t have an Income Source yet.",
-            "Create your income source first, then come back here and I’ll record the money through this chat.",
+            "You don’t have an Income Source yet, so let’s create your first one right here.",
+            "What should we call it? For example: Salary, Freelance, Online Selling, or Allowance.",
           ],
-          "no-source"
+          "create-source-name"
         );
         return;
       }
@@ -350,6 +407,7 @@ export default function ClaraAddIncomeOverlayV2({
       setBusy(false);
       setError("");
       setPhase("opening");
+      resetCreateSourceDraft();
     }
     previousActiveRef.current = isActive;
   }, [isActive, localUserId, firstName]);
@@ -369,6 +427,217 @@ export default function ClaraAddIncomeOverlayV2({
     onClose?.();
   };
 
+  const saveNewSource = async (recurrence, overrides = {}) => {
+    const nextName = clean(overrides.name ?? sourceName);
+    const nextCategory = clean(overrides.category ?? sourceCategory) || "Other Income";
+    const nextStability = clean(overrides.stability ?? sourceStability) || "Irregular";
+    const stable = isStableIncome(nextStability);
+    const minimum = stable ? Number(overrides.minimum ?? stableMinimum) : 0;
+
+    if (!nextName) {
+      setError("Enter a name for this income source.");
+      return;
+    }
+    if (stable && (!(minimum > 0) || !recurrence)) {
+      setError("Stable income needs a reliable minimum and payday schedule.");
+      return;
+    }
+
+    cancelConversationPacing();
+    setBusy(true);
+    setError("");
+    setPhase("saving-source");
+
+    try {
+      const timestamp = new Date().toISOString();
+      const activityLog = appendIncomeSourceActivity({}, {
+        type: "source_created",
+        sourceName: nextName,
+        createdAt: timestamp,
+      });
+      const saved = await upsertIncomeSource(localUserId, {
+        name: nextName,
+        category: INCOME_SOURCE_CATEGORIES.includes(nextCategory) ? nextCategory : "Other Income",
+        stability: INCOME_SOURCE_STABILITY.includes(nextStability) ? nextStability : "Irregular",
+        minimumStableIncome: stable ? minimum : null,
+        minimum_stable_income: stable ? minimum : null,
+        minimumExpectedIncome: stable ? minimum : null,
+        minimum_expected_income: stable ? minimum : null,
+        expectedAmount: stable ? minimum : null,
+        expected_amount: stable ? minimum : null,
+        totalMoneyIn: 0,
+        total_money_in: 0,
+        totalMoneyOut: 0,
+        total_money_out: 0,
+        currentBalance: 0,
+        current_balance: 0,
+        usualIncomeDateEnabled: stable,
+        usual_income_date_enabled: stable,
+        incomeRecurrence: stable ? recurrence : null,
+        income_recurrence: stable ? recurrence : null,
+        useForBudgetTiming: stable,
+        use_for_budget_timing: stable,
+        incomeActivityLog: activityLog,
+        income_activity_log: activityLog,
+        lastActivityAt: timestamp,
+        last_activity_at: timestamp,
+      });
+
+      setSources([saved]);
+      setSelectedSourceId(String(saved.id));
+      setSelectedWalletId("");
+      setBusy(false);
+      runAssistantSequence(
+        [
+          `${saved.name} is now set up as your income source.`,
+          "How much money came in?",
+        ],
+        "amount",
+        { skipInitialDelay: true }
+      );
+    } catch (nextError) {
+      const message = clean(nextError?.message || "I couldn’t create that income source. Please try again.");
+      setBusy(false);
+      setError(message);
+      runAssistantSequence([message], "create-source-name", { skipInitialDelay: true });
+    }
+  };
+
+  const submitSourceName = () => {
+    if (!interactionReady) return;
+    const nextName = clean(sourceNameInput);
+    if (!nextName) return;
+    setSourceName(nextName);
+    setSourceNameInput("");
+    setError("");
+    append(chatMessage("user", nextName));
+    runAssistantSequence(["What type of income is this?"], "create-source-category");
+  };
+
+  const chooseSourceCategory = (category) => {
+    if (!interactionReady) return;
+    setSourceCategory(category);
+    setError("");
+    append(chatMessage("user", category));
+    runAssistantSequence(["How predictable is this income?"], "create-source-stability");
+  };
+
+  const chooseSourceStability = (stability) => {
+    if (!interactionReady) return;
+    setSourceStability(stability);
+    setError("");
+    append(chatMessage("user", stability));
+
+    if (!isStableIncome(stability)) {
+      void saveNewSource(null, { stability });
+      return;
+    }
+
+    runAssistantSequence(
+      ["What is the lowest amount you can reliably expect on each payday?"],
+      "create-stable-minimum"
+    );
+  };
+
+  const submitStableMinimum = () => {
+    if (!interactionReady) return;
+    const parsed = parseMoney(stableAmountInput);
+    if (!(parsed > 0)) {
+      setError("Enter an amount greater than zero.");
+      return;
+    }
+    setStableMinimum(parsed);
+    setStableAmountInput("");
+    setError("");
+    append(chatMessage("user", money(parsed)));
+    runAssistantSequence(["How often do you usually get paid?"], "create-schedule-type");
+  };
+
+  const chooseScheduleType = (type) => {
+    if (!interactionReady) return;
+    setScheduleInput("");
+    setError("");
+
+    if (type === "weekly") {
+      append(chatMessage("user", "Every week"));
+      runAssistantSequence(["Which day of the week?"], "create-weekday");
+      return;
+    }
+    if (type === "biweekly") {
+      append(chatMessage("user", "Every 2 weeks"));
+      runAssistantSequence(["When is your next payday?"], "create-biweekly-date");
+      return;
+    }
+    if (type === "twice_monthly") {
+      append(chatMessage("user", "Twice a month"));
+      runAssistantSequence(
+        ["Which two dates do you usually get paid? Example: 15, 30"],
+        "create-twice-days"
+      );
+      return;
+    }
+
+    append(chatMessage("user", "Once a month"));
+    runAssistantSequence(["What day of the month?"], "create-monthly-day");
+  };
+
+  const chooseWeekday = (dayOfWeek) => {
+    if (!interactionReady) return;
+    append(chatMessage("user", WEEKDAYS[dayOfWeek]));
+    void saveNewSource({
+      type: "weekly",
+      startDate: localDateKey(),
+      dayOfWeek,
+    });
+  };
+
+  const submitBiweeklyDate = () => {
+    if (!interactionReady) return;
+    const nextDate = clean(scheduleInput);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDate)) {
+      setError("Choose a valid payday date.");
+      return;
+    }
+    setError("");
+    append(chatMessage("user", nextDate));
+    void saveNewSource({
+      type: "biweekly",
+      startDate: nextDate,
+    });
+  };
+
+  const submitTwiceMonthlyDays = () => {
+    if (!interactionReady) return;
+    const days = parseTwiceMonthlyDays(scheduleInput);
+    if (days.length < 2) {
+      setError("Enter two valid dates, for example 15, 30.");
+      return;
+    }
+    setError("");
+    append(chatMessage("user", `${days[0]} and ${days[1]}`));
+    void saveNewSource({
+      type: "twice_monthly",
+      startDate: localDateKey(),
+      days,
+    });
+  };
+
+  const submitMonthlyDay = () => {
+    if (!interactionReady) return;
+    const dayOfMonth = validDay(scheduleInput);
+    if (!dayOfMonth) {
+      setError("Enter a day from 1 to 31.");
+      return;
+    }
+    setError("");
+    append(chatMessage("user", String(dayOfMonth)));
+    void saveNewSource({
+      type: "monthly",
+      startDate: localDateKey(),
+      dayOfMonth,
+    });
+  };
+
   const chooseSource = (source) => {
     if (!interactionReady || !source?.id) return;
     setSelectedSourceId(String(source.id));
@@ -380,7 +649,7 @@ export default function ClaraAddIncomeOverlayV2({
 
   const submitAmount = () => {
     if (!interactionReady) return;
-    const parsed = Number(String(amountInput || "").replace(/[₱,\s]/g, ""));
+    const parsed = parseMoney(amountInput);
     if (!Number.isFinite(parsed) || parsed <= 0) {
       setError("Enter a valid amount greater than zero.");
       return;
@@ -419,7 +688,6 @@ export default function ClaraAddIncomeOverlayV2({
     try {
       const updatedSource = await addMoneyToIncomeSource(localUserId, selectedSource.id, amount);
       await minimumReplyDelay;
-
       setSources((current) =>
         current.map((source) =>
           String(source?.id) === String(updatedSource?.id) ? updatedSource : source
@@ -443,15 +711,16 @@ export default function ClaraAddIncomeOverlayV2({
     }
   };
 
-  const startTransfer = () => {
+  const beginTransfer = () => {
     if (!interactionReady || !selectedSource || amount <= 0) return;
+    setSelectedWalletId("");
     setError("");
     append(chatMessage("user", "Transfer to Wallet"));
 
-    if (wallets.length === 0) {
+    if (!wallets.length) {
       runAssistantSequence(
-        ["You don’t have an active wallet yet. Create a wallet first, then you can transfer this income into it."],
-        "done"
+        ["You don’t have a wallet yet. Create one from Wallet first, then you can transfer this income."],
+        "no-wallet"
       );
       return;
     }
@@ -459,14 +728,13 @@ export default function ClaraAddIncomeOverlayV2({
     if (wallets.length === 1) {
       setSelectedWalletId(String(wallets[0].id));
       runAssistantSequence(
-        [`Transfer ${money(amount)} from ${selectedSource.name} to ${wallets[0].name}?`],
+        [`Transfer ${money(amount)} to ${wallets[0].name}?`],
         "transfer-confirm"
       );
       return;
     }
 
-    setSelectedWalletId("");
-    runAssistantSequence([`Which wallet should receive ${money(amount)}?`], "transfer-wallet");
+    runAssistantSequence(["Which wallet should receive this money?"], "transfer-wallet");
   };
 
   const chooseTransferWallet = (wallet) => {
@@ -480,16 +748,8 @@ export default function ClaraAddIncomeOverlayV2({
     );
   };
 
-  const transferIncome = async () => {
-    if (
-      busy ||
-      !interactionReady ||
-      !selectedSource ||
-      !selectedWallet ||
-      amount <= 0
-    ) {
-      return;
-    }
+  const confirmTransfer = async () => {
+    if (busy || !interactionReady || !selectedSource || !selectedWallet || amount <= 0) return;
 
     cancelConversationPacing();
     setBusy(true);
@@ -507,10 +767,9 @@ export default function ClaraAddIncomeOverlayV2({
         destinationWalletId: selectedWallet.id,
         amount,
         date: localDateKey(),
-        notes: `Transfer from ${selectedSource.name} after Add Income`,
+        notes: `Transferred through CLARA Add Income chat to ${selectedWallet.name}`,
       });
       await minimumReplyDelay;
-
       if (result?.source) {
         setSources((current) =>
           current.map((source) =>
@@ -518,13 +777,9 @@ export default function ClaraAddIncomeOverlayV2({
           )
         );
       }
-
       setBusy(false);
       runAssistantSequence(
-        [
-          `${money(amount)} has been transferred to ${selectedWallet.name}.`,
-          `${selectedWallet.name} now has that money available to use.`,
-        ],
+        [`Done — ${money(amount)} has been transferred to ${selectedWallet.name}.`],
         "transferred",
         { skipInitialDelay: true }
       );
@@ -573,14 +828,108 @@ export default function ClaraAddIncomeOverlayV2({
       >
         <div data-clara-ai-message-stack="true" className="flex min-h-full flex-col gap-3">
           {messages.map((entry) => (
-            <Bubble key={entry.id} role={entry.role}>
-              {entry.text}
-            </Bubble>
+            <Bubble key={entry.id} role={entry.role}>{entry.text}</Bubble>
           ))}
-          {pendingMessage ? (
-            <Bubble role="assistant" typing>
-              {typedText}
-            </Bubble>
+          {pendingMessage ? <Bubble role="assistant" typing>{typedText}</Bubble> : null}
+
+          {phase === "create-source-name" && controlsReady ? (
+            <div className="mt-auto pt-3">
+              <Composer
+                value={sourceNameInput}
+                onChange={setSourceNameInput}
+                onSubmit={submitSourceName}
+                placeholder="Income source name"
+                inputMode="text"
+              />
+            </div>
+          ) : null}
+
+          {phase === "create-source-category" && controlsReady ? (
+            <div className="relative z-20 mt-1 grid grid-cols-2 gap-2">
+              {INCOME_SOURCE_CATEGORIES.map((category) => (
+                <ChoiceButton key={category} onClick={() => chooseSourceCategory(category)} secondary>
+                  {category}
+                </ChoiceButton>
+              ))}
+            </div>
+          ) : null}
+
+          {phase === "create-source-stability" && controlsReady ? (
+            <div className="relative z-20 mt-1 grid grid-cols-2 gap-2">
+              {INCOME_SOURCE_STABILITY.map((stability) => (
+                <ChoiceButton key={stability} onClick={() => chooseSourceStability(stability)} secondary>
+                  {stability}
+                </ChoiceButton>
+              ))}
+            </div>
+          ) : null}
+
+          {phase === "create-stable-minimum" && controlsReady ? (
+            <div className="mt-auto pt-3">
+              <Composer
+                value={stableAmountInput}
+                onChange={setStableAmountInput}
+                onSubmit={submitStableMinimum}
+                placeholder="Lowest reliable amount"
+                inputMode="decimal"
+                pattern="[0-9]*[.]?[0-9]{0,2}"
+              />
+            </div>
+          ) : null}
+
+          {phase === "create-schedule-type" && controlsReady ? (
+            <div className="relative z-20 mt-1 grid grid-cols-2 gap-2">
+              <ChoiceButton onClick={() => chooseScheduleType("weekly")} secondary>Every week</ChoiceButton>
+              <ChoiceButton onClick={() => chooseScheduleType("biweekly")} secondary>Every 2 weeks</ChoiceButton>
+              <ChoiceButton onClick={() => chooseScheduleType("twice_monthly")} secondary>Twice a month</ChoiceButton>
+              <ChoiceButton onClick={() => chooseScheduleType("monthly")} secondary>Once a month</ChoiceButton>
+            </div>
+          ) : null}
+
+          {phase === "create-weekday" && controlsReady ? (
+            <div className="relative z-20 mt-1 grid grid-cols-2 gap-2">
+              {WEEKDAYS.map((weekday, index) => (
+                <ChoiceButton key={weekday} onClick={() => chooseWeekday(index)} secondary>{weekday}</ChoiceButton>
+              ))}
+            </div>
+          ) : null}
+
+          {phase === "create-biweekly-date" && controlsReady ? (
+            <div className="mt-auto pt-3">
+              <Composer
+                value={scheduleInput}
+                onChange={setScheduleInput}
+                onSubmit={submitBiweeklyDate}
+                placeholder="Next payday"
+                type="date"
+                inputMode="text"
+              />
+            </div>
+          ) : null}
+
+          {phase === "create-twice-days" && controlsReady ? (
+            <div className="mt-auto pt-3">
+              <Composer
+                value={scheduleInput}
+                onChange={setScheduleInput}
+                onSubmit={submitTwiceMonthlyDays}
+                placeholder="15, 30"
+                inputMode="text"
+              />
+            </div>
+          ) : null}
+
+          {phase === "create-monthly-day" && controlsReady ? (
+            <div className="mt-auto pt-3">
+              <Composer
+                value={scheduleInput}
+                onChange={setScheduleInput}
+                onSubmit={submitMonthlyDay}
+                placeholder="Day of month"
+                inputMode="numeric"
+                pattern="[0-9]{1,2}"
+              />
+            </div>
           ) : null}
 
           {phase === "source" && controlsReady ? (
@@ -598,9 +947,7 @@ export default function ClaraAddIncomeOverlayV2({
                       {source.category || "Income"} · {source.stability || "Irregular"}
                     </span>
                   </span>
-                  <span className="shrink-0 text-[11px] font-black text-[#8ffff8]/72">
-                    Choose
-                  </span>
+                  <span className="shrink-0 text-[11px] font-black text-[#8ffff8]/72">Choose</span>
                 </button>
               ))}
             </div>
@@ -613,24 +960,22 @@ export default function ClaraAddIncomeOverlayV2({
                 onChange={setAmountInput}
                 onSubmit={submitAmount}
                 placeholder="Amount received"
+                inputMode="decimal"
+                pattern="[0-9]*[.]?[0-9]{0,2}"
               />
             </div>
           ) : null}
 
           {phase === "confirm" && controlsReady ? (
             <div className="mt-1 grid grid-cols-2 gap-2.5">
-              <ChoiceButton onClick={saveIncome} disabled={busy}>
-                {busy ? "Adding..." : "Yes, add it"}
-              </ChoiceButton>
-              <ChoiceButton onClick={() => setPhase("amount")} disabled={busy} secondary>
-                Back
-              </ChoiceButton>
+              <ChoiceButton onClick={saveIncome} disabled={busy}>{busy ? "Adding..." : "Yes, add it"}</ChoiceButton>
+              <ChoiceButton onClick={() => setPhase("amount")} disabled={busy} secondary>Back</ChoiceButton>
             </div>
           ) : null}
 
           {phase === "done" && controlsReady ? (
             <div className="mt-1 grid gap-2.5">
-              <ChoiceButton onClick={startTransfer}>Transfer to Wallet</ChoiceButton>
+              <ChoiceButton onClick={beginTransfer}>Transfer to Wallet</ChoiceButton>
               <div className="grid grid-cols-2 gap-2.5">
                 <ChoiceButton onClick={restart} secondary>Add another</ChoiceButton>
                 <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
@@ -641,15 +986,9 @@ export default function ClaraAddIncomeOverlayV2({
           {phase === "transfer-wallet" && controlsReady ? (
             <div className="relative z-20 mt-1 grid gap-2">
               {wallets.map((wallet) => (
-                <button
-                  key={wallet.id}
-                  type="button"
-                  onClick={() => chooseTransferWallet(wallet)}
-                  className="relative z-20 flex min-h-14 touch-manipulation items-center justify-between gap-3 rounded-[18px] border border-blue-200/12 bg-[#07142b]/88 px-4 py-3 text-left transition active:scale-[0.985]"
-                >
-                  <span className="block text-[13px] font-black text-white">{wallet.name}</span>
-                  <span className="shrink-0 text-[11px] font-black text-[#8ffff8]/72">Choose</span>
-                </button>
+                <ChoiceButton key={wallet.id} onClick={() => chooseTransferWallet(wallet)} secondary>
+                  {wallet.name}
+                </ChoiceButton>
               ))}
               <ChoiceButton onClick={() => setPhase("done")} secondary>Back</ChoiceButton>
             </div>
@@ -657,16 +996,8 @@ export default function ClaraAddIncomeOverlayV2({
 
           {phase === "transfer-confirm" && controlsReady ? (
             <div className="mt-1 grid grid-cols-2 gap-2.5">
-              <ChoiceButton onClick={transferIncome} disabled={busy}>
-                {busy ? "Transferring..." : "Yes, transfer it"}
-              </ChoiceButton>
-              <ChoiceButton
-                onClick={() => setPhase(wallets.length > 1 ? "transfer-wallet" : "done")}
-                disabled={busy}
-                secondary
-              >
-                Back
-              </ChoiceButton>
+              <ChoiceButton onClick={confirmTransfer} disabled={busy}>{busy ? "Transferring..." : "Yes, transfer it"}</ChoiceButton>
+              <ChoiceButton onClick={() => setPhase(wallets.length > 1 ? "transfer-wallet" : "done")} disabled={busy} secondary>Back</ChoiceButton>
             </div>
           ) : null}
 
@@ -677,11 +1008,9 @@ export default function ClaraAddIncomeOverlayV2({
             </div>
           ) : null}
 
-          {(phase === "no-source" || phase === "error") && controlsReady ? (
+          {(phase === "no-wallet" || phase === "error") && controlsReady ? (
             <div className="mt-1">
-              <ChoiceButton onClick={closeChat} secondary>
-                Done
-              </ChoiceButton>
+              <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
             </div>
           ) : null}
 
