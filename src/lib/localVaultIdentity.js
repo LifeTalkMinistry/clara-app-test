@@ -98,14 +98,27 @@ export function getActiveLocalVaultId() {
 }
 
 export function setActiveLocalVaultId(vaultId) {
+  const previousVaultId = normalize(getLocalVaultId());
   const cleanVaultId = setLocalVaultId(vaultId);
 
   if (typeof window !== "undefined" && typeof CustomEvent !== "undefined") {
     window.dispatchEvent(
       new CustomEvent("clara:active-local-vault-updated", {
-        detail: { vaultId: cleanVaultId },
+        detail: { vaultId: cleanVaultId, previousVaultId: previousVaultId || null },
       })
     );
+
+    if (previousVaultId !== cleanVaultId) {
+      window.dispatchEvent(
+        new CustomEvent("clara:finance-data-updated", {
+          detail: {
+            localUserId: cleanVaultId,
+            previousLocalUserId: previousVaultId || null,
+            source: "active-local-vault:changed",
+          },
+        })
+      );
+    }
   }
 
   return cleanVaultId;
