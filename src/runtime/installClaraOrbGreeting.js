@@ -239,10 +239,6 @@ function ensureMeansMetric(label, snapshot, onToggle) {
   ensureMeansPlaceholder(idleCopy);
 
   let root = idleCopy.querySelector(`[${MEANS_METRIC_ATTR}="true"]`);
-  if (!snapshot) {
-    root?.remove();
-    return null;
-  }
 
   if (!root) {
     root = document.createElement("button");
@@ -264,18 +260,50 @@ function ensureMeansMetric(label, snapshot, onToggle) {
   }
 
   const expanded = root.getAttribute("aria-expanded") === "true";
-  const renderSignature = [
-    snapshot.score,
-    Math.round(snapshot.income),
-    Math.round(snapshot.spent),
-    Math.round(snapshot.upcoming),
-    Math.round(snapshot.projectedRoom),
-    expanded ? 1 : 0,
-  ].join(":");
+  const renderSignature = snapshot
+    ? [
+        "ready",
+        snapshot.score,
+        Math.round(snapshot.income),
+        Math.round(snapshot.spent),
+        Math.round(snapshot.upcoming),
+        Math.round(snapshot.projectedRoom),
+        expanded ? 1 : 0,
+      ].join(":")
+    : `waiting:${expanded ? 1 : 0}`;
   if (root.dataset.claraMeansRenderSignature === renderSignature) return root;
   root.dataset.claraMeansRenderSignature = renderSignature;
 
+  if (!snapshot) {
+    root.setAttribute(
+      "aria-label",
+      expanded
+        ? "Means Score details. No monthly income detected yet."
+        : "Means Score. No monthly income detected yet. Tap for details."
+    );
+    root.innerHTML = `
+      <span style="display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:31px;padding:4px 10px 4px 5px;border:1px solid rgba(103,157,255,.14);border-radius:999px;background:linear-gradient(180deg,rgba(13,28,62,.68),rgba(4,10,31,.74));box-shadow:0 10px 28px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.035),0 0 20px rgba(46,110,255,.055);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)">
+        <strong style="display:inline-grid;place-items:center;min-width:29px;height:23px;padding:0 6px;border:1px solid rgba(255,255,255,.07);border-radius:999px;background:rgba(255,255,255,.035);font-size:11px;font-weight:900;line-height:1;color:rgba(255,255,255,.58)">—</strong>
+        <span style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;line-height:1">
+          <span style="font-size:7px;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.26)">Means score</span>
+          <span style="font-size:9px;font-weight:800;letter-spacing:-.01em;color:rgba(255,255,255,.52)">Waiting for income</span>
+        </span>
+        <span style="margin-left:1px;font-size:9px;line-height:1;color:rgba(255,255,255,.25);transform:${expanded ? "rotate(180deg)" : "none"};transition:transform 160ms ease">⌄</span>
+      </span>
+      <span data-clara-means-expanded="true" style="display:${expanded ? "block" : "none"};width:min(300px,78vw);margin:10px auto 1px;padding:12px;border:1px solid rgba(112,157,229,.13);border-radius:15px;background:linear-gradient(180deg,rgba(9,21,50,.72),rgba(4,11,31,.66));box-shadow:0 14px 34px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.025);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);text-align:left">
+        <strong style="display:block;font-size:10px;font-weight:900;letter-spacing:-.01em;color:rgba(255,255,255,.76)">No monthly income detected yet.</strong>
+        <span style="display:block;margin-top:5px;font-size:9.5px;font-weight:650;line-height:1.5;color:rgba(255,255,255,.40)">Once income is recorded, CLARA will calculate your score from what you have already spent plus upcoming Money Schedule commitments.</span>
+        <span style="display:block;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.06);font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">100 = living within your means</span>
+      </span>
+    `;
+    return root;
+  }
+
   const tone = metricTone(snapshot.score);
+  root.setAttribute(
+    "aria-label",
+    `Means Score ${snapshot.score}. ${statusForScore(snapshot.score)}. ${expanded ? "Tap to collapse details." : "Tap for details."}`
+  );
   root.innerHTML = `
     <span style="display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:31px;padding:4px 10px 4px 5px;border:1px solid rgba(103,157,255,.14);border-radius:999px;background:linear-gradient(180deg,rgba(13,28,62,.68),rgba(4,10,31,.74));box-shadow:0 10px 28px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.035),0 0 20px rgba(46,110,255,.055);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)">
       <strong style="display:inline-grid;place-items:center;min-width:29px;height:23px;padding:0 6px;border:1px solid ${tone}33;border-radius:999px;background:${tone}0d;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 0 14px ${tone}12;font-size:11px;font-weight:900;line-height:1;color:${tone}">${snapshot.score}</strong>
@@ -316,7 +344,8 @@ function installClaraOrbGreeting() {
     const root = event.currentTarget;
     const nextExpanded = root.getAttribute("aria-expanded") !== "true";
     root.setAttribute("aria-expanded", nextExpanded ? "true" : "false");
-    if (activeLabel && meansSnapshot) ensureMeansMetric(activeLabel, meansSnapshot, toggleMeansMetric);
+    if (activeLabel) ensureMeansMetric(activeLabel, meansSnapshot, toggleMeansMetric);
+    if (!meansSnapshot) refreshMeans();
   };
 
   const refreshMeans = () => {
