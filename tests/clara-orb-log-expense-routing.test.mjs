@@ -55,6 +55,76 @@ test("Log Expense Orb command opens CLARA chat in log-expense mode", async () =>
   }
 });
 
+test("Add Income Orb command opens CLARA chat in add-income mode", async () => {
+  const previousWindow = globalThis.window;
+  const previousCustomEvent = globalThis.CustomEvent;
+
+  class TestCustomEvent extends Event {
+    constructor(type, options = {}) {
+      super(type, { cancelable: true });
+      this.detail = options.detail;
+    }
+  }
+
+  const fakeWindow = new EventTarget();
+  globalThis.window = fakeWindow;
+  globalThis.CustomEvent = TestCustomEvent;
+
+  try {
+    await import(`../src/runtime/installClaraOrbCommandChatRouting.js?test=${Date.now()}-add-income`);
+
+    const pauseRequest = new Promise((resolve) => {
+      fakeWindow.addEventListener(CLARA_PAUSE_OPEN_REQUEST_EVENT, (event) => resolve(event.detail), {
+        once: true,
+      });
+    });
+
+    const commandEvent = new TestCustomEvent(CLARA_ORB_COMMAND_SELECT_EVENT, {
+      detail: {
+        commandId: "add-income",
+        commandLabel: "Add Income",
+        source: "clara-orb-page",
+      },
+    });
+    fakeWindow.dispatchEvent(commandEvent);
+
+    const detail = await pauseRequest;
+    assert.equal(detail.mode, "add-income");
+    assert.equal(detail.commandId, "add-income");
+    assert.equal(detail.source, "clara-orb-page");
+    assert.match(detail.requestId, /^clara-orb-add-income-/);
+    assert.equal(commandEvent.defaultPrevented, true);
+  } finally {
+    fakeWindow.__claraOrbCommandChatRoutingRuntime__?.destroy?.();
+    globalThis.window = previousWindow;
+    globalThis.CustomEvent = previousCustomEvent;
+  }
+});
+
+test("Add Income chat writes through the canonical Income Hub repository", async () => {
+  const overlay = await readFile(
+    new URL(
+      "../src/components/fresh/main-dashboard/assistant/ClaraAddIncomeOverlayV2.jsx",
+      import.meta.url
+    ),
+    "utf8"
+  );
+  const environment = await readFile(
+    new URL(
+      "../src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay.jsx",
+      import.meta.url
+    ),
+    "utf8"
+  );
+
+  assert.match(overlay, /addMoneyToIncomeSource/);
+  assert.match(overlay, /getIncomeSources/);
+  assert.match(overlay, /data-clara-add-income-chat="true"/);
+  assert.match(overlay, /It will only become wallet money after you transfer it to a wallet/);
+  assert.match(environment, /ClaraAddIncomeOverlay/);
+  assert.match(environment, /entryMode === "add-income"/);
+});
+
 test("Calendar Orb command opens the existing Community Schedule calendar", async () => {
   const previousWindow = globalThis.window;
   const previousCustomEvent = globalThis.CustomEvent;
