@@ -231,7 +231,7 @@ function ensureMeansMetric(label, snapshot, onToggle) {
     root.style.color = "inherit";
     root.style.textAlign = "center";
     root.style.cursor = "pointer";
-    root.style.webkitTapHighlightColor = "transparent";
+    root.style.WebkitTapHighlightColor = "transparent";
     root.addEventListener("click", onToggle);
 
     const tapCopy = idleCopy.querySelector("p");
@@ -240,6 +240,17 @@ function ensureMeansMetric(label, snapshot, onToggle) {
   }
 
   const expanded = root.getAttribute("aria-expanded") === "true";
+  const renderSignature = [
+    snapshot.score,
+    Math.round(snapshot.income),
+    Math.round(snapshot.spent),
+    Math.round(snapshot.upcoming),
+    Math.round(snapshot.projectedRoom),
+    expanded ? 1 : 0,
+  ].join(":");
+  if (root.dataset.claraMeansRenderSignature === renderSignature) return root;
+  root.dataset.claraMeansRenderSignature = renderSignature;
+
   const tone = metricTone(snapshot.score);
   root.innerHTML = `
     <span style="display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:11px;font-weight:800;line-height:1.25;letter-spacing:.005em;color:rgba(255,255,255,.48)">
