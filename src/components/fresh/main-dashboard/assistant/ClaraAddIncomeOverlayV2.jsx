@@ -183,6 +183,8 @@ export default function ClaraAddIncomeOverlayV2({
   const [selectedWalletId, setSelectedWalletId] = useState("");
   const [amountInput, setAmountInput] = useState("");
   const [amount, setAmount] = useState(0);
+  const [transferAmountInput, setTransferAmountInput] = useState("");
+  const [transferAmount, setTransferAmount] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [messages, setMessages] = useState([]);
@@ -325,14 +327,31 @@ export default function ClaraAddIncomeOverlayV2({
     setScheduleInput("");
   };
 
+  const resetTransferDraft = () => {
+    setSelectedWalletId("");
+    setTransferAmountInput("");
+    setTransferAmount(0);
+  };
+
+  const askTransferAmount = (walletName, options = {}) => {
+    setTransferAmountInput("");
+    setTransferAmount(0);
+    const prefix = options.walletCreated ? `Wallet created — ${walletName} is ready.` : null;
+    runAssistantSequence(
+      [prefix, `How much of the ${money(amount)} would you like to transfer to ${walletName}?`],
+      "transfer-amount-choice",
+      { skipInitialDelay: options.skipInitialDelay === true }
+    );
+  };
+
   const loadSourcesAndStart = async ({ ignoreResume = false } = {}) => {
     cancelConversationPacing();
     setPhase("loading");
     setSources([]);
     setSelectedSourceId("");
-    setSelectedWalletId("");
     setAmountInput("");
     setAmount(0);
+    resetTransferDraft();
     setBusy(false);
     setError("");
     setMessages([]);
@@ -360,10 +379,7 @@ export default function ClaraAddIncomeOverlayV2({
                 "assistant",
                 `No wallet was created. Your ${money(resumedAmount)} is still safely in ${resumedSource.name} in Income Hub.`
               ),
-              chatMessage(
-                "assistant",
-                "You can create a wallet later and transfer it when you’re ready."
-              ),
+              chatMessage("assistant", "You can create a wallet later and transfer it when you’re ready."),
             ]);
             setPhase("done");
             setInteractionReady(true);
@@ -376,10 +392,10 @@ export default function ClaraAddIncomeOverlayV2({
               chatMessage("assistant", `Wallet created — ${resumedWallet.name} is ready.`),
               chatMessage(
                 "assistant",
-                `Transfer ${money(resumedAmount)} from ${resumedSource.name} to ${resumedWallet.name}?`
+                `How much of the ${money(resumedAmount)} would you like to transfer to ${resumedWallet.name}?`
               ),
             ]);
-            setPhase("transfer-confirm");
+            setPhase("transfer-amount-choice");
             setInteractionReady(true);
             return;
           }
@@ -409,20 +425,13 @@ export default function ClaraAddIncomeOverlayV2({
       if (nextSources.length === 1) {
         setSelectedSourceId(String(nextSources[0].id));
         runAssistantSequence(
-          [
-            `Hi ${firstName}! 👋`,
-            `Let’s add income to ${nextSources[0].name}.`,
-            "How much money came in?",
-          ],
+          [`Hi ${firstName}! 👋`, `Let’s add income to ${nextSources[0].name}.`, "How much money came in?"],
           "amount"
         );
         return;
       }
 
-      runAssistantSequence(
-        [`Hi ${firstName}! 👋`, "Which income source did this money come from?"],
-        "source"
-      );
+      runAssistantSequence([`Hi ${firstName}! 👋`, "Which income source did this money come from?"], "source");
     } catch (nextError) {
       const message = clean(nextError?.message || "I couldn’t load your Income Hub yet.");
       setError(message);
@@ -467,9 +476,9 @@ export default function ClaraAddIncomeOverlayV2({
       cancelConversationPacing();
       setSources([]);
       setSelectedSourceId("");
-      setSelectedWalletId("");
       setAmountInput("");
       setAmount(0);
+      resetTransferDraft();
       setMessages([]);
       setBusy(false);
       setError("");
@@ -552,13 +561,10 @@ export default function ClaraAddIncomeOverlayV2({
 
       setSources([saved]);
       setSelectedSourceId(String(saved.id));
-      setSelectedWalletId("");
+      resetTransferDraft();
       setBusy(false);
       runAssistantSequence(
-        [
-          `${saved.name} is now set up as your income source.`,
-          "Would you like to add money now, or are you done?",
-        ],
+        [`${saved.name} is now set up as your income source.`, "Would you like to add money now, or are you done?"],
         "source-created-choice",
         { skipInitialDelay: true }
       );
@@ -609,10 +615,7 @@ export default function ClaraAddIncomeOverlayV2({
       return;
     }
 
-    runAssistantSequence(
-      ["What is the lowest amount you can reliably expect on each payday?"],
-      "create-stable-minimum"
-    );
+    runAssistantSequence(["What is the lowest amount you can reliably expect on each payday?"], "create-stable-minimum");
   };
 
   const submitStableMinimum = () => {
@@ -646,10 +649,7 @@ export default function ClaraAddIncomeOverlayV2({
     }
     if (type === "twice_monthly") {
       append(chatMessage("user", "Twice a month"));
-      runAssistantSequence(
-        ["Which two dates do you usually get paid? Example: 15, 30"],
-        "create-twice-days"
-      );
+      runAssistantSequence(["Which two dates do you usually get paid? Example: 15, 30"], "create-twice-days");
       return;
     }
 
@@ -660,11 +660,7 @@ export default function ClaraAddIncomeOverlayV2({
   const chooseWeekday = (dayOfWeek) => {
     if (!interactionReady) return;
     append(chatMessage("user", WEEKDAYS[dayOfWeek]));
-    void saveNewSource({
-      type: "weekly",
-      startDate: localDateKey(),
-      dayOfWeek,
-    });
+    void saveNewSource({ type: "weekly", startDate: localDateKey(), dayOfWeek });
   };
 
   const submitBiweeklyDate = () => {
@@ -676,10 +672,7 @@ export default function ClaraAddIncomeOverlayV2({
     }
     setError("");
     append(chatMessage("user", nextDate));
-    void saveNewSource({
-      type: "biweekly",
-      startDate: nextDate,
-    });
+    void saveNewSource({ type: "biweekly", startDate: nextDate });
   };
 
   const submitTwiceMonthlyDays = () => {
@@ -691,11 +684,7 @@ export default function ClaraAddIncomeOverlayV2({
     }
     setError("");
     append(chatMessage("user", `${days[0]} and ${days[1]}`));
-    void saveNewSource({
-      type: "twice_monthly",
-      startDate: localDateKey(),
-      days,
-    });
+    void saveNewSource({ type: "twice_monthly", startDate: localDateKey(), days });
   };
 
   const submitMonthlyDay = () => {
@@ -707,11 +696,7 @@ export default function ClaraAddIncomeOverlayV2({
     }
     setError("");
     append(chatMessage("user", String(dayOfMonth)));
-    void saveNewSource({
-      type: "monthly",
-      startDate: localDateKey(),
-      dayOfMonth,
-    });
+    void saveNewSource({ type: "monthly", startDate: localDateKey(), dayOfMonth });
   };
 
   const addMoneyAfterSourceCreation = () => {
@@ -724,7 +709,7 @@ export default function ClaraAddIncomeOverlayV2({
   const chooseSource = (source) => {
     if (!interactionReady || !source?.id) return;
     setSelectedSourceId(String(source.id));
-    setSelectedWalletId("");
+    resetTransferDraft();
     setError("");
     append(chatMessage("user", source.name));
     runAssistantSequence(["How much money came in?"], "amount");
@@ -733,7 +718,7 @@ export default function ClaraAddIncomeOverlayV2({
   const submitAmount = () => {
     if (!interactionReady) return;
     const parsed = parseMoney(amountInput);
-    if (!Number.isFinite(parsed) || parsed <= 0) {
+    if (!(parsed > 0)) {
       setError("Enter a valid amount greater than zero.");
       return;
     }
@@ -743,6 +728,7 @@ export default function ClaraAddIncomeOverlayV2({
     }
 
     setAmount(parsed);
+    resetTransferDraft();
     setAmountInput("");
     setError("");
     append(chatMessage("user", money(parsed)));
@@ -764,9 +750,7 @@ export default function ClaraAddIncomeOverlayV2({
     setPhase("saving");
     append(chatMessage("user", "Yes, add it"));
 
-    const minimumReplyDelay = new Promise((resolve) =>
-      registerTimeout(resolve, getClaraReplyDelay())
-    );
+    const minimumReplyDelay = new Promise((resolve) => registerTimeout(resolve, getClaraReplyDelay()));
 
     try {
       const updatedSource = await addMoneyToIncomeSource(localUserId, selectedSource.id, amount);
@@ -796,7 +780,7 @@ export default function ClaraAddIncomeOverlayV2({
 
   const beginTransfer = () => {
     if (!interactionReady || !selectedSource || amount <= 0) return;
-    setSelectedWalletId("");
+    resetTransferDraft();
     setError("");
     append(chatMessage("user", "Transfer to Wallet"));
 
@@ -820,10 +804,7 @@ export default function ClaraAddIncomeOverlayV2({
 
     if (wallets.length === 1) {
       setSelectedWalletId(String(wallets[0].id));
-      runAssistantSequence(
-        [`Transfer ${money(amount)} to ${wallets[0].name}?`],
-        "transfer-confirm"
-      );
+      askTransferAmount(wallets[0].name);
       return;
     }
 
@@ -833,16 +814,70 @@ export default function ClaraAddIncomeOverlayV2({
   const chooseTransferWallet = (wallet) => {
     if (!interactionReady || !wallet?.id) return;
     setSelectedWalletId(String(wallet.id));
+    setTransferAmount(0);
+    setTransferAmountInput("");
     setError("");
     append(chatMessage("user", wallet.name));
+    askTransferAmount(wallet.name);
+  };
+
+  const chooseTransferAll = () => {
+    if (!interactionReady || !selectedWallet || amount <= 0) return;
+    setTransferAmount(amount);
+    setTransferAmountInput("");
+    setError("");
+    append(chatMessage("user", `Transfer all ${money(amount)}`));
     runAssistantSequence(
-      [`Transfer ${money(amount)} from ${selectedSource?.name || "Income Hub"} to ${wallet.name}?`],
+      [`Transfer ${money(amount)} from ${selectedSource?.name || "Income Hub"} to ${selectedWallet.name}?`],
+      "transfer-confirm"
+    );
+  };
+
+  const chooseCustomTransfer = () => {
+    if (!interactionReady || !selectedWallet || amount <= 0) return;
+    setTransferAmount(0);
+    setTransferAmountInput("");
+    setError("");
+    append(chatMessage("user", "Transfer a certain amount"));
+    runAssistantSequence(
+      [`Enter the amount you want to transfer. You can transfer up to ${money(amount)} from this income.`],
+      "transfer-custom-amount"
+    );
+  };
+
+  const submitCustomTransferAmount = () => {
+    if (!interactionReady || !selectedWallet) return;
+    const parsed = parseMoney(transferAmountInput);
+    if (!(parsed > 0)) {
+      setError("Enter an amount greater than zero.");
+      return;
+    }
+    if (parsed > amount) {
+      setError(`You can transfer up to ${money(amount)} from this income.`);
+      return;
+    }
+
+    setTransferAmount(parsed);
+    setTransferAmountInput("");
+    setError("");
+    append(chatMessage("user", money(parsed)));
+    runAssistantSequence(
+      [`Transfer ${money(parsed)} from ${selectedSource?.name || "Income Hub"} to ${selectedWallet.name}?`],
       "transfer-confirm"
     );
   };
 
   const confirmTransfer = async () => {
-    if (busy || !interactionReady || !selectedSource || !selectedWallet || amount <= 0) return;
+    if (
+      busy ||
+      !interactionReady ||
+      !selectedSource ||
+      !selectedWallet ||
+      transferAmount <= 0 ||
+      transferAmount > amount
+    ) {
+      return;
+    }
 
     cancelConversationPacing();
     setBusy(true);
@@ -850,15 +885,13 @@ export default function ClaraAddIncomeOverlayV2({
     setPhase("transferring");
     append(chatMessage("user", "Yes, transfer it"));
 
-    const minimumReplyDelay = new Promise((resolve) =>
-      registerTimeout(resolve, getClaraReplyDelay())
-    );
+    const minimumReplyDelay = new Promise((resolve) => registerTimeout(resolve, getClaraReplyDelay()));
 
     try {
       const result = await transferIncomeSourceToWallet(localUserId, {
         sourceId: selectedSource.id,
         destinationWalletId: selectedWallet.id,
-        amount,
+        amount: transferAmount,
         date: localDateKey(),
         notes: `Transferred through CLARA Add Income chat to ${selectedWallet.name}`,
       });
@@ -872,7 +905,7 @@ export default function ClaraAddIncomeOverlayV2({
       }
       setBusy(false);
       runAssistantSequence(
-        [`Done — ${money(amount)} has been transferred to ${selectedWallet.name}.`],
+        [`Done — ${money(transferAmount)} has been transferred to ${selectedWallet.name}.`],
         "transferred",
         { skipInitialDelay: true }
       );
@@ -1094,10 +1127,33 @@ export default function ClaraAddIncomeOverlayV2({
             </div>
           ) : null}
 
+          {phase === "transfer-amount-choice" && controlsReady ? (
+            <div className="mt-1 grid grid-cols-2 gap-2.5" data-clara-transfer-amount-choice="true">
+              <ChoiceButton onClick={chooseTransferAll}>Transfer all {money(amount)}</ChoiceButton>
+              <ChoiceButton onClick={chooseCustomTransfer} secondary>Transfer a certain amount</ChoiceButton>
+            </div>
+          ) : null}
+
+          {phase === "transfer-custom-amount" && controlsReady ? (
+            <div className="mt-auto pt-3" data-clara-transfer-custom-amount="true">
+              <Composer
+                value={transferAmountInput}
+                onChange={setTransferAmountInput}
+                onSubmit={submitCustomTransferAmount}
+                placeholder={`Amount up to ${money(amount)}`}
+                inputMode="decimal"
+                pattern="[0-9]*[.]?[0-9]{0,2}"
+              />
+              <div className="mt-2">
+                <ChoiceButton onClick={() => setPhase("transfer-amount-choice")} secondary>Back</ChoiceButton>
+              </div>
+            </div>
+          ) : null}
+
           {phase === "transfer-confirm" && controlsReady ? (
             <div className="mt-1 grid grid-cols-2 gap-2.5">
               <ChoiceButton onClick={confirmTransfer} disabled={busy}>{busy ? "Transferring..." : "Yes, transfer it"}</ChoiceButton>
-              <ChoiceButton onClick={() => setPhase(wallets.length > 1 ? "transfer-wallet" : "done")} disabled={busy} secondary>Back</ChoiceButton>
+              <ChoiceButton onClick={() => setPhase("transfer-amount-choice")} disabled={busy} secondary>Back</ChoiceButton>
             </div>
           ) : null}
 
