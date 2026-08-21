@@ -58,6 +58,7 @@ export default function ClaraAiEnvironmentOverlay(props) {
   const [entryMode, setEntryMode] = useState(null);
   const [walletHandoff, setWalletHandoff] = useState(null);
   const [logExpenseResume, setLogExpenseResume] = useState(null);
+  const [addIncomeResume, setAddIncomeResume] = useState(null);
   const routeMode = searchParams.get("mode");
   const weeklyMoneyCheckLaunchRequested =
     !guidePreview && routeMode === "weekly-money-check";
@@ -94,6 +95,7 @@ export default function ClaraAiEnvironmentOverlay(props) {
       setEntryMode(nextMode);
       setWalletHandoff(null);
       if (nextMode === "log-expense") setLogExpenseResume(null);
+      if (nextMode === "add-income") setAddIncomeResume(null);
     };
 
     window.addEventListener(CLARA_PAUSE_OPEN_REQUEST_EVENT, handlePauseOpenRequest);
@@ -144,6 +146,24 @@ export default function ClaraAiEnvironmentOverlay(props) {
   const returnToLogExpense = () => {
     setWalletHandoff(null);
     setEntryMode("log-expense");
+  };
+
+  const returnToAddIncome = (walletResult = null) => {
+    setWalletHandoff(null);
+    if (walletResult?.wallet) {
+      setAddIncomeResume((current) => ({
+        ...(current || {}),
+        wallet: walletResult.wallet,
+        walletAction: walletResult.action || "created",
+        cancelled: false,
+      }));
+    } else if (walletResult?.cancelled) {
+      setAddIncomeResume((current) => ({
+        ...(current || {}),
+        cancelled: true,
+      }));
+    }
+    setEntryMode("add-income");
   };
 
   useEffect(() => {
@@ -215,13 +235,33 @@ export default function ClaraAiEnvironmentOverlay(props) {
   if (addIncomeMode) {
     const closeAddIncome = () => {
       setEntryMode(null);
+      setWalletHandoff(null);
+      setAddIncomeResume(null);
       props?.onClose?.();
+    };
+
+    const openWalletChat = (detail = {}) => {
+      setAddIncomeResume({
+        sourceId: String(detail?.sourceId || ""),
+        sourceName: String(detail?.sourceName || "").trim(),
+        amount: Number(detail?.amount) || 0,
+        reason: "transfer-after-wallet",
+        cancelled: false,
+      });
+      setWalletHandoff({
+        intent: "create",
+        source: "add-income",
+        returnMode: "add-income",
+      });
+      setEntryMode("wallet");
     };
 
     return (
       <ClaraAddIncomeOverlay
         {...props}
         claraAssistantContext={enrichedAssistantContext}
+        resumeState={addIncomeResume}
+        onOpenWalletChat={openWalletChat}
         onClose={closeAddIncome}
       />
     );
@@ -233,14 +273,22 @@ export default function ClaraAiEnvironmentOverlay(props) {
         returnToLogExpense();
         return;
       }
+      if (walletHandoff?.returnMode === "add-income") {
+        returnToAddIncome({ cancelled: true });
+        return;
+      }
       setEntryMode(null);
       setWalletHandoff(null);
       props?.onClose?.();
     };
 
-    const walletReady = () => {
+    const walletReady = (detail = {}) => {
       if (walletHandoff?.returnMode === "log-expense") {
         returnToLogExpense();
+        return;
+      }
+      if (walletHandoff?.returnMode === "add-income") {
+        returnToAddIncome(detail);
       }
     };
 
