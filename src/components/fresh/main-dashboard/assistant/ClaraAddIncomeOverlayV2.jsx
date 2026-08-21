@@ -506,18 +506,18 @@ export default function ClaraAddIncomeOverlayV2({
   const chooseInitialSourceCategory = (category) => {
     if (!interactionReady) return;
     setSourceCategory(category);
+    setSourceName("");
+    setSourceNameInput("");
     setError("");
     append(chatMessage("user", category));
-
-    if (category === "Other Income") {
-      setSourceName("");
-      setSourceNameInput("");
-      runAssistantSequence(["What should we call this income source?"], "create-source-name");
-      return;
-    }
-
-    setSourceName(category);
-    runAssistantSequence(["How predictable is this income?"], "create-source-stability");
+    runAssistantSequence(
+      [
+        category === "Other Income"
+          ? "What should we call this income source?"
+          : `What should we call this ${category.toLowerCase()} source? For example: UnifyCX, My Business, or Client Work.`,
+      ],
+      "create-source-name"
+    );
   };
 
   const submitSourceName = () => {
@@ -525,7 +525,6 @@ export default function ClaraAddIncomeOverlayV2({
     const nextName = clean(sourceNameInput);
     if (!nextName) return;
     setSourceName(nextName);
-    setSourceCategory("Other Income");
     setSourceNameInput("");
     setError("");
     append(chatMessage("user", nextName));
@@ -860,7 +859,7 @@ export default function ClaraAddIncomeOverlayV2({
           ) : null}
 
           {phase === "create-source-name" && controlsReady ? (
-            <div className="mt-auto pt-3" data-clara-income-source-other-name="true">
+            <div className="mt-auto pt-3" data-clara-income-source-custom-name="true">
               <Composer
                 value={sourceNameInput}
                 onChange={setSourceNameInput}
