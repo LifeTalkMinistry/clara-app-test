@@ -211,6 +211,9 @@ function ensureMeansMetric(label, snapshot, onToggle) {
   const idleCopy = composition?.querySelector?.(ORB_IDLE_COPY_SELECTOR);
   if (!idleCopy) return null;
 
+  const tapCopy = idleCopy.querySelector("p");
+  if (tapCopy) tapCopy.style.display = "none";
+
   let root = idleCopy.querySelector(`[${MEANS_METRIC_ATTR}="true"]`);
   if (!snapshot) {
     root?.remove();
@@ -224,7 +227,7 @@ function ensureMeansMetric(label, snapshot, onToggle) {
     root.setAttribute("aria-expanded", "false");
     root.style.display = "block";
     root.style.width = "100%";
-    root.style.margin = "7px auto 0";
+    root.style.margin = "9px auto 0";
     root.style.padding = "0";
     root.style.border = "0";
     root.style.background = "transparent";
@@ -233,10 +236,7 @@ function ensureMeansMetric(label, snapshot, onToggle) {
     root.style.cursor = "pointer";
     root.style.WebkitTapHighlightColor = "transparent";
     root.addEventListener("click", onToggle);
-
-    const tapCopy = idleCopy.querySelector("p");
-    if (tapCopy) idleCopy.insertBefore(root, tapCopy);
-    else idleCopy.appendChild(root);
+    idleCopy.appendChild(root);
   }
 
   const expanded = root.getAttribute("aria-expanded") === "true";
@@ -257,10 +257,9 @@ function ensureMeansMetric(label, snapshot, onToggle) {
       <strong style="font-size:12px;color:${tone};font-weight:900">${snapshot.score}</strong>
       <span style="opacity:.5">·</span>
       <span>${statusForScore(snapshot.score)}</span>
-      <span style="font-size:9px;opacity:.42;transform:${expanded ? "rotate(180deg)" : "none"};transition:transform 160ms ease">⌄</span>
+      <span style="font-size:9px;opacity:.38;transform:${expanded ? "rotate(180deg)" : "none"};transition:transform 160ms ease">⌄</span>
     </span>
-    <span style="display:block;margin-top:3px;font-size:9px;font-weight:650;line-height:1.25;letter-spacing:.01em;color:rgba(255,255,255,.26)">Upcoming commitments included</span>
-    <span data-clara-means-expanded="true" style="display:${expanded ? "block" : "none"};width:min(300px,78vw);margin:8px auto 1px;padding:10px 12px;border:1px solid rgba(126,160,214,.10);border-radius:14px;background:rgba(6,16,38,.42);box-shadow:0 8px 24px rgba(0,0,0,.10);backdrop-filter:blur(8px);text-align:left">
+    <span data-clara-means-expanded="true" style="display:${expanded ? "block" : "none"};width:min(300px,78vw);margin:9px auto 1px;padding:10px 12px;border:1px solid rgba(126,160,214,.10);border-radius:14px;background:rgba(6,16,38,.42);box-shadow:0 8px 24px rgba(0,0,0,.10);backdrop-filter:blur(8px);text-align:left">
       <span style="display:flex;justify-content:space-between;gap:16px;font-size:10px;color:rgba(255,255,255,.38)"><span>Income this month</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.income)}</strong></span>
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.38)"><span>Already spent</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.spent)}</strong></span>
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.38)"><span>Upcoming commitments</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.upcoming)}</strong></span>
