@@ -33,12 +33,13 @@ test("ORB command ring exposes exactly the nine product command categories", () 
   assert.equal(new Set(CLARA_ORB_COMMANDS.map((command) => command.angle)).size, 9);
 });
 
-test("Add Income owns the Income Hub fallback destination", () => {
+test("Add Income keeps the Income Hub fallback inside HashRouter and deployment base", () => {
   const addIncomeCommand = CLARA_ORB_COMMANDS.find(
     (command) => command.id === "add-income"
   );
 
-  assert.equal(addIncomeCommand?.href, "/investment-plan");
+  assert.equal(addIncomeCommand?.href, "#/investment-plan");
+  assert.doesNotEqual(addIncomeCommand?.href, "/investment-plan");
   assert.match(orbCommandRing, /cancelable:\s*true/);
   assert.match(orbCommandRing, /window\.location\?\.assign/);
 });
