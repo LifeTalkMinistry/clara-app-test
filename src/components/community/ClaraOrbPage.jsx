@@ -802,6 +802,10 @@ export default function ClaraOrbPage({ onActivate, activationDelayMs = 0 }) {
           transition: opacity 150ms ease, transform 180ms cubic-bezier(.22,1,.36,1), color 150ms ease;
         }
 
+        .clara-orb-idle-copy:has([data-clara-orb-means-metric="true"]) [data-clara-orb-means-placeholder="true"] {
+          display: none;
+        }
+
         @keyframes clara-money-left-orb-breathe {
           0%, 100% { transform: scale(.992); }
           50% { transform: scale(1.012); }
@@ -907,9 +911,13 @@ export default function ClaraOrbPage({ onActivate, activationDelayMs = 0 }) {
           <h1 className="text-[21px] font-black tracking-[-0.035em] text-white sm:text-[24px]">
             Ask before you spend.
           </h1>
-          <p className="mt-2 text-[12px] font-semibold tracking-[0.01em] text-white/48 sm:text-[13px]">
-            Tap CLARA to start
-          </p>
+          <div
+            data-clara-orb-means-placeholder="true"
+            className="mt-2 text-[11px] font-extrabold tracking-[0.005em] text-white/42"
+            aria-live="polite"
+          >
+            — · Means score
+          </div>
         </div>
       </div>
     </main>
