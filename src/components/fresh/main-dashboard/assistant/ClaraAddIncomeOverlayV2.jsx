@@ -422,16 +422,10 @@ export default function ClaraAddIncomeOverlayV2({
         return;
       }
 
-      if (nextSources.length === 1) {
-        setSelectedSourceId(String(nextSources[0].id));
-        runAssistantSequence(
-          [`Hi ${firstName}! 👋`, `Let’s add income to ${nextSources[0].name}.`, "How much money came in?"],
-          "amount"
-        );
-        return;
-      }
-
-      runAssistantSequence([`Hi ${firstName}! 👋`, "Which income source did this money come from?"], "source");
+      runAssistantSequence(
+        [`Hi ${firstName}! 👋`, "What would you like to do with Income Hub?"],
+        "income-home"
+      );
     } catch (nextError) {
       const message = clean(nextError?.message || "I couldn’t load your Income Hub yet.");
       setError(message);
@@ -564,7 +558,10 @@ export default function ClaraAddIncomeOverlayV2({
       resetTransferDraft();
       setBusy(false);
       runAssistantSequence(
-        [`${saved.name} is now set up as your income source.`, "Would you like to add money now, or are you done?"],
+        [
+          `${saved.name} is now set up as your income source.`,
+          "Would you like to add money now, create another income source, or are you done?",
+        ],
         "source-created-choice",
         { skipInitialDelay: true }
       );
@@ -704,6 +701,40 @@ export default function ClaraAddIncomeOverlayV2({
     setError("");
     append(chatMessage("user", "Add money now"));
     runAssistantSequence(["How much money came in?"], "amount");
+  };
+
+  const beginAddMoney = () => {
+    if (!interactionReady || !sources.length) return;
+    setError("");
+    resetTransferDraft();
+    append(chatMessage("user", "Add money"));
+
+    if (sources.length === 1) {
+      setSelectedSourceId(String(sources[0].id));
+      runAssistantSequence(
+        [`Let’s add income to ${sources[0].name}.`, "How much money came in?"],
+        "amount"
+      );
+      return;
+    }
+
+    setSelectedSourceId("");
+    runAssistantSequence(["Which income source did this money come from?"], "source");
+  };
+
+  const beginCreateAnotherSource = () => {
+    if (!interactionReady) return;
+    resetCreateSourceDraft();
+    setSelectedSourceId("");
+    setAmountInput("");
+    setAmount(0);
+    resetTransferDraft();
+    setError("");
+    append(chatMessage("user", "Create another income source"));
+    runAssistantSequence(
+      ["Let’s create another Income Source.", "Choose the type of income you receive."],
+      "create-source-choice"
+    );
   };
 
   const chooseSource = (source) => {
@@ -958,6 +989,14 @@ export default function ClaraAddIncomeOverlayV2({
           ))}
           {pendingMessage ? <Bubble role="assistant" typing>{typedText}</Bubble> : null}
 
+          {phase === "income-home" && controlsReady ? (
+            <div className="mt-1 grid gap-2.5" data-clara-income-home="true">
+              <ChoiceButton onClick={beginAddMoney}>Add money</ChoiceButton>
+              <ChoiceButton onClick={beginCreateAnotherSource} secondary>Create another income source</ChoiceButton>
+              <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
+            </div>
+          ) : null}
+
           {phase === "create-source-choice" && controlsReady ? (
             <div className="relative z-20 mt-1 grid grid-cols-2 gap-2" data-clara-income-source-first-choice="true">
               {INCOME_SOURCE_CATEGORIES.map((category) => (
@@ -1059,8 +1098,9 @@ export default function ClaraAddIncomeOverlayV2({
           ) : null}
 
           {phase === "source-created-choice" && controlsReady ? (
-            <div className="mt-1 grid grid-cols-2 gap-2.5" data-clara-income-source-created-choice="true">
+            <div className="mt-1 grid gap-2.5" data-clara-income-source-created-choice="true">
               <ChoiceButton onClick={addMoneyAfterSourceCreation}>Add money now</ChoiceButton>
+              <ChoiceButton onClick={beginCreateAnotherSource} secondary>Create another income source</ChoiceButton>
               <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
             </div>
           ) : null}
