@@ -13,16 +13,7 @@ if (typeof document !== "undefined") {
 
 export const CLARA_ORB_COMMANDS = Object.freeze([
   Object.freeze({ id: "log-expense", label: "Log Expense", angle: -90, radius: 1 }),
-  Object.freeze({
-    id: "add-income",
-    label: "Add Income",
-    angle: -50,
-    radius: 1,
-    // CLARA uses HashRouter. Keep the command inside the current deployment
-    // origin/base path so GitHub Pages resolves /clara-app-test/#/investment-plan
-    // instead of navigating to the account root /investment-plan and 404ing.
-    href: "#/investment-plan",
-  }),
+  Object.freeze({ id: "add-income", label: "Add Income", angle: -50, radius: 1 }),
   Object.freeze({ id: "wallet", label: "Wallet", angle: -10, radius: 1 }),
   Object.freeze({ id: "calendar", label: "Calendar", angle: 30, radius: 1 }),
   Object.freeze({ id: "money-schedule", label: "Money Schedule", angle: 70, radius: 1 }),
@@ -130,9 +121,8 @@ export function dispatchClaraOrbCommandSelection(commandId, source = "clara-orb-
 
   const shouldRunDefaultAction = window.dispatchEvent(selectionEvent);
 
-  // Keep routing as a command-level fallback. A future app-level command router
-  // can preventDefault() on the selection event and take over with an in-app
-  // transition without changing the Orb gesture engine itself.
+  // Commands with a deliberate page fallback can still use href, while
+  // chat-owned commands preventDefault() in the app-level command router.
   if (shouldRunDefaultAction && command.href && window.location?.assign) {
     window.location.assign(command.href);
   }
