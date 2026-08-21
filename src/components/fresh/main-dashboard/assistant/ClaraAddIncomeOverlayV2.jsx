@@ -169,6 +169,8 @@ function Composer({
 export default function ClaraAddIncomeOverlayV2({
   isActive = false,
   claraAssistantContext = {},
+  resumeState = null,
+  onOpenWalletChat,
   onClose,
 }) {
   const user = claraAssistantContext?.user || {};
@@ -221,9 +223,23 @@ export default function ClaraAddIncomeOverlayV2({
     [claraAssistantContext?.wallets]
   );
 
+  const resumedWallet = useMemo(() => {
+    const wallet = resumeState?.wallet;
+    const id = getWalletId(wallet);
+    if (!id) return null;
+    return {
+      id,
+      name: getWalletName(wallet) || "Wallet",
+    };
+  }, [resumeState?.wallet]);
+
   const selectedWallet = useMemo(
-    () => wallets.find((wallet) => String(wallet.id) === String(selectedWalletId)) || null,
-    [wallets, selectedWalletId]
+    () =>
+      wallets.find((wallet) => String(wallet.id) === String(selectedWalletId)) ||
+      (resumedWallet && String(resumedWallet.id) === String(selectedWalletId)
+        ? resumedWallet
+        : null),
+    [wallets, selectedWalletId, resumedWallet]
   );
 
   const scrollToLatest = () => {
@@ -309,7 +325,7 @@ export default function ClaraAddIncomeOverlayV2({
     setScheduleInput("");
   };
 
-  const loadSourcesAndStart = async () => {
+  const loadSourcesAndStart = async ({ ignoreResume = false } = {}) => {
     cancelConversationPacing();
     setPhase("loading");
     setSources([]);
@@ -326,6 +342,57 @@ export default function ClaraAddIncomeOverlayV2({
       const records = await getIncomeSources(localUserId);
       const nextSources = Array.isArray(records) ? records : [];
       setSources(nextSources);
+
+      if (!ignoreResume && resumeState?.reason === "transfer-after-wallet") {
+        const resumedAmount = Number(resumeState?.amount) || 0;
+        const resumedSourceId = String(resumeState?.sourceId || "");
+        const resumedSource = nextSources.find(
+          (source) => String(source?.id) === resumedSourceId
+        );
+
+        if (resumedAmount > 0 && resumedSource) {
+          setSelectedSourceId(String(resumedSource.id));
+          setAmount(resumedAmount);
+
+          if (resumeState?.cancelled) {
+            setMessages([
+              chatMessage(
+                "assistant",
+                `No wallet was created. Your ${money(resumedAmount)} is still safely in ${resumedSource.name} in Income Hub.`
+              ),
+              chatMessage(
+                "assistant",
+                "You can create a wallet later and transfer it when you’re ready."
+              ),
+            ]);
+            setPhase("done");
+            setInteractionReady(true);
+            return;
+          }
+
+          if (resumedWallet?.id) {
+            setSelectedWalletId(String(resumedWallet.id));
+            setMessages([
+              chatMessage("assistant", `Wallet created — ${resumedWallet.name} is ready.`),
+              chatMessage(
+                "assistant",
+                `Transfer ${money(resumedAmount)} from ${resumedSource.name} to ${resumedWallet.name}?`
+              ),
+            ]);
+            setPhase("transfer-confirm");
+            setInteractionReady(true);
+            return;
+          }
+
+          setMessages([
+            chatMessage("assistant", `You’re back. I kept your ${money(resumedAmount)} transfer ready.`),
+            chatMessage("assistant", "Which wallet should receive this money?"),
+          ]);
+          setPhase("transfer-wallet");
+          setInteractionReady(true);
+          return;
+        }
+      }
 
       if (nextSources.length === 0) {
         runAssistantSequence(
@@ -734,9 +801,19 @@ export default function ClaraAddIncomeOverlayV2({
     append(chatMessage("user", "Transfer to Wallet"));
 
     if (!wallets.length) {
+      if (typeof onOpenWalletChat === "function") {
+        cancelConversationPacing();
+        onOpenWalletChat({
+          intent: "create",
+          sourceId: selectedSource.id,
+          sourceName: selectedSource.name,
+          amount,
+        });
+        return;
+      }
       runAssistantSequence(
-        ["You don’t have a wallet yet. Create one from Wallet first, then you can transfer this income."],
-        "no-wallet"
+        ["Wallet chat is unavailable right now. Your money is still safely in Income Hub."],
+        "done"
       );
       return;
     }
@@ -808,7 +885,7 @@ export default function ClaraAddIncomeOverlayV2({
     }
   };
 
-  const restart = () => loadSourcesAndStart();
+  const restart = () => loadSourcesAndStart({ ignoreResume: true });
   const controlsReady = interactionReady && !pendingMessage && phase !== "responding" && !busy;
 
   return (
