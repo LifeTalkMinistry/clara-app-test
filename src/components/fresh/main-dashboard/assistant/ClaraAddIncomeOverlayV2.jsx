@@ -332,9 +332,9 @@ export default function ClaraAddIncomeOverlayV2({
           [
             `Hi ${firstName}! 👋`,
             "You don’t have an Income Source yet, so let’s create your first one right here.",
-            "What should we call it? For example: Salary, Freelance, Online Selling, or Allowance.",
+            "Choose the type of income you receive.",
           ],
-          "create-source-name"
+          "create-source-choice"
         );
         return;
       }
@@ -435,7 +435,7 @@ export default function ClaraAddIncomeOverlayV2({
     const minimum = stable ? Number(overrides.minimum ?? stableMinimum) : 0;
 
     if (!nextName) {
-      setError("Enter a name for this income source.");
+      setError("Choose an income source first.");
       return;
     }
     if (stable && (!(minimum > 0) || !recurrence)) {
@@ -499,8 +499,25 @@ export default function ClaraAddIncomeOverlayV2({
       const message = clean(nextError?.message || "I couldn’t create that income source. Please try again.");
       setBusy(false);
       setError(message);
-      runAssistantSequence([message], "create-source-name", { skipInitialDelay: true });
+      runAssistantSequence([message], "create-source-choice", { skipInitialDelay: true });
     }
+  };
+
+  const chooseInitialSourceCategory = (category) => {
+    if (!interactionReady) return;
+    setSourceCategory(category);
+    setError("");
+    append(chatMessage("user", category));
+
+    if (category === "Other Income") {
+      setSourceName("");
+      setSourceNameInput("");
+      runAssistantSequence(["What should we call this income source?"], "create-source-name");
+      return;
+    }
+
+    setSourceName(category);
+    runAssistantSequence(["How predictable is this income?"], "create-source-stability");
   };
 
   const submitSourceName = () => {
@@ -508,17 +525,10 @@ export default function ClaraAddIncomeOverlayV2({
     const nextName = clean(sourceNameInput);
     if (!nextName) return;
     setSourceName(nextName);
+    setSourceCategory("Other Income");
     setSourceNameInput("");
     setError("");
     append(chatMessage("user", nextName));
-    runAssistantSequence(["What type of income is this?"], "create-source-category");
-  };
-
-  const chooseSourceCategory = (category) => {
-    if (!interactionReady) return;
-    setSourceCategory(category);
-    setError("");
-    append(chatMessage("user", category));
     runAssistantSequence(["How predictable is this income?"], "create-source-stability");
   };
 
@@ -832,8 +842,18 @@ export default function ClaraAddIncomeOverlayV2({
           ))}
           {pendingMessage ? <Bubble role="assistant" typing>{typedText}</Bubble> : null}
 
+          {phase === "create-source-choice" && controlsReady ? (
+            <div className="relative z-20 mt-1 grid grid-cols-2 gap-2" data-clara-income-source-first-choice="true">
+              {INCOME_SOURCE_CATEGORIES.map((category) => (
+                <ChoiceButton key={category} onClick={() => chooseInitialSourceCategory(category)} secondary>
+                  {category}
+                </ChoiceButton>
+              ))}
+            </div>
+          ) : null}
+
           {phase === "create-source-name" && controlsReady ? (
-            <div className="mt-auto pt-3">
+            <div className="mt-auto pt-3" data-clara-income-source-other-name="true">
               <Composer
                 value={sourceNameInput}
                 onChange={setSourceNameInput}
@@ -841,16 +861,6 @@ export default function ClaraAddIncomeOverlayV2({
                 placeholder="Income source name"
                 inputMode="text"
               />
-            </div>
-          ) : null}
-
-          {phase === "create-source-category" && controlsReady ? (
-            <div className="relative z-20 mt-1 grid grid-cols-2 gap-2">
-              {INCOME_SOURCE_CATEGORIES.map((category) => (
-                <ChoiceButton key={category} onClick={() => chooseSourceCategory(category)} secondary>
-                  {category}
-                </ChoiceButton>
-              ))}
             </div>
           ) : null}
 
