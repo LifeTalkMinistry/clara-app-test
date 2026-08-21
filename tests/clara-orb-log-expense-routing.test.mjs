@@ -119,6 +119,11 @@ test("Add Income chat writes through the canonical Income Hub repository", async
 
   assert.match(overlay, /addMoneyToIncomeSource/);
   assert.match(overlay, /getIncomeSources/);
+  assert.match(overlay, /upsertIncomeSource/);
+  assert.match(overlay, /appendIncomeSourceActivity/);
+  assert.match(overlay, /transferIncomeSourceToWallet/);
+  assert.match(overlay, /create-source-name/);
+  assert.match(overlay, /You don’t have an Income Source yet, so let’s create your first one right here/);
   assert.match(overlay, /data-clara-add-income-chat="true"/);
   assert.match(overlay, /It will only become wallet money after you transfer it to a wallet/);
   assert.match(environment, /ClaraAddIncomeOverlay/);
