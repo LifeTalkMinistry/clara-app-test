@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -22,6 +22,138 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch Add Income returning-user menu
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('src/components/fresh/main-dashboard/assistant/ClaraAddIncomeOverlayV2.jsx')
+          text = path.read_text()
+
+          old = '''      if (nextSources.length === 1) {
+        setSelectedSourceId(String(nextSources[0].id));
+        runAssistantSequence(
+          [`Hi ${firstName}! 👋`, `Let’s add income to ${nextSources[0].name}.`, "How much money came in?"],
+          "amount"
+        );
+        return;
+      }
+
+      runAssistantSequence([`Hi ${firstName}! 👋`, "Which income source did this money come from?"], "source");'''
+          new = '''      runAssistantSequence(
+        [`Hi ${firstName}! 👋`, "What would you like to do with Income Hub?"],
+        "income-home"
+      );'''
+          if old in text:
+              text = text.replace(old, new, 1)
+
+          anchor = '''  const addMoneyAfterSourceCreation = () => {
+    if (!interactionReady || !selectedSource) return;
+    setError("");
+    append(chatMessage("user", "Add money now"));
+    runAssistantSequence(["How much money came in?"], "amount");
+  };
+
+  const chooseSource = (source) => {'''
+          replacement = '''  const addMoneyAfterSourceCreation = () => {
+    if (!interactionReady || !selectedSource) return;
+    setError("");
+    append(chatMessage("user", "Add money now"));
+    runAssistantSequence(["How much money came in?"], "amount");
+  };
+
+  const beginAddMoney = () => {
+    if (!interactionReady || !sources.length) return;
+    setError("");
+    resetTransferDraft();
+    append(chatMessage("user", "Add money"));
+
+    if (sources.length === 1) {
+      setSelectedSourceId(String(sources[0].id));
+      runAssistantSequence(
+        [`Let’s add income to ${sources[0].name}.`, "How much money came in?"],
+        "amount"
+      );
+      return;
+    }
+
+    setSelectedSourceId("");
+    runAssistantSequence(["Which income source did this money come from?"], "source");
+  };
+
+  const beginCreateAnotherSource = () => {
+    if (!interactionReady) return;
+    resetCreateSourceDraft();
+    setSelectedSourceId("");
+    setAmountInput("");
+    setAmount(0);
+    resetTransferDraft();
+    setError("");
+    append(chatMessage("user", "Create income source"));
+    runAssistantSequence(
+      ["Let’s create another Income Source.", "Choose the type of income you receive."],
+      "create-source-choice"
+    );
+  };
+
+  const chooseSource = (source) => {'''
+          if anchor in text:
+              text = text.replace(anchor, replacement, 1)
+
+          old_choice = '''        [`${saved.name} is now set up as your income source.`, "Would you like to add money now, or are you done?"],
+        "source-created-choice",'''
+          new_choice = '''        [
+          `${saved.name} is now set up as your income source.`,
+          "Would you like to add money now, create another income source, or are you done?",
+        ],
+        "source-created-choice",'''
+          if old_choice in text:
+              text = text.replace(old_choice, new_choice, 1)
+
+          old_ui = '''          {phase === "source-created-choice" && controlsReady ? (
+            <div className="mt-1 grid grid-cols-2 gap-2.5" data-clara-income-source-created-choice="true">
+              <ChoiceButton onClick={addMoneyAfterSourceCreation}>Add money now</ChoiceButton>
+              <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
+            </div>
+          ) : null}
+
+          {phase === "source" && controlsReady ? ('''
+          new_ui = '''          {phase === "income-home" && controlsReady ? (
+            <div className="mt-1 grid gap-2.5" data-clara-income-home="true">
+              <ChoiceButton onClick={beginAddMoney}>Add money</ChoiceButton>
+              <ChoiceButton onClick={beginCreateAnotherSource} secondary>Create income source</ChoiceButton>
+              <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
+            </div>
+          ) : null}
+
+          {phase === "source-created-choice" && controlsReady ? (
+            <div className="mt-1 grid gap-2.5" data-clara-income-source-created-choice="true">
+              <ChoiceButton onClick={addMoneyAfterSourceCreation}>Add money now</ChoiceButton>
+              <ChoiceButton onClick={beginCreateAnotherSource} secondary>Create another income source</ChoiceButton>
+              <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
+            </div>
+          ) : null}
+
+          {phase === "source" && controlsReady ? ('''
+          if old_ui in text:
+              text = text.replace(old_ui, new_ui, 1)
+
+          path.write_text(text)
+
+      - name: Commit Add Income menu patch
+        run: |
+          if git diff --quiet; then
+            echo "Add Income menu already patched"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add src/components/fresh/main-dashboard/assistant/ClaraAddIncomeOverlayV2.jsx
+            git commit -m "Restore Add Income action menu for returning users"
+            git push origin HEAD:main
+          fi
 
       - name: Setup Node
         uses: actions/setup-node@v4
