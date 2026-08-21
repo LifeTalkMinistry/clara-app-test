@@ -12,6 +12,7 @@ const CANONICAL_STACK_ATTRIBUTE = "data-clara-ai-message-stack";
 const CLARA_CALENDAR_PATH = "/community?view=schedule";
 const CHAT_COMMAND_MODES = Object.freeze({
   "log-expense": "log-expense",
+  "add-income": "add-income",
   wallet: "wallet",
   "money-schedule": "money-schedule",
 });
@@ -267,12 +268,18 @@ function installClaraOrbCommandChatRouting() {
     const commandId = String(event?.detail?.commandId || "").trim();
 
     if (commandId === "calendar") {
+      event.preventDefault?.();
       openActualCalendar();
       return;
     }
 
     const mode = CHAT_COMMAND_MODES[commandId];
     if (!mode) return;
+
+    // This runtime is the app-level owner for CLARA command chats. Explicitly
+    // consume the command so the gesture engine never falls through to page
+    // navigation for chat-owned actions such as Add Income.
+    event.preventDefault?.();
 
     const requestId = `clara-orb-${commandId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
