@@ -104,23 +104,49 @@ export async function readLatestClaraLifeProfileOnDevice() {
   return normalizeClaraLifeProfile(newestActiveProfile(records) || {});
 }
 
+function isForeignOwnerCollision(error) {
+  return String(error?.message || "").includes(
+    "Cannot update a local finance record owned by another local user."
+  );
+}
+
+async function resolveLifeProfileWriteId(localUserId, preferredRecordId) {
+  const records = await getLocalRecordsByUser(LOCAL_FINANCE_STORES.lifeProfile, {
+    localUserId,
+  });
+  return newestActiveProfile(records, preferredRecordId)?.id || preferredRecordId;
+}
+
 export async function saveClaraLifeProfile(user, profile) {
   const localUserId = getClaraLocalUserId(user);
-  const recordId = getClaraLifeProfileRecordId(localUserId);
+  const preferredRecordId = getClaraLifeProfileRecordId(localUserId);
   const normalized = normalizeClaraLifeProfile(profile);
   const timestamp = new Date().toISOString();
+  const recordId = await resolveLifeProfileWriteId(localUserId, preferredRecordId);
 
-  return upsertLocalRecord(
-    LOCAL_FINANCE_STORES.lifeProfile,
-    {
-      ...normalized,
-      id: recordId,
-      profile: normalized,
-      updatedAt: timestamp,
-      updated_at: timestamp,
-    },
-    localUserId
-  );
+  const write = (id) =>
+    upsertLocalRecord(
+      LOCAL_FINANCE_STORES.lifeProfile,
+      {
+        ...normalized,
+        id,
+        profile: normalized,
+        updatedAt: timestamp,
+        updated_at: timestamp,
+      },
+      localUserId
+    );
+
+  try {
+    return await write(recordId);
+  } catch (error) {
+    if (!isForeignOwnerCollision(error) || recordId !== preferredRecordId) throw error;
+
+    // Older builds could leave a deterministic profile id owned by a different
+    // local vault. Never overwrite that foreign record. Move this vault onto a
+    // stable collision-safe id; future saves will discover and reuse it.
+    return write(`${preferredRecordId}:vault`);
+  }
 }
 
 export function hasMeaningfulLifeProfile(profile = {}) {
