@@ -18,7 +18,10 @@ export const CLARA_ORB_COMMANDS = Object.freeze([
     label: "Add Income",
     angle: -50,
     radius: 1,
-    href: "/investment-plan",
+    // CLARA uses HashRouter. Keep the command inside the current deployment
+    // origin/base path so GitHub Pages resolves /clara-app-test/#/investment-plan
+    // instead of navigating to the account root /investment-plan and 404ing.
+    href: "#/investment-plan",
   }),
   Object.freeze({ id: "wallet", label: "Wallet", angle: -10, radius: 1 }),
   Object.freeze({ id: "calendar", label: "Calendar", angle: 30, radius: 1 }),
