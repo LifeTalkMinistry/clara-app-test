@@ -6,15 +6,17 @@ import { fetchCanonicalClaraProfile, resolveCanonicalFirstName } from "@/lib/can
 import {
   FINANCE_DATA_UPDATED_EVENT,
   getExpenses,
-  getWalletTransactions,
 } from "@/lib/financeRepository";
+import {
+  getIncomeSourceActivityLog,
+  getIncomeSources,
+} from "@/lib/incomeHubRepository";
 import {
   CLARA_MONEY_ROUTINE_UPDATED_EVENT,
   getClaraMoneyScheduleStorageKey,
   readClaraMoneyRoutine,
 } from "@/lib/clara-money-schedule-repository";
 import {
-  INCOME_TRANSACTION_TYPES,
   firstValidNumber,
   getPHMonthKey,
   getTransactionDate,
@@ -32,6 +34,8 @@ const ORB_LAUNCHER_SELECTOR = '[data-clara-orb-launcher="true"]';
 const ORB_IDLE_COPY_SELECTOR = ".clara-orb-idle-copy";
 const MEANS_METRIC_ATTR = "data-clara-orb-means-metric";
 const MEANS_PLACEHOLDER_ATTR = "data-clara-orb-means-placeholder";
+const INCOME_HUB_UPDATED_EVENT = "clara-income-hub-updated";
+const INCOME_HUB_CASH_IN_TYPE = "add_money";
 
 function resolveGreetingLabel() {
   return (
@@ -149,11 +153,24 @@ function getOwnerIdentity(profile = {}) {
   );
 }
 
+function currentMonthIncomeFromSources(incomeSources, currentMonthKey) {
+  return (Array.isArray(incomeSources) ? incomeSources : []).reduce((sourceSum, source) => {
+    const sourceIncome = getIncomeSourceActivityLog(source).reduce((activitySum, activity) => {
+      if (normalizeLower(activity?.type) !== INCOME_HUB_CASH_IN_TYPE) return activitySum;
+      const date = getTransactionDate(activity);
+      if (!date || getPHMonthKey(date) !== currentMonthKey) return activitySum;
+      return activitySum + Math.max(0, firstValidNumber(activity?.amount));
+    }, 0);
+
+    return sourceSum + sourceIncome;
+  }, 0);
+}
+
 async function buildMeansSnapshot(profile = {}) {
   const owner = getOwnerIdentity(profile);
-  const [expenses, walletTransactions] = await Promise.all([
+  const [expenses, incomeSources] = await Promise.all([
     getExpenses(owner).catch(() => []),
-    getWalletTransactions(owner).catch(() => []),
+    getIncomeSources(owner).catch(() => []),
   ]);
   const currentMonthKey = getPHMonthKey();
 
@@ -163,16 +180,7 @@ async function buildMeansSnapshot(profile = {}) {
     return sum + Math.abs(Number(expense?.amount || 0));
   }, 0);
 
-  const income = (Array.isArray(walletTransactions) ? walletTransactions : []).reduce(
-    (sum, transaction) => {
-      const type = normalizeLower(transaction?.type || transaction?.transaction_type);
-      if (!INCOME_TRANSACTION_TYPES.has(type)) return sum;
-      const date = getTransactionDate(transaction);
-      if (!date || getPHMonthKey(date) !== currentMonthKey) return sum;
-      return sum + firstValidNumber(transaction?.amount);
-    },
-    0
-  );
+  const income = currentMonthIncomeFromSources(incomeSources, currentMonthKey);
 
   if (!(income > 0)) return null;
 
@@ -452,6 +460,7 @@ function installClaraOrbGreeting() {
     attributeFilter: ["data-orb-command-visible"],
   });
   window.addEventListener(FINANCE_DATA_UPDATED_EVENT, handleFinanceRefresh);
+  window.addEventListener(INCOME_HUB_UPDATED_EVENT, handleFinanceRefresh);
   window.addEventListener(CLARA_MONEY_ROUTINE_UPDATED_EVENT, handleFinanceRefresh);
   window.addEventListener("clara:schedule:create-event", handleFinanceRefresh);
   queueSync();
@@ -461,6 +470,7 @@ function installClaraOrbGreeting() {
       destroyed = true;
       observer.disconnect();
       window.removeEventListener(FINANCE_DATA_UPDATED_EVENT, handleFinanceRefresh);
+      window.removeEventListener(INCOME_HUB_UPDATED_EVENT, handleFinanceRefresh);
       window.removeEventListener(CLARA_MONEY_ROUTINE_UPDATED_EVENT, handleFinanceRefresh);
       window.removeEventListener("clara:schedule:create-event", handleFinanceRefresh);
       clearGreetingPresentation(activeLabel);
