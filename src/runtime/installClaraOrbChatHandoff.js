@@ -145,9 +145,6 @@ function animateOrbToChat(overlay) {
     if (animation) animations.push(animation);
   };
 
-  // Keep this handoff deliberately restrained. The Orb is the visual anchor;
-  // the destination should simply settle into place instead of expanding from
-  // the Orb as a giant circular wipe.
   overlay.style.willChange = "opacity";
   [board, form, closeButton, buyCheckLabel, acknowledgmentPanel, acknowledgmentCopy, activeQuestion]
     .filter(Boolean)
@@ -319,6 +316,7 @@ function installClaraOrbChatHandoff() {
   let pending = null;
   let cleanupAnimation = null;
   let cleanupHomeExit = null;
+  let homeRestoreTimer = 0;
   let clearPendingTimer = 0;
   let queued = false;
   let pendingObserver = null;
@@ -329,6 +327,8 @@ function installClaraOrbChatHandoff() {
   };
 
   const clearHomeExit = () => {
+    window.clearTimeout(homeRestoreTimer);
+    homeRestoreTimer = 0;
     cleanupHomeExit?.();
     cleanupHomeExit = null;
   };
@@ -365,6 +365,7 @@ function installClaraOrbChatHandoff() {
     if (!reducedMotion) {
       clearAnimation();
       cleanupAnimation = animateOrbToChat(overlay);
+      homeRestoreTimer = window.setTimeout(clearHomeExit, 320);
     } else {
       clearHomeExit();
     }
@@ -417,9 +418,6 @@ function installClaraOrbChatHandoff() {
       clearPending();
     }, MAX_HANDOFF_AGE_MS + 120);
 
-    // Observe React only during the brief handoff window. The previous permanent
-    // whole-document observer woke up on every chat render even long after the
-    // opening transition had finished.
     startPendingObserver();
     queueHandoff();
   };
