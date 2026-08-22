@@ -6,6 +6,7 @@ import { fetchCanonicalClaraProfile, resolveCanonicalFirstName } from "@/lib/can
 import {
   FINANCE_DATA_UPDATED_EVENT,
   getExpenses,
+  getSavingsGoals,
 } from "@/lib/financeRepository";
 import {
   getIncomeSourceActivityLog,
@@ -36,6 +37,7 @@ const MEANS_METRIC_ATTR = "data-clara-orb-means-metric";
 const MEANS_PLACEHOLDER_ATTR = "data-clara-orb-means-placeholder";
 const INCOME_HUB_UPDATED_EVENT = "clara-income-hub-updated";
 const INCOME_HUB_CASH_IN_TYPE = "add_money";
+const SAVINGS_GOAL_SCHEDULE_SOURCE = "savings_goal_card_projection";
 
 function resolveGreetingLabel() {
   return (
@@ -135,9 +137,73 @@ function futureScheduledAmount(user) {
     const date = String(event?.date || "").slice(0, 10);
     const direction = String(event?.direction || "out").trim().toLowerCase();
     const amount = Number(String(event?.amount ?? "0").replace(/[₱,\s]/g, ""));
+    const source = normalizeLower(event?.source);
+    const savingsGoalProjection =
+      source === SAVINGS_GOAL_SCHEDULE_SOURCE || event?.savingsGoalId || event?.savings_goal_id;
     if (!date || date <= today || date > monthEnd) return sum;
-    if (direction !== "out" || event?.affectsMoney === false) return sum;
+    if (direction !== "out" || event?.affectsMoney === false || savingsGoalProjection) return sum;
     return sum + (Number.isFinite(amount) ? Math.max(0, amount) : 0);
+  }, 0);
+}
+
+function savingsGoalDate(goal = {}) {
+  return String(
+    goal?.planned_use_date ||
+      goal?.plannedUseDate ||
+      goal?.due_date ||
+      goal?.dueDate ||
+      goal?.target_date ||
+      goal?.targetDate ||
+      ""
+  ).slice(0, 10);
+}
+
+function savingsGoalMoney(...values) {
+  for (const value of values) {
+    const amount = Number(String(value ?? "").replace(/[₱,\s]/g, ""));
+    if (Number.isFinite(amount)) return Math.max(0, amount);
+  }
+  return 0;
+}
+
+function futureSavingsGoalAmount(goals = []) {
+  const today = localDateKey();
+  const monthEnd = endOfCurrentMonthKey();
+
+  return (Array.isArray(goals) ? goals : []).reduce((sum, goal) => {
+    const status = normalizeLower(goal?.status);
+    const inactive = Boolean(
+      goal?.deletedAt ||
+        goal?.deleted_at ||
+        goal?.isArchived === true ||
+        goal?.is_archived === true ||
+        ["deleted", "archived", "cancelled", "canceled"].includes(status)
+    );
+    if (inactive) return sum;
+
+    const date = savingsGoalDate(goal);
+    if (!date || date <= today || date > monthEnd) return sum;
+
+    const target = savingsGoalMoney(
+      goal?.target_amount,
+      goal?.targetAmount,
+      goal?.goal_amount,
+      goal?.goalAmount,
+      goal?.target,
+      goal?.amount
+    );
+    const saved = savingsGoalMoney(
+      goal?.saved_amount,
+      goal?.savedAmount,
+      goal?.current_amount,
+      goal?.currentAmount,
+      goal?.saved,
+      goal?.progress_amount,
+      goal?.progressAmount,
+      goal?.amount_saved
+    );
+
+    return sum + Math.max(target - saved, 0);
   }, 0);
 }
 
@@ -261,20 +327,16 @@ function currentMonthIncomeFromSources(incomeSources, currentMonthKey) {
 
     const reliableExpectedIncome = projectedStableIncomeForMonth(source, currentMonthKey);
 
-    // Means Score is a monthly living-within-your-means projection. Stable
-    // Income Hub sources already define the user's reliable minimum and payday
-    // cadence, so the score can use that monthly floor before every payday has
-    // actually arrived. Actual received income remains authoritative whenever
-    // it exceeds the configured reliable minimum.
     return sourceSum + Math.max(actualIncome, reliableExpectedIncome);
   }, 0);
 }
 
 async function buildMeansSnapshot(profile = {}) {
   const owner = getOwnerIdentity(profile);
-  const [expenses, incomeSources] = await Promise.all([
+  const [expenses, incomeSources, savingsGoals] = await Promise.all([
     getExpenses(owner).catch(() => []),
     getIncomeSources(owner).catch(() => []),
+    getSavingsGoals(owner).catch(() => []),
   ]);
   const currentMonthKey = getPHMonthKey();
 
@@ -290,7 +352,8 @@ async function buildMeansSnapshot(profile = {}) {
 
   const routineUpcoming = futureRoutineAmount(owner);
   const scheduledUpcoming = futureScheduledAmount(owner);
-  const upcoming = routineUpcoming + scheduledUpcoming;
+  const savingsGoalUpcoming = futureSavingsGoalAmount(savingsGoals);
+  const upcoming = routineUpcoming + scheduledUpcoming + savingsGoalUpcoming;
   const projectedSpending = spent + upcoming;
   const projectedRoom = income - projectedSpending;
   const score = Math.round(100 + ((income - projectedSpending) / income) * 100);
@@ -300,6 +363,7 @@ async function buildMeansSnapshot(profile = {}) {
     income,
     spent,
     upcoming,
+    savingsGoalUpcoming,
     projectedSpending,
     projectedRoom,
   };
@@ -379,6 +443,7 @@ function ensureMeansMetric(label, snapshot, onToggle) {
         Math.round(snapshot.income),
         Math.round(snapshot.spent),
         Math.round(snapshot.upcoming),
+        Math.round(snapshot.savingsGoalUpcoming || 0),
         Math.round(snapshot.projectedRoom),
         expanded ? 1 : 0,
       ].join(":")
@@ -404,7 +469,7 @@ function ensureMeansMetric(label, snapshot, onToggle) {
       </span>
       <span data-clara-means-expanded="true" style="display:${expanded ? "block" : "none"};width:min(300px,78vw);margin:10px auto 1px;padding:12px;border:1px solid rgba(112,157,229,.13);border-radius:15px;background:linear-gradient(180deg,rgba(9,21,50,.72),rgba(4,11,31,.66));box-shadow:0 14px 34px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.025);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);text-align:left">
         <strong style="display:block;font-size:10px;font-weight:900;letter-spacing:-.01em;color:rgba(255,255,255,.76)">No monthly income detected yet.</strong>
-        <span style="display:block;margin-top:5px;font-size:9.5px;font-weight:650;line-height:1.5;color:rgba(255,255,255,.40)">Once income is recorded, CLARA will calculate your score from what you have already spent plus upcoming Money Schedule commitments.</span>
+        <span style="display:block;margin-top:5px;font-size:9.5px;font-weight:650;line-height:1.5;color:rgba(255,255,255,.40)">Once income is recorded, CLARA will calculate your score from what you have already spent plus upcoming Money Schedule and Savings Goal commitments.</span>
         <span style="display:block;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.06);font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">100 = living within your means</span>
       </span>
     `;
@@ -429,6 +494,7 @@ function ensureMeansMetric(label, snapshot, onToggle) {
       <span style="display:flex;justify-content:space-between;gap:16px;font-size:10px;color:rgba(255,255,255,.38)"><span>Income this month</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.income)}</strong></span>
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.38)"><span>Already spent</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.spent)}</strong></span>
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.38)"><span>Upcoming commitments</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.upcoming)}</strong></span>
+      <span style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.38)"><span>Savings goals due</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.savingsGoalUpcoming)}</strong></span>
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.06);font-size:10px;color:rgba(255,255,255,.42)"><span>Projected room</span><strong style="color:${snapshot.projectedRoom >= 0 ? "#67e8c8" : "#ff7f8d"}">${snapshot.projectedRoom >= 0 ? "" : "−"}${money(Math.abs(snapshot.projectedRoom))}</strong></span>
       <span style="display:block;margin-top:8px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">100 = living within your means</span>
     </span>
