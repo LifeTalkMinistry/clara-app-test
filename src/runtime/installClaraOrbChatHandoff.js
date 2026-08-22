@@ -3,10 +3,12 @@ import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "@/lib/clara-pause-events";
 const RUNTIME_KEY = "__claraOrbChatHandoffRuntime__";
 const READY_FLAG = "claraOrbTransitionReady";
 const MAX_HANDOFF_AGE_MS = 2200;
+const COPY_EXIT_LEAD_MS = 72;
 const OVERLAY_SELECTOR =
   '[data-clara-pause-overlay="true"][data-clara-buy-check-react-owner="true"]';
 const ORB_COMPOSITION_SELECTOR =
   '.clara-community-root[data-community-view="orb"] [data-clara-orb-composition="true"]';
+const ORB_LAUNCHER_SELECTOR = '[data-clara-orb-launcher="true"]';
 
 function safeAnimate(element, keyframes, options) {
   if (!element || typeof element.animate !== "function") return null;
@@ -32,24 +34,50 @@ function rectSnapshot(rect) {
   };
 }
 
-function animateOrbHomeExit() {
+function hideOrbHomeCopyImmediately() {
   const composition = document.querySelector(ORB_COMPOSITION_SELECTOR);
   if (!composition) return () => {};
 
   const statusCopy = composition.querySelector(".clara-orb-status-copy");
-  const launcher = composition.querySelector('[data-clara-orb-launcher="true"]');
   const idleCopy = composition.querySelector(".clara-orb-idle-copy");
   const hiddenCopy = [statusCopy, idleCopy].filter(Boolean);
-  const animations = [];
 
-  // The copy must disappear on the same interaction frame as the Orb tap.
-  // Do not fade these elements: even a 100ms fade leaves a visible ghost frame
-  // behind the moving Orb on slower Android/PWA rendering paths.
   hiddenCopy.forEach((element) => {
     element.style.opacity = "0";
     element.style.visibility = "hidden";
     element.style.pointerEvents = "none";
   });
+
+  return () => {
+    hiddenCopy.forEach((element) => {
+      element.style.removeProperty("opacity");
+      element.style.removeProperty("visibility");
+      element.style.removeProperty("pointer-events");
+    });
+  };
+}
+
+function delayOrbLaunchMotion() {
+  const launcher = document.querySelector(ORB_LAUNCHER_SELECTOR);
+  const orbVisual = launcher?.querySelector?.(".clara-orb-asset-shell");
+  if (!orbVisual) return () => {};
+
+  // The copy exits first. Only after that clean frame may the Orb perform its
+  // launch animation. This prevents the tap from reading as one busy combined motion.
+  orbVisual.style.animationDelay = `${COPY_EXIT_LEAD_MS}ms`;
+
+  return () => {
+    orbVisual.style.removeProperty("animation-delay");
+  };
+}
+
+function animateOrbHomeExit({ hideCopy = true } = {}) {
+  const composition = document.querySelector(ORB_COMPOSITION_SELECTOR);
+  if (!composition) return () => {};
+
+  const launcher = composition.querySelector(ORB_LAUNCHER_SELECTOR);
+  const cleanupCopy = hideCopy ? hideOrbHomeCopyImmediately() : () => {};
+  const animations = [];
 
   if (launcher) {
     launcher.style.willChange = "transform, opacity";
@@ -61,6 +89,7 @@ function animateOrbHomeExit() {
       ],
       {
         duration: 135,
+        delay: COPY_EXIT_LEAD_MS,
         easing: "cubic-bezier(0.22, 1, 0.36, 1)",
         fill: "both",
       }
@@ -77,12 +106,7 @@ function animateOrbHomeExit() {
       }
     });
 
-    hiddenCopy.forEach((element) => {
-      element.style.removeProperty("opacity");
-      element.style.removeProperty("visibility");
-      element.style.removeProperty("pointer-events");
-    });
-
+    cleanupCopy();
     launcher?.style.removeProperty("will-change");
   };
 }
@@ -292,6 +316,8 @@ function installClaraOrbChatHandoff() {
   let pending = null;
   let cleanupAnimation = null;
   let cleanupHomeExit = null;
+  let cleanupTapLead = null;
+  let cleanupLaunchDelay = null;
   let homeRestoreTimer = 0;
   let clearPendingTimer = 0;
   let queued = false;
@@ -302,11 +328,19 @@ function installClaraOrbChatHandoff() {
     cleanupAnimation = null;
   };
 
+  const clearTapLead = () => {
+    cleanupTapLead?.();
+    cleanupTapLead = null;
+    cleanupLaunchDelay?.();
+    cleanupLaunchDelay = null;
+  };
+
   const clearHomeExit = () => {
     window.clearTimeout(homeRestoreTimer);
     homeRestoreTimer = 0;
     cleanupHomeExit?.();
     cleanupHomeExit = null;
+    clearTapLead();
   };
 
   const stopPendingObserver = () => {
@@ -341,7 +375,7 @@ function installClaraOrbChatHandoff() {
     if (!reducedMotion) {
       clearAnimation();
       cleanupAnimation = animateOrbToChat(overlay);
-      homeRestoreTimer = window.setTimeout(clearHomeExit, 320);
+      homeRestoreTimer = window.setTimeout(clearHomeExit, 390);
     } else {
       clearHomeExit();
     }
@@ -365,21 +399,36 @@ function installClaraOrbChatHandoff() {
     });
   };
 
+  const handleOrbClickCapture = (event) => {
+    const launcher = event.target?.closest?.(ORB_LAUNCHER_SELECTOR);
+    if (!launcher || launcher.disabled) return;
+    if (!launcher.closest?.(ORB_COMPOSITION_SELECTOR)) return;
+
+    // Capture runs before React's onClick. The supporting home copy is therefore
+    // removed before ClaraOrbPage flips `launching` and starts the Orb motion.
+    clearTapLead();
+    cleanupTapLead = hideOrbHomeCopyImmediately();
+    cleanupLaunchDelay = delayOrbLaunchMotion();
+  };
+
   const handlePauseOpenRequest = (event) => {
     const detail = event?.detail || {};
     if (detail?.[READY_FLAG] !== true) return;
     if (detail?.source !== "clara-orb-page") return;
 
-    const launcher = document.querySelector('[data-clara-orb-launcher="true"]');
+    const launcher = document.querySelector(ORB_LAUNCHER_SELECTOR);
     if (!launcher) return;
 
     const reducedMotion =
       typeof window.matchMedia === "function" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    clearHomeExit();
+    cleanupHomeExit?.();
+    cleanupHomeExit = null;
     if (!reducedMotion) {
-      cleanupHomeExit = animateOrbHomeExit();
+      // The click-capture phase already removed the copy. Keep it hidden and
+      // begin only the Orb-side exit motion here.
+      cleanupHomeExit = animateOrbHomeExit({ hideCopy: !cleanupTapLead });
     }
 
     pending = {
@@ -398,11 +447,13 @@ function installClaraOrbChatHandoff() {
     queueHandoff();
   };
 
+  document.addEventListener("click", handleOrbClickCapture, true);
   window.addEventListener(CLARA_PAUSE_OPEN_REQUEST_EVENT, handlePauseOpenRequest, true);
 
   window[RUNTIME_KEY] = {
     destroy() {
       stopPendingObserver();
+      document.removeEventListener("click", handleOrbClickCapture, true);
       window.removeEventListener(CLARA_PAUSE_OPEN_REQUEST_EVENT, handlePauseOpenRequest, true);
       window.clearTimeout(clearPendingTimer);
       clearAnimation();
