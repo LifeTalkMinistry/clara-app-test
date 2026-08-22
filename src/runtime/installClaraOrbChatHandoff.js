@@ -39,36 +39,21 @@ function animateOrbHomeExit() {
   const statusCopy = composition.querySelector(".clara-orb-status-copy");
   const launcher = composition.querySelector('[data-clara-orb-launcher="true"]');
   const idleCopy = composition.querySelector(".clara-orb-idle-copy");
-  const elements = [statusCopy, launcher, idleCopy].filter(Boolean);
+  const hiddenCopy = [statusCopy, idleCopy].filter(Boolean);
   const animations = [];
 
-  elements.forEach((element) => {
-    element.style.willChange = "transform, opacity";
+  // The copy must disappear on the same interaction frame as the Orb tap.
+  // Do not fade these elements: even a 100ms fade leaves a visible ghost frame
+  // behind the moving Orb on slower Android/PWA rendering paths.
+  hiddenCopy.forEach((element) => {
+    element.style.opacity = "0";
+    element.style.visibility = "hidden";
+    element.style.pointerEvents = "none";
   });
 
-  const remember = (animation) => {
-    if (animation) animations.push(animation);
-  };
-
-  // Exit the Orb/home state immediately when the handoff begins so the old
-  // greeting, Orb, tagline, and Means Score never sit behind the incoming chat.
-  remember(
-    safeAnimate(
-      statusCopy,
-      [
-        { transform: "translateY(0px)", opacity: 1 },
-        { transform: "translateY(-4px)", opacity: 0 },
-      ],
-      {
-        duration: 105,
-        easing: "ease-out",
-        fill: "both",
-      }
-    )
-  );
-
-  remember(
-    safeAnimate(
+  if (launcher) {
+    launcher.style.willChange = "transform, opacity";
+    const animation = safeAnimate(
       launcher,
       [
         { transform: "scale(1)", opacity: 1 },
@@ -79,23 +64,9 @@ function animateOrbHomeExit() {
         easing: "cubic-bezier(0.22, 1, 0.36, 1)",
         fill: "both",
       }
-    )
-  );
-
-  remember(
-    safeAnimate(
-      idleCopy,
-      [
-        { transform: "translateY(0px)", opacity: 1 },
-        { transform: "translateY(4px)", opacity: 0 },
-      ],
-      {
-        duration: 115,
-        easing: "ease-out",
-        fill: "both",
-      }
-    )
-  );
+    );
+    if (animation) animations.push(animation);
+  }
 
   return () => {
     animations.forEach((animation) => {
@@ -105,9 +76,14 @@ function animateOrbHomeExit() {
         // Ignore cleanup failures from detached nodes.
       }
     });
-    elements.forEach((element) => {
-      element.style.removeProperty("will-change");
+
+    hiddenCopy.forEach((element) => {
+      element.style.removeProperty("opacity");
+      element.style.removeProperty("visibility");
+      element.style.removeProperty("pointer-events");
     });
+
+    launcher?.style.removeProperty("will-change");
   };
 }
 
