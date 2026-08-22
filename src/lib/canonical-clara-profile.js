@@ -11,8 +11,31 @@ export function resolveCanonicalFirstName(profile) {
   return displayName.split(/\s+/)[0] || "";
 }
 
+function getLocalFinanceIdentity() {
+  return String(getActiveLocalVaultId() || "").trim();
+}
+
+function createLocalProfileFallback() {
+  const localVaultId = getLocalFinanceIdentity();
+
+  // Display/account identity may be unavailable while CLARA's finance vault is
+  // still fully usable on this device. Returning a finance-only compatibility
+  // profile lets local financial readers keep working without pretending that
+  // the user has an authenticated Community/account profile.
+  return {
+    display_name: "",
+    account_id: null,
+    backend_profile_id: null,
+    id: localVaultId || "local-user",
+    local_vault_id: localVaultId || null,
+    finance_identity_only: true,
+  };
+}
+
 function bindCanonicalProfileToActiveLocalVault(profile) {
-  if (!profile || typeof profile !== "object" || Array.isArray(profile)) return profile;
+  if (!profile || typeof profile !== "object" || Array.isArray(profile)) {
+    return createLocalProfileFallback();
+  }
 
   const backendProfileId =
     profile.account_id ||
@@ -26,9 +49,10 @@ function bindCanonicalProfileToActiveLocalVault(profile) {
     ...profile,
     account_id: profile.account_id || backendProfileId,
     backend_profile_id: profile.backend_profile_id || backendProfileId,
+    finance_identity_only: false,
   };
 
-  const resolveActiveVaultId = () => String(getActiveLocalVaultId() || "").trim();
+  const resolveActiveVaultId = () => getLocalFinanceIdentity();
 
   // The canonical Community profile owns display identity, but local finance
   // records are owned by the active device vault. The Orb historically reads
@@ -54,9 +78,18 @@ function bindCanonicalProfileToActiveLocalVault(profile) {
 }
 
 export async function fetchCanonicalClaraProfile({ token = getStoredBackendToken() } = {}) {
-  if (!token) return null;
-  const profile = await backendRequest("/api/community/profile/me", { token });
-  return bindCanonicalProfileToActiveLocalVault(profile);
+  // Local finance must never depend on the account server being reachable.
+  // The Orb uses this compatibility profile to resolve its local vault owner,
+  // while authenticated Community/display identity remains backend-owned.
+  if (!token) return createLocalProfileFallback();
+
+  try {
+    const profile = await backendRequest("/api/community/profile/me", { token });
+    return bindCanonicalProfileToActiveLocalVault(profile);
+  } catch (error) {
+    console.warn("CLARA account profile unavailable; continuing with local finance identity.", error);
+    return createLocalProfileFallback();
+  }
 }
 
 export async function updateCanonicalClaraDisplayName(displayName, { token = getStoredBackendToken() } = {}) {
