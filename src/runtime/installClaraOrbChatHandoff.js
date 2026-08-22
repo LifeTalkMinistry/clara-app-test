@@ -5,6 +5,8 @@ const READY_FLAG = "claraOrbTransitionReady";
 const MAX_HANDOFF_AGE_MS = 2200;
 const OVERLAY_SELECTOR =
   '[data-clara-pause-overlay="true"][data-clara-buy-check-react-owner="true"]';
+const ORB_COMPOSITION_SELECTOR =
+  '.clara-community-root[data-community-view="orb"] [data-clara-orb-composition="true"]';
 
 function safeAnimate(element, keyframes, options) {
   if (!element || typeof element.animate !== "function") return null;
@@ -27,6 +29,85 @@ function rectSnapshot(rect) {
     bottom: rect.bottom,
     centerX: rect.left + rect.width / 2,
     centerY: rect.top + rect.height / 2,
+  };
+}
+
+function animateOrbHomeExit() {
+  const composition = document.querySelector(ORB_COMPOSITION_SELECTOR);
+  if (!composition) return () => {};
+
+  const statusCopy = composition.querySelector(".clara-orb-status-copy");
+  const launcher = composition.querySelector('[data-clara-orb-launcher="true"]');
+  const idleCopy = composition.querySelector(".clara-orb-idle-copy");
+  const elements = [statusCopy, launcher, idleCopy].filter(Boolean);
+  const animations = [];
+
+  elements.forEach((element) => {
+    element.style.willChange = "transform, opacity";
+  });
+
+  const remember = (animation) => {
+    if (animation) animations.push(animation);
+  };
+
+  // Exit the Orb/home state immediately when the handoff begins so the old
+  // greeting, Orb, tagline, and Means Score never sit behind the incoming chat.
+  remember(
+    safeAnimate(
+      statusCopy,
+      [
+        { transform: "translateY(0px)", opacity: 1 },
+        { transform: "translateY(-4px)", opacity: 0 },
+      ],
+      {
+        duration: 105,
+        easing: "ease-out",
+        fill: "both",
+      }
+    )
+  );
+
+  remember(
+    safeAnimate(
+      launcher,
+      [
+        { transform: "scale(1)", opacity: 1 },
+        { transform: "scale(0.985)", opacity: 0 },
+      ],
+      {
+        duration: 135,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        fill: "both",
+      }
+    )
+  );
+
+  remember(
+    safeAnimate(
+      idleCopy,
+      [
+        { transform: "translateY(0px)", opacity: 1 },
+        { transform: "translateY(4px)", opacity: 0 },
+      ],
+      {
+        duration: 115,
+        easing: "ease-out",
+        fill: "both",
+      }
+    )
+  );
+
+  return () => {
+    animations.forEach((animation) => {
+      try {
+        animation.cancel();
+      } catch {
+        // Ignore cleanup failures from detached nodes.
+      }
+    });
+    elements.forEach((element) => {
+      element.style.removeProperty("will-change");
+    });
   };
 }
 
@@ -237,6 +318,7 @@ function installClaraOrbChatHandoff() {
 
   let pending = null;
   let cleanupAnimation = null;
+  let cleanupHomeExit = null;
   let clearPendingTimer = 0;
   let queued = false;
   let pendingObserver = null;
@@ -244,6 +326,11 @@ function installClaraOrbChatHandoff() {
   const clearAnimation = () => {
     cleanupAnimation?.();
     cleanupAnimation = null;
+  };
+
+  const clearHomeExit = () => {
+    cleanupHomeExit?.();
+    cleanupHomeExit = null;
   };
 
   const stopPendingObserver = () => {
@@ -263,6 +350,7 @@ function installClaraOrbChatHandoff() {
     if (!pending) return;
 
     if (Date.now() - pending.capturedAt > MAX_HANDOFF_AGE_MS) {
+      clearHomeExit();
       clearPending();
       return;
     }
@@ -277,6 +365,8 @@ function installClaraOrbChatHandoff() {
     if (!reducedMotion) {
       clearAnimation();
       cleanupAnimation = animateOrbToChat(overlay);
+    } else {
+      clearHomeExit();
     }
 
     clearPending();
@@ -306,6 +396,15 @@ function installClaraOrbChatHandoff() {
     const launcher = document.querySelector('[data-clara-orb-launcher="true"]');
     if (!launcher) return;
 
+    const reducedMotion =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    clearHomeExit();
+    if (!reducedMotion) {
+      cleanupHomeExit = animateOrbHomeExit();
+    }
+
     pending = {
       requestId: detail.requestId || "",
       capturedAt: Date.now(),
@@ -313,7 +412,10 @@ function installClaraOrbChatHandoff() {
     };
 
     window.clearTimeout(clearPendingTimer);
-    clearPendingTimer = window.setTimeout(clearPending, MAX_HANDOFF_AGE_MS + 120);
+    clearPendingTimer = window.setTimeout(() => {
+      clearHomeExit();
+      clearPending();
+    }, MAX_HANDOFF_AGE_MS + 120);
 
     // Observe React only during the brief handoff window. The previous permanent
     // whole-document observer woke up on every chat render even long after the
@@ -330,6 +432,7 @@ function installClaraOrbChatHandoff() {
       window.removeEventListener(CLARA_PAUSE_OPEN_REQUEST_EVENT, handlePauseOpenRequest, true);
       window.clearTimeout(clearPendingTimer);
       clearAnimation();
+      clearHomeExit();
       pending = null;
       window[RUNTIME_KEY] = null;
     },
