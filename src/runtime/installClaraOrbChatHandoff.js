@@ -16,10 +16,6 @@ function safeAnimate(element, keyframes, options) {
   }
 }
 
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
-}
-
 function rectSnapshot(rect) {
   if (!rect) return null;
   return {
@@ -34,16 +30,8 @@ function rectSnapshot(rect) {
   };
 }
 
-function maximumRevealRadius(centerX, centerY) {
-  const width = Math.max(window.innerWidth || 0, document.documentElement?.clientWidth || 0);
-  const height = Math.max(window.innerHeight || 0, document.documentElement?.clientHeight || 0);
-  const farX = Math.max(centerX, Math.max(0, width - centerX));
-  const farY = Math.max(centerY, Math.max(0, height - centerY));
-  return Math.hypot(farX, farY) + 48;
-}
-
-function animateOrbToChat(overlay, origin) {
-  if (!overlay || !origin) return () => {};
+function animateOrbToChat(overlay) {
+  if (!overlay) return () => {};
   if (overlay.dataset.claraOrbChatHandoffPlayed === "true") return () => {};
 
   overlay.dataset.claraOrbChatHandoffPlayed = "true";
@@ -76,113 +64,58 @@ function animateOrbToChat(overlay, origin) {
     if (animation) animations.push(animation);
   };
 
-  // Keep the same choreography, but only pre-promote properties the compositor
-  // can handle cheaply on Android. Full-screen filter animation was causing the
-  // WebView to repaint almost the entire screen on every frame.
-  overlay.style.willChange = "clip-path, opacity";
-  if (board) board.style.willChange = "transform, opacity, border-radius";
-  [form, closeButton, buyCheckLabel, acknowledgmentPanel, acknowledgmentCopy, activeQuestion]
+  // Keep this handoff deliberately restrained. The Orb is the visual anchor;
+  // the destination should simply settle into place instead of expanding from
+  // the Orb as a giant circular wipe.
+  overlay.style.willChange = "opacity";
+  [board, form, closeButton, buyCheckLabel, acknowledgmentPanel, acknowledgmentCopy, activeQuestion]
     .filter(Boolean)
     .forEach((element) => {
       element.style.willChange = "transform, opacity";
     });
 
-  const centerX = clamp(origin.centerX, 0, window.innerWidth || origin.centerX);
-  const centerY = clamp(origin.centerY, 0, window.innerHeight || origin.centerY);
-  const startRadius = Math.max(34, Math.min(origin.width, origin.height) * 0.34);
-  const endRadius = maximumRevealRadius(centerX, centerY);
-
-  // Continue the Orb's expanding glow into the actual full-screen CLARA surface.
-  // The geometry and timing are unchanged; brightness/saturation animation is
-  // intentionally omitted because it forces expensive full-screen repaints.
   remember(
     safeAnimate(
       overlay,
       [
-        {
-          clipPath: `circle(${startRadius}px at ${centerX}px ${centerY}px)`,
-          opacity: 0.76,
-          offset: 0,
-        },
-        {
-          clipPath: `circle(${Math.max(startRadius * 1.72, 132)}px at ${centerX}px ${centerY}px)`,
-          opacity: 0.94,
-          offset: 0.25,
-        },
-        {
-          clipPath: `circle(${endRadius}px at ${centerX}px ${centerY}px)`,
-          opacity: 1,
-          offset: 1,
-        },
+        { opacity: 0 },
+        { opacity: 1 },
       ],
       {
-        duration: 590,
-        easing: "cubic-bezier(0.16, 0.82, 0.22, 1)",
+        duration: 260,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
         fill: "both",
       }
     )
   );
 
-  if (board) {
-    const boardRect = board.getBoundingClientRect();
-    const boardCenterX = boardRect.left + boardRect.width / 2;
-    const boardCenterY = boardRect.top + boardRect.height / 2;
-    const translateX = centerX - boardCenterX;
-    const translateY = centerY - boardCenterY;
-    const uniformScale = clamp(
-      Math.min(
-        origin.width / Math.max(boardRect.width, 1),
-        origin.height / Math.max(boardRect.height, 1)
-      ),
-      0.62,
-      0.94
-    );
-
-    board.style.transformOrigin = "center center";
-
-    remember(
-      safeAnimate(
-        board,
-        [
-          {
-            transform: `translate(${translateX}px, ${translateY}px) scale(${uniformScale})`,
-            borderRadius: "999px",
-            opacity: 0.08,
-            offset: 0,
-          },
-          {
-            transform: `translate(${translateX * 0.34}px, ${translateY * 0.34}px) scale(0.985)`,
-            borderRadius: "52px",
-            opacity: 0.88,
-            offset: 0.58,
-          },
-          {
-            transform: "translate(0px, 0px) scale(1)",
-            borderRadius: "30px",
-            opacity: 1,
-            offset: 1,
-          },
-        ],
-        {
-          duration: 610,
-          easing: "cubic-bezier(0.18, 0.86, 0.22, 1)",
-          fill: "both",
-        }
-      )
-    );
-  }
+  remember(
+    safeAnimate(
+      board,
+      [
+        { transform: "translateY(14px) scale(0.992)", opacity: 0 },
+        { transform: "translateY(0px) scale(1)", opacity: 1 },
+      ],
+      {
+        duration: 320,
+        delay: 35,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        fill: "both",
+      }
+    )
+  );
 
   remember(
     safeAnimate(
       buyCheckLabel,
       [
-        { transform: "translateY(5px)", opacity: 0, letterSpacing: "0.30em" },
-        { transform: "translateY(0px)", opacity: 1, letterSpacing: "0.22em" },
+        { transform: "translateY(4px)", opacity: 0 },
+        { transform: "translateY(0px)", opacity: 1 },
       ],
       {
-        duration: 260,
-        delay: 150,
-        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        duration: 220,
+        delay: 95,
+        easing: "ease-out",
         fill: "both",
       }
     )
@@ -192,12 +125,12 @@ function animateOrbToChat(overlay, origin) {
     safeAnimate(
       acknowledgmentPanel,
       [
-        { transform: "translateY(13px) scale(0.965)", opacity: 0 },
-        { transform: "translateY(0px) scale(1)", opacity: 1 },
+        { transform: "translateY(8px)", opacity: 0 },
+        { transform: "translateY(0px)", opacity: 1 },
       ],
       {
-        duration: 340,
-        delay: 205,
+        duration: 250,
+        delay: 125,
         easing: "cubic-bezier(0.22, 1, 0.36, 1)",
         fill: "both",
       }
@@ -208,12 +141,12 @@ function animateOrbToChat(overlay, origin) {
     safeAnimate(
       acknowledgmentCopy,
       [
-        { transform: "translateY(4px)", opacity: 0 },
+        { transform: "translateY(3px)", opacity: 0 },
         { transform: "translateY(0px)", opacity: 1 },
       ],
       {
-        duration: 300,
-        delay: 255,
+        duration: 220,
+        delay: 155,
         easing: "ease-out",
         fill: "both",
       }
@@ -224,12 +157,12 @@ function animateOrbToChat(overlay, origin) {
     safeAnimate(
       activeQuestion,
       [
-        { transform: "translateY(11px)", opacity: 0 },
+        { transform: "translateY(7px)", opacity: 0 },
         { transform: "translateY(0px)", opacity: 1 },
       ],
       {
-        duration: 350,
-        delay: 315,
+        duration: 250,
+        delay: 175,
         easing: "cubic-bezier(0.22, 1, 0.36, 1)",
         fill: "both",
       }
@@ -240,14 +173,13 @@ function animateOrbToChat(overlay, origin) {
     safeAnimate(
       form,
       [
-        { transform: "translateY(38px) scale(0.972)", opacity: 0 },
-        { transform: "translateY(-2px) scale(1.004)", opacity: 1, offset: 0.78 },
-        { transform: "translateY(0px) scale(1)", opacity: 1, offset: 1 },
+        { transform: "translateY(16px)", opacity: 0 },
+        { transform: "translateY(0px)", opacity: 1 },
       ],
       {
-        duration: 430,
-        delay: 330,
-        easing: "cubic-bezier(0.18, 0.86, 0.22, 1)",
+        duration: 280,
+        delay: 190,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
         fill: "both",
       }
     )
@@ -257,14 +189,13 @@ function animateOrbToChat(overlay, origin) {
     safeAnimate(
       closeButton,
       [
-        { transform: "scale(0.48) rotate(-20deg)", opacity: 0 },
-        { transform: "scale(1.06) rotate(2deg)", opacity: 1, offset: 0.74 },
-        { transform: "scale(1) rotate(0deg)", opacity: 1, offset: 1 },
+        { transform: "scale(0.92)", opacity: 0 },
+        { transform: "scale(1)", opacity: 1 },
       ],
       {
-        duration: 330,
-        delay: 405,
-        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        duration: 210,
+        delay: 115,
+        easing: "ease-out",
         fill: "both",
       }
     )
@@ -281,9 +212,8 @@ function animateOrbToChat(overlay, origin) {
 
     touched.forEach((element) => {
       element.style.removeProperty("will-change");
-      element.style.removeProperty("transform-origin");
     });
-  }, 1050);
+  }, 720);
 
   return () => {
     window.clearTimeout(cleanupTimer);
@@ -296,7 +226,6 @@ function animateOrbToChat(overlay, origin) {
     });
     touched.forEach((element) => {
       element.style.removeProperty("will-change");
-      element.style.removeProperty("transform-origin");
     });
   };
 }
@@ -347,7 +276,7 @@ function installClaraOrbChatHandoff() {
 
     if (!reducedMotion) {
       clearAnimation();
-      cleanupAnimation = animateOrbToChat(overlay, pending.origin);
+      cleanupAnimation = animateOrbToChat(overlay);
     }
 
     clearPending();
