@@ -153,16 +153,120 @@ function getOwnerIdentity(profile = {}) {
   );
 }
 
+function stableIncomeMinimum(source = {}) {
+  return Math.max(
+    0,
+    firstValidNumber(
+      source?.minimumStableIncome,
+      source?.minimum_stable_income,
+      source?.minimumExpectedIncome,
+      source?.minimum_expected_income,
+      source?.expectedAmount,
+      source?.expected_amount,
+      source?.recurringAmount,
+      source?.recurring_amount,
+      source?.monthlyAmount,
+      source?.monthly_amount
+    )
+  );
+}
+
+function stableIncomeRecurrence(source = {}) {
+  return source?.incomeRecurrence || source?.income_recurrence || null;
+}
+
+function parseMonthKey(monthKey) {
+  const match = String(monthKey || "").match(/^(\d{4})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1;
+  if (!Number.isInteger(year) || monthIndex < 0 || monthIndex > 11) return null;
+  return { year, monthIndex };
+}
+
+function countWeekdayInMonth(year, monthIndex, dayOfWeek) {
+  if (!Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) return 0;
+  const end = new Date(year, monthIndex + 1, 0).getDate();
+  let count = 0;
+  for (let day = 1; day <= end; day += 1) {
+    if (new Date(year, monthIndex, day).getDay() === dayOfWeek) count += 1;
+  }
+  return count;
+}
+
+function countBiweeklyInMonth(year, monthIndex, startDate) {
+  const anchor = new Date(`${String(startDate || "").slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(anchor.getTime())) return 0;
+
+  const monthStart = new Date(year, monthIndex, 1);
+  const monthEnd = new Date(year, monthIndex + 1, 0);
+  const stepMs = 14 * 24 * 60 * 60 * 1000;
+  let cursor = new Date(anchor);
+
+  while (cursor > monthStart) cursor = new Date(cursor.getTime() - stepMs);
+  while (cursor < monthStart) cursor = new Date(cursor.getTime() + stepMs);
+
+  let count = 0;
+  while (cursor <= monthEnd) {
+    count += 1;
+    cursor = new Date(cursor.getTime() + stepMs);
+  }
+  return count;
+}
+
+function projectedStableIncomeForMonth(source, currentMonthKey) {
+  if (normalizeLower(source?.stability) !== "stable") return 0;
+
+  const minimum = stableIncomeMinimum(source);
+  const recurrence = stableIncomeRecurrence(source);
+  const month = parseMonthKey(currentMonthKey);
+  if (!(minimum > 0) || !recurrence || !month) return 0;
+
+  const type = normalizeLower(recurrence?.type || recurrence?.recurrence || recurrence?.frequency);
+  const daysInMonth = new Date(month.year, month.monthIndex + 1, 0).getDate();
+  let paydays = 0;
+
+  if (type === "weekly") {
+    paydays = countWeekdayInMonth(
+      month.year,
+      month.monthIndex,
+      Number(recurrence?.dayOfWeek ?? recurrence?.day_of_week)
+    );
+  } else if (type === "biweekly") {
+    paydays = countBiweeklyInMonth(
+      month.year,
+      month.monthIndex,
+      recurrence?.startDate || recurrence?.start_date
+    );
+  } else if (type === "twice_monthly") {
+    const days = Array.isArray(recurrence?.days) ? recurrence.days : [];
+    paydays = [...new Set(days.map(Number))].filter(
+      (day) => Number.isInteger(day) && day >= 1 && day <= daysInMonth
+    ).length;
+  } else if (type === "monthly") {
+    paydays = 1;
+  }
+
+  return minimum * paydays;
+}
+
 function currentMonthIncomeFromSources(incomeSources, currentMonthKey) {
   return (Array.isArray(incomeSources) ? incomeSources : []).reduce((sourceSum, source) => {
-    const sourceIncome = getIncomeSourceActivityLog(source).reduce((activitySum, activity) => {
+    const actualIncome = getIncomeSourceActivityLog(source).reduce((activitySum, activity) => {
       if (normalizeLower(activity?.type) !== INCOME_HUB_CASH_IN_TYPE) return activitySum;
       const date = getTransactionDate(activity);
       if (!date || getPHMonthKey(date) !== currentMonthKey) return activitySum;
       return activitySum + Math.max(0, firstValidNumber(activity?.amount));
     }, 0);
 
-    return sourceSum + sourceIncome;
+    const reliableExpectedIncome = projectedStableIncomeForMonth(source, currentMonthKey);
+
+    // Means Score is a monthly living-within-your-means projection. Stable
+    // Income Hub sources already define the user's reliable minimum and payday
+    // cadence, so the score can use that monthly floor before every payday has
+    // actually arrived. Actual received income remains authoritative whenever
+    // it exceeds the configured reliable minimum.
+    return sourceSum + Math.max(actualIncome, reliableExpectedIncome);
   }, 0);
 }
 
