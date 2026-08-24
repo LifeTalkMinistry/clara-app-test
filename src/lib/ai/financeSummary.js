@@ -1,3 +1,9 @@
+import {
+  buildCanonicalWalletState,
+  getWalletCurrentBalance,
+  isMoneyLentWallet,
+} from "../clara-wallet-money-semantics.js";
+
 export function toNumber(value) {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   if (typeof value === "string") {
@@ -32,7 +38,17 @@ export function buildFinanceSummary({
   budgets = [],
   walletTransactions = [],
   totalWalletBalance = 0,
+  emergencyFund = null,
+  savingsGoals = [],
 }) {
+  const canonicalWalletState = buildCanonicalWalletState({
+    wallets,
+    emergencyFund,
+    savingsGoals,
+  });
+  const canonicalWallets = canonicalWalletState.wallets;
+  const walletTotals = canonicalWalletState.walletTotals;
+
   const sortedExpenses = [...expenses].sort(
     (a, b) => getExpenseDate(b).getTime() - getExpenseDate(a).getTime()
   );
@@ -58,14 +74,17 @@ export function buildFinanceSummary({
       }
     : null;
 
-  const walletCount = wallets.length;
+  const walletCount = canonicalWallets.length;
   const budgetCount = budgets.length;
   const expenseCount = expenses.length;
   const transactionCount = walletTransactions.length;
 
   return {
     totals: {
-      walletBalance: toNumber(totalWalletBalance),
+      walletBalance: walletTotals.spendableBalance,
+      availableWalletBalance: walletTotals.spendableBalance,
+      ownedWalletBalance: walletTotals.currentBalance,
+      moneyLentUnavailable: walletTotals.moneyLentUnavailableAmount || 0,
       walletCount,
       budgetCount,
       expenseCount,
@@ -89,16 +108,13 @@ export function buildFinanceSummary({
       date: expense.date || expense.created_at || null,
       wallet_id: expense.wallet_id || null,
     })),
-    wallets: wallets.map((wallet) => ({
+    wallets: canonicalWallets.map((wallet) => ({
       id: wallet.id,
       name: wallet.name || wallet.wallet_name || wallet.title || "Wallet",
-      balance: toNumber(
-        wallet.balance ??
-          wallet.derived_balance ??
-          wallet.current_balance ??
-          wallet.wallet_balance ??
-          0
-      ),
+      balance: getWalletCurrentBalance(wallet),
+      spendableBalance: toNumber(wallet.spendableBalance ?? wallet.spendable_balance ?? 0),
+      unavailableBalance: toNumber(wallet.unavailableAmount ?? wallet.unavailable_amount ?? 0),
+      isMoneyLent: isMoneyLentWallet(wallet),
     })),
     budgets: budgets.map((budget) => ({
       id: budget.id,
