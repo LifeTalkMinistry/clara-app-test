@@ -31,6 +31,33 @@ function toWalletNumber(...values) {
   return 0;
 }
 
+function normalizeWalletType(wallet = {}) {
+  return String(wallet?.type || wallet?.wallet_type || wallet?.walletType || '')
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, '_');
+}
+
+function isMoneyLentWallet(wallet = {}) {
+  return ['money_lent', 'lent', 'receivable'].includes(normalizeWalletType(wallet));
+}
+
+function formatPromisedPaymentDate(wallet = {}) {
+  const raw = String(
+    wallet?.promised_payment_date || wallet?.promisedPaymentDate || ''
+  ).trim();
+  if (!raw) return 'No promised date';
+
+  const parsed = new Date(`${raw}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return raw;
+
+  return parsed.toLocaleDateString('en-PH', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
 function stopWalletGesture(event) {
   event?.stopPropagation?.();
   event?.nativeEvent?.stopImmediatePropagation?.();
@@ -110,6 +137,8 @@ export default function WalletListItem({
     balanceShare: wallet?.balanceShare ?? wallet?.balance_share,
     totalWalletBalance: wallet?.totalWalletBalance ?? wallet?.total_wallet_balance,
   });
+  const moneyLent = isMoneyLentWallet(wallet);
+  const promisedPaymentDate = formatPromisedPaymentDate(wallet);
   const isNegative = walletBalance < 0;
   const emergencyProtectedAmount = toWalletNumber(
     wallet?.emergencyProtectedAmount,
@@ -281,7 +310,7 @@ export default function WalletListItem({
             {fmt(walletBalance)}
           </p>
           <p className={`mt-1.5 text-[9px] font-black uppercase tracking-[0.16em] ${isNegative ? 'text-rose-200/82' : 'text-white/38'}`}>
-            {isNegative ? 'Negative balance' : 'Current balance'}
+            {moneyLent ? 'Money lent' : isNegative ? 'Negative balance' : 'Current balance'}
           </p>
         </div>
 
@@ -309,7 +338,14 @@ export default function WalletListItem({
 
       {actionMenu}
 
-      {hasProtectedAllocation ? (
+      {moneyLent ? (
+        <div className='relative mt-3 rounded-2xl border border-white/[0.055] bg-black/[0.18] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]'>
+          <div className='flex items-center justify-between gap-3'>
+            <span className='text-[10px] font-black uppercase tracking-[0.14em] text-white/42'>Promised payment</span>
+            <span className='shrink-0 text-[11px] font-black text-cyan-100'>{promisedPaymentDate}</span>
+          </div>
+        </div>
+      ) : hasProtectedAllocation ? (
         <div className='relative mt-3 space-y-2.5 rounded-2xl border border-white/[0.055] bg-black/[0.18] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]'>
           {emergencyProtectedAmount > 0 ? (
             <ProtectedRow title='Emergency Fund protected' amount={emergencyProtectedAmount} />
