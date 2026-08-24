@@ -8,6 +8,7 @@ import ClaraWalletOverlay from "./ClaraWalletOverlayV2.jsx";
 import ClaraMoneyScheduleOverlay from "./ClaraMoneyScheduleOverlay.jsx";
 import ClaraCalendarOverlay from "./ClaraCalendarOverlay.jsx";
 import ClaraEmergencyFundOverlay from "./ClaraEmergencyFundOverlay.jsx";
+import ClaraSavingsGoalOverlay from "./ClaraSavingsGoalOverlay.jsx";
 import ClaraBuyCheckImpactPortal from "./ClaraBuyCheckImpactPortal.jsx";
 import ClaraBuyCheckUsagePortal from "./ClaraBuyCheckUsagePortal.jsx";
 import ClaraLifeProfilePortal from "./ClaraLifeProfilePortal.jsx";
@@ -25,6 +26,7 @@ const ORB_ENTRY_MODES = new Set([
   "calendar",
   "money-schedule",
   "emergency-fund",
+  "savings-goal",
 ]);
 
 function restoreReadyStateWhenWeeklyCheckWasNotStarted(user) {
@@ -81,6 +83,7 @@ export default function ClaraAiEnvironmentOverlay(props) {
   const calendarMode = !guidePreview && entryMode === "calendar";
   const moneyScheduleMode = !guidePreview && entryMode === "money-schedule";
   const emergencyFundMode = !guidePreview && entryMode === "emergency-fund";
+  const savingsGoalMode = !guidePreview && entryMode === "savings-goal";
   const weeklyAutoOpenRef = useRef(false);
   const lifeContext = useClaraBuyCheckLifeContext(props?.claraAssistantContext?.user);
   const enrichedAssistantContext = useMemo(
@@ -384,6 +387,21 @@ export default function ClaraAiEnvironmentOverlay(props) {
         resumeState={emergencyFundResume}
         onOpenWalletChat={openWalletChat}
         onClose={closeEmergencyFund}
+      />
+    );
+  }
+
+  if (savingsGoalMode) {
+    const closeSavingsGoal = () => {
+      setEntryMode(null);
+      props?.onClose?.();
+    };
+
+    return (
+      <ClaraSavingsGoalOverlay
+        {...props}
+        claraAssistantContext={enrichedAssistantContext}
+        onClose={closeSavingsGoal}
       />
     );
   }
