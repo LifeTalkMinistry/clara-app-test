@@ -1,0 +1,63 @@
+name: One-shot Means Score future-payday boundary
+
+on:
+  push:
+    paths:
+      - ".github/workflows/one-shot-means-future-payday-boundary.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Fix active-payday horizon boundary
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("src/runtime/installClaraOrbGreeting.js")
+          text = path.read_text()
+
+          old = '''    const next = occurrences.find((date) => date >= today);\n'''
+          new = '''    // All future commitment buckets exclude today itself, so the horizon must\n    // also be the next payday strictly after today. Otherwise, on payday,\n    // the horizon collapses to today and Money Schedule, Savings Goals, and\n    // Debt / Obligations due after today all incorrectly disappear.\n    const next = occurrences.find((date) => date > today);\n'''
+
+          if old not in text:
+              raise SystemExit("Means payday boundary not found; refusing blind patch.")
+
+          text = text.replace(old, new, 1)
+          path.write_text(text)
+
+      - name: Verify shared future-money horizon
+        shell: python
+        run: |
+          from pathlib import Path
+          text = Path("src/runtime/installClaraOrbGreeting.js").read_text()
+
+          assert 'const next = occurrences.find((date) => date > today);' in text
+          assert 'futureRoutineAmount(owner, horizonDate)' in text
+          assert 'futureScheduledAmount(owner, horizonDate)' in text
+          assert 'futureSavingsGoalAmount(savingsGoals, horizonDate)' in text
+          assert 'futureDebtObligationAmount(debtObligations, horizonDate)' in text
+          assert 'date <= today || date > horizonEnd' in text
+          assert 'savingsGoalProjection ||' in text
+          assert 'debtProjection' in text
+
+      - name: Commit fix to main
+        run: |
+          if git diff --quiet -- src/runtime/installClaraOrbGreeting.js; then
+            echo "No source change required."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/runtime/installClaraOrbGreeting.js
+          git commit -m "Advance Means horizon past current payday"
+          git push origin HEAD:main
