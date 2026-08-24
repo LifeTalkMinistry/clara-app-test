@@ -666,10 +666,27 @@ function ensureMeansMetric(label, snapshot, onToggle) {
       </span>` : ""}
       ${snapshot.moneyLentUnavailable > 0 ? `<span style="display:flex;justify-content:space-between;gap:16px;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.05);font-size:9.5px;color:rgba(255,255,255,.30)"><span>Money lent · not available</span><strong style="color:rgba(255,255,255,.50)">${money(snapshot.moneyLentUnavailable)}</strong></span>` : ""}
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.07);font-size:10px;color:rgba(255,255,255,.48)"><span>Room until next payday</span><strong style="color:${snapshot.projectedRoom >= 0 ? "#67e8c8" : "#ff7f8d"}">${snapshot.projectedRoom >= 0 ? "" : "−"}${money(Math.abs(snapshot.projectedRoom))}</strong></span>
-      <span style="display:block;margin-top:8px;font-size:8.5px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30);text-align:center">This score uses only your money in hand — wallet money that is not protected for Emergency Fund or Savings Goals and is not lent out — and checks whether it can carry you through ${formatHorizonDate(snapshot.horizonDate)}, your next stable payday. Future salary is not treated as available before it arrives.</span>
-      <span style="display:block;margin-top:4px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">100 = living within your means</span>
+      <span style="display:flex;align-items:center;justify-content:center;gap:5px;margin-top:7px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">
+        <span>100 = living within your means</span>
+        <button type="button" data-clara-means-info-toggle="true" aria-label="How the Means Score is calculated" aria-expanded="false" style="display:inline-grid;place-items:center;width:15px;height:15px;padding:0;border:1px solid rgba(255,255,255,.13);border-radius:999px;background:rgba(255,255,255,.025);color:rgba(255,255,255,.36);font-size:9px;font-weight:800;line-height:1;cursor:pointer;-webkit-tap-highlight-color:transparent">i</button>
+      </span>
+      <span data-clara-means-info-copy="true" style="display:none;margin-top:7px;padding:7px 8px;border:1px solid rgba(255,255,255,.05);border-radius:9px;background:rgba(255,255,255,.018);font-size:8.5px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30);text-align:center">This score uses only your money in hand — wallet money that is not protected for Emergency Fund or Savings Goals and is not lent out — and checks whether it can carry you through ${formatHorizonDate(snapshot.horizonDate)}, your next stable payday. Future salary is not treated as available before it arrives.</span>
     </span>
   `;
+
+  const infoToggle = root.querySelector?.('[data-clara-means-info-toggle="true"]');
+  if (infoToggle && infoToggle.dataset.claraMeansInfoBound !== "true") {
+    infoToggle.dataset.claraMeansInfoBound = "true";
+    infoToggle.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const infoCopy = root.querySelector?.('[data-clara-means-info-copy="true"]');
+      if (!infoCopy) return;
+      const nextOpen = infoToggle.getAttribute("aria-expanded") !== "true";
+      infoToggle.setAttribute("aria-expanded", nextOpen ? "true" : "false");
+      infoCopy.style.display = nextOpen ? "block" : "none";
+    });
+  }
 
   return root;
 }
