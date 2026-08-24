@@ -5,6 +5,9 @@ import {
   sortByNewestDate,
 } from "@/utils/dashboard/dashboardHelpers";
 import { buildClaraLifeStageAiContext } from "@/lib/clara-life-stage-ai-context";
+import {
+  buildCanonicalWalletState,
+} from "@/lib/clara-wallet-money-semantics";
 
 const safeArray = (value) => (Array.isArray(value) ? value : []);
 const safeObject = (value) =>
@@ -57,16 +60,6 @@ const getExpenseCategory = (expense) =>
       expense?.type ||
       "Uncategorized"
   ).trim() || "Uncategorized";
-
-const getWalletBalance = (wallet) =>
-  readNumber(
-    wallet?.derived_balance,
-    wallet?.balance,
-    wallet?.current_balance,
-    wallet?.wallet_balance,
-    wallet?.available_balance,
-    wallet?.starting_balance
-  );
 
 const buildCategoryBreakdown = (expenses) => {
   const totals = new Map();
@@ -143,12 +136,17 @@ export default function useDashboardClaraAssistantContext({
         (transaction) => transaction?.amount
       );
 
-    const walletBalances = safeWallets
-      .map((wallet) => getWalletBalance(wallet))
-      .filter((balance) => Number.isFinite(balance));
-    const walletRecordTotal = safeWallets.length && walletBalances.length
-      ? walletBalances.reduce((sum, balance) => sum + balance, 0)
-      : null;
+    const canonicalWalletState = buildCanonicalWalletState({
+      wallets: safeWallets,
+      emergencyFund: safeEmergencyFund,
+      savingsGoals: safeSavingsGoals,
+    });
+    const walletTotals = canonicalWalletState.walletTotals;
+    const ownedWalletTotal = safeWallets.length ? walletTotals.currentBalance : null;
+    const availableWalletTotal = safeWallets.length ? walletTotals.spendableBalance : null;
+    const moneyLentUnavailable = safeWallets.length
+      ? walletTotals.moneyLentUnavailableAmount || walletTotals.unavailableAmount || 0
+      : 0;
 
     const plannedExpenseRows = currentMonthExpenses.filter((expense) => {
       const status = getExpensePlanningStatus(expense);
@@ -192,7 +190,8 @@ export default function useDashboardClaraAssistantContext({
       lifeStageAiContext: lifeStageContext,
       meLifeStageProfile: lifeStageContext,
 
-      wallets: safeWallets,
+      wallets: canonicalWalletState.wallets,
+      walletTotals,
       expenses: safeExpenses,
       budgets: safeBudgets,
       savingsGoals: safeSavingsGoals,
@@ -213,10 +212,15 @@ export default function useDashboardClaraAssistantContext({
       thisMonthIncome: monthlyIncome,
       monthlyIncome,
       incomeThisMonth: monthlyIncome,
-      moneyLeftThisMonth: walletRecordTotal,
-      availableMoney: walletRecordTotal,
-      totalWalletBalance: walletRecordTotal,
-      walletMoney: walletRecordTotal,
+      moneyLeftThisMonth: availableWalletTotal,
+      availableMoney: availableWalletTotal,
+      totalAvailableMoney: availableWalletTotal,
+      totalWalletBalance: availableWalletTotal,
+      walletMoney: availableWalletTotal,
+      totalOwnedWalletBalance: ownedWalletTotal,
+      ownedWalletMoney: ownedWalletTotal,
+      moneyLentUnavailable,
+      unavailableWalletMoney: walletTotals.unavailableAmount || 0,
 
       plannedSpent: sumNumbers(plannedExpenseRows, (expense) => expense?.amount),
       unplannedSpent: sumNumbers(unplannedExpenseRows, (expense) => expense?.amount),
