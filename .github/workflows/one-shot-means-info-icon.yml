@@ -1,0 +1,53 @@
+name: One-shot Means info icon refinement
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Replace persistent explanation with info toggle
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('src/runtime/installClaraOrbGreeting.js')
+          text = path.read_text()
+
+          old = '''      <span style="display:block;margin-top:8px;font-size:8.5px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30);text-align:center">This score uses only your money in hand — wallet money that is not protected for Emergency Fund or Savings Goals and is not lent out — and checks whether it can carry you through ${formatHorizonDate(snapshot.horizonDate)}, your next stable payday. Future salary is not treated as available before it arrives.</span>\n      <span style="display:block;margin-top:4px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">100 = living within your means</span>'''
+          new = '''      <span style="display:flex;align-items:center;justify-content:center;gap:5px;margin-top:7px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">\n        <span>100 = living within your means</span>\n        <button type="button" data-clara-means-info-toggle="true" aria-label="How the Means Score is calculated" aria-expanded="false" style="display:inline-grid;place-items:center;width:15px;height:15px;padding:0;border:1px solid rgba(255,255,255,.13);border-radius:999px;background:rgba(255,255,255,.025);color:rgba(255,255,255,.36);font-size:9px;font-weight:800;line-height:1;cursor:pointer;-webkit-tap-highlight-color:transparent">i</button>\n      </span>\n      <span data-clara-means-info-copy="true" style="display:none;margin-top:7px;padding:7px 8px;border:1px solid rgba(255,255,255,.05);border-radius:9px;background:rgba(255,255,255,.018);font-size:8.5px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30);text-align:center">This score uses only your money in hand — wallet money that is not protected for Emergency Fund or Savings Goals and is not lent out — and checks whether it can carry you through ${formatHorizonDate(snapshot.horizonDate)}, your next stable payday. Future salary is not treated as available before it arrives.</span>'''
+          if old not in text:
+              raise SystemExit('Means explanation block not found')
+          text = text.replace(old, new, 1)
+
+          anchor = '''  root.innerHTML = `\n'''
+          # Add delegated info behavior once per render, after innerHTML has been assigned and before return.
+          marker = '''  return root;\n}\n\nfunction installClaraOrbGreeting()'''
+          inject = '''  const infoToggle = root.querySelector?.('[data-clara-means-info-toggle="true"]');\n  if (infoToggle && infoToggle.dataset.claraMeansInfoBound !== "true") {\n    infoToggle.dataset.claraMeansInfoBound = "true";\n    infoToggle.addEventListener("click", (event) => {\n      event.preventDefault();\n      event.stopPropagation();\n      const infoCopy = root.querySelector?.('[data-clara-means-info-copy="true"]');\n      if (!infoCopy) return;\n      const nextOpen = infoToggle.getAttribute("aria-expanded") !== "true";\n      infoToggle.setAttribute("aria-expanded", nextOpen ? "true" : "false");\n      infoCopy.style.display = nextOpen ? "block" : "none";\n    });\n  }\n\n  return root;\n}\n\nfunction installClaraOrbGreeting()'''
+          if marker not in text:
+              raise SystemExit('Means return marker not found')
+          text = text.replace(marker, inject, 1)
+
+          path.write_text(text)
+
+      - name: Verify refinement
+        run: |
+          node -e "const fs=require('fs');const s=fs.readFileSync('src/runtime/installClaraOrbGreeting.js','utf8');if(!s.includes('data-clara-means-info-toggle')||!s.includes('100 = living within your means'))process.exit(1);"
+
+      - name: Commit refinement and remove workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm .github/workflows/one-shot-means-info-icon.yml
+          git add src/runtime/installClaraOrbGreeting.js .github/workflows/one-shot-means-info-icon.yml
+          git commit -m "refine Means explanation into info icon"
+          git push origin HEAD:main
