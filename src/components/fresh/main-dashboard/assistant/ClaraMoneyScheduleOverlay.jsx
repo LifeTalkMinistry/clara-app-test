@@ -835,16 +835,21 @@ export default function ClaraMoneyScheduleOverlay({
       .filter(Boolean)
       .map((day) => day.name);
     setDayIndex(nextIndex);
-    runAssistantSequence(
-      [
-        ...leadReplies,
-        skippedNames.length
-          ? `${weekday.name} is done. ${joinDayNames(skippedNames)} ${skippedNames.length === 1 ? "is" : "are"} already set, so now let’s set up ${nextWeekday.name}.`
-          : `${weekday.name} is done. Now let’s set up ${nextWeekday.name}.`,
-        `You can reuse a day you already finished, copy one and change it, make ${nextWeekday.name} completely different, or go back and edit a completed day.`,
-      ],
-      "day-choice"
-    );
+
+    const dayChoiceReplies = [
+      ...leadReplies,
+      skippedNames.length
+        ? `${weekday.name} is done. ${joinDayNames(skippedNames)} ${skippedNames.length === 1 ? "is" : "are"} already set, so now let’s set up ${nextWeekday.name}.`
+        : `${weekday.name} is done. Now let’s set up ${nextWeekday.name}.`,
+    ];
+
+    if (dayIndex === 0) {
+      dayChoiceReplies.push(
+        `You can reuse a day you already finished, copy one and change it, make ${nextWeekday.name} completely different, or go back and edit a completed day.`
+      );
+    }
+
+    runAssistantSequence(dayChoiceReplies, "day-choice");
   };
 
   const useSameDay = (sourceDay) => {
