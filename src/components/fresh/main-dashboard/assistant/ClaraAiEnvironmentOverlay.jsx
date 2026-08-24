@@ -6,6 +6,7 @@ import ClaraLogExpenseOverlay from "./ClaraLogExpenseOverlayV2.jsx";
 import ClaraAddIncomeOverlay from "./ClaraAddIncomeOverlayV2.jsx";
 import ClaraWalletOverlay from "./ClaraWalletOverlayV2.jsx";
 import ClaraMoneyScheduleOverlay from "./ClaraMoneyScheduleOverlay.jsx";
+import ClaraCalendarOverlay from "./ClaraCalendarOverlay.jsx";
 import ClaraBuyCheckImpactPortal from "./ClaraBuyCheckImpactPortal.jsx";
 import ClaraBuyCheckUsagePortal from "./ClaraBuyCheckUsagePortal.jsx";
 import ClaraLifeProfilePortal from "./ClaraLifeProfilePortal.jsx";
@@ -16,7 +17,7 @@ import { WEEKLY_MONEY_CHECK_UPDATED_EVENT } from "@/lib/weeklyMoneyCheckState";
 
 const WEEKLY_SESSION_STORAGE_PREFIX = "clara_weekly_money_check_v1";
 const WEEKLY_CHAT_FLOW_VERSION = "weekly-money-check-chat-v1";
-const ORB_ENTRY_MODES = new Set(["log-expense", "add-income", "wallet", "money-schedule"]);
+const ORB_ENTRY_MODES = new Set(["log-expense", "add-income", "wallet", "calendar", "money-schedule"]);
 
 function restoreReadyStateWhenWeeklyCheckWasNotStarted(user) {
   if (typeof window === "undefined" || !window.localStorage) return;
@@ -68,6 +69,7 @@ export default function ClaraAiEnvironmentOverlay(props) {
   const logExpenseMode = !guidePreview && entryMode === "log-expense";
   const addIncomeMode = !guidePreview && entryMode === "add-income";
   const walletMode = !guidePreview && entryMode === "wallet";
+  const calendarMode = !guidePreview && entryMode === "calendar";
   const moneyScheduleMode = !guidePreview && entryMode === "money-schedule";
   const weeklyAutoOpenRef = useRef(false);
   const lifeContext = useClaraBuyCheckLifeContext(props?.claraAssistantContext?.user);
@@ -299,6 +301,21 @@ export default function ClaraAiEnvironmentOverlay(props) {
         entryContext={walletHandoff}
         onWalletReady={walletReady}
         onClose={closeWallet}
+      />
+    );
+  }
+
+  if (calendarMode) {
+    const closeCalendar = () => {
+      setEntryMode(null);
+      props?.onClose?.();
+    };
+
+    return (
+      <ClaraCalendarOverlay
+        {...props}
+        claraAssistantContext={enrichedAssistantContext}
+        onClose={closeCalendar}
       />
     );
   }
