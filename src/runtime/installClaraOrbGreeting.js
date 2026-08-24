@@ -285,9 +285,21 @@ function walletBalance(wallet = {}) {
   );
 }
 
+function isMoneyLentWallet(wallet = {}) {
+  const type = normalizeLower(wallet?.type || wallet?.wallet_type || wallet?.walletType);
+  return ["money_lent", "money-lent", "lent", "receivable"].includes(type);
+}
+
 function currentAvailableMoney(wallets = []) {
   return (Array.isArray(wallets) ? wallets : []).reduce(
-    (sum, wallet) => sum + walletBalance(wallet),
+    (sum, wallet) => (isMoneyLentWallet(wallet) ? sum : sum + walletBalance(wallet)),
+    0
+  );
+}
+
+function currentMoneyLentUnavailable(wallets = []) {
+  return (Array.isArray(wallets) ? wallets : []).reduce(
+    (sum, wallet) => (isMoneyLentWallet(wallet) ? sum + walletBalance(wallet) : sum),
     0
   );
 }
@@ -457,7 +469,8 @@ async function buildMeansSnapshot(profile = {}) {
 
   const income = currentMonthIncomeFromSources(incomeSources, currentMonthKey);
   const availableNow = currentAvailableMoney(wallets);
-  if (!(income > 0) && !(availableNow > 0)) return null;
+  const moneyLentUnavailable = currentMoneyLentUnavailable(wallets);
+  if (!(income > 0) && !(availableNow > 0) && !(moneyLentUnavailable > 0)) return null;
 
   const horizonDate = resolveMeansHorizonDate(incomeSources);
   const routineUpcoming = futureRoutineAmount(owner, horizonDate);
@@ -484,6 +497,7 @@ async function buildMeansSnapshot(profile = {}) {
     debtUpcoming,
     horizonDate,
     availableNow,
+    moneyLentUnavailable,
     projectedSpending,
     projectedRoom,
   };
@@ -566,6 +580,7 @@ function ensureMeansMetric(label, snapshot, onToggle) {
         Math.round(snapshot.savingsGoalUpcoming || 0),
         Math.round(snapshot.debtUpcoming || 0),
         Math.round(snapshot.availableNow || 0),
+        Math.round(snapshot.moneyLentUnavailable || 0),
         snapshot.horizonDate || "",
         Math.round(snapshot.projectedRoom),
         expanded ? 1 : 0,
@@ -619,6 +634,7 @@ function ensureMeansMetric(label, snapshot, onToggle) {
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.38)"><span>Upcoming commitments</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.upcoming)}</strong></span>
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.38)"><span>Debt / obligations due</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.debtUpcoming)}</strong></span>
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.38)"><span>Savings goals due</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.savingsGoalUpcoming)}</strong></span>
+      ${snapshot.moneyLentUnavailable > 0 ? `<span style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.38)"><span>Money lent · not available</span><strong style="color:rgba(255,255,255,.60)">${money(snapshot.moneyLentUnavailable)}</strong></span>` : ""}
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.06);font-size:10px;color:rgba(255,255,255,.42)"><span>Projected room</span><strong style="color:${snapshot.projectedRoom >= 0 ? "#67e8c8" : "#ff7f8d"}">${snapshot.projectedRoom >= 0 ? "" : "−"}${money(Math.abs(snapshot.projectedRoom))}</strong></span>
       <span style="display:block;margin-top:8px;font-size:8.5px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30);text-align:center">This score uses the money currently available in your wallets and checks whether it can carry you through ${formatHorizonDate(snapshot.horizonDate)}, your next stable payday. Future salary is not treated as available before it arrives.</span>
       <span style="display:block;margin-top:4px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">100 = living within your means</span>
