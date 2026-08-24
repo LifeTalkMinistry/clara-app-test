@@ -306,8 +306,21 @@ function projectedStableIncomeForMonth(source, currentMonthKey) {
     );
   } else if (type === "twice_monthly") {
     const days = Array.isArray(recurrence?.days) ? recurrence.days : [];
+    const todayDay =
+      currentMonthKey === getPHMonthKey()
+        ? Number(
+            new Intl.DateTimeFormat("en-PH", {
+              timeZone: "Asia/Manila",
+              day: "numeric",
+            }).format(new Date())
+          )
+        : 1;
     paydays = [...new Set(days.map(Number))].filter(
-      (day) => Number.isInteger(day) && day >= 1 && day <= daysInMonth
+      (day) =>
+        Number.isInteger(day) &&
+        day >= 1 &&
+        day <= daysInMonth &&
+        day >= todayDay
     ).length;
   } else if (type === "monthly") {
     paydays = 1;
