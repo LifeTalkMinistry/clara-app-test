@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowUp, CalendarDays, X } from "lucide-react";
 import { getRecurringCashFlowOwnerId } from "@/lib/recurringCashFlowRepository";
 import { filterScheduleOwnedEvents } from "@/lib/scheduleEventOwnership";
@@ -151,8 +151,11 @@ function Composer({ value, onChange, onSubmit, placeholder, inputMode = "text" }
 export default function ClaraCalendarOverlay({ isActive = false, claraAssistantContext = {}, onClose }) {
   const user = claraAssistantContext?.user || {};
   const firstName = firstNameFromUser(user);
+  const viewportRef = useRef(null);
 
+  const greeting = `Calendar is open, ${firstName}. What do you want to schedule?`;
   const [phase, setPhase] = useState("title");
+  const [messages, setMessages] = useState(() => [{ role: "assistant", text: greeting }]);
   const [title, setTitle] = useState("");
   const [titleInput, setTitleInput] = useState("");
   const [date, setDate] = useState(todayKey());
@@ -167,10 +170,28 @@ export default function ClaraCalendarOverlay({ isActive = false, claraAssistantC
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
+  const appendExchange = (userText, assistantText) => {
+    setMessages((current) => [
+      ...current,
+      ...(userText ? [{ role: "user", text: userText }] : []),
+      ...(assistantText ? [{ role: "assistant", text: assistantText }] : []),
+    ]);
+  };
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const frame = window.requestAnimationFrame(() => {
+      viewport.scrollTo({ top: viewport.scrollHeight, behavior: "smooth" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [messages, phase, error, saved]);
+
   if (!isActive) return null;
 
   const reset = () => {
     setPhase("title");
+    setMessages([{ role: "assistant", text: greeting }]);
     setTitle("");
     setTitleInput("");
     setDate(todayKey());
@@ -190,11 +211,68 @@ export default function ClaraCalendarOverlay({ isActive = false, claraAssistantC
     const next = clean(titleInput);
     if (!next) return;
     setTitle(next);
+    setTitleInput("");
     setError("");
+    appendExchange(next, "What date should I put it on?");
     setPhase("date");
   };
 
-  const save = (noteOverride = note) => {
+  const chooseDate = () => {
+    if (!date) return;
+    appendExchange(formatDate(date), "What time?");
+    setPhase("time");
+  };
+
+  const chooseTime = () => {
+    appendExchange(time ? formatTime(time) : "No specific time", "What type of schedule is this?");
+    setPhase("type");
+  };
+
+  const chooseType = () => {
+    appendExchange(type, "Does this affect your money?\nCLARA will never guess an amount.");
+    setPhase("money");
+  };
+
+  const chooseMoneyImpact = (nextAffectsMoney) => {
+    setAffectsMoney(nextAffectsMoney);
+    setAmountInput("");
+    if (nextAffectsMoney) {
+      appendExchange("Yes", "Is this money out or money in?");
+      setPhase("direction");
+      return;
+    }
+    appendExchange("No", "Notes · optional");
+    setPhase("notes");
+  };
+
+  const chooseDirection = (nextDirection) => {
+    setDirection(nextDirection);
+    setAmountKnown(true);
+    appendExchange(nextDirection === "in" ? "Money in" : "Money out", "Amount");
+    setPhase("amount");
+  };
+
+  const submitAmount = () => {
+    const amount = moneyNumber(amountInput);
+    if (amount <= 0) {
+      setError("Enter the amount, or choose “Not sure yet”.");
+      return;
+    }
+    setAmountKnown(true);
+    setError("");
+    appendExchange(`₱${amount.toLocaleString("en-PH")}`, "Notes · optional");
+    setPhase("notes");
+  };
+
+  const chooseUnknownAmount = () => {
+    setAmountKnown(false);
+    setAmountInput("");
+    setError("");
+    appendExchange("Not sure yet", "Notes · optional");
+    setPhase("notes");
+  };
+
+  const save = (noteOverride = note, userNoteText = "") => {
     if (!title || !date) return;
 
     const amount = moneyNumber(amountInput);
@@ -234,12 +312,27 @@ export default function ClaraCalendarOverlay({ isActive = false, claraAssistantC
     try {
       saveCalendarEvent(user, event);
       setNote(clean(noteOverride));
+      setNoteInput("");
       setSaved(true);
       setError("");
+      appendExchange(
+        userNoteText,
+        `Done. I scheduled “${title}” for ${formatDate(date)}${time ? ` at ${formatTime(time)}` : ""}.`
+      );
       setPhase("saved");
     } catch (nextError) {
       setError(clean(nextError?.message) || "CLARA couldn’t save that schedule yet.");
     }
+  };
+
+  const submitNote = () => {
+    const nextNote = clean(noteInput);
+    if (!nextNote) return;
+    save(nextNote, nextNote);
+  };
+
+  const skipNoteAndSave = () => {
+    save("", "Skip note");
   };
 
   return (
@@ -266,13 +359,16 @@ export default function ClaraCalendarOverlay({ isActive = false, claraAssistantC
       </header>
 
       <main
+        ref={viewportRef}
         className="relative z-10 min-h-0 flex-1 overflow-y-auto px-2 pb-5 pt-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         data-clara-ai-message-viewport="true"
       >
         <div className="flex min-h-full flex-col gap-3" data-clara-ai-message-stack="true">
-          <Bubble>Calendar is open, {firstName}. What do you want to schedule?</Bubble>
-
-          {title ? <Bubble role="user">{title}</Bubble> : null}
+          {messages.map((message, index) => (
+            <Bubble key={`${message.role}-${index}-${message.text}`} role={message.role}>
+              {message.text}
+            </Bubble>
+          ))}
 
           {phase === "title" ? (
             <div className="mt-auto pt-3">
@@ -286,167 +382,98 @@ export default function ClaraCalendarOverlay({ isActive = false, claraAssistantC
           ) : null}
 
           {phase === "date" ? (
-            <>
-              <Bubble>What date should I put it on?</Bubble>
-              <div className="mt-auto grid gap-2.5 pt-3">
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(event) => setDate(event.target.value)}
-                  className="min-h-12 rounded-[18px] border border-blue-200/16 bg-[#07142b]/96 px-4 text-[16px] font-bold text-white outline-none"
-                />
-                <ChoiceButton onClick={() => date && setPhase("time")} disabled={!date}>
-                  Continue
-                </ChoiceButton>
-              </div>
-            </>
+            <div className="mt-auto grid gap-2.5 pt-3">
+              <input
+                type="date"
+                value={date}
+                onChange={(event) => setDate(event.target.value)}
+                className="min-h-12 rounded-[18px] border border-blue-200/16 bg-[#07142b]/96 px-4 text-[16px] font-bold text-white outline-none"
+              />
+              <ChoiceButton onClick={chooseDate} disabled={!date}>
+                Send date
+              </ChoiceButton>
+            </div>
           ) : null}
 
           {phase === "time" ? (
-            <>
-              <Bubble>{formatDate(date)}. What time?</Bubble>
-              <div className="mt-auto grid gap-2.5 pt-3">
-                <input
-                  type="time"
-                  value={time}
-                  onChange={(event) => setTime(event.target.value)}
-                  className="min-h-12 rounded-[18px] border border-blue-200/16 bg-[#07142b]/96 px-4 text-[16px] font-bold text-white outline-none"
-                />
-                <ChoiceButton onClick={() => setPhase("type")}>
-                  {time ? `Use ${formatTime(time)}` : "No specific time"}
-                </ChoiceButton>
-              </div>
-            </>
+            <div className="mt-auto grid gap-2.5 pt-3">
+              <input
+                type="time"
+                value={time}
+                onChange={(event) => setTime(event.target.value)}
+                className="min-h-12 rounded-[18px] border border-blue-200/16 bg-[#07142b]/96 px-4 text-[16px] font-bold text-white outline-none"
+              />
+              <ChoiceButton onClick={chooseTime}>
+                {time ? `Send ${formatTime(time)}` : "No specific time"}
+              </ChoiceButton>
+            </div>
           ) : null}
 
           {phase === "type" ? (
-            <>
-              <Bubble>What type of schedule is this?</Bubble>
-              <div className="mt-auto grid gap-2.5 pt-3">
-                <select
-                  value={type}
-                  onChange={(event) => setType(event.target.value)}
-                  className="min-h-12 w-full rounded-[18px] border border-blue-200/16 bg-[#07142b]/96 px-4 text-[14px] font-bold text-white outline-none [color-scheme:dark]"
-                >
-                  {TYPE_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-                <ChoiceButton onClick={() => setPhase("money")}>Continue</ChoiceButton>
-              </div>
-            </>
+            <div className="mt-auto grid gap-2.5 pt-3">
+              <select
+                value={type}
+                onChange={(event) => setType(event.target.value)}
+                className="min-h-12 w-full rounded-[18px] border border-blue-200/16 bg-[#07142b]/96 px-4 text-[14px] font-bold text-white outline-none [color-scheme:dark]"
+              >
+                {TYPE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+              <ChoiceButton onClick={chooseType}>Send {type}</ChoiceButton>
+            </div>
           ) : null}
 
           {phase === "money" ? (
-            <>
-              <Bubble>Does this affect your money?{`\n`}CLARA will never guess an amount.</Bubble>
-              <div className="mt-auto grid grid-cols-2 gap-2.5 pt-3">
-                <ChoiceButton
-                  onClick={() => {
-                    setAffectsMoney(false);
-                    setAmountInput("");
-                    setPhase("notes");
-                  }}
-                >
-                  No
-                </ChoiceButton>
-                <ChoiceButton
-                  onClick={() => {
-                    setAffectsMoney(true);
-                    setPhase("direction");
-                  }}
-                  secondary
-                >
-                  Yes
-                </ChoiceButton>
-              </div>
-            </>
+            <div className="mt-auto grid grid-cols-2 gap-2.5 pt-3">
+              <ChoiceButton onClick={() => chooseMoneyImpact(false)}>No</ChoiceButton>
+              <ChoiceButton onClick={() => chooseMoneyImpact(true)} secondary>
+                Yes
+              </ChoiceButton>
+            </div>
           ) : null}
 
           {phase === "direction" ? (
-            <>
-              <Bubble>Is this money out or money in?</Bubble>
-              <div className="mt-auto grid grid-cols-2 gap-2.5 pt-3">
-                <ChoiceButton
-                  onClick={() => {
-                    setDirection("out");
-                    setAmountKnown(true);
-                    setPhase("amount");
-                  }}
-                >
-                  Money out
-                </ChoiceButton>
-                <ChoiceButton
-                  onClick={() => {
-                    setDirection("in");
-                    setAmountKnown(true);
-                    setPhase("amount");
-                  }}
-                  secondary
-                >
-                  Money in
-                </ChoiceButton>
-              </div>
-            </>
+            <div className="mt-auto grid grid-cols-2 gap-2.5 pt-3">
+              <ChoiceButton onClick={() => chooseDirection("out")}>Money out</ChoiceButton>
+              <ChoiceButton onClick={() => chooseDirection("in")} secondary>
+                Money in
+              </ChoiceButton>
+            </div>
           ) : null}
 
           {phase === "amount" ? (
-            <>
-              <Bubble>Amount</Bubble>
-              <div className="mt-auto grid gap-2.5 pt-3">
-                <Composer
-                  value={amountInput}
-                  onChange={(value) => {
-                    setAmountKnown(true);
-                    setAmountInput(cleanMoney(value));
-                  }}
-                  onSubmit={() => {
-                    if (moneyNumber(amountInput) > 0) {
-                      setError("");
-                      setPhase("notes");
-                    } else {
-                      setError("Enter the amount, or choose “Not sure yet”.");
-                    }
-                  }}
-                  placeholder="0"
-                  inputMode="decimal"
-                />
-                <ChoiceButton
-                  onClick={() => {
-                    setAmountKnown(false);
-                    setAmountInput("");
-                    setError("");
-                    setPhase("notes");
-                  }}
-                  secondary
-                >
-                  Not sure yet
-                </ChoiceButton>
-              </div>
-            </>
+            <div className="mt-auto grid gap-2.5 pt-3">
+              <Composer
+                value={amountInput}
+                onChange={(value) => {
+                  setAmountKnown(true);
+                  setAmountInput(cleanMoney(value));
+                }}
+                onSubmit={submitAmount}
+                placeholder="0"
+                inputMode="decimal"
+              />
+              <ChoiceButton onClick={chooseUnknownAmount} secondary>
+                Not sure yet
+              </ChoiceButton>
+            </div>
           ) : null}
 
           {phase === "notes" ? (
-            <>
-              <Bubble>Notes · optional</Bubble>
-              <div className="mt-auto grid gap-2.5 pt-3">
-                <Composer
-                  value={noteInput}
-                  onChange={setNoteInput}
-                  onSubmit={() => {
-                    const nextNote = clean(noteInput);
-                    setNote(nextNote);
-                    save(nextNote);
-                  }}
-                  placeholder="Add a note for yourself..."
-                />
-                <ChoiceButton onClick={() => save("")} secondary>
-                  Skip note & save
-                </ChoiceButton>
-              </div>
-            </>
+            <div className="mt-auto grid gap-2.5 pt-3">
+              <Composer
+                value={noteInput}
+                onChange={setNoteInput}
+                onSubmit={submitNote}
+                placeholder="Add a note for yourself..."
+              />
+              <ChoiceButton onClick={skipNoteAndSave} secondary>
+                Skip note & save
+              </ChoiceButton>
+            </div>
           ) : null}
 
           {phase === "saved" && saved ? (
