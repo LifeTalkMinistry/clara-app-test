@@ -342,7 +342,11 @@ function resolveMeansHorizonDate(incomeSources = []) {
     const occurrences = getRecurrenceOccurrences(recurrence, today, searchEnd, {
       kind: "income",
     });
-    const next = occurrences.find((date) => date >= today);
+    // All future commitment buckets exclude today itself, so the horizon must
+    // also be the next payday strictly after today. Otherwise, on payday,
+    // the horizon collapses to today and Money Schedule, Savings Goals, and
+    // Debt / Obligations due after today all incorrectly disappear.
+    const next = occurrences.find((date) => date > today);
     if (next) candidates.push(next);
   });
 
