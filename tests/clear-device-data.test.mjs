@@ -8,6 +8,12 @@ const readSource = (relativePath) =>
 const resetSource = readSource("src/lib/clear-clara-device-data.js");
 const settingsRuntimeSource = readSource("src/runtime/installSettingsDeviceReset.js");
 const runtimeRegistrySource = readSource("src/runtime/installClaraRuntimePatches.js");
+const resetPanelSource = readSource(
+  "src/components/device-transfer/ClaraDataResetPanel.jsx"
+);
+const transferPanelSource = readSource(
+  "src/components/device-transfer/DeviceTransferPanel.jsx"
+);
 
 test("device reset clears local CLARA storage layers", () => {
   assert.match(resetSource, /localStorage\?\.clear\(\)/);
@@ -58,4 +64,29 @@ test("successful device reset tears down authentication and hard restarts on log
 
 test("device reset runtime is loaded by the CLARA runtime registry", () => {
   assert.match(runtimeRegistrySource, /installSettingsDeviceReset/);
+});
+
+test("start-fresh reset preserves the CLARA backend account session", () => {
+  assert.match(resetSource, /export async function clearClaraDataKeepAccount/);
+  assert.match(resetSource, /ACCOUNT_SESSION_STORAGE_KEYS/);
+  assert.match(resetSource, /TOKEN_KEY/);
+  assert.match(resetSource, /USER_KEY/);
+  assert.match(resetSource, /USER_VERIFIED_AT_KEY/);
+  assert.match(resetSource, /captureStorageEntries/);
+  assert.match(resetSource, /restoreStorageEntries/);
+  assert.match(resetSource, /pauseOnlineSyncAfterDeviceReset/);
+  assert.match(resetSource, /createLocalVaultId/);
+  assert.match(resetSource, /clara_device_transfer_recovery/);
+});
+
+test("Security exposes a guarded account-preserving Clear Data flow", () => {
+  assert.match(transferPanelSource, /ClaraDataResetPanel/);
+  assert.match(resetPanelSource, /Clear all CLARA data/);
+  assert.match(resetPanelSource, /Type CLEAR to continue/);
+  assert.match(resetPanelSource, /Clear Everything/);
+  assert.match(resetPanelSource, /account and membership stay active/i);
+  assert.match(resetPanelSource, /clearClaraDataKeepAccount/);
+  assert.match(resetPanelSource, /#\/onboarding/);
+  assert.match(resetPanelSource, /disabled=\{!confirmationMatches \|\| isClearing\}/);
+  assert.doesNotMatch(resetPanelSource, /signOutFromClaraBackend/);
 });
