@@ -7,6 +7,7 @@ import {
   FINANCE_DATA_UPDATED_EVENT,
   getExpenses,
   getSavingsGoals,
+  getWallets,
 } from "@/lib/financeRepository";
 import {
   getIncomeSourceActivityLog,
@@ -20,6 +21,7 @@ import {
   DEBT_OBLIGATION_SCHEDULE_SOURCE,
   buildDebtObligationScheduleProjection,
 } from "@/lib/financialCardScheduleProjection";
+import { getRecurrenceOccurrences } from "@/lib/recurringCashFlowRepository";
 import {
   CLARA_MONEY_ROUTINE_UPDATED_EVENT,
   getClaraMoneyScheduleStorageKey,
@@ -102,6 +104,24 @@ function endOfCurrentMonthKey() {
   return localDateKey(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 }
 
+function addLocalDaysKey(dateKey, days) {
+  const match = String(dateKey || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return "";
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  date.setDate(date.getDate() + Number(days || 0));
+  return localDateKey(date);
+}
+
+function formatHorizonDate(dateKey) {
+  const match = String(dateKey || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return "the end of this month";
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return new Intl.DateTimeFormat("en-PH", {
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
+
 function parseScheduleEvents(user) {
   if (typeof window === "undefined" || !window.localStorage) return [];
   try {
@@ -113,7 +133,7 @@ function parseScheduleEvents(user) {
   }
 }
 
-function futureRoutineAmount(user) {
+function futureRoutineAmount(user, horizonEnd = endOfCurrentMonthKey()) {
   const routine = readClaraMoneyRoutine(user);
   if (!routine || routine.active === false || !Array.isArray(routine.days)) return 0;
 
@@ -126,7 +146,10 @@ function futureRoutineAmount(user) {
 
   const now = new Date();
   const cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const horizonMatch = String(horizonEnd || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const end = horizonMatch
+    ? new Date(Number(horizonMatch[1]), Number(horizonMatch[2]) - 1, Number(horizonMatch[3]))
+    : new Date(now.getFullYear(), now.getMonth() + 1, 0);
   let total = 0;
 
   while (cursor <= end) {
@@ -137,9 +160,8 @@ function futureRoutineAmount(user) {
   return total;
 }
 
-function futureScheduledAmount(user) {
+function futureScheduledAmount(user, horizonEnd = endOfCurrentMonthKey()) {
   const today = localDateKey();
-  const monthEnd = endOfCurrentMonthKey();
 
   return parseScheduleEvents(user).reduce((sum, event) => {
     const date = String(event?.date || "").slice(0, 10);
@@ -152,7 +174,7 @@ function futureScheduledAmount(user) {
       source === DEBT_OBLIGATION_SCHEDULE_SOURCE ||
       event?.debtObligationId ||
       event?.debt_obligation_id;
-    if (!date || date <= today || date > monthEnd) return sum;
+    if (!date || date <= today || date > horizonEnd) return sum;
     if (
       direction !== "out" ||
       event?.affectsMoney === false ||
@@ -165,15 +187,14 @@ function futureScheduledAmount(user) {
   }, 0);
 }
 
-function futureDebtObligationAmount(records = []) {
+function futureDebtObligationAmount(records = [], horizonEnd = endOfCurrentMonthKey()) {
   const today = localDateKey();
-  const monthEnd = endOfCurrentMonthKey();
 
   return buildDebtObligationScheduleProjection(records).reduce((sum, event) => {
     const date = String(event?.date || "").slice(0, 10);
     const direction = String(event?.direction || "out").trim().toLowerCase();
     const amount = Number(String(event?.amount ?? "0").replace(/[₱,\s]/g, ""));
-    if (!date || date <= today || date > monthEnd) return sum;
+    if (!date || date <= today || date > horizonEnd) return sum;
     if (direction !== "out") return sum;
     return sum + (Number.isFinite(amount) ? Math.max(0, amount) : 0);
   }, 0);
@@ -199,9 +220,8 @@ function savingsGoalMoney(...values) {
   return 0;
 }
 
-function futureSavingsGoalAmount(goals = []) {
+function futureSavingsGoalAmount(goals = [], horizonEnd = endOfCurrentMonthKey()) {
   const today = localDateKey();
-  const monthEnd = endOfCurrentMonthKey();
 
   return (Array.isArray(goals) ? goals : []).reduce((sum, goal) => {
     const status = normalizeLower(goal?.status);
@@ -215,7 +235,7 @@ function futureSavingsGoalAmount(goals = []) {
     if (inactive) return sum;
 
     const date = savingsGoalDate(goal);
-    if (!date || date <= today || date > monthEnd) return sum;
+    if (!date || date <= today || date > horizonEnd) return sum;
 
     const target = savingsGoalMoney(
       goal?.target_amount,
@@ -252,6 +272,26 @@ function getOwnerIdentity(profile = {}) {
   );
 }
 
+function walletBalance(wallet = {}) {
+  return Math.max(
+    0,
+    firstValidNumber(
+      wallet?.balance,
+      wallet?.current_balance,
+      wallet?.wallet_balance,
+      wallet?.available_balance,
+      wallet?.starting_balance
+    )
+  );
+}
+
+function currentAvailableMoney(wallets = []) {
+  return (Array.isArray(wallets) ? wallets : []).reduce(
+    (sum, wallet) => sum + walletBalance(wallet),
+    0
+  );
+}
+
 function stableIncomeMinimum(source = {}) {
   return Math.max(
     0,
@@ -272,6 +312,27 @@ function stableIncomeMinimum(source = {}) {
 
 function stableIncomeRecurrence(source = {}) {
   return source?.incomeRecurrence || source?.income_recurrence || null;
+}
+
+function resolveMeansHorizonDate(incomeSources = []) {
+  const today = localDateKey();
+  const searchEnd = addLocalDaysKey(today, 62);
+  const candidates = [];
+
+  (Array.isArray(incomeSources) ? incomeSources : []).forEach((source) => {
+    if (normalizeLower(source?.stability) !== "stable") return;
+    if (source?.useForBudgetTiming === false || source?.use_for_budget_timing === false) return;
+    const recurrence = stableIncomeRecurrence(source);
+    if (!recurrence) return;
+
+    const occurrences = getRecurrenceOccurrences(recurrence, today, searchEnd, {
+      kind: "income",
+    });
+    const next = occurrences.find((date) => date >= today);
+    if (next) candidates.push(next);
+  });
+
+  return candidates.sort()[0] || endOfCurrentMonthKey();
 }
 
 function parseMonthKey(monthKey) {
@@ -379,11 +440,12 @@ function currentMonthIncomeFromSources(incomeSources, currentMonthKey) {
 
 async function buildMeansSnapshot(profile = {}) {
   const owner = getOwnerIdentity(profile);
-  const [expenses, incomeSources, savingsGoals, debtObligations] = await Promise.all([
+  const [expenses, incomeSources, savingsGoals, debtObligations, wallets] = await Promise.all([
     getExpenses(owner).catch(() => []),
     getIncomeSources(owner).catch(() => []),
     getSavingsGoals(owner).catch(() => []),
     getDebtObligations(owner).catch(() => []),
+    getWallets(owner).catch(() => []),
   ]);
   const currentMonthKey = getPHMonthKey();
 
@@ -394,17 +456,24 @@ async function buildMeansSnapshot(profile = {}) {
   }, 0);
 
   const income = currentMonthIncomeFromSources(incomeSources, currentMonthKey);
+  const availableNow = currentAvailableMoney(wallets);
+  if (!(income > 0) && !(availableNow > 0)) return null;
 
-  if (!(income > 0)) return null;
-
-  const routineUpcoming = futureRoutineAmount(owner);
-  const scheduledUpcoming = futureScheduledAmount(owner);
-  const savingsGoalUpcoming = futureSavingsGoalAmount(savingsGoals);
-  const debtUpcoming = futureDebtObligationAmount(debtObligations);
+  const horizonDate = resolveMeansHorizonDate(incomeSources);
+  const routineUpcoming = futureRoutineAmount(owner, horizonDate);
+  const scheduledUpcoming = futureScheduledAmount(owner, horizonDate);
+  const savingsGoalUpcoming = futureSavingsGoalAmount(savingsGoals, horizonDate);
+  const debtUpcoming = futureDebtObligationAmount(debtObligations, horizonDate);
   const upcoming = routineUpcoming + scheduledUpcoming + savingsGoalUpcoming + debtUpcoming;
-  const projectedSpending = spent + upcoming;
-  const projectedRoom = income - projectedSpending;
-  const score = Math.round(100 + ((income - projectedSpending) / income) * 100);
+
+  const projectedSpending = upcoming;
+  const projectedRoom = availableNow - upcoming;
+  const score =
+    availableNow > 0
+      ? Math.round(100 + ((availableNow - upcoming) / availableNow) * 100)
+      : upcoming > 0
+        ? -100
+        : 100;
 
   return {
     score,
@@ -413,6 +482,8 @@ async function buildMeansSnapshot(profile = {}) {
     upcoming,
     savingsGoalUpcoming,
     debtUpcoming,
+    horizonDate,
+    availableNow,
     projectedSpending,
     projectedRoom,
   };
@@ -494,6 +565,8 @@ function ensureMeansMetric(label, snapshot, onToggle) {
         Math.round(snapshot.upcoming),
         Math.round(snapshot.savingsGoalUpcoming || 0),
         Math.round(snapshot.debtUpcoming || 0),
+        Math.round(snapshot.availableNow || 0),
+        snapshot.horizonDate || "",
         Math.round(snapshot.projectedRoom),
         expanded ? 1 : 0,
       ].join(":")
@@ -547,7 +620,8 @@ function ensureMeansMetric(label, snapshot, onToggle) {
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.38)"><span>Debt / obligations due</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.debtUpcoming)}</strong></span>
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.38)"><span>Savings goals due</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.savingsGoalUpcoming)}</strong></span>
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.06);font-size:10px;color:rgba(255,255,255,.42)"><span>Projected room</span><strong style="color:${snapshot.projectedRoom >= 0 ? "#67e8c8" : "#ff7f8d"}">${snapshot.projectedRoom >= 0 ? "" : "−"}${money(Math.abs(snapshot.projectedRoom))}</strong></span>
-      <span style="display:block;margin-top:8px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">100 = living within your means</span>
+      <span style="display:block;margin-top:8px;font-size:8.5px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30);text-align:center">This score uses the money currently available in your wallets and checks whether it can carry you through ${formatHorizonDate(snapshot.horizonDate)}, your next stable payday. Future salary is not treated as available before it arrives.</span>
+      <span style="display:block;margin-top:4px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">100 = living within your means</span>
     </span>
   `;
 
