@@ -5,6 +5,7 @@ import "./installClaraOrbViewportOwnershipGuard";
 import { fetchCanonicalClaraProfile, resolveCanonicalFirstName } from "@/lib/canonical-clara-profile";
 import {
   FINANCE_DATA_UPDATED_EVENT,
+  getEmergencyFund,
   getExpenses,
   getSavingsGoals,
   getWallets,
@@ -22,6 +23,7 @@ import {
   buildDebtObligationScheduleProjection,
 } from "@/lib/financialCardScheduleProjection";
 import { getRecurrenceOccurrences } from "@/lib/recurringCashFlowRepository";
+import { buildCanonicalWalletState } from "@/lib/clara-wallet-money-semantics";
 import {
   CLARA_MONEY_ROUTINE_UPDATED_EVENT,
   getClaraMoneyScheduleStorageKey,
@@ -452,12 +454,13 @@ function currentMonthIncomeFromSources(incomeSources, currentMonthKey) {
 
 async function buildMeansSnapshot(profile = {}) {
   const owner = getOwnerIdentity(profile);
-  const [expenses, incomeSources, savingsGoals, debtObligations, wallets] = await Promise.all([
+  const [expenses, incomeSources, savingsGoals, debtObligations, wallets, emergencyFund] = await Promise.all([
     getExpenses(owner).catch(() => []),
     getIncomeSources(owner).catch(() => []),
     getSavingsGoals(owner).catch(() => []),
     getDebtObligations(owner).catch(() => []),
     getWallets(owner).catch(() => []),
+    getEmergencyFund(owner).catch(() => null),
   ]);
   const currentMonthKey = getPHMonthKey();
 
@@ -468,9 +471,24 @@ async function buildMeansSnapshot(profile = {}) {
   }, 0);
 
   const income = currentMonthIncomeFromSources(incomeSources, currentMonthKey);
-  const availableNow = currentAvailableMoney(wallets);
-  const moneyLentUnavailable = currentMoneyLentUnavailable(wallets);
-  if (!(income > 0) && !(availableNow > 0) && !(moneyLentUnavailable > 0)) return null;
+  const canonicalWalletState = buildCanonicalWalletState({
+    wallets,
+    emergencyFund,
+    savingsGoals,
+  });
+  const walletTotals = canonicalWalletState.walletTotals || {};
+  const availableNow = Math.max(0, Number(walletTotals.spendableBalance || 0));
+  const moneyLentUnavailable = Math.max(0, Number(walletTotals.moneyLentUnavailableAmount || 0));
+  const emergencyProtected = Math.max(0, Number(walletTotals.emergencyProtectedAmount || 0));
+  const savingsProtected = Math.max(0, Number(walletTotals.savingsProtectedAmount || 0));
+  const otherProtected = Math.max(0, Number(walletTotals.otherProtectedAmount || 0));
+  if (
+    !(income > 0) &&
+    !(availableNow > 0) &&
+    !(moneyLentUnavailable > 0) &&
+    !(emergencyProtected > 0) &&
+    !(savingsProtected > 0)
+  ) return null;
 
   const horizonDate = resolveMeansHorizonDate(incomeSources);
   const routineUpcoming = futureRoutineAmount(owner, horizonDate);
@@ -498,6 +516,9 @@ async function buildMeansSnapshot(profile = {}) {
     horizonDate,
     availableNow,
     moneyLentUnavailable,
+    emergencyProtected,
+    savingsProtected,
+    otherProtected,
     projectedSpending,
     projectedRoom,
   };
@@ -581,6 +602,9 @@ function ensureMeansMetric(label, snapshot, onToggle) {
         Math.round(snapshot.debtUpcoming || 0),
         Math.round(snapshot.availableNow || 0),
         Math.round(snapshot.moneyLentUnavailable || 0),
+        Math.round(snapshot.emergencyProtected || 0),
+        Math.round(snapshot.savingsProtected || 0),
+        Math.round(snapshot.otherProtected || 0),
         snapshot.horizonDate || "",
         Math.round(snapshot.projectedRoom),
         expanded ? 1 : 0,
@@ -630,14 +654,19 @@ function ensureMeansMetric(label, snapshot, onToggle) {
     </span>
     <span data-clara-means-expanded="true" style="display:${expanded ? "block" : "none"};width:min(300px,78vw);margin:10px auto 1px;padding:11px 12px;border:1px solid rgba(112,157,229,.13);border-radius:15px;background:linear-gradient(180deg,rgba(9,21,50,.72),rgba(4,11,31,.66));box-shadow:0 14px 34px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.025);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);text-align:left">
       <span style="display:flex;justify-content:space-between;gap:16px;font-size:10px;color:rgba(255,255,255,.38)"><span>Income this month</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.income)}</strong></span>
-      <span style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.50)"><span>Available now</span><strong style="color:rgba(255,255,255,.86)">${money(snapshot.availableNow)}</strong></span>
+      <span style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.50)"><span>Money in hand</span><strong style="color:rgba(255,255,255,.86)">${money(snapshot.availableNow)}</strong></span>
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.38)"><span>Already spent</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.spent)}</strong></span>
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.05);font-size:10px;color:rgba(255,255,255,.44)"><span>Upcoming commitments</span><strong style="color:rgba(255,255,255,.78)">${money(snapshot.upcoming)}</strong></span>
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;padding-left:9px;font-size:9.5px;color:rgba(255,255,255,.31)"><span>↳ Debt / obligations</span><strong style="color:rgba(255,255,255,.58)">${money(snapshot.debtUpcoming)}</strong></span>
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;padding-left:9px;font-size:9.5px;color:rgba(255,255,255,.31)"><span>↳ Savings goals</span><strong style="color:rgba(255,255,255,.58)">${money(snapshot.savingsGoalUpcoming)}</strong></span>
+      ${(snapshot.emergencyProtected || snapshot.savingsProtected || snapshot.otherProtected) > 0 ? `<span style="display:block;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.05)">
+        ${snapshot.emergencyProtected > 0 ? `<span style="display:flex;justify-content:space-between;gap:16px;font-size:9.5px;color:rgba(255,255,255,.30)"><span>Emergency Fund · protected</span><strong style="color:rgba(255,255,255,.50)">${money(snapshot.emergencyProtected)}</strong></span>` : ""}
+        ${snapshot.savingsProtected > 0 ? `<span style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;font-size:9.5px;color:rgba(255,255,255,.30)"><span>Savings · protected</span><strong style="color:rgba(255,255,255,.50)">${money(snapshot.savingsProtected)}</strong></span>` : ""}
+        ${snapshot.otherProtected > 0 ? `<span style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;font-size:9.5px;color:rgba(255,255,255,.30)"><span>Other protected money</span><strong style="color:rgba(255,255,255,.50)">${money(snapshot.otherProtected)}</strong></span>` : ""}
+      </span>` : ""}
       ${snapshot.moneyLentUnavailable > 0 ? `<span style="display:flex;justify-content:space-between;gap:16px;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.05);font-size:9.5px;color:rgba(255,255,255,.30)"><span>Money lent · not available</span><strong style="color:rgba(255,255,255,.50)">${money(snapshot.moneyLentUnavailable)}</strong></span>` : ""}
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.07);font-size:10px;color:rgba(255,255,255,.48)"><span>Room until next payday</span><strong style="color:${snapshot.projectedRoom >= 0 ? "#67e8c8" : "#ff7f8d"}">${snapshot.projectedRoom >= 0 ? "" : "−"}${money(Math.abs(snapshot.projectedRoom))}</strong></span>
-      <span style="display:block;margin-top:8px;font-size:8.5px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30);text-align:center">This score uses the money currently available in your wallets and checks whether it can carry you through ${formatHorizonDate(snapshot.horizonDate)}, your next stable payday. Future salary is not treated as available before it arrives.</span>
+      <span style="display:block;margin-top:8px;font-size:8.5px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30);text-align:center">This score uses only your money in hand — wallet money that is not protected for Emergency Fund or Savings Goals and is not lent out — and checks whether it can carry you through ${formatHorizonDate(snapshot.horizonDate)}, your next stable payday. Future salary is not treated as available before it arrives.</span>
       <span style="display:block;margin-top:4px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">100 = living within your means</span>
     </span>
   `;
