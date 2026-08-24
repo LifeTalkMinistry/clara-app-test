@@ -7,6 +7,7 @@ import ClaraAddIncomeOverlay from "./ClaraAddIncomeOverlayV2.jsx";
 import ClaraWalletOverlay from "./ClaraWalletOverlayV2.jsx";
 import ClaraMoneyScheduleOverlay from "./ClaraMoneyScheduleOverlay.jsx";
 import ClaraCalendarOverlay from "./ClaraCalendarOverlay.jsx";
+import ClaraEmergencyFundOverlay from "./ClaraEmergencyFundOverlay.jsx";
 import ClaraBuyCheckImpactPortal from "./ClaraBuyCheckImpactPortal.jsx";
 import ClaraBuyCheckUsagePortal from "./ClaraBuyCheckUsagePortal.jsx";
 import ClaraLifeProfilePortal from "./ClaraLifeProfilePortal.jsx";
@@ -17,7 +18,14 @@ import { WEEKLY_MONEY_CHECK_UPDATED_EVENT } from "@/lib/weeklyMoneyCheckState";
 
 const WEEKLY_SESSION_STORAGE_PREFIX = "clara_weekly_money_check_v1";
 const WEEKLY_CHAT_FLOW_VERSION = "weekly-money-check-chat-v1";
-const ORB_ENTRY_MODES = new Set(["log-expense", "add-income", "wallet", "calendar", "money-schedule"]);
+const ORB_ENTRY_MODES = new Set([
+  "log-expense",
+  "add-income",
+  "wallet",
+  "calendar",
+  "money-schedule",
+  "emergency-fund",
+]);
 
 function restoreReadyStateWhenWeeklyCheckWasNotStarted(user) {
   if (typeof window === "undefined" || !window.localStorage) return;
@@ -60,6 +68,7 @@ export default function ClaraAiEnvironmentOverlay(props) {
   const [walletHandoff, setWalletHandoff] = useState(null);
   const [logExpenseResume, setLogExpenseResume] = useState(null);
   const [addIncomeResume, setAddIncomeResume] = useState(null);
+  const [emergencyFundResume, setEmergencyFundResume] = useState(null);
   const routeMode = searchParams.get("mode");
   const weeklyMoneyCheckLaunchRequested =
     !guidePreview && routeMode === "weekly-money-check";
@@ -71,6 +80,7 @@ export default function ClaraAiEnvironmentOverlay(props) {
   const walletMode = !guidePreview && entryMode === "wallet";
   const calendarMode = !guidePreview && entryMode === "calendar";
   const moneyScheduleMode = !guidePreview && entryMode === "money-schedule";
+  const emergencyFundMode = !guidePreview && entryMode === "emergency-fund";
   const weeklyAutoOpenRef = useRef(false);
   const lifeContext = useClaraBuyCheckLifeContext(props?.claraAssistantContext?.user);
   const enrichedAssistantContext = useMemo(
@@ -98,6 +108,7 @@ export default function ClaraAiEnvironmentOverlay(props) {
       setWalletHandoff(null);
       if (nextMode === "log-expense") setLogExpenseResume(null);
       if (nextMode === "add-income") setAddIncomeResume(null);
+      if (nextMode === "emergency-fund") setEmergencyFundResume(null);
     };
 
     window.addEventListener(CLARA_PAUSE_OPEN_REQUEST_EVENT, handlePauseOpenRequest);
@@ -166,6 +177,11 @@ export default function ClaraAiEnvironmentOverlay(props) {
       }));
     }
     setEntryMode("add-income");
+  };
+
+  const returnToEmergencyFund = () => {
+    setWalletHandoff(null);
+    setEntryMode("emergency-fund");
   };
 
   useEffect(() => {
@@ -279,6 +295,10 @@ export default function ClaraAiEnvironmentOverlay(props) {
         returnToAddIncome({ cancelled: true });
         return;
       }
+      if (walletHandoff?.returnMode === "emergency-fund") {
+        returnToEmergencyFund();
+        return;
+      }
       setEntryMode(null);
       setWalletHandoff(null);
       props?.onClose?.();
@@ -291,6 +311,10 @@ export default function ClaraAiEnvironmentOverlay(props) {
       }
       if (walletHandoff?.returnMode === "add-income") {
         returnToAddIncome(detail);
+        return;
+      }
+      if (walletHandoff?.returnMode === "emergency-fund") {
+        returnToEmergencyFund();
       }
     };
 
@@ -331,6 +355,35 @@ export default function ClaraAiEnvironmentOverlay(props) {
         {...props}
         claraAssistantContext={enrichedAssistantContext}
         onClose={closeMoneySchedule}
+      />
+    );
+  }
+
+  if (emergencyFundMode) {
+    const closeEmergencyFund = () => {
+      setEntryMode(null);
+      setWalletHandoff(null);
+      setEmergencyFundResume(null);
+      props?.onClose?.();
+    };
+
+    const openWalletChat = (detail = {}) => {
+      setEmergencyFundResume(detail?.resumeState || null);
+      setWalletHandoff({
+        intent: "create",
+        source: "emergency-fund",
+        returnMode: "emergency-fund",
+      });
+      setEntryMode("wallet");
+    };
+
+    return (
+      <ClaraEmergencyFundOverlay
+        {...props}
+        claraAssistantContext={enrichedAssistantContext}
+        resumeState={emergencyFundResume}
+        onOpenWalletChat={openWalletChat}
+        onClose={closeEmergencyFund}
       />
     );
   }
