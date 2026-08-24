@@ -93,6 +93,8 @@ const OTHER_PROTECTED_KEYS = [
   "other_reserved_amount",
 ];
 
+const MONEY_LENT_TYPES = new Set(["money_lent", "money-lent", "lent", "receivable"]);
+
 function toMoney(value) {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   if (typeof value === "string") {
@@ -132,6 +134,16 @@ export function getWalletName(wallet = {}) {
   ).trim();
 }
 
+export function getWalletType(wallet = {}) {
+  return String(wallet?.type || wallet?.wallet_type || wallet?.walletType || "")
+    .trim()
+    .toLowerCase();
+}
+
+export function isMoneyLentWallet(wallet = {}) {
+  return MONEY_LENT_TYPES.has(getWalletType(wallet));
+}
+
 export function isActiveWalletForMoneySemantics(wallet) {
   return Boolean(
     wallet &&
@@ -147,6 +159,10 @@ export function isActiveWalletForMoneySemantics(wallet) {
 
 export function getWalletCurrentBalance(wallet = {}) {
   return firstNumber(wallet, CURRENT_BALANCE_KEYS);
+}
+
+export function getWalletUnavailableBalance(wallet = {}) {
+  return isMoneyLentWallet(wallet) ? Math.max(getWalletCurrentBalance(wallet), 0) : 0;
 }
 
 function isActiveSavingsGoal(goal) {
@@ -200,6 +216,7 @@ export function getWalletProtectedAmounts({
   wallets = [],
 } = {}) {
   const currentBalance = Math.max(getWalletCurrentBalance(wallet), 0);
+  const moneyLent = isMoneyLentWallet(wallet);
   const walletId = getWalletId(wallet);
   const emergencyStorageWallet = resolveEmergencyStorageWallet({
     wallet,
@@ -210,16 +227,18 @@ export function getWalletProtectedAmounts({
     ? getWalletId(emergencyStorageWallet)
     : "";
   const isEmergencyStorageWallet = Boolean(
-    emergencyStorageWalletId && walletId === emergencyStorageWalletId
+    !moneyLent && emergencyStorageWalletId && walletId === emergencyStorageWalletId
   );
 
   const emergencyProtectedAmount = isEmergencyStorageWallet
     ? Math.min(getEmergencyProtectedAmount(emergencyFund), currentBalance)
     : 0;
 
-  const activeSavingsGoals = (Array.isArray(savingsGoals) ? savingsGoals : [])
-    .filter(isActiveSavingsGoal)
-    .filter((goal) => walletId && getSavingsGoalWalletId(goal) === walletId);
+  const activeSavingsGoals = moneyLent
+    ? []
+    : (Array.isArray(savingsGoals) ? savingsGoals : [])
+        .filter(isActiveSavingsGoal)
+        .filter((goal) => walletId && getSavingsGoalWalletId(goal) === walletId);
 
   const requestedSavingsProtectedAmount = activeSavingsGoals.reduce(
     (sum, goal) => sum + getSavingsGoalSavedAmount(goal),
@@ -230,12 +249,15 @@ export function getWalletProtectedAmounts({
     Math.max(currentBalance - emergencyProtectedAmount, 0)
   );
   const requestedOtherProtectedAmount = Math.max(firstNumber(wallet, OTHER_PROTECTED_KEYS), 0);
-  const otherProtectedAmount = Math.min(
-    requestedOtherProtectedAmount,
-    Math.max(currentBalance - emergencyProtectedAmount - savingsProtectedAmount, 0)
-  );
+  const otherProtectedAmount = moneyLent
+    ? 0
+    : Math.min(
+        requestedOtherProtectedAmount,
+        Math.max(currentBalance - emergencyProtectedAmount - savingsProtectedAmount, 0)
+      );
   const totalProtectedAmount =
     emergencyProtectedAmount + savingsProtectedAmount + otherProtectedAmount;
+  const unavailableAmount = moneyLent ? currentBalance : 0;
 
   return {
     currentBalance,
@@ -243,6 +265,9 @@ export function getWalletProtectedAmounts({
     savingsProtectedAmount,
     otherProtectedAmount,
     totalProtectedAmount,
+    unavailableAmount,
+    moneyLentUnavailableAmount: unavailableAmount,
+    isMoneyLent: moneyLent,
     savingsGoalCount: activeSavingsGoals.length,
     isEmergencyStorageWallet,
     emergencyFundLinkedWalletId: isEmergencyStorageWallet
@@ -266,10 +291,12 @@ export function getWalletMoneySemantics({
 
   return {
     ...protectedAmounts,
-    spendableBalance: Math.max(
-      protectedAmounts.currentBalance - protectedAmounts.totalProtectedAmount,
-      0
-    ),
+    spendableBalance: protectedAmounts.isMoneyLent
+      ? 0
+      : Math.max(
+          protectedAmounts.currentBalance - protectedAmounts.totalProtectedAmount,
+          0
+        ),
   };
 }
 
@@ -279,6 +306,8 @@ export function getWalletSpendableBalance(walletOrContext = {}) {
   }
 
   const wallet = walletOrContext || {};
+  if (isMoneyLentWallet(wallet)) return 0;
+
   const explicitSpendable = firstDefinedValue(wallet, EXPLICIT_SPENDABLE_KEYS, null);
   if (explicitSpendable !== null) return Math.max(toMoney(explicitSpendable), 0);
 
@@ -319,10 +348,26 @@ export function syncWalletProtectedAllocations({
       protected_savings_amount: semantics.savingsProtectedAmount,
       otherProtectedAmount: semantics.otherProtectedAmount,
       other_protected_amount: semantics.otherProtectedAmount,
-      savingsGoalCount: semantics.savingsGoalCount,
-      savings_goal_count: semantics.savingsGoalCount,
       totalProtectedAmount: semantics.totalProtectedAmount,
       total_protected_amount: semantics.totalProtectedAmount,
+      unavailableAmount: semantics.unavailableAmount,
+      unavailable_amount: semantics.unavailableAmount,
+      moneyLentUnavailableAmount: semantics.moneyLentUnavailableAmount,
+      money_lent_unavailable_amount: semantics.moneyLentUnavailableAmount,
+      isMoneyLent: semantics.isMoneyLent,
+      is_money_lent: semantics.isMoneyLent,
+      isSpendable: !semantics.isMoneyLent,
+      is_spendable: !semantics.isMoneyLent,
+      spendabilityStatus: semantics.isMoneyLent ? "blocked" : wallet?.spendabilityStatus,
+      spendability_status: semantics.isMoneyLent ? "blocked" : wallet?.spendability_status,
+      spendabilityBlockReason: semantics.isMoneyLent
+        ? "Money Lent is owned by you but currently held by someone else."
+        : wallet?.spendabilityBlockReason,
+      spendability_block_reason: semantics.isMoneyLent
+        ? "Money Lent is owned by you but currently held by someone else."
+        : wallet?.spendability_block_reason,
+      savingsGoalCount: semantics.savingsGoalCount,
+      savings_goal_count: semantics.savingsGoalCount,
       spendableBalance: semantics.spendableBalance,
       spendable_balance: semantics.spendableBalance,
       walletSpendableBalance: semantics.spendableBalance,
@@ -353,6 +398,10 @@ export function getWalletTotals(wallets = []) {
     .reduce(
       (totals, wallet) => {
         const currentBalance = Math.max(getWalletCurrentBalance(wallet), 0);
+        const unavailableAmount = isMoneyLentWallet(wallet) ? currentBalance : Math.max(
+          firstNumber(wallet, ["unavailableAmount", "unavailable_amount", "moneyLentUnavailableAmount", "money_lent_unavailable_amount"]),
+          0
+        );
         const emergencyProtectedAmount = Math.max(
           firstNumber(wallet, ["emergencyProtectedAmount", "emergency_protected_amount"]),
           0
@@ -369,13 +418,18 @@ export function getWalletTotals(wallets = []) {
           firstNumber(wallet, EXPLICIT_PROTECTED_KEYS),
           0
         );
-        const spendableBalance = Math.max(
-          toMoney(firstDefinedValue(wallet, EXPLICIT_SPENDABLE_KEYS, 0)),
-          0
-        );
+        const spendableBalance = isMoneyLentWallet(wallet)
+          ? 0
+          : Math.max(
+              toMoney(firstDefinedValue(wallet, EXPLICIT_SPENDABLE_KEYS, 0)),
+              0
+            );
 
         return {
           currentBalance: totals.currentBalance + currentBalance,
+          availableBalance: totals.availableBalance + spendableBalance,
+          unavailableAmount: totals.unavailableAmount + unavailableAmount,
+          moneyLentUnavailableAmount: totals.moneyLentUnavailableAmount + unavailableAmount,
           emergencyProtectedAmount:
             totals.emergencyProtectedAmount + emergencyProtectedAmount,
           savingsProtectedAmount:
@@ -388,6 +442,9 @@ export function getWalletTotals(wallets = []) {
       },
       {
         currentBalance: 0,
+        availableBalance: 0,
+        unavailableAmount: 0,
+        moneyLentUnavailableAmount: 0,
         emergencyProtectedAmount: 0,
         savingsProtectedAmount: 0,
         otherProtectedAmount: 0,
@@ -426,4 +483,13 @@ export function getTotalWalletSpendableBalance({
 } = {}) {
   return buildCanonicalWalletState({ wallets, emergencyFund, savingsGoals }).walletTotals
     .spendableBalance;
+}
+
+export function getTotalWalletUnavailableBalance({
+  wallets = [],
+  emergencyFund = null,
+  savingsGoals = [],
+} = {}) {
+  return buildCanonicalWalletState({ wallets, emergencyFund, savingsGoals }).walletTotals
+    .unavailableAmount;
 }
