@@ -9,6 +9,7 @@ import ClaraMoneyScheduleOverlay from "./ClaraMoneyScheduleOverlay.jsx";
 import ClaraCalendarOverlay from "./ClaraCalendarOverlay.jsx";
 import ClaraEmergencyFundOverlay from "./ClaraEmergencyFundOverlay.jsx";
 import ClaraSavingsGoalOverlay from "./ClaraSavingsGoalOverlay.jsx";
+import ClaraDebtObligationOverlay from "./ClaraDebtObligationOverlay.jsx";
 import ClaraBuyCheckImpactPortal from "./ClaraBuyCheckImpactPortal.jsx";
 import ClaraBuyCheckUsagePortal from "./ClaraBuyCheckUsagePortal.jsx";
 import ClaraLifeProfilePortal from "./ClaraLifeProfilePortal.jsx";
@@ -27,6 +28,7 @@ const ORB_ENTRY_MODES = new Set([
   "money-schedule",
   "emergency-fund",
   "savings-goal",
+  "debt-obligation",
 ]);
 
 function restoreReadyStateWhenWeeklyCheckWasNotStarted(user) {
@@ -84,6 +86,7 @@ export default function ClaraAiEnvironmentOverlay(props) {
   const moneyScheduleMode = !guidePreview && entryMode === "money-schedule";
   const emergencyFundMode = !guidePreview && entryMode === "emergency-fund";
   const savingsGoalMode = !guidePreview && entryMode === "savings-goal";
+  const debtObligationMode = !guidePreview && entryMode === "debt-obligation";
   const weeklyAutoOpenRef = useRef(false);
   const lifeContext = useClaraBuyCheckLifeContext(props?.claraAssistantContext?.user);
   const enrichedAssistantContext = useMemo(
@@ -402,6 +405,21 @@ export default function ClaraAiEnvironmentOverlay(props) {
         {...props}
         claraAssistantContext={enrichedAssistantContext}
         onClose={closeSavingsGoal}
+      />
+    );
+  }
+
+  if (debtObligationMode) {
+    const closeDebtObligation = () => {
+      setEntryMode(null);
+      props?.onClose?.();
+    };
+
+    return (
+      <ClaraDebtObligationOverlay
+        {...props}
+        claraAssistantContext={enrichedAssistantContext}
+        onClose={closeDebtObligation}
       />
     );
   }
