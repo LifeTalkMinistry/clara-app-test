@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowUp, X } from "lucide-react";
-import { addMoney, addWallet } from "@/lib/financeRepository";
+import {
+  addMoney,
+  addWallet,
+  deleteWallet,
+  transferBetweenWallets,
+} from "@/lib/financeRepository";
 import {
   getWalletId,
   getWalletMoneySemantics,
@@ -39,6 +44,26 @@ function getFirstName(user = {}) {
 
 function getLocalUserId(user = {}) {
   return clean(user?.id || user?.email || "local-user") || "local-user";
+}
+
+function getWalletType(wallet = {}) {
+  return clean(wallet?.type || wallet?.wallet_type || wallet?.walletType).toLowerCase();
+}
+
+function isMoneyLentWallet(wallet = {}) {
+  return ["money_lent", "money-lent", "lent", "receivable"].includes(getWalletType(wallet));
+}
+
+function formatPromisedDate(value = "") {
+  const raw = clean(value);
+  if (!raw) return "No promised date";
+  const date = new Date(`${raw}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return raw;
+  return date.toLocaleDateString("en-PH", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function dispatchWalletRefresh() {
@@ -119,6 +144,34 @@ function Composer({ value, onChange, onSubmit, placeholder, inputMode = "text", 
   );
 }
 
+function DateComposer({ value, onChange, onSubmit, disabled = false }) {
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit?.();
+      }}
+      className="relative z-10 flex items-center gap-2 rounded-[22px] border border-blue-200/14 bg-[#07142b]/96 p-2 shadow-[0_14px_34px_rgba(0,0,0,0.28)]"
+    >
+      <input
+        type="date"
+        value={value}
+        onChange={(event) => onChange?.(event.target.value)}
+        disabled={disabled}
+        className="min-h-11 min-w-0 flex-1 bg-transparent px-3 text-[14px] font-semibold text-white outline-none [color-scheme:dark] disabled:opacity-50"
+      />
+      <button
+        type="submit"
+        disabled={disabled || !String(value ?? "").trim()}
+        className="grid h-11 w-11 shrink-0 touch-manipulation place-items-center rounded-full bg-[#1769ff] text-white shadow-[0_8px_22px_rgba(23,105,255,0.34)] transition active:scale-95 disabled:opacity-40"
+        aria-label="Continue"
+      >
+        <ArrowUp className="h-4 w-4" />
+      </button>
+    </form>
+  );
+}
+
 function activityLabel(transaction = {}) {
   const type = clean(transaction?.type || transaction?.source_type || "activity").toLowerCase();
   if (["income", "deposit", "add_funds", "add_money", "cash_in", "credit"].includes(type)) return "Money in";
@@ -157,6 +210,13 @@ export default function ClaraWalletOverlayV2({
   const [fundAmountInput, setFundAmountInput] = useState("");
   const [draftWalletName, setDraftWalletName] = useState("");
   const [draftStartingBalance, setDraftStartingBalance] = useState(0);
+  const [lentPersonInput, setLentPersonInput] = useState("");
+  const [lentAmountInput, setLentAmountInput] = useState("");
+  const [lentPromisedDateInput, setLentPromisedDateInput] = useState("");
+  const [draftLentPerson, setDraftLentPerson] = useState("");
+  const [draftLentSourceWalletId, setDraftLentSourceWalletId] = useState("");
+  const [draftLentAmount, setDraftLentAmount] = useState(0);
+  const [draftLentPromisedDate, setDraftLentPromisedDate] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -175,9 +235,20 @@ export default function ClaraWalletOverlayV2({
           wallet,
           id: getWalletId(wallet),
           name: getWalletName(wallet) || "Wallet",
+          isMoneyLent: isMoneyLentWallet(wallet),
           ...getWalletMoneySemantics({ wallet, emergencyFund, savingsGoals, wallets: allWallets }),
         })),
     [allWallets, emergencyFund, savingsGoals]
+  );
+
+  const spendableSourceWallets = useMemo(
+    () => wallets.filter((entry) => !entry.isMoneyLent && entry.spendableBalance > 0),
+    [wallets]
+  );
+
+  const selectedLentSourceWallet = useMemo(
+    () => spendableSourceWallets.find((entry) => String(entry.id) === String(draftLentSourceWalletId)) || null,
+    [draftLentSourceWalletId, spendableSourceWallets]
   );
 
   const selectedFundingWallet = useMemo(
@@ -224,16 +295,27 @@ export default function ClaraWalletOverlayV2({
     [wallets]
   );
 
+  const resetCreationDrafts = () => {
+    setWalletNameInput("");
+    setStartingBalanceInput("");
+    setDraftWalletName("");
+    setDraftStartingBalance(0);
+    setLentPersonInput("");
+    setLentAmountInput("");
+    setLentPromisedDateInput("");
+    setDraftLentPerson("");
+    setDraftLentSourceWalletId("");
+    setDraftLentAmount(0);
+    setDraftLentPromisedDate("");
+  };
+
   useEffect(() => {
     if (!isActive) return;
     setBusy(false);
     setError("");
-    setWalletNameInput("");
-    setStartingBalanceInput("");
     setFundAmountInput("");
-    setDraftWalletName("");
-    setDraftStartingBalance(0);
-    if (intent === "create") setPhase("create_name");
+    resetCreationDrafts();
+    if (intent === "create") setPhase("create_type");
     else if (intent === "fund") setPhase("fund");
     else setPhase("menu");
   }, [isActive, intent, entryContext?.walletId]);
@@ -248,11 +330,8 @@ export default function ClaraWalletOverlayV2({
   const startWalletCreation = () => {
     setBusy(false);
     setError("");
-    setWalletNameInput("");
-    setStartingBalanceInput("");
-    setDraftWalletName("");
-    setDraftStartingBalance(0);
-    setPhase("create_name");
+    resetCreationDrafts();
+    setPhase("create_type");
   };
 
   const submitWalletName = () => {
@@ -273,6 +352,56 @@ export default function ClaraWalletOverlayV2({
     setDraftStartingBalance(amount);
     setError("");
     setPhase("create_confirm");
+  };
+
+  const submitLentPerson = () => {
+    const person = clean(lentPersonInput);
+    if (!person) return;
+    setDraftLentPerson(person);
+    setLentPersonInput("");
+    setError("");
+    setPhase("lent_source");
+  };
+
+  const selectLentSourceWallet = (walletId) => {
+    setDraftLentSourceWalletId(String(walletId));
+    setLentAmountInput("");
+    setError("");
+    setPhase("lent_amount");
+  };
+
+  const submitLentAmount = () => {
+    const amount = Number(String(lentAmountInput || "").replace(/[₱,\s]/g, ""));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError("Enter an amount greater than zero.");
+      return;
+    }
+    if (!selectedLentSourceWallet) {
+      setError("Choose the wallet where this money came from.");
+      setPhase("lent_source");
+      return;
+    }
+    if (amount > selectedLentSourceWallet.spendableBalance) {
+      setError(`${selectedLentSourceWallet.name} only has ${money(selectedLentSourceWallet.spendableBalance)} spendable.`);
+      return;
+    }
+    setDraftLentAmount(amount);
+    setLentAmountInput("");
+    setError("");
+    setPhase("lent_date");
+  };
+
+  const submitLentPromisedDate = () => {
+    const promisedDate = clean(lentPromisedDateInput);
+    if (!promisedDate) return;
+    const parsed = new Date(`${promisedDate}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) {
+      setError("Choose a valid promised payment date.");
+      return;
+    }
+    setDraftLentPromisedDate(promisedDate);
+    setError("");
+    setPhase("lent_confirm");
   };
 
   const createWalletInChat = async () => {
@@ -301,6 +430,79 @@ export default function ClaraWalletOverlayV2({
       }
     } catch (nextError) {
       setError(clean(nextError?.message || "CLARA couldn’t create that wallet yet."));
+      setBusy(false);
+    }
+  };
+
+  const createMoneyLentWallet = async () => {
+    if (busy || !draftLentPerson || !selectedLentSourceWallet?.id || draftLentAmount <= 0 || !draftLentPromisedDate) return;
+    if (draftLentAmount > selectedLentSourceWallet.spendableBalance) {
+      setError(`${selectedLentSourceWallet.name} only has ${money(selectedLentSourceWallet.spendableBalance)} spendable.`);
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    const localUserId = getLocalUserId(user);
+    const now = new Date().toISOString();
+    let created = null;
+
+    try {
+      created = await addWallet(localUserId, {
+        name: draftLentPerson,
+        type: "money_lent",
+        wallet_type: "money_lent",
+        balance: 0,
+        current_balance: 0,
+        starting_balance: 0,
+        borrower_name: draftLentPerson,
+        lent_amount: draftLentAmount,
+        original_lent_amount: draftLentAmount,
+        promised_payment_date: draftLentPromisedDate,
+        promisedPaymentDate: draftLentPromisedDate,
+        source_wallet_id: selectedLentSourceWallet.id,
+        source_wallet_name: selectedLentSourceWallet.name,
+        other_protected_amount: draftLentAmount,
+        otherProtectedAmount: draftLentAmount,
+        status: "outstanding",
+        source: "wallet_chat_money_lent",
+        created_at: now,
+        updated_at: now,
+      });
+
+      const lentWalletId = getWalletId(created);
+      if (!lentWalletId) throw new Error("CLARA created the record but could not identify the Money Lent wallet.");
+
+      await transferBetweenWallets(localUserId, {
+        from_wallet_id: selectedLentSourceWallet.id,
+        to_wallet_id: lentWalletId,
+        amount: draftLentAmount,
+        notes: `Money lent to ${draftLentPerson}. Promised payment: ${draftLentPromisedDate}.`,
+        transfer_purpose: "money_lent",
+        borrower_name: draftLentPerson,
+        promised_payment_date: draftLentPromisedDate,
+        created_at: now,
+      });
+
+      dispatchWalletRefresh();
+      setPhase("lent_created");
+      if (typeof window !== "undefined") {
+        window.setTimeout(() => onWalletReady?.({ wallet: created, action: "money_lent_created" }), 260);
+      } else {
+        onWalletReady?.({ wallet: created, action: "money_lent_created" });
+      }
+    } catch (nextError) {
+      if (created) {
+        const createdId = getWalletId(created);
+        if (createdId) {
+          try {
+            await deleteWallet(localUserId, createdId);
+          } catch {
+            // Best-effort rollback. The original error remains the user-facing source of truth.
+          }
+        }
+      }
+      setError(clean(nextError?.message || "CLARA couldn’t create that Money Lent wallet yet."));
       setBusy(false);
     }
   };
@@ -380,6 +582,17 @@ export default function ClaraWalletOverlayV2({
         <div className="flex min-h-full flex-col gap-3">
           {!emptyMenu ? <Bubble>{openingCopy}</Bubble> : null}
 
+          {phase === "create_type" ? (
+            <>
+              <Bubble>What kind of wallet are you creating?</Bubble>
+              <div className="mt-1 grid gap-2.5">
+                <ChoiceButton onClick={() => setPhase("create_name")}>My wallet</ChoiceButton>
+                <ChoiceButton onClick={() => setPhase("lent_person")}>Money Lent · Someone owes me</ChoiceButton>
+                <ChoiceButton onClick={() => setPhase("menu")} secondary>Back</ChoiceButton>
+              </div>
+            </>
+          ) : null}
+
           {phase === "create_name" ? (
             <>
               <Bubble>What should I call this wallet?</Bubble>
@@ -424,6 +637,82 @@ export default function ClaraWalletOverlayV2({
             )
           ) : null}
 
+          {phase === "lent_person" ? (
+            <>
+              <Bubble>Who borrowed the money from you?</Bubble>
+              <div className="mt-auto pt-3">
+                <Composer value={lentPersonInput} onChange={setLentPersonInput} onSubmit={submitLentPerson} placeholder="Person's name" disabled={busy} />
+              </div>
+            </>
+          ) : null}
+
+          {phase === "lent_source" ? (
+            <>
+              <Bubble role="user">{draftLentPerson}</Bubble>
+              <Bubble>Which wallet did the money come from?</Bubble>
+              {spendableSourceWallets.length ? (
+                <div className="grid gap-2.5">
+                  {spendableSourceWallets.map((entry) => (
+                    <ChoiceButton key={entry.id} onClick={() => selectLentSourceWallet(entry.id)}>
+                      {entry.name} · {money(entry.spendableBalance)} spendable
+                    </ChoiceButton>
+                  ))}
+                  <ChoiceButton onClick={() => setPhase("lent_person")} secondary>Back</ChoiceButton>
+                </div>
+              ) : (
+                <>
+                  <Bubble>I can’t find a wallet with spendable money to lend from.</Bubble>
+                  <ChoiceButton onClick={() => setPhase("create_type")} secondary>Back</ChoiceButton>
+                </>
+              )}
+            </>
+          ) : null}
+
+          {phase === "lent_amount" ? (
+            <>
+              <Bubble role="user">{selectedLentSourceWallet?.name || "Wallet"}</Bubble>
+              <Bubble>How much did {draftLentPerson} borrow from you?</Bubble>
+              <div className="mt-auto pt-3">
+                <Composer value={lentAmountInput} onChange={setLentAmountInput} onSubmit={submitLentAmount} placeholder="Amount lent" inputMode="decimal" disabled={busy} />
+              </div>
+            </>
+          ) : null}
+
+          {phase === "lent_date" ? (
+            <>
+              <Bubble role="user">{money(draftLentAmount)}</Bubble>
+              <Bubble>When did {draftLentPerson} promise to pay you back?</Bubble>
+              <div className="mt-auto pt-3">
+                <DateComposer value={lentPromisedDateInput} onChange={setLentPromisedDateInput} onSubmit={submitLentPromisedDate} disabled={busy} />
+              </div>
+            </>
+          ) : null}
+
+          {phase === "lent_confirm" ? (
+            <>
+              <Bubble role="user">{formatPromisedDate(draftLentPromisedDate)}</Bubble>
+              <Bubble>
+                Record {money(draftLentAmount)} as money lent to {draftLentPerson}, taken from {selectedLentSourceWallet?.name || "the selected wallet"}, promised back on {formatPromisedDate(draftLentPromisedDate)}?
+              </Bubble>
+              <div className="grid grid-cols-2 gap-2.5">
+                <ChoiceButton onClick={createMoneyLentWallet} disabled={busy}>{busy ? "Recording..." : "Record money lent"}</ChoiceButton>
+                <ChoiceButton onClick={() => setPhase("lent_date")} disabled={busy} secondary>Back</ChoiceButton>
+              </div>
+            </>
+          ) : null}
+
+          {phase === "lent_created" ? (
+            <>
+              <Bubble>
+                Recorded. {draftLentPerson} has {money(draftLentAmount)} of your money, promised back on {formatPromisedDate(draftLentPromisedDate)}. CLARA will not count it as spendable while it is lent out.
+              </Bubble>
+              <div className="grid gap-2.5">
+                <ChoiceButton onClick={startWalletCreation}>Create another wallet</ChoiceButton>
+                <ChoiceButton onClick={() => setPhase("menu")} secondary>Back to Wallet</ChoiceButton>
+              </div>
+            </>
+          ) : null}
+
           {phase === "fund" ? (
             selectedFundingWallet ? (
               <>
@@ -465,16 +754,22 @@ export default function ClaraWalletOverlayV2({
 
           {phase === "balances" ? (
             <>
-              <Bubble>Across your active wallets, CLARA has {money(totals.current)} recorded. {money(totals.protected)} is protected, leaving {money(totals.spendable)} spendable.</Bubble>
+              <Bubble>Across your active wallets, CLARA has {money(totals.current)} recorded. {money(totals.protected)} is protected or unavailable, leaving {money(totals.spendable)} spendable.</Bubble>
               <section className="grid gap-2.5">
                 {wallets.map((entry) => (
                   <article key={entry.id} className="rounded-[21px] border border-blue-200/12 bg-[#07142b]/88 p-3.5 shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0"><p className="truncate text-[13px] font-black text-white">{entry.name}</p><p className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-100/40">Recorded balance</p></div>
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] font-black text-white">{entry.name}</p>
+                        <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-100/40">{entry.isMoneyLent ? "Money Lent" : "Recorded balance"}</p>
+                        {entry.isMoneyLent && entry.wallet?.promised_payment_date ? (
+                          <p className="mt-1 text-[10px] font-semibold text-slate-300/48">Promised {formatPromisedDate(entry.wallet.promised_payment_date)}</p>
+                        ) : null}
+                      </div>
                       <p className="shrink-0 text-[14px] font-black text-white">{money(entry.currentBalance)}</p>
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2">
-                      <div className="rounded-[14px] border border-white/7 bg-white/[0.025] px-3 py-2.5"><p className="text-[9px] font-black uppercase tracking-[0.13em] text-blue-100/38">Protected</p><p className="mt-1 text-[12px] font-black text-amber-100/88">{money(entry.totalProtectedAmount)}</p></div>
+                      <div className="rounded-[14px] border border-white/7 bg-white/[0.025] px-3 py-2.5"><p className="text-[9px] font-black uppercase tracking-[0.13em] text-blue-100/38">{entry.isMoneyLent ? "Unavailable" : "Protected"}</p><p className="mt-1 text-[12px] font-black text-amber-100/88">{money(entry.totalProtectedAmount)}</p></div>
                       <div className="rounded-[14px] border border-cyan-200/10 bg-cyan-200/[0.035] px-3 py-2.5"><p className="text-[9px] font-black uppercase tracking-[0.13em] text-cyan-100/48">Spendable</p><p className="mt-1 text-[12px] font-black text-[#8ffff8]">{money(entry.spendableBalance)}</p></div>
                     </div>
                   </article>
@@ -503,8 +798,8 @@ export default function ClaraWalletOverlayV2({
 
           {phase === "protected" ? (
             <>
-              <Bubble>Protected money is still physically inside a wallet, but CLARA treats it as already assigned to your Emergency Fund or Savings Goals. That’s why I separate the recorded balance from what is actually spendable.</Bubble>
-              <Bubble>Right now, {money(totals.protected)} across your active wallets is protected. I won’t count that amount as free spending money.</Bubble>
+              <Bubble>Protected or unavailable money is still yours, but CLARA does not treat it as free spending money. That includes money assigned to your Emergency Fund or Savings Goals, and Money Lent that is currently with someone else.</Bubble>
+              <Bubble>Right now, {money(totals.protected)} across your active wallets is protected or unavailable. I won’t count that amount as free spending money.</Bubble>
               <div className="grid grid-cols-2 gap-2.5"><ChoiceButton onClick={() => setPhase("menu")} secondary>Back</ChoiceButton><ChoiceButton onClick={closeWallet}>Done</ChoiceButton></div>
             </>
           ) : null}
