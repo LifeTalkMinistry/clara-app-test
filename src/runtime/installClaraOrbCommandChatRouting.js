@@ -16,6 +16,7 @@ const CHAT_COMMAND_MODES = Object.freeze({
   calendar: "calendar",
   "money-schedule": "money-schedule",
   "emergency-fund": "emergency-fund",
+  "savings-goal": "savings-goal",
 });
 const registeredAmountInputs = new WeakSet();
 
