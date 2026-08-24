@@ -5,7 +5,7 @@ import { filterScheduleOwnedEvents } from "@/lib/scheduleEventOwnership";
 
 const STORAGE_PREFIX = "clara_schedule_events_v2";
 const CALENDAR_UPDATED_EVENT = "clara:schedule-events-updated";
-const TYPE_OPTIONS = ["Event", "Appointment", "Reminder", "Work", "Family", "Personal", "Other"];
+const TYPE_OPTIONS = ["Event", "Appointment", "Reminder", "Work", "Family", "Personal"];
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -118,6 +118,22 @@ function ChoiceButton({ children, onClick, secondary = false, disabled = false }
   );
 }
 
+function TypeReplyButton({ children, onClick, secondary = false }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`min-h-10 rounded-full border px-4 py-2 text-[12px] font-black transition active:scale-[.97] ${
+        secondary
+          ? "border-white/12 bg-white/[.04] text-white/78"
+          : "border-blue-300/24 bg-[#0a1933]/96 text-white/92 shadow-[0_8px_20px_rgba(0,0,0,.18)]"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 function Composer({ value, onChange, onSubmit, placeholder, inputMode = "text" }) {
   return (
     <form
@@ -160,7 +176,8 @@ export default function ClaraCalendarOverlay({ isActive = false, claraAssistantC
   const [titleInput, setTitleInput] = useState("");
   const [date, setDate] = useState(todayKey());
   const [time, setTime] = useState("");
-  const [type, setType] = useState("Event");
+  const [type, setType] = useState("");
+  const [otherTypeInput, setOtherTypeInput] = useState("");
   const [affectsMoney, setAffectsMoney] = useState(false);
   const [direction, setDirection] = useState("out");
   const [amountKnown, setAmountKnown] = useState(true);
@@ -196,7 +213,8 @@ export default function ClaraCalendarOverlay({ isActive = false, claraAssistantC
     setTitleInput("");
     setDate(todayKey());
     setTime("");
-    setType("Event");
+    setType("");
+    setOtherTypeInput("");
     setAffectsMoney(false);
     setDirection("out");
     setAmountKnown(true);
@@ -228,8 +246,29 @@ export default function ClaraCalendarOverlay({ isActive = false, claraAssistantC
     setPhase("type");
   };
 
-  const chooseType = () => {
-    appendExchange(type, "Does this affect your money?\nCLARA will never guess an amount.");
+  const chooseType = (nextType) => {
+    setType(nextType);
+    setOtherTypeInput("");
+    setError("");
+    appendExchange(nextType, "Does this affect your money?\nCLARA will never guess an amount.");
+    setPhase("money");
+  };
+
+  const chooseOtherType = () => {
+    setType("");
+    setOtherTypeInput("");
+    setError("");
+    appendExchange("Other", "Sure. What type of schedule is it?");
+    setPhase("other-type");
+  };
+
+  const submitOtherType = () => {
+    const nextType = clean(otherTypeInput);
+    if (!nextType) return;
+    setType(nextType);
+    setOtherTypeInput("");
+    setError("");
+    appendExchange(nextType, "Does this affect your money?\nCLARA will never guess an amount.");
     setPhase("money");
   };
 
@@ -273,7 +312,7 @@ export default function ClaraCalendarOverlay({ isActive = false, claraAssistantC
   };
 
   const save = (noteOverride = note, userNoteText = "") => {
-    if (!title || !date) return;
+    if (!title || !date || !type) return;
 
     const amount = moneyNumber(amountInput);
     if (affectsMoney && amountKnown && amount <= 0) {
@@ -410,19 +449,26 @@ export default function ClaraCalendarOverlay({ isActive = false, claraAssistantC
           ) : null}
 
           {phase === "type" ? (
-            <div className="mt-auto grid gap-2.5 pt-3">
-              <select
-                value={type}
-                onChange={(event) => setType(event.target.value)}
-                className="min-h-12 w-full rounded-[18px] border border-blue-200/16 bg-[#07142b]/96 px-4 text-[14px] font-bold text-white outline-none [color-scheme:dark]"
-              >
-                {TYPE_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-              <ChoiceButton onClick={chooseType}>Send {type}</ChoiceButton>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {TYPE_OPTIONS.map((option) => (
+                <TypeReplyButton key={option} onClick={() => chooseType(option)}>
+                  {option}
+                </TypeReplyButton>
+              ))}
+              <TypeReplyButton onClick={chooseOtherType} secondary>
+                Other
+              </TypeReplyButton>
+            </div>
+          ) : null}
+
+          {phase === "other-type" ? (
+            <div className="mt-auto pt-3">
+              <Composer
+                value={otherTypeInput}
+                onChange={setOtherTypeInput}
+                onSubmit={submitOtherType}
+                placeholder="Type the schedule type..."
+              />
             </div>
           ) : null}
 
