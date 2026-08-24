@@ -9,11 +9,11 @@ const LOG_EXPENSE_AMOUNT_INPUT_SELECTOR = 'input[placeholder="Amount spent"]';
 const LOG_EXPENSE_ITEM_INPUT_SELECTOR = 'input[placeholder="What was it for?"]';
 const CANONICAL_FORM_ATTRIBUTE = "data-clara-buy-check-react-form";
 const CANONICAL_STACK_ATTRIBUTE = "data-clara-ai-message-stack";
-const CLARA_CALENDAR_PATH = "/community?view=schedule";
 const CHAT_COMMAND_MODES = Object.freeze({
   "log-expense": "log-expense",
   "add-income": "add-income",
   wallet: "wallet",
+  calendar: "calendar",
   "money-schedule": "money-schedule",
 });
 const registeredAmountInputs = new WeakSet();
@@ -44,11 +44,6 @@ function setInputValueWithoutTouchingReactTracker(input, value) {
     ? Object.getOwnPropertyDescriptor(inputPrototype, "value")?.set
     : null;
 
-  // React installs an instance value tracker for controlled inputs. Calling the
-  // instance setter here would update that tracker before React receives the
-  // native input event, so pasted text could look correct but leave React state
-  // stale. Use the native prototype setter so React still observes the sanitized
-  // value when the same input event bubbles to its delegated onChange handler.
   if (nativeValueSetter) {
     nativeValueSetter.call(input, value);
     return;
@@ -69,10 +64,6 @@ function configureLogExpenseComposerInputs(overlay) {
 
     if (!registeredAmountInputs.has(amountInput)) {
       registeredAmountInputs.add(amountInput);
-
-      // Sanitize at the actual input target before React's delegated onChange
-      // reads the value. Mobile receives the decimal keyboard, while desktop
-      // typing and pasted text still cannot put letters into the amount draft.
       amountInput.addEventListener(
         "input",
         () => {
@@ -88,8 +79,6 @@ function configureLogExpenseComposerInputs(overlay) {
 
   const itemInput = overlay.querySelector(LOG_EXPENSE_ITEM_INPUT_SELECTOR);
   if (itemInput) {
-    // Item/reason is descriptive content. Restore a normal text keyboard and
-    // remove the numeric-only constraint from the amount step.
     itemInput.setAttribute("inputmode", "text");
     itemInput.setAttribute("autocomplete", "off");
     itemInput.removeAttribute("pattern");
@@ -179,11 +168,6 @@ function registerLogExpenseChatKeyboardOwnership() {
   const overlay = document.querySelector(LOG_EXPENSE_OVERLAY_SELECTOR);
   if (!overlay) return;
 
-  // The shared CLARA keyboard guard recognizes active chat composers through
-  // this canonical form attribute. Log Expense mounts its composer only during
-  // free-text phases (amount / item), so register it as soon as React adds it.
-  // Without this marker the guard can treat the composer as missing and release
-  // keyboard ownership, which can drop focus before the user can type.
   const form = overlay.querySelector("form");
   if (form && form.getAttribute(CANONICAL_FORM_ATTRIBUTE) !== "true") {
     form.setAttribute(CANONICAL_FORM_ATTRIBUTE, "true");
@@ -192,8 +176,6 @@ function registerLogExpenseChatKeyboardOwnership() {
   configureLogExpenseComposerInputs(overlay);
   simplifyLogExpenseHeader(overlay);
 
-  // Register the transcript stack too so keyboard-time scroll anchoring uses
-  // the same conversation geometry as Ask Before You Spend.
   const viewport = overlay.querySelector(LOG_EXPENSE_VIEWPORT_SELECTOR);
   const stack = viewport?.firstElementChild || null;
   if (stack && stack.getAttribute(CANONICAL_STACK_ATTRIBUTE) !== "true") {
@@ -208,44 +190,6 @@ function registerMoneySchedulePresentation() {
   if (!overlay) return;
 
   simplifyMoneyScheduleHeader(overlay);
-}
-
-function openActualCalendar() {
-  if (typeof window === "undefined") return false;
-
-  const history = window.history;
-  const location = window.location;
-
-  // The production Calendar already lives at the Community Schedule view.
-  // Reuse that authoritative surface instead of mounting a second calendar.
-  // When possible, keep this as an in-app navigation so the Orb transition
-  // does not force a full browser reload.
-  if (history?.pushState && location) {
-    history.pushState(history.state ?? null, "", CLARA_CALENDAR_PATH);
-
-    try {
-      if (typeof PopStateEvent !== "undefined") {
-        window.dispatchEvent(
-          new PopStateEvent("popstate", {
-            state: history.state ?? null,
-          })
-        );
-      } else {
-        window.dispatchEvent(new Event("popstate"));
-      }
-    } catch {
-      window.dispatchEvent(new Event("popstate"));
-    }
-
-    return true;
-  }
-
-  if (location?.assign) {
-    location.assign(CLARA_CALENDAR_PATH);
-    return true;
-  }
-
-  return false;
 }
 
 function installClaraOrbCommandChatRouting() {
@@ -266,19 +210,9 @@ function installClaraOrbCommandChatRouting() {
 
   const handleCommandSelect = (event) => {
     const commandId = String(event?.detail?.commandId || "").trim();
-
-    if (commandId === "calendar") {
-      event.preventDefault?.();
-      openActualCalendar();
-      return;
-    }
-
     const mode = CHAT_COMMAND_MODES[commandId];
     if (!mode) return;
 
-    // This runtime is the app-level owner for CLARA command chats. Explicitly
-    // consume the command so the gesture engine never falls through to page
-    // navigation for chat-owned actions such as Add Income.
     event.preventDefault?.();
 
     const requestId = `clara-orb-${commandId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
