@@ -1,0 +1,145 @@
+name: One-shot wire debt into means
+
+on:
+  push:
+    paths:
+      - ".github/workflows/one-shot-wire-debt-into-means.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Wire Debt Obligations into Means Score
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("src/runtime/installClaraOrbGreeting.js")
+          text = path.read_text()
+
+          old_imports = '''import {
+  getIncomeSourceActivityLog,
+  getIncomeSources,
+} from "@/lib/incomeHubRepository";
+'''
+          new_imports = '''import {
+  getIncomeSourceActivityLog,
+  getIncomeSources,
+} from "@/lib/incomeHubRepository";
+import { getDebtObligations } from "@/lib/debtObligationStore";
+import { buildDebtObligationScheduleProjection } from "@/lib/financialCardScheduleProjection";
+'''
+          if old_imports not in text:
+              raise SystemExit("Income Hub import block not found; refusing blind patch.")
+          text = text.replace(old_imports, new_imports, 1)
+
+          anchor = '''function futureScheduledAmount(user) {
+  const today = localDateKey();
+  const monthEnd = endOfCurrentMonthKey();
+
+  return parseScheduleEvents(user).reduce((sum, event) => {
+    const date = String(event?.date || "").slice(0, 10);
+    const direction = String(event?.direction || "out").trim().toLowerCase();
+    const amount = Number(String(event?.amount ?? "0").replace(/[₱,\\s]/g, ""));
+    const source = normalizeLower(event?.source);
+    const savingsGoalProjection =
+      source === SAVINGS_GOAL_SCHEDULE_SOURCE || event?.savingsGoalId || event?.savings_goal_id;
+    if (!date || date <= today || date > monthEnd) return sum;
+    if (direction !== "out" || event?.affectsMoney === false || savingsGoalProjection) return sum;
+    return sum + (Number.isFinite(amount) ? Math.max(0, amount) : 0);
+  }, 0);
+}
+'''
+          addition = anchor + '''
+function futureDebtObligationAmount(records = []) {
+  const today = localDateKey();
+  const monthEnd = endOfCurrentMonthKey();
+
+  return buildDebtObligationScheduleProjection(records).reduce((sum, event) => {
+    const date = String(event?.date || "").slice(0, 10);
+    const direction = String(event?.direction || "out").trim().toLowerCase();
+    const amount = Number(String(event?.amount ?? "0").replace(/[₱,\\s]/g, ""));
+    if (!date || date <= today || date > monthEnd) return sum;
+    if (direction !== "out") return sum;
+    return sum + (Number.isFinite(amount) ? Math.max(0, amount) : 0);
+  }, 0);
+}
+'''
+          if anchor not in text:
+              raise SystemExit("futureScheduledAmount block not found; refusing blind patch.")
+          text = text.replace(anchor, addition, 1)
+
+          old_promise = '''  const [expenses, incomeSources, savingsGoals] = await Promise.all([
+    getExpenses(owner).catch(() => []),
+    getIncomeSources(owner).catch(() => []),
+    getSavingsGoals(owner).catch(() => []),
+  ]);
+'''
+          new_promise = '''  const [expenses, incomeSources, savingsGoals, debtObligations] = await Promise.all([
+    getExpenses(owner).catch(() => []),
+    getIncomeSources(owner).catch(() => []),
+    getSavingsGoals(owner).catch(() => []),
+    getDebtObligations(owner).catch(() => []),
+  ]);
+'''
+          if old_promise not in text:
+              raise SystemExit("Means data Promise.all block not found; refusing blind patch.")
+          text = text.replace(old_promise, new_promise, 1)
+
+          old_upcoming = '''  const routineUpcoming = futureRoutineAmount(owner);
+  const scheduledUpcoming = futureScheduledAmount(owner);
+  const savingsGoalUpcoming = futureSavingsGoalAmount(savingsGoals);
+  const upcoming = routineUpcoming + scheduledUpcoming + savingsGoalUpcoming;
+'''
+          new_upcoming = '''  const routineUpcoming = futureRoutineAmount(owner);
+  const scheduledUpcoming = futureScheduledAmount(owner);
+  const savingsGoalUpcoming = futureSavingsGoalAmount(savingsGoals);
+  const debtUpcoming = futureDebtObligationAmount(debtObligations);
+  const upcoming = routineUpcoming + scheduledUpcoming + savingsGoalUpcoming + debtUpcoming;
+'''
+          if old_upcoming not in text:
+              raise SystemExit("Means upcoming block not found; refusing blind patch.")
+          text = text.replace(old_upcoming, new_upcoming, 1)
+
+          old_return = '''    upcoming,
+    savingsGoalUpcoming,
+    projectedSpending,
+'''
+          new_return = '''    upcoming,
+    savingsGoalUpcoming,
+    debtUpcoming,
+    projectedSpending,
+'''
+          if old_return not in text:
+              raise SystemExit("Means snapshot return block not found; refusing blind patch.")
+          text = text.replace(old_return, new_return, 1)
+
+          path.write_text(text)
+
+      - name: Verify Debt wiring
+        shell: python
+        run: |
+          from pathlib import Path
+          text = Path("src/runtime/installClaraOrbGreeting.js").read_text()
+          assert 'getDebtObligations' in text
+          assert 'buildDebtObligationScheduleProjection' in text
+          assert 'futureDebtObligationAmount' in text
+          assert 'const debtUpcoming = futureDebtObligationAmount(debtObligations);' in text
+          assert 'scheduledUpcoming + savingsGoalUpcoming + debtUpcoming' in text
+
+      - name: Commit fix to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/runtime/installClaraOrbGreeting.js
+          git commit -m "Include debt obligations in Means Score"
+          git push origin HEAD:main
