@@ -457,6 +457,9 @@ export const getWalletDisplayBalance = (
   );
 
 export const getWalletSpendableBalance = (wallet = {}) => {
+  const walletType = normalizeLower(wallet?.type || wallet?.wallet_type || wallet?.walletType);
+  if (["money_lent", "money-lent", "lent", "receivable"].includes(walletType)) return 0;
+
   const protectedAmount = firstValidNumber(
     wallet?.totalProtectedAmount,
     wallet?.total_protected_amount,

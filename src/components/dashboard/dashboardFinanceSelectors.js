@@ -1,3 +1,5 @@
+import { buildCanonicalWalletState } from "@/lib/clara-wallet-money-semantics";
+
 const normalizeString = (value) => String(value ?? "").trim();
 const normalizeLower = (value) => normalizeString(value).toLowerCase();
 
@@ -76,7 +78,14 @@ export const buildMoneySummary = ({ wallets = [], expenses = [], budgets = [], s
   const safeBudgets = Array.isArray(budgets) ? budgets : [];
   const safeSavingsGoals = Array.isArray(savingsGoals) ? savingsGoals : [];
 
-  const walletTotal = safeWallets.reduce((sum, wallet) => sum + getWalletDisplayBalance(wallet), 0);
+  const canonicalWalletState = buildCanonicalWalletState({
+    wallets: safeWallets,
+    emergencyFund,
+    savingsGoals: safeSavingsGoals,
+  });
+  const ownedWalletTotal = canonicalWalletState.walletTotals.currentBalance;
+  const walletTotal = canonicalWalletState.walletTotals.spendableBalance;
+  const moneyLentUnavailable = canonicalWalletState.walletTotals.moneyLentUnavailableAmount || 0;
   const totalBudget = safeBudgets.reduce((sum, budget) => sum + getBudgetTotal(budget), 0);
   const totalBudgetSpent = safeBudgets.reduce((sum, budget) => sum + getBudgetSpent(budget), 0);
   const expenseTotal = safeExpenses.reduce((sum, expense) => sum + firstValidNumber(expense?.amount, expense?.total, expense?.value), 0);
@@ -87,7 +96,10 @@ export const buildMoneySummary = ({ wallets = [], expenses = [], budgets = [], s
 
   return {
     walletTotal,
-    walletMoney: reliableWalletMoney,
+    walletMoney: walletTotal,
+    availableWalletMoney: walletTotal,
+    ownedWalletTotal,
+    moneyLentUnavailable,
     expenseTotal,
     totalBudget,
     totalBudgetSpent,
