@@ -188,7 +188,6 @@ function formatHorizonDate(dateKey) {
           new_footer = '''      <span style="display:block;margin-top:8px;font-size:8.5px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30);text-align:center">This score looks ahead through your next stable payday (${formatHorizonDate(snapshot.horizonDate)}). Only commitments due by then affect this score.</span>
       <span style="display:block;margin-top:4px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">100 = living within your means</span>
 '''
-          # Replace only the ready-state footer: use the last occurrence.
           idx = text.rfind(old_footer)
           if idx < 0:
               raise SystemExit("Ready-state Means footer not found; refusing blind patch.")
@@ -217,3 +216,5 @@ function formatHorizonDate(dateKey) {
           git add src/runtime/installClaraOrbGreeting.js
           git commit -m "Scope Means Score to next payday"
           git push origin HEAD:main
+
+# retrigger after workflow registration
