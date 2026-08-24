@@ -1,4 +1,9 @@
 import { pauseOnlineSyncAfterDeviceReset } from "./cloud-sync-policy";
+import {
+  TOKEN_KEY,
+  USER_KEY,
+  USER_VERIFIED_AT_KEY,
+} from "./clara-backend-client";
 import { createLocalVaultId, setLocalVaultId } from "./local-user-identity";
 import { closeLocalFinanceDb, LOCAL_FINANCE_DB_NAME } from "./localFinanceStore";
 
@@ -6,6 +11,7 @@ const FALLBACK_INDEXED_DB_NAMES = [
   LOCAL_FINANCE_DB_NAME,
   "clara_behavioral_memory_db",
   "clara_local_notifications",
+  "clara_device_transfer_recovery",
   "clara",
   "clara-db",
   "clara_db",
@@ -16,10 +22,42 @@ const FALLBACK_INDEXED_DB_NAMES = [
   "clara_settings_db",
 ];
 
+const ACCOUNT_SESSION_STORAGE_KEYS = Object.freeze([
+  TOKEN_KEY,
+  USER_KEY,
+  USER_VERIFIED_AT_KEY,
+]);
+
 function requestToPromise(request) {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error || new Error("IndexedDB request failed."));
+  });
+}
+
+function captureStorageEntries(storage, keys = []) {
+  if (!storage) return [];
+
+  return keys.flatMap((key) => {
+    try {
+      const value = storage.getItem(key);
+      return value === null ? [] : [[key, value]];
+    } catch {
+      return [];
+    }
+  });
+}
+
+function restoreStorageEntries(storage, entries = []) {
+  if (!storage) return;
+
+  entries.forEach(([key, value]) => {
+    if (!key || value === null || value === undefined) return;
+    try {
+      storage.setItem(key, value);
+    } catch (error) {
+      console.warn(`[CLARA Data Reset] Could not restore protected session key ${key}.`, error);
+    }
   });
 }
 
@@ -188,6 +226,46 @@ async function clearPushRegistration() {
   } catch (error) {
     console.warn("[CLARA Device Reset] Push registration was not available to clear.", error);
   }
+}
+
+/**
+ * Permanently clears local CLARA user data while keeping the active CLARA
+ * account session intact. This is the in-app "start fresh" action: financial
+ * data, setup state, preferences, transfer recovery, and local notifications
+ * are removed, but account identity and membership remain available after the
+ * reload.
+ *
+ * No server-side delete is performed. Any separately stored online backup is
+ * left intact, and Online Sync is paused so old data cannot silently repopulate
+ * the fresh local vault.
+ */
+export async function clearClaraDataKeepAccount() {
+  if (typeof window === "undefined") return;
+
+  const accountSession = captureStorageEntries(
+    window.localStorage,
+    ACCOUNT_SESSION_STORAGE_KEYS
+  );
+
+  // Remove all app-owned Web Storage, including onboarding and feature state.
+  // Restore only the minimal backend account session after the fresh-vault
+  // policy has been established.
+  clearWebStorage();
+
+  await Promise.allSettled([
+    clearIndexedDatabases(),
+    clearLocalNotifications(),
+  ]);
+
+  const freshVaultId = createLocalVaultId();
+  setLocalVaultId(freshVaultId);
+  pauseOnlineSyncAfterDeviceReset({ freshVaultId });
+  restoreStorageEntries(window.localStorage, accountSession);
+
+  return {
+    freshVaultId,
+    accountSessionPreserved: accountSession.length > 0,
+  };
 }
 
 /**
