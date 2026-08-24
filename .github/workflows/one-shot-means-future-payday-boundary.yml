@@ -61,3 +61,5 @@ jobs:
           git add src/runtime/installClaraOrbGreeting.js
           git commit -m "Advance Means horizon past current payday"
           git push origin HEAD:main
+
+# retrigger after registration
