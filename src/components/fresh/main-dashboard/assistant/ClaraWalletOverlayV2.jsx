@@ -245,6 +245,16 @@ export default function ClaraWalletOverlayV2({
     onClose?.();
   };
 
+  const startWalletCreation = () => {
+    setBusy(false);
+    setError("");
+    setWalletNameInput("");
+    setStartingBalanceInput("");
+    setDraftWalletName("");
+    setDraftStartingBalance(0);
+    setPhase("create_name");
+  };
+
   const submitWalletName = () => {
     const name = clean(walletNameInput);
     if (!name) return;
@@ -335,6 +345,7 @@ export default function ClaraWalletOverlayV2({
       : `Wallet is open, ${firstName}. What would you like to check?`;
 
   const emptyMenu = phase === "menu" && wallets.length === 0;
+  const hasReturnHandoff = Boolean(entryContext?.returnMode);
 
   return (
     <div
@@ -400,7 +411,17 @@ export default function ClaraWalletOverlayV2({
           ) : null}
 
           {phase === "created" ? (
-            <Bubble>{draftWalletName} is ready. I’m taking you back to Log Expense now.</Bubble>
+            hasReturnHandoff ? (
+              <Bubble>{draftWalletName} is ready. I’m taking you back now.</Bubble>
+            ) : (
+              <>
+                <Bubble>{draftWalletName} is ready.</Bubble>
+                <div className="grid gap-2.5">
+                  <ChoiceButton onClick={startWalletCreation}>Create another wallet</ChoiceButton>
+                  <ChoiceButton onClick={() => setPhase("menu")} secondary>Back to Wallet</ChoiceButton>
+                </div>
+              </>
+            )
           ) : null}
 
           {phase === "fund" ? (
@@ -429,13 +450,14 @@ export default function ClaraWalletOverlayV2({
                 <ChoiceButton onClick={() => setPhase("balances")}>Check my balances</ChoiceButton>
                 <ChoiceButton onClick={() => setPhase("activity")}>Show recent activity</ChoiceButton>
                 <ChoiceButton onClick={() => setPhase("protected")}>Explain protected money</ChoiceButton>
+                <ChoiceButton onClick={startWalletCreation}>Create another wallet</ChoiceButton>
                 <ChoiceButton onClick={closeWallet} secondary>Done</ChoiceButton>
               </div>
             ) : (
               <div className="mt-1 flex min-h-0 flex-1 flex-col pt-1">
                 <Bubble>You don’t have a wallet yet. Create one to start tracking your money.</Bubble>
                 <div className="mt-auto grid pt-3">
-                  <ChoiceButton onClick={() => setPhase("create_name")} centered>Create a wallet</ChoiceButton>
+                  <ChoiceButton onClick={startWalletCreation} centered>Create a wallet</ChoiceButton>
                 </div>
               </div>
             )
