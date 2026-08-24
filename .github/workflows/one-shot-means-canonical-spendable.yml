@@ -1,0 +1,91 @@
+name: One-shot Means canonical spendable correction
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Correct Means money-in-hand semantics
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('src/runtime/installClaraOrbGreeting.js')
+          text = path.read_text()
+
+          old = '''import {\n  FINANCE_DATA_UPDATED_EVENT,\n  getExpenses,\n  getSavingsGoals,\n  getWallets,\n} from "@/lib/financeRepository";'''
+          new = '''import {\n  FINANCE_DATA_UPDATED_EVENT,\n  getEmergencyFund,\n  getExpenses,\n  getSavingsGoals,\n  getWallets,\n} from "@/lib/financeRepository";'''
+          if old not in text:
+              raise SystemExit('financeRepository import block not found')
+          text = text.replace(old, new, 1)
+
+          anchor = 'import { getRecurrenceOccurrences } from "@/lib/recurringCashFlowRepository";\n'
+          if anchor not in text:
+              raise SystemExit('recurrence import anchor not found')
+          text = text.replace(anchor, anchor + 'import { buildCanonicalWalletState } from "@/lib/clara-wallet-money-semantics";\n', 1)
+
+          old = '''  const [expenses, incomeSources, savingsGoals, debtObligations, wallets] = await Promise.all([\n    getExpenses(owner).catch(() => []),\n    getIncomeSources(owner).catch(() => []),\n    getSavingsGoals(owner).catch(() => []),\n    getDebtObligations(owner).catch(() => []),\n    getWallets(owner).catch(() => []),\n  ]);'''
+          new = '''  const [expenses, incomeSources, savingsGoals, debtObligations, wallets, emergencyFund] = await Promise.all([\n    getExpenses(owner).catch(() => []),\n    getIncomeSources(owner).catch(() => []),\n    getSavingsGoals(owner).catch(() => []),\n    getDebtObligations(owner).catch(() => []),\n    getWallets(owner).catch(() => []),\n    getEmergencyFund(owner).catch(() => null),\n  ]);'''
+          if old not in text:
+              raise SystemExit('Means Promise.all block not found')
+          text = text.replace(old, new, 1)
+
+          old = '''  const income = currentMonthIncomeFromSources(incomeSources, currentMonthKey);\n  const availableNow = currentAvailableMoney(wallets);\n  const moneyLentUnavailable = currentMoneyLentUnavailable(wallets);\n  if (!(income > 0) && !(availableNow > 0) && !(moneyLentUnavailable > 0)) return null;'''
+          new = '''  const income = currentMonthIncomeFromSources(incomeSources, currentMonthKey);\n  const canonicalWalletState = buildCanonicalWalletState({\n    wallets,\n    emergencyFund,\n    savingsGoals,\n  });\n  const walletTotals = canonicalWalletState.walletTotals || {};\n  const availableNow = Math.max(0, Number(walletTotals.spendableBalance || 0));\n  const moneyLentUnavailable = Math.max(0, Number(walletTotals.moneyLentUnavailableAmount || 0));\n  const emergencyProtected = Math.max(0, Number(walletTotals.emergencyProtectedAmount || 0));\n  const savingsProtected = Math.max(0, Number(walletTotals.savingsProtectedAmount || 0));\n  const otherProtected = Math.max(0, Number(walletTotals.otherProtectedAmount || 0));\n  if (\n    !(income > 0) &&\n    !(availableNow > 0) &&\n    !(moneyLentUnavailable > 0) &&\n    !(emergencyProtected > 0) &&\n    !(savingsProtected > 0)\n  ) return null;'''
+          if old not in text:
+              raise SystemExit('Means availableNow block not found')
+          text = text.replace(old, new, 1)
+
+          old = '''    availableNow,\n    moneyLentUnavailable,\n    projectedSpending,'''
+          new = '''    availableNow,\n    moneyLentUnavailable,\n    emergencyProtected,\n    savingsProtected,\n    otherProtected,\n    projectedSpending,'''
+          if old not in text:
+              raise SystemExit('Means snapshot return block not found')
+          text = text.replace(old, new, 1)
+
+          old = '''        Math.round(snapshot.availableNow || 0),\n        Math.round(snapshot.moneyLentUnavailable || 0),'''
+          new = '''        Math.round(snapshot.availableNow || 0),\n        Math.round(snapshot.moneyLentUnavailable || 0),\n        Math.round(snapshot.emergencyProtected || 0),\n        Math.round(snapshot.savingsProtected || 0),\n        Math.round(snapshot.otherProtected || 0),'''
+          if old not in text:
+              raise SystemExit('Means render signature block not found')
+          text = text.replace(old, new, 1)
+
+          text = text.replace('<span>Available now</span><strong', '<span>Money in hand</span><strong', 1)
+
+          old = '''      ${snapshot.moneyLentUnavailable > 0 ? `<span style="display:flex;justify-content:space-between;gap:16px;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.05);font-size:9.5px;color:rgba(255,255,255,.30)"><span>Money lent · not available</span><strong style="color:rgba(255,255,255,.50)">${money(snapshot.moneyLentUnavailable)}</strong></span>` : ""}\n      <span style="display:flex;justify-content:space-between;gap:16px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.07);font-size:10px;color:rgba(255,255,255,.48)"><span>Room until next payday</span>'''
+          new = '''      ${(snapshot.emergencyProtected || snapshot.savingsProtected || snapshot.otherProtected) > 0 ? `<span style="display:block;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.05)">\n        ${snapshot.emergencyProtected > 0 ? `<span style="display:flex;justify-content:space-between;gap:16px;font-size:9.5px;color:rgba(255,255,255,.30)"><span>Emergency Fund · protected</span><strong style="color:rgba(255,255,255,.50)">${money(snapshot.emergencyProtected)}</strong></span>` : ""}\n        ${snapshot.savingsProtected > 0 ? `<span style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;font-size:9.5px;color:rgba(255,255,255,.30)"><span>Savings · protected</span><strong style="color:rgba(255,255,255,.50)">${money(snapshot.savingsProtected)}</strong></span>` : ""}\n        ${snapshot.otherProtected > 0 ? `<span style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;font-size:9.5px;color:rgba(255,255,255,.30)"><span>Other protected money</span><strong style="color:rgba(255,255,255,.50)">${money(snapshot.otherProtected)}</strong></span>` : ""}\n      </span>` : ""}\n      ${snapshot.moneyLentUnavailable > 0 ? `<span style="display:flex;justify-content:space-between;gap:16px;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.05);font-size:9.5px;color:rgba(255,255,255,.30)"><span>Money lent · not available</span><strong style="color:rgba(255,255,255,.50)">${money(snapshot.moneyLentUnavailable)}</strong></span>` : ""}\n      <span style="display:flex;justify-content:space-between;gap:16px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.07);font-size:10px;color:rgba(255,255,255,.48)"><span>Room until next payday</span>'''
+          if old not in text:
+              raise SystemExit('Means protected-context UI anchor not found')
+          text = text.replace(old, new, 1)
+
+          text = text.replace(
+            'This score uses the money currently available in your wallets and checks whether it can carry you through ${formatHorizonDate(snapshot.horizonDate)}, your next stable payday.',
+            'This score uses only your money in hand — wallet money that is not protected for Emergency Fund or Savings Goals and is not lent out — and checks whether it can carry you through ${formatHorizonDate(snapshot.horizonDate)}, your next stable payday.',
+            1,
+          )
+
+          path.write_text(text)
+
+          test = Path('tests/means-canonical-spendable-regression.test.mjs')
+          test.write_text('''import assert from "node:assert/strict";\nimport { readFile } from "node:fs/promises";\nimport { buildCanonicalWalletState } from "../src/lib/clara-wallet-money-semantics.js";\n\nconst wallets = [\n  { id: "cash", name: "Cash", balance: 5000 },\n  { id: "bank", name: "Bank", balance: 4000 },\n  { id: "lent", name: "Rica", type: "money_lent", balance: 1000 },\n];\nconst emergencyFund = { savedAmount: 2000, storageWalletId: "bank" };\nconst savingsGoals = [{ id: "goal", wallet_id: "cash", saved_amount: 1500, status: "active" }];\n\nconst state = buildCanonicalWalletState({ wallets, emergencyFund, savingsGoals });\nassert.equal(state.walletTotals.currentBalance, 10000);\nassert.equal(state.walletTotals.emergencyProtectedAmount, 2000);\nassert.equal(state.walletTotals.savingsProtectedAmount, 1500);\nassert.equal(state.walletTotals.moneyLentUnavailableAmount, 1000);\nassert.equal(state.walletTotals.spendableBalance, 5500);\n\nconst source = await readFile("src/runtime/installClaraOrbGreeting.js", "utf8");\nassert.match(source, /buildCanonicalWalletState/);\nassert.match(source, /getEmergencyFund/);\nassert.match(source, /walletTotals\.spendableBalance/);\nassert.match(source, />Money in hand</);\nassert.match(source, /Emergency Fund · protected/);\nassert.match(source, /Savings · protected/);\n\nconsole.log("Means canonical spendable regression passed");\n''')
+
+      - name: Run regression
+        run: node tests/means-canonical-spendable-regression.test.mjs
+
+      - name: Commit correction and remove workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm .github/workflows/one-shot-means-canonical-spendable.yml
+          git add src/runtime/installClaraOrbGreeting.js tests/means-canonical-spendable-regression.test.mjs .github/workflows/one-shot-means-canonical-spendable.yml
+          git commit -m "fix(means): use canonical money in hand"
+          git push origin HEAD:main
