@@ -26,6 +26,7 @@ import {
   importDeviceTransferIntoNewVault,
   rollbackLastDeviceTransfer,
 } from "@/lib/device-transfer-vault";
+import ClaraDataResetPanel from "./ClaraDataResetPanel";
 
 function formatRemaining(expiresAt, now) {
   const remaining = Math.max(0, Date.parse(expiresAt || "") - now);
@@ -291,277 +292,280 @@ export default function DeviceTransferPanel({ user, profile }) {
   };
 
   return (
-    <section className="mt-5 rounded-[30px] border border-cyan-300/16 bg-cyan-300/[0.045] p-4">
-      <div className="flex items-start gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/20 bg-cyan-200/10 text-cyan-100">
-          <ArrowLeftRight size={20} />
+    <>
+      <section className="mt-5 rounded-[30px] border border-cyan-300/16 bg-cyan-300/[0.045] p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/20 bg-cyan-200/10 text-cyan-100">
+            <ArrowLeftRight size={20} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h2 className="font-black text-cyan-50">Transfer CLARA Data</h2>
+              <button
+                type="button"
+                onClick={() => setShowTransferInfo((visible) => !visible)}
+                aria-label="About CLARA data transfer"
+                aria-expanded={showTransferInfo}
+                aria-controls="clara-device-transfer-info"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-cyan-200/15 bg-cyan-200/[0.07] text-cyan-100/70 transition hover:bg-cyan-200/10 hover:text-cyan-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50"
+              >
+                <Info size={15} />
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h2 className="font-black text-cyan-50">Transfer CLARA Data</h2>
+
+        {showTransferInfo ? (
+          <div
+            id="clara-device-transfer-info"
+            role="note"
+            className="mt-3 rounded-2xl border border-cyan-200/12 bg-black/15 px-3 py-2.5 text-xs leading-5 text-cyan-50/60"
+          >
+            A deliberate one-time copy. The sending device is never erased, and
+            the receiving device imports into a new vault before switching.
+          </div>
+        ) : null}
+
+        {!side ? (
+          <div className="mt-4 grid gap-3">
             <button
               type="button"
-              onClick={() => setShowTransferInfo((visible) => !visible)}
-              aria-label="About CLARA data transfer"
-              aria-expanded={showTransferInfo}
-              aria-controls="clara-device-transfer-info"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-cyan-200/15 bg-cyan-200/[0.07] text-cyan-100/70 transition hover:bg-cyan-200/10 hover:text-cyan-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50"
+              onClick={() => setSide("sender")}
+              className="flex items-center gap-3 rounded-2xl border border-emerald-300/20 bg-emerald-300/10 px-4 py-3 text-left"
             >
-              <Info size={15} />
+              <Send size={18} className="text-emerald-200" />
+              <span>
+                <span className="block text-sm font-black text-emerald-50">
+                  Send data to another device
+                </span>
+                <span className="mt-0.5 block text-[11px] text-emerald-50/50">
+                  Choose this on the device containing the correct data.
+                </span>
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSide("receiver")}
+              className="flex items-center gap-3 rounded-2xl border border-white/12 bg-white/[0.045] px-4 py-3 text-left"
+            >
+              <Download size={18} className="text-cyan-100" />
+              <span>
+                <span className="block text-sm font-black text-white">
+                  Receive data on this device
+                </span>
+                <span className="mt-0.5 block text-[11px] text-white/45">
+                  Choose this on the new or receiving device.
+                </span>
+              </span>
             </button>
           </div>
-        </div>
-      </div>
+        ) : null}
 
-      {showTransferInfo ? (
-        <div
-          id="clara-device-transfer-info"
-          role="note"
-          className="mt-3 rounded-2xl border border-cyan-200/12 bg-black/15 px-3 py-2.5 text-xs leading-5 text-cyan-50/60"
-        >
-          A deliberate one-time copy. The sending device is never erased, and
-          the receiving device imports into a new vault before switching.
-        </div>
-      ) : null}
-
-      {!side ? (
-        <div className="mt-4 grid gap-3">
-          <button
-            type="button"
-            onClick={() => setSide("sender")}
-            className="flex items-center gap-3 rounded-2xl border border-emerald-300/20 bg-emerald-300/10 px-4 py-3 text-left"
-          >
-            <Send size={18} className="text-emerald-200" />
-            <span>
-              <span className="block text-sm font-black text-emerald-50">
-                Send data to another device
-              </span>
-              <span className="mt-0.5 block text-[11px] text-emerald-50/50">
-                Choose this on the device containing the correct data.
-              </span>
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setSide("receiver")}
-            className="flex items-center gap-3 rounded-2xl border border-white/12 bg-white/[0.045] px-4 py-3 text-left"
-          >
-            <Download size={18} className="text-cyan-100" />
-            <span>
-              <span className="block text-sm font-black text-white">
-                Receive data on this device
-              </span>
-              <span className="mt-0.5 block text-[11px] text-white/45">
-                Choose this on the new or receiving device.
-              </span>
-            </span>
-          </button>
-        </div>
-      ) : null}
-
-      {side === "sender" && !session ? (
-        <div className="mt-4 rounded-2xl border border-white/10 bg-black/15 p-4">
-          <div className="flex items-center gap-2 text-sm font-black text-white">
-            <Smartphone size={17} /> Sending device
+        {side === "sender" && !session ? (
+          <div className="mt-4 rounded-2xl border border-white/10 bg-black/15 p-4">
+            <div className="flex items-center gap-2 text-sm font-black text-white">
+              <Smartphone size={17} /> Sending device
+            </div>
+            <Instructions side="sender" />
+            <button
+              type="button"
+              onClick={handleCreate}
+              disabled={busy}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 py-3.5 text-sm font-black text-slate-950 disabled:opacity-50"
+            >
+              {busy ? <LoaderCircle size={17} className="animate-spin" /> : <ShieldCheck size={17} />}
+              {busy ? "Preparing protected copy..." : "Create one-time transfer code"}
+            </button>
+            <button type="button" onClick={reset} className="mt-3 w-full text-xs font-bold text-white/45">
+              Go back
+            </button>
           </div>
-          <Instructions side="sender" />
+        ) : null}
+
+        {side === "sender" && session ? (
+          <div className="mt-4 rounded-2xl border border-white/10 bg-black/15 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.13em] text-white/60">
+                {status === "awaiting_approval" ? "Approval needed" : status || "Waiting"}
+              </span>
+              {remaining ? <span className="text-xs font-black text-amber-200">{remaining}</span> : null}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="mt-4 flex w-full items-center justify-center gap-3 rounded-2xl border border-emerald-300/20 bg-emerald-300/10 px-4 py-4"
+            >
+              <span className="text-3xl font-black tracking-[0.22em] text-emerald-100">
+                {String(session.code || "").replace(/(\d{3})(\d{3})/, "$1 $2")}
+              </span>
+              {copied ? <Check size={18} /> : <Copy size={18} />}
+            </button>
+
+            <SummaryGrid summary={session.summary} />
+
+            {status === "waiting" ? (
+              <p className="mt-4 text-center text-xs leading-5 text-white/50">
+                Waiting for the other device to enter this code.
+              </p>
+            ) : null}
+
+            {status === "awaiting_approval" ? (
+              <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3">
+                <p className="text-xs font-black text-amber-50">Confirm the receiving device</p>
+                <p className="mt-1 text-sm text-amber-50/70">
+                  {session.receiverDeviceLabel || "Unknown receiving device"}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleApprove}
+                  disabled={busy}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-amber-200 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-50"
+                >
+                  {busy ? <LoaderCircle size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
+                  Approve this device
+                </button>
+              </div>
+            ) : null}
+
+            {status === "approved" ? (
+              <p className="mt-4 text-center text-xs leading-5 text-cyan-100/65">
+                Approved. The other device can now tap Import safely.
+              </p>
+            ) : null}
+
+            {status === "consumed" ? (
+              <div className="mt-4 rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-3 text-center text-sm font-black text-emerald-100">
+                Transfer completed. This device&apos;s data stayed unchanged.
+              </div>
+            ) : null}
+
+            {!['consumed', 'cancelled', 'expired'].includes(status) ? (
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={busy}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-xs font-black text-white/55"
+              >
+                <X size={15} /> Cancel transfer
+              </button>
+            ) : (
+              <button type="button" onClick={reset} className="mt-4 w-full text-xs font-black text-white/55">
+                Done
+              </button>
+            )}
+          </div>
+        ) : null}
+
+        {side === "receiver" && !session ? (
+          <div className="mt-4 rounded-2xl border border-white/10 bg-black/15 p-4">
+            <div className="flex items-center gap-2 text-sm font-black text-white">
+              <Smartphone size={17} /> Receiving device
+            </div>
+            <Instructions side="receiver" />
+            <input
+              value={code}
+              onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="000 000"
+              className="mt-4 h-14 w-full rounded-2xl border border-white/12 bg-black/25 px-4 text-center text-2xl font-black tracking-[0.2em] text-white outline-none focus:border-cyan-300/50"
+            />
+            <button
+              type="button"
+              onClick={handleClaim}
+              disabled={busy || code.length !== 6}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-200 px-4 py-3.5 text-sm font-black text-slate-950 disabled:opacity-40"
+            >
+              {busy ? <LoaderCircle size={17} className="animate-spin" /> : <ArrowLeftRight size={17} />}
+              Request this transfer
+            </button>
+            <button type="button" onClick={reset} className="mt-3 w-full text-xs font-bold text-white/45">
+              Go back
+            </button>
+          </div>
+        ) : null}
+
+        {side === "receiver" && session ? (
+          <div className="mt-4 rounded-2xl border border-white/10 bg-black/15 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.13em] text-white/60">
+                {status === "awaiting_approval" ? "Waiting for approval" : status}
+              </span>
+              {remaining ? <span className="text-xs font-black text-amber-200">{remaining}</span> : null}
+            </div>
+            <p className="mt-4 text-xs leading-5 text-white/55">
+              Data preview from <strong className="text-white/80">{session.senderDeviceLabel || "sending device"}</strong>
+            </p>
+            <SummaryGrid summary={session.summary} />
+
+            {status === "awaiting_approval" ? (
+              <p className="mt-4 text-center text-xs leading-5 text-cyan-100/60">
+                Approve this device on the sending device. Nothing has been imported yet.
+              </p>
+            ) : null}
+
+            {status === "approved" ? (
+              <div className="mt-4 rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-3">
+                <p className="text-xs leading-5 text-emerald-50/70">
+                  CLARA will stage this copy in a new protected vault, verify it, and only then switch this device. Existing local data will not be cleared first.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleImport}
+                  disabled={busy}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-300 px-4 py-3.5 text-sm font-black text-slate-950 disabled:opacity-50"
+                >
+                  {busy ? <LoaderCircle size={17} className="animate-spin" /> : <Download size={17} />}
+                  {busy ? "Importing and verifying..." : "Migrate to this device now"}
+                </button>
+              </div>
+            ) : null}
+
+            {status === "consumed" && result ? (
+              <div className="mt-4 rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-3 text-sm leading-6 text-emerald-100">
+                <p className="font-black">{result.message}</p>
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="mt-3 w-full rounded-xl bg-emerald-200 px-4 py-3 font-black text-slate-950"
+                >
+                  Open transferred data
+                </button>
+              </div>
+            ) : null}
+
+            {!['consumed', 'cancelled', 'expired'].includes(status) ? (
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={busy}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-xs font-black text-white/55"
+              >
+                <X size={15} /> Cancel request
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {hasRecovery ? (
           <button
             type="button"
-            onClick={handleCreate}
+            onClick={handleRollback}
             disabled={busy}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 py-3.5 text-sm font-black text-slate-950 disabled:opacity-50"
+            className="mt-4 w-full rounded-2xl border border-amber-300/18 bg-amber-300/[0.07] px-4 py-3 text-xs font-black text-amber-100 disabled:opacity-50"
           >
-            {busy ? <LoaderCircle size={17} className="animate-spin" /> : <ShieldCheck size={17} />}
-            {busy ? "Preparing protected copy..." : "Create one-time transfer code"}
+            Return to data from before the last transfer
           </button>
-          <button type="button" onClick={reset} className="mt-3 w-full text-xs font-bold text-white/45">
-            Go back
-          </button>
-        </div>
-      ) : null}
+        ) : null}
 
-      {side === "sender" && session ? (
-        <div className="mt-4 rounded-2xl border border-white/10 bg-black/15 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.13em] text-white/60">
-              {status === "awaiting_approval" ? "Approval needed" : status || "Waiting"}
-            </span>
-            {remaining ? <span className="text-xs font-black text-amber-200">{remaining}</span> : null}
+        {error ? (
+          <div className="mt-4 rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-xs leading-5 text-red-100">
+            {error}
           </div>
-
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="mt-4 flex w-full items-center justify-center gap-3 rounded-2xl border border-emerald-300/20 bg-emerald-300/10 px-4 py-4"
-          >
-            <span className="text-3xl font-black tracking-[0.22em] text-emerald-100">
-              {String(session.code || "").replace(/(\d{3})(\d{3})/, "$1 $2")}
-            </span>
-            {copied ? <Check size={18} /> : <Copy size={18} />}
-          </button>
-
-          <SummaryGrid summary={session.summary} />
-
-          {status === "waiting" ? (
-            <p className="mt-4 text-center text-xs leading-5 text-white/50">
-              Waiting for the other device to enter this code.
-            </p>
-          ) : null}
-
-          {status === "awaiting_approval" ? (
-            <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3">
-              <p className="text-xs font-black text-amber-50">Confirm the receiving device</p>
-              <p className="mt-1 text-sm text-amber-50/70">
-                {session.receiverDeviceLabel || "Unknown receiving device"}
-              </p>
-              <button
-                type="button"
-                onClick={handleApprove}
-                disabled={busy}
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-amber-200 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-50"
-              >
-                {busy ? <LoaderCircle size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
-                Approve this device
-              </button>
-            </div>
-          ) : null}
-
-          {status === "approved" ? (
-            <p className="mt-4 text-center text-xs leading-5 text-cyan-100/65">
-              Approved. The other device can now tap Import safely.
-            </p>
-          ) : null}
-
-          {status === "consumed" ? (
-            <div className="mt-4 rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-3 text-center text-sm font-black text-emerald-100">
-              Transfer completed. This device&apos;s data stayed unchanged.
-            </div>
-          ) : null}
-
-          {!['consumed', 'cancelled', 'expired'].includes(status) ? (
-            <button
-              type="button"
-              onClick={handleCancel}
-              disabled={busy}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-xs font-black text-white/55"
-            >
-              <X size={15} /> Cancel transfer
-            </button>
-          ) : (
-            <button type="button" onClick={reset} className="mt-4 w-full text-xs font-black text-white/55">
-              Done
-            </button>
-          )}
-        </div>
-      ) : null}
-
-      {side === "receiver" && !session ? (
-        <div className="mt-4 rounded-2xl border border-white/10 bg-black/15 p-4">
-          <div className="flex items-center gap-2 text-sm font-black text-white">
-            <Smartphone size={17} /> Receiving device
-          </div>
-          <Instructions side="receiver" />
-          <input
-            value={code}
-            onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            placeholder="000 000"
-            className="mt-4 h-14 w-full rounded-2xl border border-white/12 bg-black/25 px-4 text-center text-2xl font-black tracking-[0.2em] text-white outline-none focus:border-cyan-300/50"
-          />
-          <button
-            type="button"
-            onClick={handleClaim}
-            disabled={busy || code.length !== 6}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-200 px-4 py-3.5 text-sm font-black text-slate-950 disabled:opacity-40"
-          >
-            {busy ? <LoaderCircle size={17} className="animate-spin" /> : <ArrowLeftRight size={17} />}
-            Request this transfer
-          </button>
-          <button type="button" onClick={reset} className="mt-3 w-full text-xs font-bold text-white/45">
-            Go back
-          </button>
-        </div>
-      ) : null}
-
-      {side === "receiver" && session ? (
-        <div className="mt-4 rounded-2xl border border-white/10 bg-black/15 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.13em] text-white/60">
-              {status === "awaiting_approval" ? "Waiting for approval" : status}
-            </span>
-            {remaining ? <span className="text-xs font-black text-amber-200">{remaining}</span> : null}
-          </div>
-          <p className="mt-4 text-xs leading-5 text-white/55">
-            Data preview from <strong className="text-white/80">{session.senderDeviceLabel || "sending device"}</strong>
-          </p>
-          <SummaryGrid summary={session.summary} />
-
-          {status === "awaiting_approval" ? (
-            <p className="mt-4 text-center text-xs leading-5 text-cyan-100/60">
-              Approve this device on the sending device. Nothing has been imported yet.
-            </p>
-          ) : null}
-
-          {status === "approved" ? (
-            <div className="mt-4 rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-3">
-              <p className="text-xs leading-5 text-emerald-50/70">
-                CLARA will stage this copy in a new protected vault, verify it, and only then switch this device. Existing local data will not be cleared first.
-              </p>
-              <button
-                type="button"
-                onClick={handleImport}
-                disabled={busy}
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-300 px-4 py-3.5 text-sm font-black text-slate-950 disabled:opacity-50"
-              >
-                {busy ? <LoaderCircle size={17} className="animate-spin" /> : <Download size={17} />}
-                {busy ? "Importing and verifying..." : "Migrate to this device now"}
-              </button>
-            </div>
-          ) : null}
-
-          {status === "consumed" && result ? (
-            <div className="mt-4 rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-3 text-sm leading-6 text-emerald-100">
-              <p className="font-black">{result.message}</p>
-              <button
-                type="button"
-                onClick={() => window.location.reload()}
-                className="mt-3 w-full rounded-xl bg-emerald-200 px-4 py-3 font-black text-slate-950"
-              >
-                Open transferred data
-              </button>
-            </div>
-          ) : null}
-
-          {!['consumed', 'cancelled', 'expired'].includes(status) ? (
-            <button
-              type="button"
-              onClick={handleCancel}
-              disabled={busy}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-xs font-black text-white/55"
-            >
-              <X size={15} /> Cancel request
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
-      {hasRecovery ? (
-        <button
-          type="button"
-          onClick={handleRollback}
-          disabled={busy}
-          className="mt-4 w-full rounded-2xl border border-amber-300/18 bg-amber-300/[0.07] px-4 py-3 text-xs font-black text-amber-100 disabled:opacity-50"
-        >
-          Return to data from before the last transfer
-        </button>
-      ) : null}
-
-      {error ? (
-        <div className="mt-4 rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-xs leading-5 text-red-100">
-          {error}
-        </div>
-      ) : null}
-    </section>
+        ) : null}
+      </section>
+      <ClaraDataResetPanel />
+    </>
   );
 }
