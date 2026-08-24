@@ -1,0 +1,88 @@
+name: One-shot Money Lent logic hardening
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Harden legacy wallet readers
+        shell: python
+        run: |
+          from pathlib import Path
+
+          # 1) Shared finance hook: legacy totalWalletBalance readers must receive
+          # currently usable wallet money, while owned total remains available separately.
+          path = Path('src/hooks/useFinancialData.js')
+          text = path.read_text()
+          old = '''    wallets,\n    walletTotals,\n    totalWalletBalance: walletTotals.currentBalance,\n    totalEmergencyProtected: walletTotals.emergencyProtectedAmount,\n'''
+          new = '''    wallets,\n    walletTotals,\n    totalWalletBalance: walletTotals.spendableBalance,\n    totalAvailableWalletBalance: walletTotals.spendableBalance,\n    availableMoney: walletTotals.spendableBalance,\n    walletMoney: walletTotals.spendableBalance,\n    totalOwnedWalletBalance: walletTotals.currentBalance,\n    totalRecordedWalletBalance: walletTotals.currentBalance,\n    totalMoneyLentUnavailable: walletTotals.moneyLentUnavailableAmount || 0,\n    totalUnavailableWalletBalance: walletTotals.unavailableAmount || 0,\n    totalEmergencyProtected: walletTotals.emergencyProtectedAmount,\n'''
+          if old not in text:
+              raise SystemExit('useFinancialData shared wallet totals block not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text)
+
+          # 2) Old dashboard helper fallback: raw Money Lent records are never spendable,
+          # even if a caller bypasses dashboardHelpers.js and imports Base directly.
+          path = Path('src/utils/dashboard/dashboardHelpersBase.js')
+          text = path.read_text()
+          old = '''export const getWalletSpendableBalance = (wallet = {}) => {\n  const protectedAmount = firstValidNumber(\n'''
+          new = '''export const getWalletSpendableBalance = (wallet = {}) => {\n  const walletType = normalizeLower(wallet?.type || wallet?.wallet_type || wallet?.walletType);\n  if (["money_lent", "money-lent", "lent", "receivable"].includes(walletType)) return 0;\n\n  const protectedAmount = firstValidNumber(\n'''
+          if old not in text:
+              raise SystemExit('dashboardHelpersBase spendable helper not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text)
+
+          # 3) Legacy dashboard finance selector: distinguish owned money from available money.
+          path = Path('src/components/dashboard/dashboardFinanceSelectors.js')
+          text = path.read_text()
+          if not text.startswith('const normalizeString'):
+              raise SystemExit('dashboardFinanceSelectors unexpected header')
+          text = 'import { buildCanonicalWalletState } from "@/lib/clara-wallet-money-semantics";\n\n' + text
+          old = '''  const walletTotal = safeWallets.reduce((sum, wallet) => sum + getWalletDisplayBalance(wallet), 0);\n'''
+          new = '''  const canonicalWalletState = buildCanonicalWalletState({\n    wallets: safeWallets,\n    emergencyFund,\n    savingsGoals: safeSavingsGoals,\n  });\n  const ownedWalletTotal = canonicalWalletState.walletTotals.currentBalance;\n  const walletTotal = canonicalWalletState.walletTotals.spendableBalance;\n  const moneyLentUnavailable = canonicalWalletState.walletTotals.moneyLentUnavailableAmount || 0;\n'''
+          if old not in text:
+              raise SystemExit('dashboardFinanceSelectors walletTotal block not found')
+          text = text.replace(old, new, 1)
+          old = '''    walletTotal,\n    walletMoney: reliableWalletMoney,\n'''
+          new = '''    walletTotal,\n    walletMoney: walletTotal,\n    availableWalletMoney: walletTotal,\n    ownedWalletTotal,\n    moneyLentUnavailable,\n'''
+          if old not in text:
+              raise SystemExit('dashboardFinanceSelectors return block not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text)
+
+          # 4) Ensure Wallet chat creation records explicitly carry unavailable semantics.
+          path = Path('src/components/fresh/main-dashboard/assistant/ClaraWalletOverlayV2.jsx')
+          text = path.read_text()
+          old = '''        other_protected_amount: draftLentAmount,\n        otherProtectedAmount: draftLentAmount,\n        status: "outstanding",\n'''
+          new = '''        other_protected_amount: draftLentAmount,\n        otherProtectedAmount: draftLentAmount,\n        is_spendable: false,\n        isSpendable: false,\n        spendability_status: "blocked",\n        spendabilityStatus: "blocked",\n        spendability_block_reason: "Money Lent is owned by you but currently held by someone else.",\n        spendabilityBlockReason: "Money Lent is owned by you but currently held by someone else.",\n        status: "outstanding",\n'''
+          if old not in text:
+              raise SystemExit('Money Lent creation payload block not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text)
+
+          # 5) Regression test for the canonical contract and important legacy surfaces.
+          test = Path('tests/money-lent-unavailable-regression.test.mjs')
+          test.write_text('''import assert from "node:assert/strict";\nimport {\n  buildCanonicalWalletState,\n  getWalletSpendableBalance,\n  isMoneyLentWallet,\n} from "../src/lib/clara-wallet-money-semantics.js";\n\nconst wallets = [\n  { id: "cash", name: "Cash", type: "cash", balance: 4000 },\n  { id: "lent", name: "Rica", type: "money_lent", balance: 2256 },\n];\n\nassert.equal(isMoneyLentWallet(wallets[1]), true);\nassert.equal(getWalletSpendableBalance(wallets[1]), 0);\n\nconst state = buildCanonicalWalletState({ wallets });\nassert.equal(state.walletTotals.currentBalance, 6256);\nassert.equal(state.walletTotals.spendableBalance, 4000);\nassert.equal(state.walletTotals.moneyLentUnavailableAmount, 2256);\nassert.equal(state.wallets.find((wallet) => wallet.id === "lent")?.spendabilityStatus, "blocked");\nassert.equal(state.wallets.find((wallet) => wallet.id === "lent")?.spendableBalance, 0);\n\nconst financialDataSource = await import("node:fs/promises").then((fs) => fs.readFile("src/hooks/useFinancialData.js", "utf8"));\nassert.match(financialDataSource, /totalWalletBalance: walletTotals\.spendableBalance/);\nassert.match(financialDataSource, /totalOwnedWalletBalance: walletTotals\.currentBalance/);\n\nconst assistantSource = await import("node:fs/promises").then((fs) => fs.readFile("src/components/fresh/main-dashboard/assistant/useDashboardClaraAssistantContext.js", "utf8"));\nassert.match(assistantSource, /availableMoney: availableWalletTotal/);\nassert.match(assistantSource, /totalOwnedWalletBalance: ownedWalletTotal/);\n\nconsole.log("Money Lent unavailable regression passed");\n''')
+
+      - name: Run Money Lent regression
+        run: node tests/money-lent-unavailable-regression.test.mjs
+
+      - name: Commit hardening and remove one-shot workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm .github/workflows/one-shot-money-lent-logic-hardening.yml
+          git add src/hooks/useFinancialData.js src/utils/dashboard/dashboardHelpersBase.js src/components/dashboard/dashboardFinanceSelectors.js src/components/fresh/main-dashboard/assistant/ClaraWalletOverlayV2.jsx tests/money-lent-unavailable-regression.test.mjs .github/workflows/one-shot-money-lent-logic-hardening.yml
+          git commit -m "Harden Money Lent financial semantics"
+          git push origin HEAD:main
