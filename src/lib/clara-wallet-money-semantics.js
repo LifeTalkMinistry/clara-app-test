@@ -1,3 +1,5 @@
+import { isSavingsGoalActive } from "./savingsGoalLifecycle.js";
+
 const EMERGENCY_AMOUNT_KEYS = [
   "protectedBalance",
   "protected_balance",
@@ -165,18 +167,6 @@ export function getWalletUnavailableBalance(wallet = {}) {
   return isMoneyLentWallet(wallet) ? Math.max(getWalletCurrentBalance(wallet), 0) : 0;
 }
 
-function isActiveSavingsGoal(goal) {
-  const status = String(goal?.status || "").trim().toLowerCase();
-  return Boolean(
-    goal &&
-      !goal?.deletedAt &&
-      !goal?.deleted_at &&
-      !goal?.is_archived &&
-      !goal?.isArchived &&
-      !["deleted", "archived", "cancelled", "canceled"].includes(status)
-  );
-}
-
 function getSavingsGoalWalletId(goal = {}) {
   return firstText(goal, SAVINGS_WALLET_ID_KEYS);
 }
@@ -237,7 +227,7 @@ export function getWalletProtectedAmounts({
   const activeSavingsGoals = moneyLent
     ? []
     : (Array.isArray(savingsGoals) ? savingsGoals : [])
-        .filter(isActiveSavingsGoal)
+        .filter(isSavingsGoalActive)
         .filter((goal) => walletId && getSavingsGoalWalletId(goal) === walletId);
 
   const requestedSavingsProtectedAmount = activeSavingsGoals.reduce(
