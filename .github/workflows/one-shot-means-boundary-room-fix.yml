@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   patch:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,123 +17,67 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Fix Means payday boundary and canonical room
-        shell: python
+      - name: Fix Means boundary and room
         run: |
+          python - <<'PY'
           from pathlib import Path
           import re
 
-          path = Path("src/runtime/installClaraOrbGreeting.js")
+          path = Path('src/runtime/installClaraOrbGreeting.js')
           text = path.read_text()
 
-          # 1) Enforce next payday as an EXCLUSIVE boundary for every future commitment source.
-          # Existing logic used date > horizonEnd, which included items exactly on payday.
+          # Payday is an exclusive boundary for every future outgoing.
           text = text.replace(
-            'if (!date || date <= today || date > horizonEnd) return sum;',
-            'if (!date || date <= today || date >= horizonEnd) return sum;'
+              'if (!date || date <= today || date > horizonEnd) return sum;',
+              'if (!date || date <= today || date >= horizonEnd) return sum;'
           )
+          text = text.replace('while (cursor <= end) {', 'while (cursor < end) {', 1)
 
-          # We expect three replacements here: scheduled events, debt, savings goals.
-          # Money Schedule routine is date-iterative, so handle its cursor loop separately.
-          old_loop = '''  while (cursor <= end) {
-    total += byWeekday.get(cursor.getDay()) || 0;
-    cursor.setDate(cursor.getDate() + 1);
-  }'''
-          new_loop = '''  while (cursor < end) {
-    total += byWeekday.get(cursor.getDay()) || 0;
-    cursor.setDate(cursor.getDate() + 1);
-  }'''
-          if old_loop not in text:
-              raise SystemExit("Money Schedule horizon loop not found")
-          text = text.replace(old_loop, new_loop, 1)
-
-          # 2) Make projectedRoom the ONLY canonical Room value.
-          # Remove any accidental alternate room arithmetic in the UI by forcing the displayed
-          # value to snapshot.projectedRoom and preserving the sign.
-          # First add a signed formatter local to the Means rendering code.
-          marker = '''function money(value) {
-  const amount = Number(value || 0);
-  return `₱${Math.max(0, amount).toLocaleString("en-PH", {
-    maximumFractionDigits: 0,
-  })}`;
-}
-'''
-          signed = marker + '''
-function signedMoney(value) {
-  const amount = Number(value || 0);
-  const absolute = Math.abs(amount).toLocaleString("en-PH", { maximumFractionDigits: 0 });
-  return amount < 0 ? `-₱${absolute}` : `₱${absolute}`;
-}
-'''
+          # Signed formatter so a deficit can never render as a positive/zero currency value.
           if 'function signedMoney(value)' not in text:
+              marker = '''function localDateKey(value = new Date()) {'''
+              signed = '''function signedMoney(value) {\n  const amount = Number(value || 0);\n  const absolute = Math.abs(amount).toLocaleString("en-PH", { maximumFractionDigits: 0 });\n  return amount < 0 ? `-₱${absolute}` : `₱${absolute}`;\n}\n\n'''
               if marker not in text:
-                  raise SystemExit("money formatter marker not found")
-              text = text.replace(marker, signed, 1)
+                  raise SystemExit('localDateKey marker not found')
+              text = text.replace(marker, signed + marker, 1)
 
-          # Replace every Room display inside the Means card with projectedRoom.
-          text = re.sub(
-            r'\$\{money\(snapshot\.(?:projectedRoom|availableNow|income|upcoming)[^)]*\)\}',
-            lambda m: '${signedMoney(snapshot.projectedRoom)}' if 'projectedRoom' in m.group(0) else m.group(0),
-            text
-          )
-
-          # Surgical fallback: find the Room row and replace its value expression regardless of prior formula.
+          # Force the displayed Room row to use the same canonical value as the score.
           room_pattern = re.compile(
-            r'(<span>Room until \$\{formatHorizonDate\(snapshot\.cycleEndDate\)\}</span><strong[^>]*>)(\$\{.*?\})(</strong>)'
+              r'(<span>Room until \$\{formatHorizonDate\(snapshot\.cycleEndDate\)\}</span>\s*<strong[^>]*>)(\$\{.*?\})(</strong>)',
+              re.S,
           )
           text, count = room_pattern.subn(r'\1${signedMoney(snapshot.projectedRoom)}\3', text, count=1)
           if count != 1:
-              raise SystemExit("Room UI row not found")
+              raise SystemExit('Room row not found')
 
-          # 3) Add an integrity value so UI/debugging can never silently drift from the canonical total.
-          old_upcoming = '''  const upcoming = debtUpcoming + savingsGoalUpcoming + moneyScheduleUpcoming + otherScheduledUpcoming;
+          # Expose an explicit integrity total matching the visible breakdown.
+          if 'upcomingBreakdownTotal' not in text:
+              needle = '  const upcoming = debtUpcoming + savingsGoalUpcoming + moneyScheduleUpcoming + otherScheduledUpcoming;\n'
+              if needle not in text:
+                  raise SystemExit('upcoming total marker not found')
+              text = text.replace(
+                  needle,
+                  needle + '  const upcomingBreakdownTotal = debtUpcoming + savingsGoalUpcoming + moneyScheduleUpcoming + otherScheduledUpcoming;\n',
+                  1,
+              )
+              text = text.replace('    upcoming,\n    savingsGoalUpcoming,', '    upcoming,\n    upcomingBreakdownTotal,\n    savingsGoalUpcoming,', 1)
+              text = text.replace(
+                  '        Math.round(snapshot.upcoming),\n        Math.round(snapshot.savingsGoalUpcoming || 0),',
+                  '        Math.round(snapshot.upcoming),\n        Math.round(snapshot.upcomingBreakdownTotal || 0),\n        Math.round(snapshot.savingsGoalUpcoming || 0),',
+                  1,
+              )
 
-  const projectedSpending = upcoming;
-  const projectedRoom = availableNow - upcoming;'''
-          new_upcoming = '''  const upcoming = debtUpcoming + savingsGoalUpcoming + moneyScheduleUpcoming + otherScheduledUpcoming;
-  const upcomingBreakdownTotal = debtUpcoming + savingsGoalUpcoming + moneyScheduleUpcoming + otherScheduledUpcoming;
-
-  const projectedSpending = upcoming;
-  const projectedRoom = availableNow - upcoming;'''
-          if old_upcoming not in text:
-              raise SystemExit("canonical upcoming block not found")
-          text = text.replace(old_upcoming, new_upcoming, 1)
-
-          old_return = '''    upcoming,
-    savingsGoalUpcoming,'''
-          new_return = '''    upcoming,
-    upcomingBreakdownTotal,
-    savingsGoalUpcoming,'''
-          if old_return not in text:
-              raise SystemExit("snapshot return upcoming block not found")
-          text = text.replace(old_return, new_return, 1)
-
-          # Include integrity total in render signature.
-          old_sig = '''        Math.round(snapshot.upcoming),
-        Math.round(snapshot.savingsGoalUpcoming || 0),'''
-          new_sig = '''        Math.round(snapshot.upcoming),
-        Math.round(snapshot.upcomingBreakdownTotal || 0),
-        Math.round(snapshot.savingsGoalUpcoming || 0),'''
-          if old_sig not in text:
-              raise SystemExit("render signature upcoming block not found")
-          text = text.replace(old_sig, new_sig, 1)
-
-          path.write_text(text)
-
-      - name: Verify Means invariants
-        shell: python
-        run: |
-          from pathlib import Path
-          import re
-          text = Path("src/runtime/installClaraOrbGreeting.js").read_text()
-          assert 'while (cursor < end)' in text
+          # Hard invariants.
           assert text.count('date >= horizonEnd') >= 3
+          assert 'while (cursor < end)' in text
           assert 'const projectedRoom = availableNow - upcoming;' in text
           assert '${signedMoney(snapshot.projectedRoom)}' in text
           assert 'upcomingBreakdownTotal' in text
-          assert 'function signedMoney(value)' in text
 
-      - name: Commit fix to main
+          path.write_text(text)
+          PY
+
+      - name: Commit fix
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
