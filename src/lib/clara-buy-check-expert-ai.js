@@ -571,6 +571,26 @@ Return valid JSON only:
 
 function fallbackTurn(message = "", evidence = {}, assistantContext = {}) {
   const current = sanitizeEvidence(evidence);
+  const localPurchaseMessage = clean(message);
+
+  // Gemini normally extracts purchase evidence. If Gemini times out on the very
+  // first purchase message, recover the obvious price/item locally so the
+  // canonical Means simulator can still answer immediately.
+  if (!current.price) {
+    const priceMatch = localPurchaseMessage.match(/(?:₱|php\s*)?(\d[\d,]*(?:\.\d{1,2})?)\s*(?:pesos?|php)?/i);
+    const parsedPrice = priceMatch ? Number(String(priceMatch[1]).replace(/,/g, "")) : 0;
+    if (Number.isFinite(parsedPrice) && parsedPrice > 0) current.price = parsedPrice;
+  }
+
+  if (!current.item && current.price > 0 && /\b(buy|buying|purchase|get|spend|worth|cost)\b/i.test(localPurchaseMessage)) {
+    current.item = localPurchaseMessage
+      .replace(/(?:₱|php\s*)?\d[\d,]*(?:\.\d{1,2})?\s*(?:pesos?|php)?/gi, " ")
+      .replace(/\b(can\s+i|should\s+i|i(?:'m| am)?\s+thinking\s+of|thinking\s+of|want\s+to|buying|buy|purchase|worth|for)\b/gi, " ")
+      .replace(/[?!.]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim() || "this purchase";
+  }
+
   const name = firstName(userNameFromContext(assistantContext));
   const greeting = /^(hi|hello|hey|yo|good\s+(morning|afternoon|evening)|kumusta|kamusta)[!.\s]*$/i.test(clean(message));
 
