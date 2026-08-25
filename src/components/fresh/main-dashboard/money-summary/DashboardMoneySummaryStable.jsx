@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Calculator, Eye, EyeOff } from "lucide-react";
+import {
+  getCanonicalMeansDecisionBoundary,
+  MEANS_SNAPSHOT_UPDATED_EVENT,
+} from "@/lib/clara-means-boundary";
 import MoneyLeftCalculator from "./MoneyLeftCalculator";
 import useMoneyLeftOrbGestures from "./useMoneyLeftOrbGestures";
 
@@ -79,6 +83,9 @@ export default function DashboardMoneySummaryStable({
 }) {
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [isGuideCalculatorActive, setIsGuideCalculatorActive] = useState(false);
+  const [meansBoundary, setMeansBoundary] = useState(() =>
+    getCanonicalMeansDecisionBoundary(),
+  );
   const spacingClass = flushSpacing ? "mt-0" : "mt-2";
   const isGuideOrbPreviewActive =
     isGuideMode &&
@@ -94,6 +101,25 @@ export default function DashboardMoneySummaryStable({
   const effectiveMoneySummaryVisible = isGuidePrivacyStepActive
     ? guideMoneySummaryVisible
     : moneySummaryVisible;
+  const resolvedMoneyLeft = isGuideMode
+    ? Math.max(0, Number(walletMoney || 0))
+    : meansBoundary.ready
+      ? meansBoundary.amount
+      : null;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const syncMeansBoundary = () => {
+      setMeansBoundary(getCanonicalMeansDecisionBoundary());
+    };
+
+    syncMeansBoundary();
+    window.addEventListener(MEANS_SNAPSHOT_UPDATED_EVENT, syncMeansBoundary);
+    return () => {
+      window.removeEventListener(MEANS_SNAPSHOT_UPDATED_EVENT, syncMeansBoundary);
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return undefined;
@@ -336,10 +362,18 @@ export default function DashboardMoneySummaryStable({
 
         <div
           data-clara-summary-card="money-left"
+          data-clara-means-boundary-source={meansBoundary.source}
+          data-clara-means-cycle-end={meansBoundary.cycleEndDate || undefined}
           {...moneyLeftCardHandlers}
           role={isGuideMode ? undefined : "button"}
           tabIndex={isGuideMode ? undefined : 0}
-          aria-label={isGuideMode ? undefined : "Money Left. Double tap to open Transaction Hub."}
+          aria-label={
+            isGuideMode
+              ? undefined
+              : meansBoundary.ready
+                ? `Money Left inside the current Income Hub pay cycle: ${fmt(meansBoundary.amount)}. Double tap to open Transaction Hub.`
+                : "Money Left is waiting for a valid Income Hub pay-cycle schedule. Double tap to open Transaction Hub."
+          }
           className={`relative isolate overflow-hidden ${
             dashboardScale.summaryCell || "min-h-[110px] p-[clamp(14px,3.6vw,17px)]"
           }`}
@@ -350,7 +384,11 @@ export default function DashboardMoneySummaryStable({
               Money Left
             </p>
             <h2 className={`font-bold leading-none ${dashboardScale.summaryAmount || "mt-2.5 text-[clamp(32px,8.4vw,37px)]"} ${themePrimaryTextClass}`}>
-              {effectiveMoneySummaryVisible ? fmt(walletMoney) : "₱••••••"}
+              {effectiveMoneySummaryVisible
+                ? resolvedMoneyLeft === null
+                  ? "—"
+                  : fmt(resolvedMoneyLeft)
+                : "₱••••••"}
             </h2>
           </div>
         </div>
