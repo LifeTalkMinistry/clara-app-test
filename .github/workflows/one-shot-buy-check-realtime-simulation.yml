@@ -1,0 +1,36 @@
+name: One-shot Buy Check realtime Means simulation
+
+on:
+  push:
+    paths:
+      - '.github/workflows/one-shot-buy-check-realtime-simulation.yml'
+      - '.github/scripts/patch-buy-check-realtime-simulation.py'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Patch Ask Before You Spend simulation rules
+        run: python .github/scripts/patch-buy-check-realtime-simulation.py
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/lib/clara-buy-check-expert-ai.js
+          if git diff --cached --quiet; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Make Buy Check use realtime projected Means score'
+          git push origin HEAD:main
