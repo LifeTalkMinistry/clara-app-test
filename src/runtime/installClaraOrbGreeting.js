@@ -558,12 +558,18 @@ async function buildMeansSnapshot(profile = {}) {
 
   const projectedSpending = upcoming;
   const projectedRoom = availableNow - upcoming;
+
+  // Means Score is an uncapped financial-runway index.
+  // 100 means the user has exactly the resources required to reach the next payday.
+  // Emergency Fund increases financial runway, but remains protected from ordinary spending.
+  const financialRunway = availableNow + emergencyProtected;
+  const requiredRunway = upcoming;
   const score =
-    availableNow > 0
-      ? Math.round(100 + ((availableNow - upcoming) / availableNow) * 100)
-      : upcoming > 0
-        ? -100
-        : 100;
+    requiredRunway > 0
+      ? Math.round((financialRunway / requiredRunway) * 100)
+      : financialRunway > 0
+        ? 100
+        : 0;
 
   return {
     hasIncomePayCycle: true,
@@ -579,6 +585,8 @@ async function buildMeansSnapshot(profile = {}) {
     cycleEndDate,
     horizonDate: cycleEndDate,
     availableNow,
+    financialRunway,
+    requiredRunway,
     moneyLentUnavailable,
     emergencyProtected,
     savingsProtected,
@@ -589,10 +597,18 @@ async function buildMeansSnapshot(profile = {}) {
 }
 
 function statusForScore(score) {
-  if (score > 100) return "Below your means";
-  if (score === 100) return "Within your means";
-  if (score >= 0) return "Above your means";
-  return "Over your means";
+  if (score >= 10000) return "Diamond";
+  if (score >= 5000) return "Gold";
+  if (score >= 2000) return "Silver";
+  if (score >= 1000) return "Bronze";
+  if (score >= 500) return "Vanguard";
+  if (score >= 400) return "3 Cycles Ahead";
+  if (score >= 300) return "2 Cycles Ahead";
+  if (score >= 200) return "1 Cycle Ahead";
+  if (score >= 101) return "Below Your Means";
+  if (score === 100) return "Within Your Means";
+  if (score >= 1) return "Above Your Means";
+  return "In Deficit";
 }
 
 function metricTone(score) {
@@ -669,6 +685,8 @@ function ensureMeansMetric(label, snapshot, onToggle) {
         snapshot.cycleStartDate || "",
         snapshot.cycleEndDate || "",
         Math.round(snapshot.availableNow || 0),
+        Math.round(snapshot.financialRunway || 0),
+        Math.round(snapshot.requiredRunway || 0),
         Math.round(snapshot.moneyLentUnavailable || 0),
         Math.round(snapshot.emergencyProtected || 0),
         Math.round(snapshot.savingsProtected || 0),
