@@ -6,7 +6,6 @@ PATCHES = [
     'patch-savings-completion-ledger-repair.py',
     'patch-wallet-completed-savings-link.py',
     'patch-savings-completion-correction-repair.py',
-    'patch-means-completed-savings-filter.py',
 ]
 
 base = Path(__file__).resolve().parent
