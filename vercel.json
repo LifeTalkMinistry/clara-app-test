@@ -7,6 +7,6 @@
     }
   },
   "installCommand": "npm install --ignore-scripts --no-audit --no-fund --package-lock=false",
-  "buildCommand": "python3 scripts/patch-savings-goal-complete.py && python3 scripts/patch-savings-completion-ledger-repair.py && python3 scripts/patch-wallet-completed-savings-link.py && npx vite build --base=./",
+  "buildCommand": "python3 scripts/patch-savings-goal-complete.py && python3 scripts/patch-savings-completion-ledger-repair.py && python3 scripts/patch-wallet-completed-savings-link.py && python3 scripts/patch-savings-completion-correction-repair.py && npx vite build --base=./",
   "outputDirectory": "dist"
 }
