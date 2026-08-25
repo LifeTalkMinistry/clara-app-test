@@ -1,0 +1,120 @@
+name: One-shot Buy Check score enforcement repair v2
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/one-shot-fix-buy-check-score-enforcement-v2.yml
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Patch source
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          path = Path('src/lib/clara-buy-check-expert-ai.js')
+          text = path.read_text()
+
+          anchor = '''  let pkg = {};
+          try {
+            pkg = buildContextPackage(purchase, assistantContext);
+          } catch (error) {
+            console.warn("[CLARA Buy Check] Universal conversation context degraded safely.", error);
+          }
+
+          const wallet = safeRecord(pkg.wallet);'''
+          replacement = '''  const price = toNumber(purchase.price);
+          const means = buildCanonicalMeansContext(price);
+
+          if (means) {
+            return {
+              means,
+              purchaseAlreadyUnderstood: {
+                item: purchase.item,
+                price,
+                suggestedTransactionReason: purchase.reason,
+              },
+            };
+          }
+
+          let pkg = {};
+          try {
+            pkg = buildContextPackage(purchase, assistantContext);
+          } catch (error) {
+            console.warn("[CLARA Buy Check] Universal conversation context degraded safely.", error);
+          }
+
+          const wallet = safeRecord(pkg.wallet);'''
+          if anchor not in text:
+            raise SystemExit('context anchor missing')
+          text = text.replace(anchor, replacement, 1)
+
+          old_block = '''  const goals = safeList(savingsGoals.records).slice(0, 6).map(compactGoal);
+          const price = toNumber(purchase.price);
+          const spendable = toNumber(wallet.spendableTotal);
+          const means = buildCanonicalMeansContext(price);
+
+          if (means) {
+            return {
+              means,
+              purchaseAlreadyUnderstood: {
+                item: purchase.item,
+                price,
+                suggestedTransactionReason: purchase.reason,
+              },
+              supportingContext: {
+                nextExpectedIncomeDate: income.estimatedNextIncomeDate || null,
+                nearestObligation: dueObligations[0] || null,
+                nearestScheduledEvent: upcomingSchedule[0] || null,
+              },
+            };
+          }
+          '''
+          new_block = '''  const goals = safeList(savingsGoals.records).slice(0, 6).map(compactGoal);
+          const spendable = toNumber(wallet.spendableTotal);
+          '''
+          if old_block not in text:
+            raise SystemExit('old means block missing')
+          text = text.replace(old_block, new_block, 1)
+
+          old_reply = '''    const action = ACTIONS.has(requestedAction) ? requestedAction : fallback.action;
+              const reply = clean(json?.reply).slice(0, 720);
+              const readinessConfidence = Math.max(0, Math.min(1, Number(json?.readinessConfidence || 0)));'''
+          new_reply = '''    const action = ACTIONS.has(requestedAction) ? requestedAction : fallback.action;
+              let reply = clean(json?.reply).slice(0, 720);
+              const authoritativeMeans = buildCanonicalMeansContext(mergedEvidence.price);
+              if (authoritativeMeans?.purchaseSimulationApplied && authoritativeMeans.projectedScoreAfterPurchase !== null) {
+                const before = Number.isFinite(Number(authoritativeMeans.currentScore)) ? Number(authoritativeMeans.currentScore) : null;
+                const after = Number(authoritativeMeans.projectedScoreAfterPurchase);
+                const numericTokens = reply.match(/-?\\d+(?:\\.\\d+)?/g) || [];
+                if (!numericTokens.includes(String(after))) {
+                  const movement = before !== null
+                    ? `Your Means Score would move from ${before} to ${after}.`
+                    : `Your projected Means Score would be ${after}.`;
+                  reply = `${movement} ${reply}`.trim().slice(0, 720);
+                }
+              }
+              const readinessConfidence = Math.max(0, Math.min(1, Number(json?.readinessConfidence || 0)));'''
+          if old_reply not in text:
+            raise SystemExit('reply anchor missing')
+          text = text.replace(old_reply, new_reply, 1)
+          path.write_text(text)
+          PY
+      - name: Verify patch
+        run: |
+          grep -q 'const authoritativeMeans = buildCanonicalMeansContext' src/lib/clara-buy-check-expert-ai.js
+          grep -q 'const means = buildCanonicalMeansContext(price)' src/lib/clara-buy-check-expert-ai.js
+      - name: Commit
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/lib/clara-buy-check-expert-ai.js
+          git commit -m 'Enforce exact projected Means score in Buy Check'
+          git push origin main
