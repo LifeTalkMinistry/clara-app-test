@@ -325,13 +325,12 @@ export default function SavingsCardRefined({
     ? savingsGoals.filter((goal) => goal && !goal.deleted_at && !goal.deletedAt)
     : [];
 
-  const computedSaved = goals.reduce((sum, goal) => sum + getSaved(goal), 0);
-  const computedTarget = goals.reduce((sum, goal) => sum + getTarget(goal), 0);
+  // Savings totals are derived data. The active goal collection is the source
+  // of truth for this card, so stale parent aggregates can never survive after
+  // the last goal is deleted.
+  const saved = goals.reduce((sum, goal) => sum + getSaved(goal), 0);
+  const target = goals.reduce((sum, goal) => sum + getTarget(goal), 0);
   const totalPositiveSavings = goals.reduce((sum, goal) => sum + Math.max(getSaved(goal), 0), 0);
-  const hasExplicitSaved = totalSavingsSaved !== undefined && totalSavingsSaved !== null && totalSavingsSaved !== "";
-  const hasExplicitTarget = totalSavingsTarget !== undefined && totalSavingsTarget !== null && totalSavingsTarget !== "";
-  const saved = hasExplicitSaved ? safeNumber(totalSavingsSaved) : computedSaved;
-  const target = hasExplicitTarget ? safeNumber(totalSavingsTarget) : computedTarget;
   const progress = target > 0 ? Math.min(100, Math.round((saved / target) * 100)) : 0;
   const status = getGoalStatus(progress, goals.length);
   const primaryGoalId = primarySavingsGoal?.id || primarySavingsGoal?.goal_id || "";
