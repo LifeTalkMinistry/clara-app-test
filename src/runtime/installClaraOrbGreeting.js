@@ -213,7 +213,7 @@ function debtLastPaidDate(record = {}) {
   ).slice(0, 10);
 }
 
-function overdueUnpaidDebtAmount(records = [], horizonEnd = endOfCurrentMonthKey()) {
+function overdueUnpaidDebtAmount(records = [], cycleStart = localDateKey(), horizonEnd = endOfCurrentMonthKey()) {
   const today = localDateKey();
   const recordMap = new Map(
     (Array.isArray(records) ? records : []).map((record) => [
@@ -228,7 +228,7 @@ function overdueUnpaidDebtAmount(records = [], horizonEnd = endOfCurrentMonthKey
     const date = String(event?.date || "").slice(0, 10);
     const direction = String(event?.direction || "out").trim().toLowerCase();
     if (!debtId || !date || direction !== "out") return;
-    if (date > today || date >= horizonEnd) return;
+    if (date < cycleStart || date > today || date >= horizonEnd) return;
 
     const current = latestDueByDebt.get(debtId);
     if (!current || date > current.date) latestDueByDebt.set(debtId, { ...event, date });
@@ -556,7 +556,7 @@ async function buildMeansSnapshot(profile = {}) {
   const savingsGoalUpcoming = futureSavingsGoalAmount(savingsGoals, cycleEndDate);
   const debtUpcoming =
     futureDebtObligationAmount(debtObligations, cycleEndDate) +
-    overdueUnpaidDebtAmount(debtObligations, cycleEndDate);
+    overdueUnpaidDebtAmount(debtObligations, cycleStartDate, cycleEndDate);
   const upcoming = debtUpcoming + savingsGoalUpcoming + moneyScheduleUpcoming + otherScheduledUpcoming;
 
   const projectedSpending = upcoming;
