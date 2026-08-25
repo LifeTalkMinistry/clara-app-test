@@ -38,9 +38,8 @@ jobs:
           new = '''  const price = toNumber(purchase.price);
   const means = buildCanonicalMeansContext(price);
 
-  // If the canonical ORB Means snapshot exists, it is already the financial
-  // source of truth. Return it immediately instead of rebuilding the legacy
-  // universal context, which can fail on partially-populated optional data.
+  // Canonical Means is already the source of truth. Avoid rebuilding legacy
+  // context first, because optional legacy data may be incomplete.
   if (means) {
     return {
       means,
@@ -102,9 +101,8 @@ jobs:
           new3 = '''    const action = ACTIONS.has(requestedAction) ? requestedAction : fallback.action;
     let reply = clean(json?.reply).slice(0, 720);
 
-    // The app, not Gemini, enforces the authoritative projected Means score.
-    // If Gemini returns only vague wording, prepend the exact before → after
-    // simulation so the user always sees the real numerical consequence.
+    // Enforce the exact projected Means score in application code. Gemini may
+    // explain the result, but it cannot omit the authoritative simulation.
     const authoritativeMeans = buildCanonicalMeansContext(mergedEvidence.price);
     if (
       authoritativeMeans?.purchaseSimulationApplied &&
@@ -114,9 +112,9 @@ jobs:
         ? Number(authoritativeMeans.currentScore)
         : null;
       const after = Number(authoritativeMeans.projectedScoreAfterPurchase);
-      const exactScorePattern = new RegExp(`\\b${String(after).replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}\\b`);
+      const containsProjectedScore = reply.split(/\\D+/).includes(String(after));
 
-      if (!exactScorePattern.test(reply)) {
+      if (!containsProjectedScore) {
         const movement = before !== null
           ? `Your Means Score would move from ${before} to ${after}.`
           : `Your projected Means Score would be ${after}.`;
@@ -129,13 +127,12 @@ jobs:
           if old3 not in text:
             raise SystemExit('reply enforcement anchor not found')
           text = text.replace(old3, new3, 1)
-
           path.write_text(text)
 
       - name: Verify source contains repair
         run: |
-          grep -q 'Return it immediately instead of rebuilding the legacy' src/lib/clara-buy-check-expert-ai.js
-          grep -q 'The app, not Gemini, enforces the authoritative projected Means score' src/lib/clara-buy-check-expert-ai.js
+          grep -q 'Canonical Means is already the source of truth' src/lib/clara-buy-check-expert-ai.js
+          grep -q 'Enforce the exact projected Means score in application code' src/lib/clara-buy-check-expert-ai.js
 
       - name: Commit repair
         run: |
@@ -144,3 +141,5 @@ jobs:
           git add src/lib/clara-buy-check-expert-ai.js
           git commit -m 'Enforce exact projected Means score in Buy Check'
           git push origin main
+
+# trigger: 2026-08-25T06:20
