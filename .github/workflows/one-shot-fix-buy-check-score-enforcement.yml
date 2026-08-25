@@ -1,0 +1,146 @@
+name: One-shot Buy Check score enforcement repair
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-shot-fix-buy-check-score-enforcement.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Patch Buy Check context and response enforcement
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('src/lib/clara-buy-check-expert-ai.js')
+          text = path.read_text()
+
+          old = '''  let pkg = {};
+  try {
+    pkg = buildContextPackage(purchase, assistantContext);
+  } catch (error) {
+    console.warn("[CLARA Buy Check] Universal conversation context degraded safely.", error);
+  }
+
+  const wallet = safeRecord(pkg.wallet);'''
+
+          new = '''  const price = toNumber(purchase.price);
+  const means = buildCanonicalMeansContext(price);
+
+  // If the canonical ORB Means snapshot exists, it is already the financial
+  // source of truth. Return it immediately instead of rebuilding the legacy
+  // universal context, which can fail on partially-populated optional data.
+  if (means) {
+    return {
+      means,
+      purchaseAlreadyUnderstood: {
+        item: purchase.item,
+        price,
+        suggestedTransactionReason: purchase.reason,
+      },
+    };
+  }
+
+  let pkg = {};
+  try {
+    pkg = buildContextPackage(purchase, assistantContext);
+  } catch (error) {
+    console.warn("[CLARA Buy Check] Universal conversation context degraded safely.", error);
+  }
+
+  const wallet = safeRecord(pkg.wallet);'''
+
+          if old not in text:
+            raise SystemExit('context insertion anchor not found')
+          text = text.replace(old, new, 1)
+
+          old2 = '''  const goals = safeList(savingsGoals.records).slice(0, 6).map(compactGoal);
+  const price = toNumber(purchase.price);
+  const spendable = toNumber(wallet.spendableTotal);
+  const means = buildCanonicalMeansContext(price);
+
+  if (means) {
+    return {
+      means,
+      purchaseAlreadyUnderstood: {
+        item: purchase.item,
+        price,
+        suggestedTransactionReason: purchase.reason,
+      },
+      supportingContext: {
+        nextExpectedIncomeDate: income.estimatedNextIncomeDate || null,
+        nearestObligation: dueObligations[0] || null,
+        nearestScheduledEvent: upcomingSchedule[0] || null,
+      },
+    };
+  }
+'''
+
+          new2 = '''  const goals = safeList(savingsGoals.records).slice(0, 6).map(compactGoal);
+  const spendable = toNumber(wallet.spendableTotal);
+'''
+
+          if old2 not in text:
+            raise SystemExit('old means block anchor not found')
+          text = text.replace(old2, new2, 1)
+
+          old3 = '''    const action = ACTIONS.has(requestedAction) ? requestedAction : fallback.action;
+    const reply = clean(json?.reply).slice(0, 720);
+    const readinessConfidence = Math.max(0, Math.min(1, Number(json?.readinessConfidence || 0)));'''
+
+          new3 = '''    const action = ACTIONS.has(requestedAction) ? requestedAction : fallback.action;
+    let reply = clean(json?.reply).slice(0, 720);
+
+    // The app, not Gemini, enforces the authoritative projected Means score.
+    // If Gemini returns only vague wording, prepend the exact before → after
+    // simulation so the user always sees the real numerical consequence.
+    const authoritativeMeans = buildCanonicalMeansContext(mergedEvidence.price);
+    if (
+      authoritativeMeans?.purchaseSimulationApplied &&
+      authoritativeMeans.projectedScoreAfterPurchase !== null
+    ) {
+      const before = Number.isFinite(Number(authoritativeMeans.currentScore))
+        ? Number(authoritativeMeans.currentScore)
+        : null;
+      const after = Number(authoritativeMeans.projectedScoreAfterPurchase);
+      const exactScorePattern = new RegExp(`\\b${String(after).replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}\\b`);
+
+      if (!exactScorePattern.test(reply)) {
+        const movement = before !== null
+          ? `Your Means Score would move from ${before} to ${after}.`
+          : `Your projected Means Score would be ${after}.`;
+        reply = `${movement} ${reply}`.trim().slice(0, 720);
+      }
+    }
+
+    const readinessConfidence = Math.max(0, Math.min(1, Number(json?.readinessConfidence || 0)));'''
+
+          if old3 not in text:
+            raise SystemExit('reply enforcement anchor not found')
+          text = text.replace(old3, new3, 1)
+
+          path.write_text(text)
+
+      - name: Verify source contains repair
+        run: |
+          grep -q 'Return it immediately instead of rebuilding the legacy' src/lib/clara-buy-check-expert-ai.js
+          grep -q 'The app, not Gemini, enforces the authoritative projected Means score' src/lib/clara-buy-check-expert-ai.js
+
+      - name: Commit repair
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/lib/clara-buy-check-expert-ai.js
+          git commit -m 'Enforce exact projected Means score in Buy Check'
+          git push origin main
