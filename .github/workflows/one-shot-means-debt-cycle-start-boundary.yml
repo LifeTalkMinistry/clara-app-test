@@ -1,0 +1,36 @@
+name: One-shot Means debt cycle-start boundary
+
+on:
+  push:
+    paths:
+      - ".github/workflows/one-shot-means-debt-cycle-start-boundary.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Restrict overdue debt to current pay cycle
+        run: python scripts/fix_means_debt_cycle_start_boundary.py
+      - name: Verify current-cycle debt invariants
+        shell: python
+        run: |
+          from pathlib import Path
+          text = Path("src/runtime/installClaraOrbGreeting.js").read_text()
+          assert "date < cycleStart || date > today || date >= horizonEnd" in text
+          assert "overdueUnpaidDebtAmount(debtObligations, cycleStartDate, cycleEndDate)" in text
+          assert "futureDebtObligationAmount(debtObligations, cycleEndDate)" in text
+      - name: Commit fix to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/runtime/installClaraOrbGreeting.js
+          git commit -m "Keep Means debt inside current pay cycle"
+          git push origin HEAD:main
