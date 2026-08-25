@@ -1,0 +1,33 @@
+name: One-shot debt occurrence lifecycle
+
+on:
+  push:
+    paths:
+      - ".github/workflows/one-shot-debt-occurrence-lifecycle.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Reconstruct debt occurrence lifecycle
+        run: python scripts/debt_occurrence_lifecycle_repair.py
+      - name: Verify build contracts
+        run: |
+          grep -q "markDebtOccurrencePaid" src/lib/debtObligationStore.js
+          grep -q "getDebtOccurrenceState" src/components/financial-carousel/cards/debt/ui/DebtObligationItem.jsx
+          grep -q "isDebtOccurrencePaid(record, event.date)" src/runtime/installClaraOrbGreeting.js
+          grep -q "paidOccurrenceDate" src/lib/manualExpenseLinkedTargetSync.js
+      - name: Commit lifecycle fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/debtObligationStore.js src/lib/manualExpenseLinkedTargetSync.js src/runtime/installClaraOrbGreeting.js src/components/financial-carousel/cards/debt/ui/DebtObligationItem.jsx src/components/ObligationDebt.jsx
+          git commit -m "Track debt payments by due occurrence"
+          git push origin HEAD:main
