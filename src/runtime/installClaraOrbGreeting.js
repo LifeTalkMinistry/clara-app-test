@@ -202,6 +202,50 @@ function futureDebtObligationAmount(records = [], horizonEnd = endOfCurrentMonth
   }, 0);
 }
 
+function debtLastPaidDate(record = {}) {
+  return String(
+    record?.lastPaidAt ||
+      record?.last_paid_at ||
+      record?.paidAt ||
+      record?.paid_at ||
+      ""
+  ).slice(0, 10);
+}
+
+function overdueUnpaidDebtAmount(records = [], horizonEnd = endOfCurrentMonthKey()) {
+  const today = localDateKey();
+  const recordMap = new Map(
+    (Array.isArray(records) ? records : []).map((record) => [
+      String(record?.id || record?.debt_id || record?.debtId || "").trim(),
+      record,
+    ])
+  );
+  const latestDueByDebt = new Map();
+
+  buildDebtObligationScheduleProjection(records).forEach((event) => {
+    const debtId = String(event?.debtObligationId || event?.debt_obligation_id || "").trim();
+    const date = String(event?.date || "").slice(0, 10);
+    const direction = String(event?.direction || "out").trim().toLowerCase();
+    if (!debtId || !date || direction !== "out") return;
+    if (date > today || date >= horizonEnd) return;
+
+    const current = latestDueByDebt.get(debtId);
+    if (!current || date > current.date) latestDueByDebt.set(debtId, { ...event, date });
+  });
+
+  let total = 0;
+  latestDueByDebt.forEach((event, debtId) => {
+    const record = recordMap.get(debtId) || {};
+    const lastPaid = debtLastPaidDate(record);
+    if (lastPaid && lastPaid >= event.date) return;
+
+    const amount = Number(String(event?.amount ?? "0").replace(/[₱,\s]/g, ""));
+    total += Number.isFinite(amount) ? Math.max(0, amount) : 0;
+  });
+
+  return total;
+}
+
 function savingsGoalDate(goal = {}) {
   return String(
     goal?.planned_use_date ||
@@ -510,7 +554,9 @@ async function buildMeansSnapshot(profile = {}) {
   const moneyScheduleUpcoming = futureRoutineAmount(owner, cycleEndDate);
   const otherScheduledUpcoming = futureScheduledAmount(owner, cycleEndDate);
   const savingsGoalUpcoming = futureSavingsGoalAmount(savingsGoals, cycleEndDate);
-  const debtUpcoming = futureDebtObligationAmount(debtObligations, cycleEndDate);
+  const debtUpcoming =
+    futureDebtObligationAmount(debtObligations, cycleEndDate) +
+    overdueUnpaidDebtAmount(debtObligations, cycleEndDate);
   const upcoming = debtUpcoming + savingsGoalUpcoming + moneyScheduleUpcoming + otherScheduledUpcoming;
 
   const projectedSpending = upcoming;
