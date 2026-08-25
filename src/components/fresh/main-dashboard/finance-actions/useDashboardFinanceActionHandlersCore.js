@@ -245,7 +245,6 @@ export default function useDashboardFinanceActionHandlers({
     return true;
   }, [isClaraAiOrbEvent, openManualExpenseModal]);
 
-
   const stopMoneyLeftOrbEvent = useCallback((event) => {
     event?.preventDefault?.();
     event?.stopPropagation?.();
@@ -376,7 +375,6 @@ export default function useDashboardFinanceActionHandlers({
     window.addEventListener("clara:open-manual-expense", openManualExpenseModal);
     return () => window.removeEventListener("clara:open-manual-expense", openManualExpenseModal);
   }, [openManualExpenseModal]);
-
 
   const refreshFinanceSection = useCallback(async () => {
     await refreshFinancialData?.();
@@ -727,8 +725,20 @@ export default function useDashboardFinanceActionHandlers({
       return;
     }
 
-    if (getWalletSpendableBalance(fromWallet) < amount) {
-      showFinanceNotice("This transfer is higher than the wallet’s spendable balance after protected funds.");
+    const fromWalletType = normalizeLower(
+      fromWallet?.type || fromWallet?.wallet_type || fromWallet?.walletType || ""
+    ).replace(/-/g, "_");
+    const isMoneyLentReturn = ["money_lent", "lent", "receivable"].includes(fromWalletType);
+    const transferableBalance = isMoneyLentReturn
+      ? Math.max(getWalletDisplayBalance(fromWallet), 0)
+      : getWalletSpendableBalance(fromWallet);
+
+    if (transferableBalance < amount) {
+      showFinanceNotice(
+        isMoneyLentReturn
+          ? "This returned amount is higher than the money still owed to you."
+          : "This transfer is higher than the wallet’s spendable balance after protected funds."
+      );
       return;
     }
 
@@ -745,9 +755,12 @@ export default function useDashboardFinanceActionHandlers({
 
       await refreshFinanceSection();
       closeFinanceModal();
-      showFinanceNotice("Transfer completed successfully.", "success");
+      showFinanceNotice(
+        isMoneyLentReturn ? "Returned money recorded successfully." : "Transfer completed successfully.",
+        "success"
+      );
     } catch (error) {
-      showFinanceNotice(error?.message || "Failed to transfer money.");
+      showFinanceNotice(error?.message || (isMoneyLentReturn ? "Failed to record returned money." : "Failed to transfer money."));
     } finally {
       setFinanceActionLoading(false);
     }
