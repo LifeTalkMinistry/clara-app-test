@@ -1,0 +1,39 @@
+name: One-shot Means assumed-spend handoff
+
+on:
+  push:
+    paths:
+      - ".github/workflows/one-shot-means-assumed-handoff.yml"
+      - "scripts/fix_means_assumed_handoff.py"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Move assumed routine out of remaining Money Schedule
+        run: python scripts/fix_means_assumed_handoff.py
+      - name: Verify handoff invariants
+        shell: python
+        run: |
+          from pathlib import Path
+          text = Path("src/runtime/installClaraOrbGreeting.js").read_text()
+          assert 'function routineAmountForDate(user, value = new Date())' in text
+          assert 'const assumedToday = routineAmountForDate(owner, new Date());' in text
+          assert 'const rawMoneyScheduleUpcoming = futureRoutineAmount(owner, cycleEndDate);' in text
+          assert 'const moneyScheduleUpcoming = Math.max(0, rawMoneyScheduleUpcoming - assumedToday);' in text
+          assert 'assumedToday,' in text
+      - name: Commit repair to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/runtime/installClaraOrbGreeting.js
+          git commit -m "Deduct assumed routine from remaining Money Schedule"
+          git push origin HEAD:main
