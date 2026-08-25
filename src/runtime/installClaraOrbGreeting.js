@@ -24,6 +24,7 @@ import {
 } from "@/lib/financialCardScheduleProjection";
 import { getRecurrenceOccurrences } from "@/lib/recurringCashFlowRepository";
 import { buildCanonicalWalletState } from "@/lib/clara-wallet-money-semantics";
+import { isSavingsGoalActive } from "@/lib/savingsGoalLifecycle";
 import { isDebtOccurrencePaid } from "@/lib/debtOccurrenceState";
 import {
   CLARA_MONEY_ROUTINE_UPDATED_EVENT,
@@ -271,15 +272,7 @@ function futureSavingsGoalAmount(goals = [], horizonEnd = endOfCurrentMonthKey()
   const today = localDateKey();
 
   return (Array.isArray(goals) ? goals : []).reduce((sum, goal) => {
-    const status = normalizeLower(goal?.status);
-    const inactive = Boolean(
-      goal?.deletedAt ||
-        goal?.deleted_at ||
-        goal?.isArchived === true ||
-        goal?.is_archived === true ||
-        ["deleted", "archived", "cancelled", "canceled"].includes(status)
-    );
-    if (inactive) return sum;
+    if (!isSavingsGoalActive(goal)) return sum;
 
     const date = savingsGoalDate(goal);
     if (!date || date <= today || date >= horizonEnd) return sum;
