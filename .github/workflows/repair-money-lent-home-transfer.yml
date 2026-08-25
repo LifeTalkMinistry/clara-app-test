@@ -1,0 +1,161 @@
+name: Repair Money Lent Home Transfer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/repair-money-lent-home-transfer.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Patch Home Money Lent return flow
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          path = Path('src/components/community/CommunityHomeFinancialCarousel.jsx')
+          text = path.read_text()
+
+          replacements = [
+            (
+              'import { getTotalWalletSpendableBalance } from "@/lib/clara-wallet-money-semantics";',
+              'import {\n  getTotalWalletSpendableBalance,\n  getWalletCurrentBalance,\n  isMoneyLentWallet,\n} from "@/lib/clara-wallet-money-semantics";'
+            ),
+            (
+'''      const walletId = getWalletId(wallet);
+      const destination = manageableWallets.find(
+        (item) => String(getWalletId(item)) !== String(walletId)
+      );''',
+'''      const walletId = getWalletId(wallet);
+      const isReturningLentMoney = isMoneyLentWallet(wallet);
+      const destination = manageableWallets.find(
+        (item) =>
+          String(getWalletId(item)) !== String(walletId) &&
+          (!isReturningLentMoney || !isMoneyLentWallet(item))
+      );'''
+            ),
+            (
+'''    if (getWalletSpendableBalance(fromWallet) < amount) {
+      toast.error(
+        "That amount is higher than this wallet’s spendable balance after protected funds."
+      );
+      return;
+    }''',
+'''    const isMoneyLentReturn = isMoneyLentWallet(fromWallet);
+    const transferableBalance = isMoneyLentReturn
+      ? Math.max(getWalletCurrentBalance(fromWallet), 0)
+      : getWalletSpendableBalance(fromWallet);
+
+    if (transferableBalance < amount) {
+      toast.error(
+        isMoneyLentReturn
+          ? "That returned amount is higher than the money still owed to you."
+          : "That amount is higher than this wallet’s spendable balance after protected funds."
+      );
+      return;
+    }'''
+            ),
+            (
+'''      toast.success("Transfer completed.");''',
+'''      toast.success(
+        isMoneyLentReturn ? "Returned money recorded." : "Transfer completed."
+      );'''
+            ),
+            (
+'''  const transferSpendable = getWalletSpendableBalance(walletModal.payload);
+  const transferAmount = Number(walletForm.amount);
+  const transferAmountValid =
+    Number.isFinite(transferAmount) &&
+    transferAmount > 0 &&
+    transferAmount <= transferSpendable;''',
+'''  const transferIsMoneyLentReturn = isMoneyLentWallet(walletModal.payload);
+  const transferAvailable = transferIsMoneyLentReturn
+    ? Math.max(getWalletCurrentBalance(walletModal.payload), 0)
+    : getWalletSpendableBalance(walletModal.payload);
+  const transferAmount = Number(walletForm.amount);
+  const transferAmountValid =
+    Number.isFinite(transferAmount) &&
+    transferAmount > 0 &&
+    transferAmount <= transferAvailable;'''
+            ),
+            (
+'''        title="Transfer money"
+        description={`Move funds from ${getWalletName(
+          walletModal.payload
+        )} to another wallet.`}''',
+'''        title={transferIsMoneyLentReturn ? "Record returned money" : "Transfer money"}
+        description={
+          transferIsMoneyLentReturn
+            ? `Record money returned by ${getWalletName(walletModal.payload)} into one of your real wallets.`
+            : `Move funds from ${getWalletName(walletModal.payload)} to another wallet.`
+        }'''
+            ),
+            (
+'''        submitLabel="Transfer"''',
+'''        submitLabel={transferIsMoneyLentReturn ? "Record payment" : "Transfer"}'''
+            ),
+            (
+'''          transferAmount > transferSpendable
+            ? "Protected Funds"''',
+'''          transferAmount > transferAvailable
+            ? transferIsMoneyLentReturn
+              ? "Above Amount Owed"
+              : "Protected Funds"'''
+            ),
+            (
+'''        <FinanceField label="Destination wallet">''',
+'''        <FinanceField label={transferIsMoneyLentReturn ? "Received in wallet" : "Destination wallet"}>'''
+            ),
+            (
+'''                  String(getWalletId(wallet)) !==
+                  String(getWalletId(walletModal.payload))''',
+'''                  String(getWalletId(wallet)) !==
+                    String(getWalletId(walletModal.payload)) &&
+                  (!transferIsMoneyLentReturn || !isMoneyLentWallet(wallet))'''
+            ),
+            (
+'''          helper={`Spendable after protected funds: ${formatPhpCurrency(
+            transferSpendable
+          )}`}''',
+'''          helper={
+            transferIsMoneyLentReturn
+              ? `Still owed to you: ${formatPhpCurrency(transferAvailable)}`
+              : `Spendable after protected funds: ${formatPhpCurrency(transferAvailable)}`
+          }'''
+            ),
+          ]
+
+          for old, new in replacements:
+            if old not in text:
+              raise SystemExit(f'Expected patch target not found:\n{old[:180]}')
+            text = text.replace(old, new, 1)
+
+          path.write_text(text)
+          PY
+
+      - name: Verify production build
+        run: npm ci && npm run build
+
+      - name: Commit repair
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/community/CommunityHomeFinancialCarousel.jsx
+          git commit -m "Fix Money Lent return flow on Home carousel"
+          git push origin main
