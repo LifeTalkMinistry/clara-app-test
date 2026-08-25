@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - ".github/workflows/one-shot-means-boundary-room-fix.yml"
+      - "scripts/means_boundary_room_fix.py"
 
 permissions:
   contents: write
@@ -17,25 +18,25 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-      - name: Fix Means payday boundary and room
+      - name: Fix Means payday boundary and remove competing logic
         run: python scripts/means_boundary_room_fix.py
-      - name: Verify fix
+      - name: Verify canonical Means invariants
         shell: python
         run: |
           from pathlib import Path
-          text = Path("src/runtime/installClaraOrbGreeting.js").read_text()
-          for check in [
-            'while (cursor < end)',
-            'date >= horizonEnd',
-            'const projectedRoom = availableNow - upcoming;',
-            '${signedMoney(snapshot.projectedRoom)}',
-            'upcomingBreakdownTotal',
-          ]:
-            assert check in text, check
+          means = Path("src/runtime/installClaraOrbGreeting.js").read_text()
+          main = Path("src/main.jsx").read_text()
+          assert means.count('date >= horizonEnd') >= 3
+          assert 'while (cursor < end)' in means
+          assert 'const upcoming = debtUpcoming + savingsGoalUpcoming + moneyScheduleUpcoming + otherScheduledUpcoming;' in means
+          assert 'const projectedRoom = availableNow - upcoming;' in means
+          assert '${snapshot.projectedRoom >= 0 ? "" : "−"}${money(Math.abs(snapshot.projectedRoom))}' in means
+          assert 'installMeansActualCommitmentGuard' not in main
+          assert not Path("src/runtime/installMeansActualCommitmentGuard.js").exists()
       - name: Commit fix to main
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/runtime/installClaraOrbGreeting.js
-          git commit -m "Fix Means payday boundary and room integrity"
+          git add -A src/runtime/installClaraOrbGreeting.js src/runtime/installMeansActualCommitmentGuard.js src/main.jsx
+          git commit -m "Unify Means commitments inside pay cycle"
           git push origin HEAD:main
