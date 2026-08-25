@@ -558,7 +558,7 @@ export default function ClaraAiEnvironmentOverlay({
   const inputLocked = Boolean(activeState && (step === "confirm" || finalDecisionLocksConversation || pacingLocked));
   const baseShowComposer = step !== "confirm" && !finalDecisionLocksConversation;
   const openingReady = !pacingEnabled || entryReady;
-  const showComposer = baseShowComposer && !pacingLocked && (visibleMessages.length > 0 || openingReady);
+  const showComposer = baseShowComposer && (visibleMessages.length > 0 || openingReady);
 
   useEffect(() => {
     if (!pacingEnabled) return undefined;
