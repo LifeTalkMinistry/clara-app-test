@@ -4,80 +4,68 @@ from pathlib import Path
 path = Path("src/runtime/installClaraOrbGreeting.js")
 text = path.read_text()
 
-# Other scheduled commitments stay in the current pay-cycle requirement even after their date passes.
-old_other = '''function futureScheduledAmount(user, cycleStart = localDateKey(), horizonEnd = endOfCurrentMonthKey()) {
-  const today = localDateKey();
 
-  return parseScheduleEvents(user).reduce((sum, event) => {
-    const date = String(event?.date || "").slice(0, 10);
-    const direction = String(event?.direction || "out").trim().toLowerCase();
-    const amount = Number(String(event?.amount ?? "0").replace(/[₱,\\s]/g, ""));
-    const source = normalizeLower(event?.source);
-    const savingsGoalProjection =
-      source === SAVINGS_GOAL_SCHEDULE_SOURCE || event?.savingsGoalId || event?.savings_goal_id;
-    const debtProjection =
-      source === DEBT_OBLIGATION_SCHEDULE_SOURCE ||
-      event?.debtObligationId ||
-      event?.debt_obligation_id;
-    if (!date || date < cycleStart || date >= horizonEnd) return sum;
-'''
-if old_other not in text:
-    raise SystemExit('other scheduled block invariant not found')
+def replace_inside_function(text, function_name, next_function_name, old, new):
+    start_marker = f"function {function_name}"
+    end_marker = f"function {next_function_name}"
+    start = text.find(start_marker)
+    if start < 0:
+        raise SystemExit(f"missing function: {function_name}")
+    end = text.find(end_marker, start)
+    if end < 0:
+        raise SystemExit(f"missing next function after {function_name}: {next_function_name}")
+    block = text[start:end]
+    if old not in block:
+        raise SystemExit(f"missing target inside {function_name}: {old}")
+    block = block.replace(old, new, 1)
+    return text[:start] + block + text[end:]
 
-# Restore future Debt to future-only; overdue unpaid Debt is already carried by overdueUnpaidDebtAmount.
-old_debt_filter = '''function futureDebtObligationAmount(records = [], horizonEnd = endOfCurrentMonthKey()) {
-  const today = localDateKey();
 
-  return buildDebtObligationScheduleProjection(records).reduce((sum, event) => {
-    const date = String(event?.date || "").slice(0, 10);
-    const direction = String(event?.direction || "out").trim().toLowerCase();
-    const amount = Number(String(event?.amount ?? "0").replace(/[₱,\\s]/g, ""));
-    if (!date || date >= horizonEnd) return sum;
-'''
-new_debt_filter = old_debt_filter.replace(
-    'if (!date || date >= horizonEnd) return sum;',
-    'if (!date || date <= today || date >= horizonEnd) return sum;'
+# Other scheduled commitments remain part of the current pay-cycle requirement after their date passes.
+# This was already changed by the first pass; assert it instead of touching unrelated functions.
+other_signature = "function futureScheduledAmount(user, cycleStart = localDateKey(), horizonEnd = endOfCurrentMonthKey())"
+other_filter = "if (!date || date < cycleStart || date >= horizonEnd) return sum;"
+if other_signature not in text or other_filter not in text:
+    raise SystemExit("other scheduled commitment carry-forward is not installed")
+
+# Debt stays state-based. Future debt counts only future occurrences; overdue unpaid debt is carried by
+# overdueUnpaidDebtAmount. Restore this after the first pass accidentally widened the future filter.
+text = replace_inside_function(
+    text,
+    "futureDebtObligationAmount",
+    "debtLastPaidDate",
+    "if (!date || date >= horizonEnd) return sum;",
+    "if (!date || date <= today || date >= horizonEnd) return sum;",
 )
-if old_debt_filter not in text:
-    raise SystemExit('future debt block not found')
-text = text.replace(old_debt_filter, new_debt_filter, 1)
 
-# Savings Goals are state-based: an active, unfunded goal does not vanish because its date passed.
-old_savings = '''function futureSavingsGoalAmount(goals = [], horizonEnd = endOfCurrentMonthKey()) {
-  const today = localDateKey();
-
-  return (Array.isArray(goals) ? goals : []).reduce((sum, goal) => {
-    if (!isSavingsGoalActive(goal)) return sum;
-
-    const date = savingsGoalDate(goal);
-    if (!date || date <= today || date >= horizonEnd) return sum;
-'''
-new_savings = old_savings.replace(
-    'if (!date || date <= today || date >= horizonEnd) return sum;',
-    'if (!date || date >= horizonEnd) return sum;'
+# Savings Goals are state-based: an active, unfunded goal must not vanish just because its date passed.
+text = replace_inside_function(
+    text,
+    "futureSavingsGoalAmount",
+    "getOwnerIdentity",
+    "if (!date || date <= today || date >= horizonEnd) return sum;",
+    "if (!date || date >= horizonEnd) return sum;",
 )
-if old_savings not in text:
-    raise SystemExit('savings goal block not found')
-text = text.replace(old_savings, new_savings, 1)
 
-checks = [
+# Core doctrine checks.
+required = [
     # Money Schedule alone decays naturally as days pass.
-    'const cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);',
-    'while (cursor < end) {',
-    # Other scheduled commitments remain for the current pay cycle after their date passes.
-    'function futureScheduledAmount(user, cycleStart = localDateKey(), horizonEnd = endOfCurrentMonthKey())',
-    'if (!date || date < cycleStart || date >= horizonEnd) return sum;',
-    # Debt uses future + explicit overdue unpaid carry-forward without double counting.
-    'if (!date || date <= today || date >= horizonEnd) return sum;',
-    'overdueUnpaidDebtAmount(debtObligations, cycleStartDate, cycleEndDate)',
-    # Savings stays until lifecycle state resolves it.
-    'function futureSavingsGoalAmount(goals = [], horizonEnd = endOfCurrentMonthKey())',
-    'if (!date || date >= horizonEnd) return sum;',
-    # Current-cycle call for other scheduled commitments.
-    'const otherScheduledUpcoming = futureScheduledAmount(owner, cycleStartDate, cycleEndDate);',
+    "const cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);",
+    "while (cursor < end) {",
+    # Other scheduled commitments stay through the current pay cycle until explicitly resolved elsewhere.
+    other_signature,
+    other_filter,
+    "const otherScheduledUpcoming = futureScheduledAmount(owner, cycleStartDate, cycleEndDate);",
+    # Debt = future obligations + overdue unpaid carry-forward, without double counting.
+    "function futureDebtObligationAmount(records = [], horizonEnd = endOfCurrentMonthKey())",
+    "if (!date || date <= today || date >= horizonEnd) return sum;",
+    "overdueUnpaidDebtAmount(debtObligations, cycleStartDate, cycleEndDate)",
+    # Savings remains until lifecycle state resolves it.
+    "function futureSavingsGoalAmount(goals = [], horizonEnd = endOfCurrentMonthKey())",
+    "if (!date || date >= horizonEnd) return sum;",
 ]
-for check in checks:
+for check in required:
     if check not in text:
-        raise SystemExit(f'missing Means progression invariant: {check}')
+        raise SystemExit(f"missing Means progression invariant: {check}")
 
 path.write_text(text)
