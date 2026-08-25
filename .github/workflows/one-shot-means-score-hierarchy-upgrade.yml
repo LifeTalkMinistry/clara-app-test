@@ -1,0 +1,62 @@
+name: One-shot Means Score hierarchy upgrade
+
+on:
+  push:
+    paths:
+      - ".github/workflows/one-shot-means-score-hierarchy-upgrade.yml"
+      - "scripts/means_score_hierarchy_upgrade.py"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply uncapped Means Score hierarchy
+        run: python scripts/means_score_hierarchy_upgrade.py
+
+      - name: Verify Means Score source
+        run: node --check src/runtime/installClaraOrbGreeting.js
+
+      - name: Verify Means Score invariants
+        shell: python
+        run: |
+          from pathlib import Path
+          means = Path("src/runtime/installClaraOrbGreeting.js").read_text()
+
+          assert 'const financialRunway = availableNow + emergencyProtected;' in means
+          assert 'Math.round((financialRunway / requiredRunway) * 100)' in means
+          assert 'Math.round(100 + ((availableNow - upcoming) / availableNow) * 100)' not in means
+
+          expected = [
+              'if (score >= 10000) return "Diamond";',
+              'if (score >= 5000) return "Gold";',
+              'if (score >= 2000) return "Silver";',
+              'if (score >= 1000) return "Bronze";',
+              'if (score >= 500) return "Vanguard";',
+              'if (score >= 400) return "3 Cycles Ahead";',
+              'if (score >= 300) return "2 Cycles Ahead";',
+              'if (score >= 200) return "1 Cycle Ahead";',
+              'if (score >= 101) return "Below Your Means";',
+              'if (score === 100) return "Within Your Means";',
+              'if (score >= 1) return "Above Your Means";',
+              'return "In Deficit";',
+          ]
+          for item in expected:
+              assert item in means, item
+
+      - name: Commit upgrade to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/runtime/installClaraOrbGreeting.js
+          git diff --cached --quiet && exit 0
+          git commit -m "Make Means Score uncapped with prestige tiers"
+          git push origin HEAD:main
