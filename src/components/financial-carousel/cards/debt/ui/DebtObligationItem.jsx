@@ -8,6 +8,7 @@ import {
   PremiumFinanceItemSurface,
 } from "@/components/financial-carousel/shared/PremiumFinanceItemSurface";
 import { getDebtTitle } from "@/lib/debtObligationStore";
+import { getDebtOccurrenceState } from "@/lib/debtOccurrenceState";
 import {
   estimateDebtPayoffMonths,
   getDebtBalance,
@@ -35,20 +36,20 @@ const ordinal = (day) => {
 
 function getSafeDueMeta(record) {
   const dueDay = getDebtDueDay(record);
-  if (!dueDay) return { label: "", state: "none" };
-  const next = getNextDebtDueDate(record);
-  if (!next) return { label: `Every ${ordinal(dueDay)}`, state: "invalid" };
+  if (!dueDay) return { label: "", state: "none", dueDate: "" };
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const due = new Date(next);
-  due.setHours(0, 0, 0, 0);
-  const days = Math.ceil((due.getTime() - today.getTime()) / 86400000);
-  const nextLabel = due.toLocaleDateString("en-PH", { month: "short", day: "numeric" });
-  return {
-    label: `Every ${ordinal(dueDay)} · Next ${nextLabel}`,
-    state: days <= 14 ? "due_soon" : "scheduled",
-  };
+  const occurrence = getDebtOccurrenceState(record, new Date());
+  if (!occurrence?.dueDate) return { label: `Every ${ordinal(dueDay)}`, state: "invalid", dueDate: "" };
+  const due = new Date(`${occurrence.dueDate}T00:00:00`);
+  const dueLabel = due.toLocaleDateString("en-PH", { month: "short", day: "numeric" });
+
+  if (occurrence.state === "overdue") {
+    return { label: `Every ${ordinal(dueDay)} · Overdue ${dueLabel}`, state: "overdue", dueDate: occurrence.dueDate };
+  }
+  if (occurrence.state === "due_today") {
+    return { label: `Every ${ordinal(dueDay)} · Due today`, state: "due_today", dueDate: occurrence.dueDate };
+  }
+  return { label: `Every ${ordinal(dueDay)} · Next ${dueLabel}`, state: "scheduled", dueDate: occurrence.dueDate };
 }
 
 function getDebtAmountMeta({ mode, balance, monthly, interest, dueState, status }) {
@@ -68,7 +69,7 @@ function getDebtAmountMeta({ mode, balance, monthly, interest, dueState, status 
   return { className: "text-white/94", label: "Outstanding balance", amount: balance };
 }
 
-export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }) {
+export default function DebtObligationItem({ record, totalPositiveDebt, onEdit, onMarkPaid, markingPaid = false }) {
   const balance = getObligationBalance(record);
   const monthly = getObligationMonthly(record);
   const interest = getObligationInterest(record);
@@ -139,7 +140,7 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
           <PremiumFinanceInfoRow
             label="Due schedule"
             value={dueMeta.label}
-            valueClassName={dueMeta.state === "due_soon" ? "text-amber-200" : "text-white/78"}
+            valueClassName={["overdue", "due_today"].includes(dueMeta.state) ? "text-rose-200" : "text-white/78"}
             className="border-t border-white/[0.055]"
           />
         ) : null}
@@ -171,6 +172,16 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
             className="border-t border-white/[0.055]"
           />
         ) : null}
+      {dueMeta.dueDate && ["overdue", "due_today"].includes(dueMeta.state) ? (
+        <button
+          type="button"
+          disabled={markingPaid}
+          onClick={() => onMarkPaid?.(record, dueMeta.dueDate)}
+          className="mt-3 flex min-h-[42px] w-full items-center justify-center rounded-xl border border-emerald-300/20 bg-emerald-400/[0.08] px-3 text-[11px] font-black text-emerald-200 disabled:opacity-45"
+        >
+          {markingPaid ? "Saving payment..." : `Mark ${dueMeta.dueDate} paid`}
+        </button>
+      ) : null}
       </div>
     </PremiumFinanceItemSurface>
   );

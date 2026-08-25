@@ -3,6 +3,7 @@ import {
   getLocalRecords,
   upsertLocalRecord,
 } from "./localFinanceStore.js";
+import { appendPaidDebtOccurrence, getDebtOccurrenceState } from "./debtOccurrenceState.js";
 import {
   DEBT_OBLIGATION_RECORD_KIND,
   getDebtBalance,
@@ -278,6 +279,9 @@ async function applyDebtDelta({ localUserId, targetId, delta }) {
   const next = mode === "recurring" ? current : Math.max(current - delta, 0);
   const now = new Date().toISOString();
   const completed = mode === "balance" && next <= 0;
+  const occurrence = delta > 0 ? getDebtOccurrenceState(debt, new Date()) : null;
+  const paidOccurrenceDate = occurrence?.dueDate || "";
+  const paidOccurrences = paidOccurrenceDate ? appendPaidDebtOccurrence(debt, paidOccurrenceDate) : (debt.paidOccurrences || debt.paid_occurrences || []);
   const record = {
     ...debt,
     id: debt.id,
@@ -296,6 +300,10 @@ async function applyDebtDelta({ localUserId, targetId, delta }) {
     last_payment_amount: delta > 0 ? delta : debt.last_payment_amount || null,
     lastPaidAt: delta > 0 ? now : debt.lastPaidAt || null,
     last_paid_at: delta > 0 ? now : debt.last_paid_at || null,
+    paidOccurrences,
+    paid_occurrences: paidOccurrences,
+    lastPaidOccurrenceDate: paidOccurrenceDate || debt.lastPaidOccurrenceDate || debt.last_paid_occurrence_date || null,
+    last_paid_occurrence_date: paidOccurrenceDate || debt.last_paid_occurrence_date || debt.lastPaidOccurrenceDate || null,
     updatedAt: now,
     updated_at: now,
     deletedAt: null,

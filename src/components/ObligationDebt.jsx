@@ -21,6 +21,7 @@ import DebtObligationItem, {
 import {
   deleteDebtObligation,
   getDebtTitle,
+  markDebtOccurrencePaid,
   toDebtNumber,
   upsertDebtObligation,
 } from "@/lib/debtObligationStore";
@@ -106,6 +107,7 @@ export default function ObligationDebt({ item = null, user = null, expanded = fa
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [markingPaidId, setMarkingPaidId] = useState("");
   const { state, computed, handlers } = useDebtCardLogic({ item, user, expanded, onToggleDetails });
   const { isExpanded, debtObligations = [], activeDebtCount, savingDebt } = state;
   const { tone, totalDebt, monthlyDebt, debtRatio, riskLevel, statusLabel, payoffMonths } = computed;
@@ -186,6 +188,25 @@ export default function ObligationDebt({ item = null, user = null, expanded = fa
       setSaving(false);
     }
   };
+  const markOccurrencePaid = async (record, dueDate) => {
+    const id = String(record?.id || "").trim();
+    if (!id || !dueDate) return;
+    setMarkingPaidId(id);
+    setNotice("");
+    try {
+      await markDebtOccurrencePaid(localUserId, id, {
+        dueDate,
+        amount: getObligationMonthly(record),
+      });
+      const records = await reloadDebtObligations();
+      notifyChanged(records || []);
+    } catch (error) {
+      setNotice(error?.message || "Unable to record this payment.");
+    } finally {
+      setMarkingPaidId("");
+    }
+  };
+
   const removeObligation = async () => {
     if (!form.id) return;
     setDeleting(true);

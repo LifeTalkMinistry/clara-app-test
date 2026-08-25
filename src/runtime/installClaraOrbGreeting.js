@@ -24,6 +24,7 @@ import {
 } from "@/lib/financialCardScheduleProjection";
 import { getRecurrenceOccurrences } from "@/lib/recurringCashFlowRepository";
 import { buildCanonicalWalletState } from "@/lib/clara-wallet-money-semantics";
+import { isDebtOccurrencePaid } from "@/lib/debtOccurrenceState";
 import {
   CLARA_MONEY_ROUTINE_UPDATED_EVENT,
   getClaraMoneyScheduleStorageKey,
@@ -236,8 +237,7 @@ function overdueUnpaidDebtAmount(records = [], horizonEnd = endOfCurrentMonthKey
   let total = 0;
   latestDueByDebt.forEach((event, debtId) => {
     const record = recordMap.get(debtId) || {};
-    const lastPaid = debtLastPaidDate(record);
-    if (lastPaid && lastPaid >= event.date) return;
+    if (isDebtOccurrencePaid(record, event.date)) return;
 
     const amount = Number(String(event?.amount ?? "0").replace(/[₱,\s]/g, ""));
     total += Number.isFinite(amount) ? Math.max(0, amount) : 0;

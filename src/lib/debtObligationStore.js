@@ -4,6 +4,7 @@ import {
   upsertLocalRecord,
   softDeleteLocalRecord,
 } from "@/lib/localFinanceStore";
+import { appendPaidDebtOccurrence, getDebtOccurrenceState } from "@/lib/debtOccurrenceState";
 import {
   DEBT_OBLIGATION_RECORD_KIND,
   getDebtBalance,
@@ -197,6 +198,58 @@ export async function upsertDebtObligation(localUserId, payload = {}) {
     safeLocalUserId
   );
   emitDebtObligationsUpdated(safeLocalUserId, "upsert");
+  return result;
+}
+
+
+export async function markDebtOccurrencePaid(localUserId, id, options = {}) {
+  const safeLocalUserId = normalizeLocalUserId(localUserId);
+  const safeId = normalizeString(id);
+  if (!safeId) throw new Error("Debt obligation id is required.");
+
+  const records = await getLocalRecords(DEBT_OBLIGATION_STORE, safeLocalUserId);
+  const current = (records || []).find((record) => normalizeString(record?.id) === safeId);
+  if (!current) throw new Error("Debt / Obligation could not be found.");
+
+  const occurrence = getDebtOccurrenceState(current, options.referenceDate || new Date());
+  const dueDate = normalizeString(options.dueDate || occurrence?.dueDate).slice(0, 10);
+  if (!dueDate) throw new Error("There is no due occurrence to mark as paid.");
+
+  const mode = getDebtObligationMode(current);
+  const paymentAmount = Math.max(
+    0,
+    Number(options.amount || getMonthlyDebtPayment(current) || occurrence?.amount || 0)
+  );
+  const currentBalance = getDebtBalance(current);
+  const nextBalance = mode === "balance" ? Math.max(currentBalance - paymentAmount, 0) : currentBalance;
+  const completed = mode === "balance" && nextBalance <= 0;
+  const now = new Date().toISOString();
+  const paidOccurrences = appendPaidDebtOccurrence(current, dueDate);
+
+  const record = {
+    ...current,
+    id: safeId,
+    localUserId: safeLocalUserId,
+    paidOccurrences,
+    paid_occurrences: paidOccurrences,
+    lastPaidOccurrenceDate: dueDate,
+    last_paid_occurrence_date: dueDate,
+    lastPaymentAmount: paymentAmount,
+    last_payment_amount: paymentAmount,
+    lastPaidAt: now,
+    last_paid_at: now,
+    paidAt: completed ? now : current.paidAt || current.paid_at || null,
+    paid_at: completed ? now : current.paid_at || current.paidAt || null,
+    totalDebt: nextBalance,
+    balance: nextBalance,
+    amount: nextBalance,
+    status: completed ? "completed" : "active",
+    updatedAt: now,
+    updated_at: now,
+  };
+
+  const result = await upsertLocalRecord(DEBT_OBLIGATION_STORE, record, safeLocalUserId);
+  emitDebtObligationsUpdated(safeLocalUserId, "occurrence_paid");
   return result;
 }
 
