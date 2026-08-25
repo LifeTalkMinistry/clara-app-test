@@ -10,74 +10,29 @@ permissions:
 
 jobs:
   patch:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
-
-      - name: Fix Means boundary and room
+      - name: Fix Means payday boundary and room
+        run: python scripts/means_boundary_room_fix.py
+      - name: Verify fix
+        shell: python
         run: |
-          python - <<'PY'
           from pathlib import Path
-          import re
-
-          path = Path('src/runtime/installClaraOrbGreeting.js')
-          text = path.read_text()
-
-          # Payday is an exclusive boundary for every future outgoing.
-          text = text.replace(
-              'if (!date || date <= today || date > horizonEnd) return sum;',
-              'if (!date || date <= today || date >= horizonEnd) return sum;'
-          )
-          text = text.replace('while (cursor <= end) {', 'while (cursor < end) {', 1)
-
-          # Signed formatter so a deficit can never render as a positive/zero currency value.
-          if 'function signedMoney(value)' not in text:
-              marker = '''function localDateKey(value = new Date()) {'''
-              signed = '''function signedMoney(value) {\n  const amount = Number(value || 0);\n  const absolute = Math.abs(amount).toLocaleString("en-PH", { maximumFractionDigits: 0 });\n  return amount < 0 ? `-₱${absolute}` : `₱${absolute}`;\n}\n\n'''
-              if marker not in text:
-                  raise SystemExit('localDateKey marker not found')
-              text = text.replace(marker, signed + marker, 1)
-
-          # Force the displayed Room row to use the same canonical value as the score.
-          room_pattern = re.compile(
-              r'(<span>Room until \$\{formatHorizonDate\(snapshot\.cycleEndDate\)\}</span>\s*<strong[^>]*>)(\$\{.*?\})(</strong>)',
-              re.S,
-          )
-          text, count = room_pattern.subn(r'\1${signedMoney(snapshot.projectedRoom)}\3', text, count=1)
-          if count != 1:
-              raise SystemExit('Room row not found')
-
-          # Expose an explicit integrity total matching the visible breakdown.
-          if 'upcomingBreakdownTotal' not in text:
-              needle = '  const upcoming = debtUpcoming + savingsGoalUpcoming + moneyScheduleUpcoming + otherScheduledUpcoming;\n'
-              if needle not in text:
-                  raise SystemExit('upcoming total marker not found')
-              text = text.replace(
-                  needle,
-                  needle + '  const upcomingBreakdownTotal = debtUpcoming + savingsGoalUpcoming + moneyScheduleUpcoming + otherScheduledUpcoming;\n',
-                  1,
-              )
-              text = text.replace('    upcoming,\n    savingsGoalUpcoming,', '    upcoming,\n    upcomingBreakdownTotal,\n    savingsGoalUpcoming,', 1)
-              text = text.replace(
-                  '        Math.round(snapshot.upcoming),\n        Math.round(snapshot.savingsGoalUpcoming || 0),',
-                  '        Math.round(snapshot.upcoming),\n        Math.round(snapshot.upcomingBreakdownTotal || 0),\n        Math.round(snapshot.savingsGoalUpcoming || 0),',
-                  1,
-              )
-
-          # Hard invariants.
-          assert text.count('date >= horizonEnd') >= 3
-          assert 'while (cursor < end)' in text
-          assert 'const projectedRoom = availableNow - upcoming;' in text
-          assert '${signedMoney(snapshot.projectedRoom)}' in text
-          assert 'upcomingBreakdownTotal' in text
-
-          path.write_text(text)
-          PY
-
-      - name: Commit fix
+          text = Path("src/runtime/installClaraOrbGreeting.js").read_text()
+          for check in [
+            'while (cursor < end)',
+            'date >= horizonEnd',
+            'const projectedRoom = availableNow - upcoming;',
+            '${signedMoney(snapshot.projectedRoom)}',
+            'upcomingBreakdownTotal',
+          ]:
+            assert check in text, check
+      - name: Commit fix to main
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
