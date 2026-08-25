@@ -139,6 +139,17 @@ function parseScheduleEvents(user) {
   }
 }
 
+function routineAmountForDate(user, value = new Date()) {
+  const routine = readClaraMoneyRoutine(user);
+  if (!routine || routine.active === false || !Array.isArray(routine.days)) return 0;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return 0;
+  const day = routine.days.find(
+    (entry) => Number(entry?.weekdayIndex ?? entry?.weekday_index) === date.getDay()
+  );
+  return Math.max(0, Number(day?.totalCentavos ?? day?.total_centavos ?? 0)) / 100;
+}
+
 function assumedRoutineSpent(user, cycleStart = localDateKey()) {
   const routine = readClaraMoneyRoutine(user);
   if (!routine || routine.active === false || !Array.isArray(routine.days)) return 0;
@@ -578,7 +589,11 @@ async function buildMeansSnapshot(profile = {}) {
   ) return null;
 
   const assumedSpent = assumedRoutineSpent(owner, cycleStartDate);
-  const moneyScheduleUpcoming = futureRoutineAmount(owner, cycleEndDate);
+  const assumedToday = routineAmountForDate(owner, new Date());
+  const rawMoneyScheduleUpcoming = futureRoutineAmount(owner, cycleEndDate);
+  // At 12:00 AM today's routine becomes assumed spent. Hand that same amount out of
+  // the remaining Money Schedule immediately so it cannot sit in both past and future.
+  const moneyScheduleUpcoming = Math.max(0, rawMoneyScheduleUpcoming - assumedToday);
   const otherScheduledUpcoming = futureScheduledAmount(owner, cycleStartDate, cycleEndDate);
   const savingsGoalUpcoming = futureSavingsGoalAmount(savingsGoals, cycleEndDate);
   const debtUpcoming =
@@ -607,6 +622,7 @@ async function buildMeansSnapshot(profile = {}) {
     income,
     spent,
     assumedSpent,
+    assumedToday,
     upcoming,
     savingsGoalUpcoming,
     debtUpcoming,
@@ -709,6 +725,7 @@ function ensureMeansMetric(label, snapshot, onToggle) {
         Math.round(snapshot.income),
         Math.round(snapshot.spent),
         Math.round(snapshot.assumedSpent || 0),
+        Math.round(snapshot.assumedToday || 0),
         Math.round(snapshot.upcoming),
         Math.round(snapshot.savingsGoalUpcoming || 0),
         Math.round(snapshot.debtUpcoming || 0),
