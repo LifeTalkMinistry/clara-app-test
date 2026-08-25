@@ -1,0 +1,37 @@
+name: One-shot CLARA protect 100 prompt
+
+on:
+  push:
+    paths:
+      - ".github/workflows/one-shot-clara-protect-100.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Refocus Ask Before You Spend AI
+        run: python scripts/refocus_clara_buy_check_protect_100.py
+      - name: Verify prompt contracts
+        shell: python
+        run: |
+          from pathlib import Path
+          text = Path('src/lib/clara-buy-check-expert-ai.js').read_text()
+          assert '100 is CLARA\'s financial protection line.' in text
+          assert 'SAFETY BOUNDARY' in text
+          assert 'protect the 100 line, and let the user decide' in text
+          assert 'Do not independently rebuild or contradict the Means calculation.' in text
+      - name: Commit prompt refocus
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/clara-buy-check-expert-ai.js
+          git commit -m "Refocus Ask Before You Spend on protecting 100"
+          git push origin HEAD:main
