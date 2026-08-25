@@ -1,3 +1,5 @@
+import { isSavingsGoalActive } from "./savingsGoalLifecycle.js";
+
 const SAVINGS_BUDGET_PREFIX = "protected-savings-";
 
 const numberValue = (value) => {
@@ -158,4 +160,6 @@ export const reconcileSavingsGoalWithLinkedExpenses = (goal = {}, expenses = [])
 };
 
 export const reconcileSavingsGoalsWithLinkedExpenses = (goals = [], expenses = []) =>
-  activeRows(goals).map((goal) => reconcileSavingsGoalWithLinkedExpenses(goal, expenses));
+  (Array.isArray(goals) ? goals : [])
+    .filter(isSavingsGoalActive)
+    .map((goal) => reconcileSavingsGoalWithLinkedExpenses(goal, expenses));
