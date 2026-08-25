@@ -5,7 +5,12 @@ import useFinancialDataBase, {
 import {
   buildCanonicalWalletState,
 } from "@/lib/clara-wallet-money-semantics";
-import { getFinanceDataRevision } from "@/lib/financeRepository";
+import {
+  getFinanceDataRevision,
+  updateWalletTransaction as repoUpdateWalletTransaction,
+  deleteWalletTransaction as repoDeleteWalletTransaction,
+} from "@/lib/financeRepository";
+import { getEffectiveDemoFinanceLocalUserId } from "@/lib/demo/activeDemoProfile";
 
 const EMERGENCY_ACTIVITY_KEYS = [
   "emergencyActivityLog",
@@ -30,6 +35,12 @@ const firstText = (source, keys = []) => {
     }
   }
   return "";
+};
+
+const getFinanceLocalUserId = (user) => {
+  const value = user?.id || user?.email || "local-user";
+  const realLocalUserId = String(value || "local-user").trim() || "local-user";
+  return getEffectiveDemoFinanceLocalUserId(realLocalUserId);
 };
 
 const getEmergencyProtectedAmount = (emergencyFund = {}) =>
@@ -239,7 +250,7 @@ function buildEmergencyAllocationRemovalPayload(emergencyFund, transaction) {
   };
 }
 
-function withSharedWalletSemantics(financeData = {}) {
+function withSharedWalletSemantics(financeData = {}, user = null) {
   const sourceWallets = Array.isArray(financeData?.wallets) ? financeData.wallets : [];
   const savingsGoals = Array.isArray(financeData?.savingsGoals) ? financeData.savingsGoals : [];
   const emergencyFund = financeData?.emergencyFund || null;
@@ -252,6 +263,25 @@ function withSharedWalletSemantics(financeData = {}) {
     Number(financeData?.financeRevision || 0),
     Number(getFinanceDataRevision() || 0)
   );
+
+  const localUserId = getFinanceLocalUserId(user);
+  const updateWalletTransaction = async (id, updates = {}) => {
+    if (!id) throw new Error("Wallet transaction id is required.");
+    const result = await repoUpdateWalletTransaction(localUserId, id, updates);
+    if (typeof financeData?.refreshData === "function") {
+      await financeData.refreshData();
+    }
+    return result;
+  };
+  const deleteWalletTransaction = async (id) => {
+    if (!id) throw new Error("Wallet transaction id is required.");
+    const result = await repoDeleteWalletTransaction(localUserId, id);
+    if (typeof financeData?.refreshData === "function") {
+      await financeData.refreshData();
+    }
+    return result;
+  };
+  const deleteIncome = async (id) => deleteWalletTransaction(id);
 
   const baseDeleteEmergencyFundAllocation = financeData?.deleteEmergencyFundAllocation;
   const deleteEmergencyFundAllocation = async (transaction) => {
@@ -374,6 +404,9 @@ function withSharedWalletSemantics(financeData = {}) {
       revision: financeRevision,
       generatedAt: new Date().toISOString(),
     },
+    updateWalletTransaction,
+    deleteWalletTransaction,
+    deleteIncome,
     deleteEmergencyFundAllocation,
   };
 }
@@ -382,8 +415,8 @@ export function useFinancialData(user) {
   const financeData = useFinancialDataBaseNamed(user);
 
   return useMemo(
-    () => withSharedWalletSemantics(financeData),
-    [financeData]
+    () => withSharedWalletSemantics(financeData, user),
+    [financeData, user?.id, user?.email]
   );
 }
 
@@ -391,7 +424,7 @@ export default function useFinancialDataDefault(user) {
   const financeData = useFinancialDataBase(user);
 
   return useMemo(
-    () => withSharedWalletSemantics(financeData),
-    [financeData]
+    () => withSharedWalletSemantics(financeData, user),
+    [financeData, user?.id, user?.email]
   );
 }
