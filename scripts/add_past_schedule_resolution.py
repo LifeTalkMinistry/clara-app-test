@@ -36,19 +36,22 @@ handler_anchor = '''  const openEvent = (event) => {
 
 '''
 handler_insert = handler_anchor + '''  const beginPastReschedule = (event) => {
+    const tomorrow = addDays(fromDateKey(today), 1);
     setPastRescheduleId(String(event?.id || ""));
-    setPastRescheduleDate(addDays(fromDateKey(today), 1) ? toDateKey(addDays(fromDateKey(today), 1)) : today);
+    setPastRescheduleDate(tomorrow ? toDateKey(tomorrow) : today);
   };
 
   const applyPastReschedule = () => {
     if (!pastRescheduleId || !pastRescheduleDate || pastRescheduleDate <= today) return;
-    setEvents((current) =>
-      current.map((event) =>
+    setEvents((current) => {
+      const next = current.map((event) =>
         String(event?.id) === String(pastRescheduleId)
           ? { ...event, date: pastRescheduleDate }
           : event
-      )
-    );
+      );
+      writeSchedule(user, next);
+      return next;
+    });
     setSelectedDate(pastRescheduleDate);
     setPastRescheduleId("");
     setPastRescheduleDate("");
@@ -77,7 +80,7 @@ jsx_insert = '''      {unresolvedPastEvent ? (
             <div className="mt-3 flex items-center gap-2">
               <input
                 type="date"
-                min={addDays(fromDateKey(today), 1) ? toDateKey(addDays(fromDateKey(today), 1)) : today}
+                min={(() => { const tomorrow = addDays(fromDateKey(today), 1); return tomorrow ? toDateKey(tomorrow) : today; })()}
                 value={pastRescheduleDate}
                 onChange={(event) => setPastRescheduleDate(event.target.value)}
                 className="min-h-11 min-w-0 flex-1 rounded-xl border border-white/10 bg-black/20 px-3 text-[12px] font-bold text-white outline-none"
@@ -124,6 +127,7 @@ checks = [
     'onClick={() => remove(unresolvedPastEvent.id)}',
     'onClick={() => beginPastReschedule(unresolvedPastEvent)}',
     'const applyPastReschedule = () =>',
+    'writeSchedule(user, next);',
 ]
 for check in checks:
     if check not in text:
