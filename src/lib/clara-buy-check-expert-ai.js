@@ -256,6 +256,22 @@ function buildConversationFinancialContext(assistantContext = {}, evidence = {})
     planningStatus: "unplanned",
   };
 
+  const price = toNumber(purchase.price);
+  const means = buildCanonicalMeansContext(price);
+
+  // Canonical Means is already the source of truth. Avoid rebuilding legacy
+  // context first, because optional legacy data may be incomplete.
+  if (means) {
+    return {
+      means,
+      purchaseAlreadyUnderstood: {
+        item: purchase.item,
+        price,
+        suggestedTransactionReason: purchase.reason,
+      },
+    };
+  }
+
   let pkg = {};
   try {
     pkg = buildContextPackage(purchase, assistantContext);
@@ -273,25 +289,7 @@ function buildConversationFinancialContext(assistantContext = {}, evidence = {})
   const upcomingSchedule = safeList(calendar.upcomingEvents).slice(0, 4).map(compactScheduleEvent);
   const dueObligations = safeList(obligations.dueBeforeNextIncome).slice(0, 6).map(compactObligation);
   const goals = safeList(savingsGoals.records).slice(0, 6).map(compactGoal);
-  const price = toNumber(purchase.price);
   const spendable = toNumber(wallet.spendableTotal);
-  const means = buildCanonicalMeansContext(price);
-
-  if (means) {
-    return {
-      means,
-      purchaseAlreadyUnderstood: {
-        item: purchase.item,
-        price,
-        suggestedTransactionReason: purchase.reason,
-      },
-      supportingContext: {
-        nextExpectedIncomeDate: income.estimatedNextIncomeDate || null,
-        nearestObligation: dueObligations[0] || null,
-        nearestScheduledEvent: upcomingSchedule[0] || null,
-      },
-    };
-  }
 
   return {
     means,
@@ -686,7 +684,28 @@ export async function runClaraBuyCheckExpertTurn({
     const mergedEvidence = mergeEvidence(previousEvidence, json?.evidence);
     const requestedAction = clean(json?.action).toLowerCase();
     const action = ACTIONS.has(requestedAction) ? requestedAction : fallback.action;
-    const reply = clean(json?.reply).slice(0, 720);
+    let reply = clean(json?.reply).slice(0, 720);
+
+    // Enforce the exact projected Means score in application code. Gemini may
+    // explain the result, but it cannot omit the authoritative simulation.
+    const authoritativeMeans = buildCanonicalMeansContext(mergedEvidence.price);
+    if (
+      authoritativeMeans?.purchaseSimulationApplied &&
+      authoritativeMeans.projectedScoreAfterPurchase !== null
+    ) {
+      const before = Number.isFinite(Number(authoritativeMeans.currentScore))
+        ? Number(authoritativeMeans.currentScore)
+        : null;
+      const after = Number(authoritativeMeans.projectedScoreAfterPurchase);
+      const numericTokens = reply.match(/-?\d+(?:\.\d+)?/g) || [];
+      if (!numericTokens.includes(String(after))) {
+        const movement = before !== null
+          ? "Your Means Score would move from " + before + " to " + after + "."
+          : "Your projected Means Score would be " + after + ".";
+        reply = (movement + " " + reply).trim().slice(0, 720);
+      }
+    }
+
     const readinessConfidence = Math.max(0, Math.min(1, Number(json?.readinessConfidence || 0)));
     const readyEnough = Boolean(
       mergedEvidence.item &&
