@@ -1,4 +1,5 @@
 import { buildBudgetMetadata } from "./clara-buy-check-budget-engine.js";
+import { isSavingsGoalActive } from "./savingsGoalLifecycle.js";
 
 const clean = (value = "") => String(value ?? "").replace(/\s+/g, " ").trim();
 const normalize = (value = "") => clean(value).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -84,7 +85,9 @@ function savingsGoalSnapshot(goal = {}, budgets = [], index = 0) {
 function analyzeGoalProtection(context = {}, options = {}) {
   const budgets = buildBudgetMetadata(Array.isArray(context.budgets) ? context.budgets : [], "other", options.now ? new Date(options.now) : new Date());
   const emergencyFund = emergencyFundSnapshot(context, budgets);
-  const records = (Array.isArray(context.savingsGoals) ? context.savingsGoals : []).map((goal, index) => savingsGoalSnapshot(goal, budgets, index));
+  const records = (Array.isArray(context.savingsGoals) ? context.savingsGoals : [])
+    .filter(isSavingsGoalActive)
+    .map((goal, index) => savingsGoalSnapshot(goal, budgets, index));
   const protectedCommitmentThisCycle = records.reduce((sum, goal) => sum + goal.stillRequiredThisCycle, 0);
   const contributionAlreadyBudgeted = records.filter((goal) => goal.contributionBudgeted).reduce((sum, goal) => sum + goal.stillRequiredThisCycle, 0);
   const stillRequiredThisCycle = protectedCommitmentThisCycle;
