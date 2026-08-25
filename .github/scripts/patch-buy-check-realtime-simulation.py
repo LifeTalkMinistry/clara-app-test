@@ -3,42 +3,35 @@ from pathlib import Path
 path = Path('src/lib/clara-buy-check-expert-ai.js')
 text = path.read_text(encoding='utf-8')
 
-mandatory_rule = '- When a purchase price is known and means.projectedScoreAfterPurchase is available, ALWAYS state the exact projected Means Score in the visible reply.'
-if mandatory_rule in text:
-    print('Exact projected Means score rule already present.')
-    raise SystemExit(0)
+# Keep only the recent decision context. Long transcripts materially increase
+# Gemini latency without improving a one-purchase decision.
+text = text.replace(
+    'const lines = (Array.isArray(history) ? history.slice(-12) : [])',
+    'const lines = (Array.isArray(history) ? history.slice(-6) : [])',
+    1,
+)
 
-old_primary = '''- Never describe means.currentScore as the score the user will keep after buying when means.projectedScoreAfterPurchase is available.
-- If the projected score differs from the current score, state the movement accurately when discussing the impact (for example: 144 → 142).
-- Also use means.currentRoomUntilPayday → means.projectedRoomAfterPurchase when that makes the consequence clearer.'''
-new_primary = '''- Never describe means.currentScore as the score the user will keep after buying when means.projectedScoreAfterPurchase is available.
-- When a purchase price is known and means.projectedScoreAfterPurchase is available, ALWAYS state the exact projected Means Score in the visible reply.
-- Prefer stating the before → after movement when means.currentScore is also available (for example: 144 → 142), but at minimum the projected score must always be visible.
-- Do not replace the exact score with vague wording such as "comfortably above 100", "healthy", or "plenty of breathing room" without also stating the projected score.
-- Also use means.currentRoomUntilPayday → means.projectedRoomAfterPurchase when that makes the consequence clearer.'''
-if old_primary not in text:
-    raise SystemExit('Could not find current PRIMARY JOB simulation bullets')
-text = text.replace(old_primary, new_primary, 1)
+# Once the canonical Means snapshot exists, do not send Gemini a second large
+# legacy financial model. The Means snapshot is already the product source of
+# truth and contains the pay-cycle commitments needed for the decision.
+needle = '''  const means = buildCanonicalMeansContext(price);\n\n  return {\n    means,\n'''
+replacement = '''  const means = buildCanonicalMeansContext(price);\n\n  if (means) {\n    return {\n      means,\n      purchaseAlreadyUnderstood: {\n        item: purchase.item,\n        price,\n        suggestedTransactionReason: purchase.reason,\n      },\n      supportingContext: {\n        nextExpectedIncomeDate: income.estimatedNextIncomeDate || null,\n        nearestObligation: dueObligations[0] || null,\n        nearestScheduledEvent: upcomingSchedule[0] || null,\n      },\n    };\n  }\n\n  return {\n    means,\n'''
+if needle not in text:
+    raise SystemExit('Could not find Means context return insertion point')
+text = text.replace(needle, replacement, 1)
 
-old_arch = '''- REAL-TIME PURCHASE SIMULATION RULE: once means.purchaseSimulationApplied is true, base the recommendation on the projected state, not the current state.
-- Never say a purchase "keeps" the current score unless means.currentScore and means.projectedScoreAfterPurchase are actually equal.
-- Never ignore a non-zero means.scoreChange or means.roomChange. If you mention the impact, describe the before → after movement accurately.'''
-new_arch = '''- REAL-TIME PURCHASE SIMULATION RULE: once means.purchaseSimulationApplied is true, base the recommendation on the projected state, not the current state.
-- When means.purchaseSimulationApplied is true and means.projectedScoreAfterPurchase is available, the visible response MUST include that exact projected score.
-- Never say a purchase "keeps" the current score unless means.currentScore and means.projectedScoreAfterPurchase are actually equal.
-- Never ignore a non-zero means.scoreChange or means.roomChange. Describe the before → after score movement accurately whenever both scores are available.'''
-if old_arch not in text:
-    raise SystemExit('Could not find current architecture simulation rules')
-text = text.replace(old_arch, new_arch, 1)
+# Gemini only needs a short JSON decision/reply. Smaller output ceilings improve
+# response time and match CLARA's existing compact-response instruction.
+text = text.replace('maxOutputTokens: 520,', 'maxOutputTokens: 320,', 1)
 
-old_style = '''- When a purchase price is known and means.projectedScoreAfterPurchase exists, the projected score/change is normally that ONE most important financial point.
-- Prefer natural before → after wording when useful, for example: "That would move you from 144 to about 142, still comfortably above 100."'''
-new_style = '''- When a purchase price is known and means.projectedScoreAfterPurchase exists, the projected score/change is ALWAYS the primary visible financial point.
-- State the exact projected score every time. Prefer natural before → after wording, for example: "That would move you from 144 to 142, still comfortably above 100."
-- Never give only a qualitative statement like "you stay above 100" when the exact projected score is available.'''
-if old_style not in text:
-    raise SystemExit('Could not find current visible response simulation bullets')
-text = text.replace(old_style, new_style, 1)
+# Make timeout/network fallback useful instead of reverting to a questionnaire.
+# If item + price + canonical Means are already known, CLARA can safely show the
+# deterministic what-if result locally while Gemini is unavailable.
+old_fallback = '''  if (!current.price) {\n    return {\n      action: "probe",\n      reply: `How much is the ${current.item}?`,\n      evidence: current,\n      readinessConfidence: 0.45,\n      source: "fallback",\n    };\n  }\n\n  if (!transactionReasonFromEvidence(current)) {\n    return {\n      action: "probe",\n      reply: "Do you need it, or is it more of a want?",\n      evidence: current,\n      readinessConfidence: 0.65,\n      source: "fallback",\n    };\n  }\n'''
+new_fallback = '''  if (!current.price) {\n    return {\n      action: "probe",\n      reply: `How much is the ${current.item}?`,\n      evidence: current,\n      readinessConfidence: 0.45,\n      source: "fallback",\n    };\n  }\n\n  const means = buildCanonicalMeansContext(current.price);\n  if (means?.purchaseSimulationApplied && means.projectedScoreAfterPurchase !== null) {\n    const before = Number.isFinite(Number(means.currentScore)) ? Number(means.currentScore) : null;\n    const after = Number(means.projectedScoreAfterPurchase);\n    const movement = before !== null\n      ? `from ${before} to ${after}`\n      : `to ${after}`;\n    const guidance = after >= 100\n      ? `still above your 100 protection line`\n      : `below your 100 protection line, so I'd wait or reduce the amount`;\n\n    return {\n      action: "ready",\n      reply: `₱${Number(current.price).toLocaleString()} would move your Means Score ${movement}, ${guidance}. Will you still buy it?`,\n      evidence: current,\n      readinessConfidence: 0.9,\n      source: "means-fallback",\n    };\n  }\n\n  if (!transactionReasonFromEvidence(current)) {\n    return {\n      action: "probe",\n      reply: "Do you need it, or is it more of a want?",\n      evidence: current,\n      readinessConfidence: 0.65,\n      source: "fallback",\n    };\n  }\n'''
+if old_fallback not in text:
+    raise SystemExit('Could not find fallback price/reason block')
+text = text.replace(old_fallback, new_fallback, 1)
 
 path.write_text(text, encoding='utf-8')
-print('Patched Ask Before You Spend to always show the exact projected Means Score.')
+print('Hardened Ask Before You Spend for lower latency and deterministic Means fallback.')
