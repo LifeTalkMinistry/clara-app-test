@@ -175,7 +175,10 @@ export function buildDebtObligationScheduleProjection(
         type: "Bill",
         amount: monthlyPayment,
         direction: "out",
-        note,
+        note:
+          balance > 0
+            ? `${title} requires ₱${formatMoney(monthlyPayment)} on ${date}. Remaining documented balance: ₱${formatMoney(balance)}.`
+            : `${title} requires ₱${formatMoney(monthlyPayment)} on ${date}. This is an ongoing monthly obligation.`,
         impactBreakdown: [
           {
             direction: "out",
