@@ -104,7 +104,7 @@ test("sign in uses the production CLARA backend and stores the returned session"
     password: "password123",
   });
 
-  assert.equal(request.url, `${DEFAULT_API_URL}/api/login`);
+  assert.equal(request.url, `${DEFAULT_API_URL}/api/clara/auth/login`);
   assert.equal(request.options.method, "POST");
   assert.deepEqual(JSON.parse(request.options.body), {
     email: "max@example.com",
@@ -127,7 +127,7 @@ test("account creation registers first and then signs in", async () => {
   const calls = [];
   globalThis.fetch = async (url, options) => {
     calls.push({ url, options });
-    if (url.endsWith("/api/users")) {
+    if (url.endsWith("/api/clara/auth/register")) {
       return jsonResponse(201, {
         id: 12,
         name: "New User",
@@ -153,13 +153,13 @@ test("account creation registers first and then signs in", async () => {
   });
 
   assert.equal(calls.length, 2);
-  assert.equal(calls[0].url, `${DEFAULT_API_URL}/api/users`);
+  assert.equal(calls[0].url, `${DEFAULT_API_URL}/api/clara/auth/register`);
   assert.deepEqual(JSON.parse(calls[0].options.body), {
     name: "New User",
     email: "new@example.com",
     password: "password123",
   });
-  assert.equal(calls[1].url, `${DEFAULT_API_URL}/api/login`);
+  assert.equal(calls[1].url, `${DEFAULT_API_URL}/api/clara/auth/login`);
   assert.equal(result.user.id, 12);
 
   clearBackendSession();
