@@ -7,6 +7,6 @@
     }
   },
   "installCommand": "npm install --ignore-scripts --no-audit --no-fund --package-lock=false",
-  "buildCommand": "npx vite build --base=./",
+  "buildCommand": "python3 scripts/patch-savings-goal-use-purpose.py && npx vite build --base=./",
   "outputDirectory": "dist"
 }
