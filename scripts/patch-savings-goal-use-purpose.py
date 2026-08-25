@@ -1,0 +1,179 @@
+from pathlib import Path
+
+p = Path('src/components/fresh/main-dashboard/assistant/ClaraSavingsGoalOverlay.jsx')
+s = p.read_text()
+marker = 'data-clara-savings-goal-use-purpose="true"'
+if marker in s:
+    print('Savings Goal intended-use flow already present')
+    raise SystemExit(0)
+
+s = s.replace(
+    '  const [outAmountInput, setOutAmountInput] = useState("");\n',
+    '  const [outAmountInput, setOutAmountInput] = useState("");\n  const [useAmountInput, setUseAmountInput] = useState("");\n  const [usePurposeInput, setUsePurposeInput] = useState("");\n'
+)
+
+s = s.replace(
+    '    setOutAmountInput("");\n    setError("");\n',
+    '    setOutAmountInput("");\n    setUseAmountInput("");\n    setUsePurposeInput("");\n    setError("");\n',
+    1,
+)
+
+s = s.replace(
+    '    setOutAmountInput("");\n    setError("");\n    appendExchange(\n',
+    '    setOutAmountInput("");\n    setUseAmountInput("");\n    setUsePurposeInput("");\n    setError("");\n    appendExchange(\n',
+    1,
+)
+
+anchor = '  const askTarget = (userText) => {\n'
+handlers = r'''  const startUseForPurpose = () => {
+    if (!selectedManagedGoal) return;
+    const currentSaved = Math.max(getGoalSavedAmount(selectedManagedGoal), 0);
+    if (currentSaved <= 0) return setError("There is no saved money available to use.");
+    const storageWalletId = getWalletId({ id: selectedManagedGoal?.wallet_id || selectedManagedGoal?.walletId || "" });
+    const storageWallet = realWallets.find((wallet) => wallet.id === storageWalletId) || null;
+    if (!storageWallet) return setError("The wallet holding this savings is unavailable.");
+    if (getWalletBalance(storageWallet) <= 0) return setError(`${storageWallet.name} has no money available for this goal.`);
+    setUseAmountInput("");
+    setUsePurposeInput("");
+    setError("");
+    appendExchange("Use Savings", `How much of ${getGoalTitle(selectedManagedGoal)} are you using now?`);
+    setPhase("use-amount");
+  };
+
+  const submitUseAmount = () => {
+    if (!selectedManagedGoal) return;
+    const amount = toNumber(useAmountInput);
+    const currentSaved = Math.max(getGoalSavedAmount(selectedManagedGoal), 0);
+    if (amount <= 0) return setError("Enter a valid amount.");
+    if (amount > currentSaved + 0.0001) return setError(`Only ${fmt(currentSaved)} is currently saved in this goal.`);
+    const storageWalletId = getWalletId({ id: selectedManagedGoal?.wallet_id || selectedManagedGoal?.walletId || "" });
+    const storageWallet = realWallets.find((wallet) => wallet.id === storageWalletId) || null;
+    if (!storageWallet) return setError("The wallet holding this savings is unavailable.");
+    if (getWalletBalance(storageWallet) + 0.0001 < amount) return setError(`${storageWallet.name} no longer contains enough money for this use.`);
+    setUsePurposeInput("");
+    setError("");
+    appendExchange(fmt(amount), `What did you use this ${getGoalTitle(selectedManagedGoal)} money for?`);
+    setPhase("use-purpose");
+  };
+
+  const submitUseForPurpose = async () => {
+    if (saving || !selectedManagedGoal) return;
+    const amount = toNumber(useAmountInput);
+    const purpose = clean(usePurposeInput);
+    const currentSaved = Math.max(getGoalSavedAmount(selectedManagedGoal), 0);
+    if (amount <= 0 || amount > currentSaved + 0.0001) return setError("Enter a valid saved amount to use.");
+    if (!purpose) return setError("Tell CLARA what this savings was used for.");
+    const storageWalletId = getWalletId({ id: selectedManagedGoal?.wallet_id || selectedManagedGoal?.walletId || "" });
+    const storageWallet = realWallets.find((wallet) => wallet.id === storageWalletId) || null;
+    if (!storageWallet) return setError("The wallet holding this savings is unavailable.");
+    if (getWalletBalance(storageWallet) + 0.0001 < amount) return setError(`${storageWallet.name} no longer contains enough money for this use.`);
+    if (typeof finance?.addExpense !== "function" || typeof finance?.deleteExpense !== "function" || typeof finance?.updateSavingsGoal !== "function") {
+      return setError("Savings usage logging is not available yet.");
+    }
+
+    const now = new Date().toISOString();
+    const activityId = `savings_chat_use_${Date.now()}`;
+    const expenseId = `savings_chat_use_expense_${Date.now()}`;
+    const nextSaved = Math.max(currentSaved - amount, 0);
+    let expenseCreated = false;
+    try {
+      setSaving(true);
+      setError("");
+      await finance.addExpense({
+        id: expenseId,
+        wallet_id: storageWallet.id,
+        amount,
+        category: "Savings Goal Used",
+        need_type: "other",
+        planning_status: "planned",
+        notes: `Used savings for ${getGoalTitle(selectedManagedGoal)}: ${purpose}`,
+        date: now,
+        created_at: now,
+        updated_at: now,
+        source_type: "savings_goal_usage",
+        usage_goal_id: selectedManagedGoal.id,
+        user_id: user?.id || null,
+        user_email: user?.email || null,
+        created_by: user?.email || null,
+      });
+      expenseCreated = true;
+      const activity = [{
+        id: activityId,
+        type: "use",
+        title: "Savings used",
+        amount,
+        reason: purpose,
+        note: `Paid from ${storageWallet.name}`,
+        storageWalletId: storageWallet.id,
+        storage_wallet_id: storageWallet.id,
+        linkedExpenseId: expenseId,
+        linked_expense_id: expenseId,
+        createdAt: now,
+        created_at: now,
+      }, ...getGoalActivity(selectedManagedGoal)].slice(0, 80);
+      const updatedGoal = {
+        ...selectedManagedGoal,
+        saved_amount: nextSaved,
+        savedAmount: nextSaved,
+        current_amount: nextSaved,
+        currentAmount: nextSaved,
+        savingsActivityLog: activity,
+        savings_activity_log: activity,
+        activityLog: activity,
+        activity_log: activity,
+        updated_date: now,
+        updatedAt: now,
+        syncStatus: "local_only",
+        source: "local",
+      };
+      await finance.updateSavingsGoal(selectedManagedGoal.id, updatedGoal);
+      await finance.refreshData?.();
+      setUseAmountInput("");
+      setUsePurposeInput("");
+      appendExchange(purpose, `Done. ${fmt(amount)} was used from ${getGoalTitle(updatedGoal)} for “${purpose}”. Remaining saved: ${fmt(nextSaved)}.`);
+      setPhase("manage-goal");
+    } catch (nextError) {
+      if (expenseCreated) {
+        try { await finance.deleteExpense(expenseId); }
+        catch (rollbackError) { console.error("Savings usage rollback failed:", rollbackError); }
+      }
+      setError(nextError?.message || "CLARA could not record this savings use yet.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+'''
+if anchor not in s:
+    raise SystemExit('Savings Goal intended-use handler anchor missing')
+s = s.replace(anchor, handlers + anchor, 1)
+
+s = s.replace(
+    '              <ReplyButton onClick={startMoveFundOut} disabled={saving || getGoalSavedAmount(selectedManagedGoal) <= 0}>Move Fund Out</ReplyButton>\n',
+    '              <ReplyButton onClick={startUseForPurpose} disabled={saving || getGoalSavedAmount(selectedManagedGoal) <= 0} data-clara-savings-goal-use-purpose="true">Use Savings</ReplyButton>\n              <ReplyButton onClick={startMoveFundOut} disabled={saving || getGoalSavedAmount(selectedManagedGoal) <= 0}>Move Fund Out</ReplyButton>\n'
+)
+
+ui_anchor = '          {phase === "out-wallet" && selectedManagedGoal ? (\n'
+ui = r'''          {phase === "use-amount" && selectedManagedGoal ? (
+            <div className="mt-auto grid gap-2.5 pt-3" data-clara-savings-goal-use-purpose="true">
+              <Composer value={useAmountInput} onChange={(value) => { setUseAmountInput(cleanMoney(value)); setError(""); }} onSubmit={submitUseAmount} placeholder={`Up to ${fmt(getGoalSavedAmount(selectedManagedGoal))}`} inputMode="decimal" />
+              <ReplyButton onClick={() => setPhase("manage-goal")} secondary>Back</ReplyButton>
+            </div>
+          ) : null}
+
+          {phase === "use-purpose" && selectedManagedGoal ? (
+            <div className="mt-auto grid gap-2.5 pt-3" data-clara-savings-goal-use-purpose="true">
+              <Composer value={usePurposeInput} onChange={(value) => { setUsePurposeInput(value); setError(""); }} onSubmit={submitUseForPurpose} placeholder="What did you use it for?" />
+              <ReplyButton onClick={() => setPhase("use-amount")} secondary>Change amount</ReplyButton>
+            </div>
+          ) : null}
+
+'''
+if ui_anchor not in s:
+    raise SystemExit('Savings Goal intended-use UI anchor missing')
+s = s.replace(ui_anchor, ui + ui_anchor, 1)
+
+if marker not in s:
+    raise SystemExit('Savings Goal intended-use marker was not inserted')
+p.write_text(s)
+print('Savings Goal intended-use flow patched')
