@@ -291,7 +291,7 @@ export async function backendRequest(
 }
 
 export async function signInWithClaraBackend({ email, password }) {
-  const payload = await backendRequest("/api/login", {
+  const payload = await backendRequest("/api/clara/auth/login", {
     method: "POST",
     body: { email: String(email || "").trim(), password: String(password || "") },
   });
@@ -299,7 +299,7 @@ export async function signInWithClaraBackend({ email, password }) {
 }
 
 export async function createClaraBackendAccount({ name, email, password }) {
-  await backendRequest("/api/users", {
+  await backendRequest("/api/clara/auth/register", {
     method: "POST",
     body: {
       name: String(name || "").trim(),
