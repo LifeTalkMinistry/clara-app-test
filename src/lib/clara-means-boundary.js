@@ -1,4 +1,5 @@
 const MEANS_CONTEXT_KEY = "__claraCanonicalMeansSnapshot__";
+const MEANS_SNAPSHOT_UPDATED_EVENT = "clara:means-snapshot-updated";
 
 function toFiniteMoney(value) {
   const amount = Number(value);
@@ -17,6 +18,8 @@ export function getCanonicalMeansDecisionBoundary() {
     return {
       ready: false,
       amount: 0,
+      availableNow: 0,
+      upcoming: 0,
       cycleStartDate: "",
       cycleEndDate: "",
       horizonDate: "",
@@ -25,7 +28,7 @@ export function getCanonicalMeansDecisionBoundary() {
   }
 
   return {
-    ready: snapshot.hasIncomePayCycle !== false,
+    ready: snapshot.hasIncomePayCycle === true,
     amount: toFiniteMoney(snapshot.projectedRoom),
     availableNow: toFiniteMoney(snapshot.availableNow),
     upcoming: toFiniteMoney(snapshot.upcoming),
@@ -36,4 +39,4 @@ export function getCanonicalMeansDecisionBoundary() {
   };
 }
 
-export { MEANS_CONTEXT_KEY };
+export { MEANS_CONTEXT_KEY, MEANS_SNAPSHOT_UPDATED_EVENT };
