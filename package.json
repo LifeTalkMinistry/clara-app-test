@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "node scripts/verify-provider-removal.mjs && npm test && npm run lint:buy-check",
+    "prebuild": "python3 scripts/patch-savings-goal-chat-funding.py && node scripts/verify-provider-removal.mjs && npm test && npm run lint:buy-check",
     "build": "vite build --base=./",
     "build:android": "vite build --base=./",
     "android:fresh": "node scripts/android-fresh-run.mjs",
@@ -66,7 +66,7 @@
     "lodash": "^4.17.21",
     "lucide-react": "^0.475.0",
     "react": "^18.2.0",
-    "react-day-picker": "^8.10.1",
+    "react-day-picker": "^8.10.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.54.2",
     "react-hot-toast": "^2.6.0",
