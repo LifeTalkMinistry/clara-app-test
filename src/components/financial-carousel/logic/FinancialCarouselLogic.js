@@ -43,8 +43,25 @@ export const getCarouselData = ({
   const budgetData = normalizeCarouselBudgetPlan(monthlyBudgetPlan || {});
 
   const safeSavingsGoals = Array.isArray(savingsGoals)
-    ? savingsGoals
+    ? savingsGoals.filter(
+        (goal) => goal && !goal.deleted_at && !goal.deletedAt
+      )
     : [];
+
+  // Savings totals are aggregate data and must never outlive the goals they
+  // describe. A deleted final goal can briefly leave stale parent totals in
+  // memory; normalize the carousel boundary so an empty active-goal set is
+  // always represented as zero savings/target and no primary goal.
+  const hasActiveSavingsGoals = safeSavingsGoals.length > 0;
+  const resolvedTotalSavingsSaved = hasActiveSavingsGoals
+    ? totalSavingsSaved
+    : 0;
+  const resolvedTotalSavingsTarget = hasActiveSavingsGoals
+    ? totalSavingsTarget
+    : 0;
+  const resolvedPrimarySavingsGoal = hasActiveSavingsGoals
+    ? primarySavingsGoal
+    : null;
 
   const safeWallets = Array.isArray(wallets) ? wallets : [];
 
@@ -72,9 +89,9 @@ export const getCarouselData = ({
 
     savingsGoals: {
       savingsGoals: safeSavingsGoals,
-      totalSavingsSaved,
-      totalSavingsTarget,
-      primarySavingsGoal,
+      totalSavingsSaved: resolvedTotalSavingsSaved,
+      totalSavingsTarget: resolvedTotalSavingsTarget,
+      primarySavingsGoal: resolvedPrimarySavingsGoal,
     },
 
     investmentFund: {
