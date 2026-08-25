@@ -31,7 +31,11 @@ import { completeMonthlyBudgetCycle } from "@/lib/clara-budget-cycle-reset";
 import { buildBudgetCompletionSnapshot } from "@/lib/clara-budget-history";
 import { isDebtCommitment } from "@/lib/clara-derived-budget";
 import { buildHomeSpendableMoneyProjection } from "@/lib/clara-home-spendable-money";
-import { getTotalWalletSpendableBalance } from "@/lib/clara-wallet-money-semantics";
+import {
+  getTotalWalletSpendableBalance,
+  getWalletCurrentBalance,
+  isMoneyLentWallet,
+} from "@/lib/clara-wallet-money-semantics";
 import { useTheme } from "@/theme/ThemeProvider";
 import {
   firstPositiveNumber,
@@ -242,8 +246,6 @@ export default function CommunityHomeFinancialCarousel() {
     [emergencyFund, user?.id]
   );
 
-  // Home owns finance-card expansion. No expand/collapse interaction leaves the
-  // Community shell or hands control back to retired Dashboard routes.
   const toggleHomeFinanceDetails = useCallback((cardKey, options = {}) => {
     if (!cardKey) return;
     const { forceOpen = false } = options || {};
@@ -326,12 +328,19 @@ export default function CommunityHomeFinancialCarousel() {
   const openTransferMoney = useCallback(
     (wallet) => {
       const walletId = getWalletId(wallet);
+      const isReturningLentMoney = isMoneyLentWallet(wallet);
       const destination = manageableWallets.find(
-        (item) => String(getWalletId(item)) !== String(walletId)
+        (item) =>
+          String(getWalletId(item)) !== String(walletId) &&
+          (!isReturningLentMoney || !isMoneyLentWallet(item))
       );
 
       if (!destination) {
-        toast.error("Create another wallet first before transferring.");
+        toast.error(
+          isReturningLentMoney
+            ? "Create a real wallet first before recording returned money."
+            : "Create another wallet first before transferring."
+        );
         return;
       }
 
@@ -440,9 +449,11 @@ export default function CommunityHomeFinancialCarousel() {
     if (walletActionLoading) return;
     const fromWallet = walletModal.payload;
     const fromWalletId = getWalletId(fromWallet);
+    const isMoneyLentReturn = isMoneyLentWallet(fromWallet);
     const destinationWallet = manageableWallets.find(
       (wallet) =>
-        String(getWalletId(wallet)) === String(walletForm.destinationWalletId)
+        String(getWalletId(wallet)) === String(walletForm.destinationWalletId) &&
+        (!isMoneyLentReturn || !isMoneyLentWallet(wallet))
     );
     const amount = Number(walletForm.amount);
 
@@ -454,9 +465,16 @@ export default function CommunityHomeFinancialCarousel() {
       toast.error("Please enter a valid amount.");
       return;
     }
-    if (getWalletSpendableBalance(fromWallet) < amount) {
+
+    const transferableBalance = isMoneyLentReturn
+      ? Math.max(getWalletCurrentBalance(fromWallet), 0)
+      : getWalletSpendableBalance(fromWallet);
+
+    if (transferableBalance < amount) {
       toast.error(
-        "That amount is higher than this wallet’s spendable balance after protected funds."
+        isMoneyLentReturn
+          ? "That returned amount is higher than the money still owed to you."
+          : "That amount is higher than this wallet’s spendable balance after protected funds."
       );
       return;
     }
@@ -473,9 +491,16 @@ export default function CommunityHomeFinancialCarousel() {
       });
       await refreshFinanceSection();
       closeWalletModal();
-      toast.success("Transfer completed.");
+      toast.success(
+        isMoneyLentReturn ? "Returned money recorded." : "Transfer completed."
+      );
     } catch (error) {
-      toast.error(error?.message || "CLARA could not complete this transfer yet.");
+      toast.error(
+        error?.message ||
+          (isMoneyLentReturn
+            ? "CLARA could not record this returned money yet."
+            : "CLARA could not complete this transfer yet.")
+      );
     } finally {
       setWalletActionLoading(false);
     }
@@ -607,8 +632,6 @@ export default function CommunityHomeFinancialCarousel() {
     walletTransactions,
   ]);
 
-  // Secondary non-wallet management actions keep using their current dedicated
-  // CLARA surfaces. Wallet ownership is now fully inline on Home.
   const openTransactions = useCallback(() => {
     navigate("/transactions");
   }, [navigate]);
@@ -656,12 +679,15 @@ export default function CommunityHomeFinancialCarousel() {
   const deleteWalletCanTransfer =
     deleteWalletBalance > 0.000001 && !deleteWalletBlocked;
 
-  const transferSpendable = getWalletSpendableBalance(walletModal.payload);
+  const transferIsMoneyLentReturn = isMoneyLentWallet(walletModal.payload);
+  const transferAvailable = transferIsMoneyLentReturn
+    ? Math.max(getWalletCurrentBalance(walletModal.payload), 0)
+    : getWalletSpendableBalance(walletModal.payload);
   const transferAmount = Number(walletForm.amount);
   const transferAmountValid =
     Number.isFinite(transferAmount) &&
     transferAmount > 0 &&
-    transferAmount <= transferSpendable;
+    transferAmount <= transferAvailable;
 
   if (!user) return null;
 
@@ -860,29 +886,33 @@ export default function CommunityHomeFinancialCarousel() {
 
       <FinanceActionModal
         open={walletModal.type === "transfer_money"}
-        title="Transfer money"
-        description={`Move funds from ${getWalletName(
-          walletModal.payload
-        )} to another wallet.`}
+        title={transferIsMoneyLentReturn ? "Record returned money" : "Transfer money"}
+        description={
+          transferIsMoneyLentReturn
+            ? `Record money returned by ${getWalletName(walletModal.payload)} into one of your real wallets.`
+            : `Move funds from ${getWalletName(walletModal.payload)} to another wallet.`
+        }
         onClose={closeWalletModal}
         onSubmit={(event) => {
           event.preventDefault();
           void transferMoneyInline();
         }}
-        submitLabel="Transfer"
+        submitLabel={transferIsMoneyLentReturn ? "Record payment" : "Transfer"}
         submitDisabled={!walletForm.destinationWalletId || !transferAmountValid}
         submitDisabledLabel={
           walletForm.destinationWalletId &&
           Number.isFinite(transferAmount) &&
-          transferAmount > transferSpendable
-            ? "Protected Funds"
+          transferAmount > transferAvailable
+            ? transferIsMoneyLentReturn
+              ? "Above Amount Owed"
+              : "Protected Funds"
             : walletForm.destinationWalletId
               ? "Enter Amount"
               : "Choose Wallet"
         }
         loading={walletActionLoading}
       >
-        <FinanceField label="Destination wallet">
+        <FinanceField label={transferIsMoneyLentReturn ? "Received in wallet" : "Destination wallet"}>
           <select
             value={walletForm.destinationWalletId}
             onChange={(event) =>
@@ -897,7 +927,8 @@ export default function CommunityHomeFinancialCarousel() {
               .filter(
                 (wallet) =>
                   String(getWalletId(wallet)) !==
-                  String(getWalletId(walletModal.payload))
+                    String(getWalletId(walletModal.payload)) &&
+                  (!transferIsMoneyLentReturn || !isMoneyLentWallet(wallet))
               )
               .map((wallet) => (
                 <option key={getWalletId(wallet)} value={String(getWalletId(wallet))}>
@@ -909,9 +940,11 @@ export default function CommunityHomeFinancialCarousel() {
 
         <FinanceField
           label="Amount"
-          helper={`Spendable after protected funds: ${formatPhpCurrency(
-            transferSpendable
-          )}`}
+          helper={
+            transferIsMoneyLentReturn
+              ? `Still owed to you: ${formatPhpCurrency(transferAvailable)}`
+              : `Spendable after protected funds: ${formatPhpCurrency(transferAvailable)}`
+          }
         >
           <input
             type="number"
