@@ -34,3 +34,5 @@ jobs:
           git add src/runtime/installClaraOrbGreeting.js
           git commit -m "Keep Means debt inside current pay cycle"
           git push origin HEAD:main
+
+# trigger: current-pay-cycle-only debt boundary
