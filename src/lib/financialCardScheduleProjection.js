@@ -9,6 +9,7 @@ import {
   getRecurrenceOccurrences,
   toLocalDateKey,
 } from "./recurringCashFlowRepository.js";
+import { isSavingsGoalActive } from "./savingsGoalLifecycle.js";
 
 export const SAVINGS_GOAL_SCHEDULE_SOURCE = "savings_goal_card_projection";
 export const DEBT_OBLIGATION_SCHEDULE_SOURCE = "debt_obligation_card_projection";
@@ -71,17 +72,6 @@ function getSavingsGoalSaved(goal = {}) {
       goal.progress_amount ??
       goal.progressAmount ??
       goal.amount_saved
-  );
-}
-
-function isSavingsGoalActive(goal = {}) {
-  const status = cleanText(goal.status).toLowerCase();
-  return !(
-    goal.deletedAt ||
-    goal.deleted_at ||
-    goal.is_archived === true ||
-    goal.isArchived === true ||
-    ["deleted", "archived", "cancelled", "canceled"].includes(status)
   );
 }
 
@@ -185,10 +175,7 @@ export function buildDebtObligationScheduleProjection(
         type: "Bill",
         amount: monthlyPayment,
         direction: "out",
-        note:
-          balance > 0
-            ? `${title} requires ₱${formatMoney(monthlyPayment)} on ${date}. Remaining documented balance: ₱${formatMoney(balance)}.`
-            : `${title} requires ₱${formatMoney(monthlyPayment)} on ${date}. This is an ongoing monthly obligation.`,
+        note,
         impactBreakdown: [
           {
             direction: "out",
