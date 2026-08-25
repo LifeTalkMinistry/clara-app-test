@@ -1234,6 +1234,8 @@ export default function DashboardSchedulePanel() {
   const [impactSession, setImpactSession] = useState(null);
   const [impactInput, setImpactInput] = useState("");
   const [form, setForm] = useState({ title: "", date: today, time: "", type: "Personal", amount: "", note: "" });
+  const [pastRescheduleId, setPastRescheduleId] = useState("");
+  const [pastRescheduleDate, setPastRescheduleDate] = useState("");
 
   useEffect(() => setEvents(readEvents(user)), [ownerId]);
   useEffect(() => saveEvents(user, events), [events, ownerId]);
@@ -1342,6 +1344,16 @@ export default function DashboardSchedulePanel() {
 
   const cells = useMemo(() => buildMonthCells(monthDate), [monthDate]);
   const selectedEvents = byDate[selectedDate] || [];
+  const unresolvedPastEvents = useMemo(
+    () => events
+      .filter((event) => {
+        const date = String(event?.date || "").slice(0, 10);
+        return Boolean(date && date < today);
+      })
+      .sort((a, b) => String(a?.date || "").localeCompare(String(b?.date || ""))),
+    [events, today]
+  );
+  const unresolvedPastEvent = unresolvedPastEvents[0] || null;
   const selectedHoliday = getHoliday(selectedDate);
   const selectedAgendas = useMemo(
     () => getSelectedAgendas({ selectedDate, todayKey: today, events: selectedEvents, holiday: selectedHoliday }),
@@ -1378,6 +1390,28 @@ export default function DashboardSchedulePanel() {
   const openEvent = (event) => {
     setSelectedEvent(event);
     setMode("event");
+  };
+
+  const beginPastReschedule = (event) => {
+    const tomorrow = addDays(fromDateKey(today), 1);
+    setPastRescheduleId(String(event?.id || ""));
+    setPastRescheduleDate(tomorrow ? toDateKey(tomorrow) : today);
+  };
+
+  const applyPastReschedule = () => {
+    if (!pastRescheduleId || !pastRescheduleDate || pastRescheduleDate <= today) return;
+    setEvents((current) => {
+      const next = current.map((event) =>
+        String(event?.id) === String(pastRescheduleId)
+          ? { ...event, date: pastRescheduleDate }
+          : event
+      );
+      writeSchedule(user, next);
+      return next;
+    });
+    setSelectedDate(pastRescheduleDate);
+    setPastRescheduleId("");
+    setPastRescheduleDate("");
   };
 
   const close = () => {
@@ -1575,6 +1609,57 @@ export default function DashboardSchedulePanel() {
         onPrev={() => setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
         onNext={() => setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
       />
+      {unresolvedPastEvent ? (
+        <section className="mx-4 mb-4 rounded-[22px] border border-amber-200/20 bg-[linear-gradient(135deg,rgba(88,56,9,.34),rgba(27,16,4,.42))] p-4 shadow-[0_14px_34px_rgba(0,0,0,.22)]">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[.18em] text-amber-100/60">Past schedule</p>
+              <h3 className="mt-1 truncate text-[15px] font-black text-white">{getEventIcon(unresolvedPastEvent)} {displayTitle(unresolvedPastEvent)}</h3>
+              <p className="mt-1 text-[12px] font-semibold leading-5 text-white/55">This event has already passed. Remove it now or reschedule it.</p>
+              {unresolvedPastEvents.length > 1 ? (
+                <p className="mt-1 text-[10px] font-bold text-white/30">{unresolvedPastEvents.length} past schedules need review.</p>
+              ) : null}
+            </div>
+          </div>
+
+          {pastRescheduleId === String(unresolvedPastEvent.id) ? (
+            <div className="mt-3 flex items-center gap-2">
+              <input
+                type="date"
+                min={(() => { const tomorrow = addDays(fromDateKey(today), 1); return tomorrow ? toDateKey(tomorrow) : today; })()}
+                value={pastRescheduleDate}
+                onChange={(event) => setPastRescheduleDate(event.target.value)}
+                className="min-h-11 min-w-0 flex-1 rounded-xl border border-white/10 bg-black/20 px-3 text-[12px] font-bold text-white outline-none"
+              />
+              <button
+                type="button"
+                onClick={applyPastReschedule}
+                disabled={!pastRescheduleDate || pastRescheduleDate <= today}
+                className="min-h-11 rounded-xl border border-cyan-200/20 bg-cyan-300/10 px-4 text-[11px] font-black text-cyan-50 disabled:opacity-40"
+              >
+                Apply
+              </button>
+            </div>
+          ) : (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => remove(unresolvedPastEvent.id)}
+                className="min-h-11 rounded-xl border border-white/10 bg-white/[.035] px-3 text-[11px] font-black text-white/68"
+              >
+                Remove
+              </button>
+              <button
+                type="button"
+                onClick={() => beginPastReschedule(unresolvedPastEvent)}
+                className="min-h-11 rounded-xl border border-cyan-200/20 bg-cyan-300/10 px-3 text-[11px] font-black text-cyan-50"
+              >
+                Reschedule
+              </button>
+            </div>
+          )}
+        </section>
+      ) : null}
       <MonthlyInsightCard insight={monthlyInsight} />
       <Sheet
         event={selectedEvent}
