@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# Triggered one-shot upgrade: separate recorded spending from Money Schedule assumed spending.
 path = Path("src/runtime/installClaraOrbGreeting.js")
 text = path.read_text()
 
