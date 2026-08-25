@@ -200,7 +200,7 @@ function futureDebtObligationAmount(records = [], horizonEnd = endOfCurrentMonth
     const date = String(event?.date || "").slice(0, 10);
     const direction = String(event?.direction || "out").trim().toLowerCase();
     const amount = Number(String(event?.amount ?? "0").replace(/[₱,\s]/g, ""));
-    if (!date || date >= horizonEnd) return sum;
+    if (!date || date <= today || date >= horizonEnd) return sum;
     if (direction !== "out") return sum;
     return sum + (Number.isFinite(amount) ? Math.max(0, amount) : 0);
   }, 0);
@@ -276,7 +276,7 @@ function futureSavingsGoalAmount(goals = [], horizonEnd = endOfCurrentMonthKey()
     if (!isSavingsGoalActive(goal)) return sum;
 
     const date = savingsGoalDate(goal);
-    if (!date || date <= today || date >= horizonEnd) return sum;
+    if (!date || date >= horizonEnd) return sum;
 
     const target = savingsGoalMoney(
       goal?.target_amount,
