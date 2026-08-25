@@ -45,6 +45,11 @@ const ORB_COMMAND_ICONS = {
 const SCHEDULE_STORAGE_PREFIX = "clara_schedule_events_v2_";
 const CLARA_FINANCE_DATA_UPDATED_EVENT = "clara:finance-data-updated";
 
+function toDateKey(date) {
+  const value = date instanceof Date ? date : new Date(date);
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+}
+
 function readPastOrbSchedule() {
   if (typeof window === "undefined") return null;
   const today = toDateKey(new Date());
