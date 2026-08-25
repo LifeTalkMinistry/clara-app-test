@@ -10,7 +10,7 @@ import {
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
-const MONEY_ACTION_TITLES = new Set(["Add money", "Transfer money"]);
+const MONEY_ACTION_TITLES = new Set(["Add money", "Transfer money", "Record returned money"]);
 const BUDGET_SETUP_TITLES = new Set([
   "Declare monthly budget",
   "Edit budget category",
@@ -207,8 +207,18 @@ export default function FinanceActionModal({
   }, [children, usesClaraMoneyKeypad]);
 
   const updateAmountInput = (nextValue) => {
-    const input = formRef.current?.querySelector('input[type="number"]');
     setMoneyAmount(nextValue);
+
+    const controlledOnChange = hiddenMoneyInput?.props?.onChange;
+    if (typeof controlledOnChange === "function") {
+      controlledOnChange({
+        target: { value: nextValue },
+        currentTarget: { value: nextValue },
+      });
+      return;
+    }
+
+    const input = formRef.current?.querySelector('input[type="number"]');
     if (!input) return;
 
     const nativeSetter = Object.getOwnPropertyDescriptor(
