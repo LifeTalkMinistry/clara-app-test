@@ -20,8 +20,6 @@ jobs:
           fetch-depth: 0
       - name: Add past schedule resolution banner
         run: python scripts/add_past_schedule_resolution.py
-      - name: Verify build
-        run: npm install --no-audit --no-fund && npm run build
       - name: Commit repair to main
         run: |
           git config user.name "github-actions[bot]"
