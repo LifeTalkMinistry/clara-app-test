@@ -1,0 +1,30 @@
+name: One-shot ORB past schedule banner
+
+on:
+  push:
+    paths:
+      - ".github/workflows/one-shot-orb-past-schedule-banner.yml"
+      - "scripts/add_orb_past_schedule_banner.py"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Add ORB past schedule banner
+        run: python scripts/add_orb_past_schedule_banner.py
+      - name: Commit banner to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/community/ClaraOrbPage.jsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Show past schedule banner on CLARA Orb"
+          git push origin HEAD:main
