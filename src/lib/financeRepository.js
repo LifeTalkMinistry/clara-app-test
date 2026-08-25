@@ -7,6 +7,169 @@ export * from "./financeRepositoryCore.js";
 export const FINANCE_DATA_UPDATED_EVENT = "clara:finance-data-updated";
 let financeDataRevision = 0;
 
+const LEGACY_UNREVERSED_INCOME_DELETE_CUTOFF = Date.parse("2026-08-25T00:09:11Z");
+const LEGACY_INCOME_TYPES = new Set([
+  "income",
+  "add",
+  "cash_in",
+  "deposit",
+  "opening_balance",
+  "credit",
+  "add_funds",
+  "add_money",
+]);
+const NON_EARNED_LEGACY_SOURCE_TYPES = new Set([
+  "savings_wallet_reconciliation",
+  "balance_correction",
+]);
+const legacyIncomeRepairPromises = new Map();
+
+const toNumber = (value) => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const parsed = Number(String(value ?? "").replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const getWalletId = (wallet) => String(wallet?.id || wallet?.wallet_id || wallet?.walletId || "").trim();
+const getWalletBalance = (wallet) =>
+  toNumber(
+    wallet?.balance ??
+      wallet?.current_balance ??
+      wallet?.wallet_balance ??
+      wallet?.available_balance ??
+      wallet?.starting_balance ??
+      0
+  );
+
+const getLegacyRepairIds = (wallet) => {
+  const value =
+    wallet?.legacyDeletedIncomeReconciledIds ??
+    wallet?.legacy_deleted_income_reconciled_ids ??
+    [];
+  return Array.isArray(value) ? value.map((item) => String(item)) : [];
+};
+
+const isLegacyUnreversedDeletedIncome = (transaction) => {
+  const deletedAt = transaction?.deletedAt || transaction?.deleted_at;
+  if (!deletedAt) return false;
+
+  const deletedTime = new Date(deletedAt).getTime();
+  if (!Number.isFinite(deletedTime) || deletedTime > LEGACY_UNREVERSED_INCOME_DELETE_CUTOFF) {
+    return false;
+  }
+
+  if (
+    transaction?.legacyReconciledAt ||
+    transaction?.legacy_reconciled_at ||
+    transaction?.balanceReversedAt ||
+    transaction?.balance_reversed_at
+  ) {
+    return false;
+  }
+
+  const type = String(transaction?.type || "").trim().toLowerCase();
+  if (!LEGACY_INCOME_TYPES.has(type)) return false;
+
+  const sourceType = String(
+    transaction?.source_type || transaction?.sourceType || ""
+  )
+    .trim()
+    .toLowerCase();
+  if (NON_EARNED_LEGACY_SOURCE_TYPES.has(sourceType)) return false;
+
+  const walletId = String(transaction?.wallet_id || transaction?.walletId || "").trim();
+  const amount = Math.abs(toNumber(transaction?.amount));
+  return Boolean(transaction?.id && walletId && amount > 0);
+};
+
+async function repairLegacyDeletedIncomeBalanceEffects(repository, localUserId) {
+  const key = String(localUserId || "").trim();
+  if (!key || !repository) return { repaired: 0, amount: 0 };
+
+  if (legacyIncomeRepairPromises.has(key)) {
+    return legacyIncomeRepairPromises.get(key);
+  }
+
+  const repairPromise = (async () => {
+    const [transactions, wallets] = await Promise.all([
+      repository.getWalletTransactions(key, { includeDeleted: true }),
+      repository.getWallets(key, { includeDeleted: true }),
+    ]);
+
+    const walletMap = new Map(
+      (Array.isArray(wallets) ? wallets : []).map((wallet) => [getWalletId(wallet), wallet])
+    );
+    const candidates = (Array.isArray(transactions) ? transactions : []).filter(
+      isLegacyUnreversedDeletedIncome
+    );
+
+    let repaired = 0;
+    let repairedAmount = 0;
+
+    for (const transaction of candidates) {
+      const transactionId = String(transaction.id);
+      const walletId = String(transaction.wallet_id || transaction.walletId || "").trim();
+      const amount = Math.abs(toNumber(transaction.amount));
+      const wallet = walletMap.get(walletId);
+      if (!wallet || !amount) continue;
+
+      const alreadyReconciledIds = getLegacyRepairIds(wallet);
+      if (alreadyReconciledIds.includes(transactionId)) {
+        await repository.updateWalletTransaction(key, transactionId, {
+          legacyReconciledAt: new Date().toISOString(),
+          legacy_reconciled_at: new Date().toISOString(),
+          balanceReversedAt: new Date().toISOString(),
+          balance_reversed_at: new Date().toISOString(),
+          reversalReason: "legacy_deleted_income_reconciliation",
+          reversal_reason: "legacy_deleted_income_reconciliation",
+        });
+        continue;
+      }
+
+      const now = new Date().toISOString();
+      const nextRepairIds = [...new Set([...alreadyReconciledIds, transactionId])];
+      const nextBalance = getWalletBalance(wallet) - amount;
+
+      const updatedWallet = await repository.updateWallet(key, walletId, {
+        balance: nextBalance,
+        legacyDeletedIncomeReconciledIds: nextRepairIds,
+        legacy_deleted_income_reconciled_ids: nextRepairIds,
+        lastLegacyIncomeRepairAt: now,
+        last_legacy_income_repair_at: now,
+      });
+
+      walletMap.set(walletId, updatedWallet?.wallet || updatedWallet || {
+        ...wallet,
+        balance: nextBalance,
+        legacyDeletedIncomeReconciledIds: nextRepairIds,
+      });
+
+      await repository.updateWalletTransaction(key, transactionId, {
+        legacyReconciledAt: now,
+        legacy_reconciled_at: now,
+        balanceReversedAt: now,
+        balance_reversed_at: now,
+        reversalReason: "legacy_deleted_income_reconciliation",
+        reversal_reason: "legacy_deleted_income_reconciliation",
+      });
+
+      repaired += 1;
+      repairedAmount += amount;
+    }
+
+    return { repaired, amount: repairedAmount };
+  })();
+
+  legacyIncomeRepairPromises.set(key, repairPromise);
+
+  try {
+    return await repairPromise;
+  } catch (error) {
+    legacyIncomeRepairPromises.delete(key);
+    throw error;
+  }
+}
+
 export function getFinanceDataRevision() {
   return financeDataRevision;
 }
@@ -42,6 +205,14 @@ function decorateFinanceRepository(repository) {
 
   return {
     ...repository,
+
+    async getWallets(localUserId, options, ...args) {
+      const repair = await repairLegacyDeletedIncomeBalanceEffects(repository, localUserId);
+      if (repair.repaired > 0) {
+        emitFinanceDataUpdated(localUserId, "wallet:legacy-income-delete-repair");
+      }
+      return repository.getWallets(localUserId, options, ...args);
+    },
 
     async addExpense(localUserId, expense, ...args) {
       const result = await repository.addExpense(localUserId, expense, ...args);
