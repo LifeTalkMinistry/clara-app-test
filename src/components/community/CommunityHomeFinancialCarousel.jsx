@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import FinancialCarousel from "@/components/financial-carousel/FinancialCarousel";
@@ -31,6 +31,10 @@ import { completeMonthlyBudgetCycle } from "@/lib/clara-budget-cycle-reset";
 import { buildBudgetCompletionSnapshot } from "@/lib/clara-budget-history";
 import { isDebtCommitment } from "@/lib/clara-derived-budget";
 import { buildHomeSpendableMoneyProjection } from "@/lib/clara-home-spendable-money";
+import {
+  getCanonicalMeansDecisionBoundary,
+  MEANS_SNAPSHOT_UPDATED_EVENT,
+} from "@/lib/clara-means-boundary";
 import {
   getTotalWalletSpendableBalance,
   getWalletCurrentBalance,
@@ -123,6 +127,21 @@ export default function CommunityHomeFinancialCarousel() {
   const [walletForm, setWalletForm] = useState(createWalletForm);
   const [walletActionLoading, setWalletActionLoading] = useState(false);
   const [moneyLeftMode, setMoneyLeftMode] = useState("current");
+  const [meansBoundary, setMeansBoundary] = useState(() =>
+    getCanonicalMeansDecisionBoundary()
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const syncMeansBoundary = () => {
+      setMeansBoundary(getCanonicalMeansDecisionBoundary());
+    };
+    syncMeansBoundary();
+    window.addEventListener(MEANS_SNAPSHOT_UPDATED_EVENT, syncMeansBoundary);
+    return () => {
+      window.removeEventListener(MEANS_SNAPSHOT_UPDATED_EVENT, syncMeansBoundary);
+    };
+  }, []);
 
   const financeCardController = useFinancialData(user);
   const {
@@ -213,8 +232,13 @@ export default function CommunityHomeFinancialCarousel() {
 
   const afterMonthlyBudgetMoney =
     spendableMoneyProjection.projectedSpendableMoney;
+  const meansRoom = meansBoundary.ready
+    ? Math.max(0, Number(meansBoundary.amount || 0))
+    : null;
   const displayedMoneyLeft =
-    moneyLeftMode === "projected" ? afterMonthlyBudgetMoney : totalWalletBalance;
+    moneyLeftMode === "projected" && meansRoom !== null
+      ? meansRoom
+      : totalWalletBalance;
 
   const {
     walletPreviewTransactions = [],
@@ -754,18 +778,23 @@ export default function CommunityHomeFinancialCarousel() {
             type="button"
             data-clara-after-budget-total="true"
             data-clara-after-budget-active={moneyLeftMode === "projected" ? "true" : "false"}
+            data-clara-means-cycle-end={meansBoundary.cycleEndDate || undefined}
             aria-pressed={moneyLeftMode === "projected"}
             aria-label={
               moneyLeftMode === "projected"
-                ? "Show current Money Left"
-                : `Show spendable Money Left after protected funds, budget, and unpaid obligations. Projected amount: ${formatPhpCurrency(
-                    afterMonthlyBudgetMoney
-                  )}`
+                ? "Show total Money Left across wallets"
+                : meansBoundary.ready
+                  ? `Show Money Left inside the current Income Hub pay cycle. Room: ${formatPhpCurrency(meansRoom)}`
+                  : "Show Money Left inside the current Income Hub pay cycle"
             }
-            title={moneyLeftMode === "projected" ? "Current Money Left" : "Spendable after commitments"}
+            title={moneyLeftMode === "projected" ? "Total Money Left" : "Room until next payday"}
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
+              if (moneyLeftMode !== "projected" && !meansBoundary.ready) {
+                toast.error("Set a stable Income Hub payday schedule before checking pay-cycle room.");
+                return;
+              }
               setMoneyLeftMode((current) =>
                 current === "projected" ? "current" : "projected"
               );
@@ -987,7 +1016,7 @@ export default function CommunityHomeFinancialCarousel() {
           }`}
         >
           {deleteWalletProtected > 0 || deleteWalletHasLinks
-            ? "This wallet is linked to an Emergency Fund or Savings Goal. Reassign that link before removing it."
+            ? "This wallet is linked to an Emergency Fund or Savings Goal. Reassign that link before removing this wallet."
             : deleteWalletHasBalance
               ? `This wallet still has ${formatPhpCurrency(
                   deleteWalletBalance
