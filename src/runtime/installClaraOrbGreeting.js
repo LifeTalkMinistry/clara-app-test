@@ -154,7 +154,7 @@ function futureRoutineAmount(user, horizonEnd = endOfCurrentMonthKey()) {
     : new Date(now.getFullYear(), now.getMonth() + 1, 0);
   let total = 0;
 
-  while (cursor <= end) {
+  while (cursor < end) {
     total += byWeekday.get(cursor.getDay()) || 0;
     cursor.setDate(cursor.getDate() + 1);
   }
@@ -176,7 +176,7 @@ function futureScheduledAmount(user, horizonEnd = endOfCurrentMonthKey()) {
       source === DEBT_OBLIGATION_SCHEDULE_SOURCE ||
       event?.debtObligationId ||
       event?.debt_obligation_id;
-    if (!date || date <= today || date > horizonEnd) return sum;
+    if (!date || date <= today || date >= horizonEnd) return sum;
     if (
       direction !== "out" ||
       event?.affectsMoney === false ||
@@ -196,7 +196,7 @@ function futureDebtObligationAmount(records = [], horizonEnd = endOfCurrentMonth
     const date = String(event?.date || "").slice(0, 10);
     const direction = String(event?.direction || "out").trim().toLowerCase();
     const amount = Number(String(event?.amount ?? "0").replace(/[₱,\s]/g, ""));
-    if (!date || date <= today || date > horizonEnd) return sum;
+    if (!date || date <= today || date >= horizonEnd) return sum;
     if (direction !== "out") return sum;
     return sum + (Number.isFinite(amount) ? Math.max(0, amount) : 0);
   }, 0);
@@ -237,7 +237,7 @@ function futureSavingsGoalAmount(goals = [], horizonEnd = endOfCurrentMonthKey()
     if (inactive) return sum;
 
     const date = savingsGoalDate(goal);
-    if (!date || date <= today || date > horizonEnd) return sum;
+    if (!date || date <= today || date >= horizonEnd) return sum;
 
     const target = savingsGoalMoney(
       goal?.target_amount,
