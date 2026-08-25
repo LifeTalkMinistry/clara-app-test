@@ -1,0 +1,41 @@
+name: One-shot Means time progression repair
+
+on:
+  push:
+    paths:
+      - ".github/workflows/one-shot-means-time-progression.yml"
+      - "scripts/fix_means_time_progression.py"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Repair Means time progression rules
+        run: python scripts/fix_means_time_progression.py
+      - name: Verify Means progression doctrine
+        shell: python
+        run: |
+          from pathlib import Path
+          means = Path("src/runtime/installClaraOrbGreeting.js").read_text()
+          assert 'const cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);' in means
+          assert 'while (cursor < end)' in means
+          assert 'function futureScheduledAmount(user, cycleStart = localDateKey(), horizonEnd = endOfCurrentMonthKey())' in means
+          assert 'if (!date || date < cycleStart || date >= horizonEnd) return sum;' in means
+          assert 'if (!date || date >= horizonEnd) return sum;' in means
+          assert 'const otherScheduledUpcoming = futureScheduledAmount(owner, cycleStartDate, cycleEndDate);' in means
+          assert 'overdueUnpaidDebtAmount(debtObligations, cycleStartDate, cycleEndDate)' in means
+      - name: Commit repair to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/runtime/installClaraOrbGreeting.js
+          git commit -m "Make only Money Schedule decay with time"
+          git push origin HEAD:main
