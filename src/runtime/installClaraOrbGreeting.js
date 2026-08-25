@@ -328,29 +328,46 @@ function stableIncomeRecurrence(source = {}) {
   return source?.incomeRecurrence || source?.income_recurrence || null;
 }
 
-function resolveMeansHorizonDate(incomeSources = []) {
+function resolveMeansPayCycle(incomeSources = []) {
   const today = localDateKey();
+  const searchStart = addLocalDaysKey(today, -62);
   const searchEnd = addLocalDaysKey(today, 62);
-  const candidates = [];
+  const cycles = [];
 
   (Array.isArray(incomeSources) ? incomeSources : []).forEach((source) => {
     if (normalizeLower(source?.stability) !== "stable") return;
     if (source?.useForBudgetTiming === false || source?.use_for_budget_timing === false) return;
     const recurrence = stableIncomeRecurrence(source);
     if (!recurrence) return;
-
-    const occurrences = getRecurrenceOccurrences(recurrence, today, searchEnd, {
-      kind: "income",
-    });
-    // All future commitment buckets exclude today itself, so the horizon must
-    // also be the next payday strictly after today. Otherwise, on payday,
-    // the horizon collapses to today and Money Schedule, Savings Goals, and
-    // Debt / Obligations due after today all incorrectly disappear.
-    const next = occurrences.find((date) => date > today);
-    if (next) candidates.push(next);
+    const occurrences = getRecurrenceOccurrences(recurrence, searchStart, searchEnd, { kind: "income" }).sort();
+    const previous = [...occurrences].reverse().find((date) => date <= today) || "";
+    const next = occurrences.find((date) => date > today) || "";
+    if (next) cycles.push({ start: previous || today, end: next });
   });
 
-  return candidates.sort()[0] || endOfCurrentMonthKey();
+  if (!cycles.length) return { start: today, end: endOfCurrentMonthKey() };
+  return cycles.sort((a, b) => a.end.localeCompare(b.end))[0];
+}
+
+function payCycleIncomeFromSources(incomeSources = [], cycleStart = "", cycleEnd = "") {
+  return (Array.isArray(incomeSources) ? incomeSources : []).reduce((sourceSum, source) => {
+    const actualIncome = getIncomeSourceActivityLog(source).reduce((activitySum, activity) => {
+      if (normalizeLower(activity?.type) !== INCOME_HUB_CASH_IN_TYPE) return activitySum;
+      const date = localDateKey(getTransactionDate(activity));
+      if (!date || date < cycleStart || date >= cycleEnd) return activitySum;
+      return activitySum + Math.max(0, firstValidNumber(activity?.amount));
+    }, 0);
+    return sourceSum + actualIncome;
+  }, 0);
+}
+
+function payCycleSpent(expenses = [], cycleStart = "") {
+  const today = localDateKey();
+  return (Array.isArray(expenses) ? expenses : []).reduce((sum, expense) => {
+    const date = localDateKey(getTransactionDate(expense));
+    if (!date || date < cycleStart || date > today) return sum;
+    return sum + Math.abs(Number(expense?.amount || 0));
+  }, 0);
 }
 
 function parseMonthKey(monthKey) {
@@ -466,15 +483,11 @@ async function buildMeansSnapshot(profile = {}) {
     getWallets(owner).catch(() => []),
     getEmergencyFund(owner).catch(() => null),
   ]);
-  const currentMonthKey = getPHMonthKey();
-
-  const spent = (Array.isArray(expenses) ? expenses : []).reduce((sum, expense) => {
-    const date = getTransactionDate(expense);
-    if (!date || getPHMonthKey(date) !== currentMonthKey) return sum;
-    return sum + Math.abs(Number(expense?.amount || 0));
-  }, 0);
-
-  const income = currentMonthIncomeFromSources(incomeSources, currentMonthKey);
+  const payCycle = resolveMeansPayCycle(incomeSources);
+  const cycleStartDate = payCycle.start;
+  const cycleEndDate = payCycle.end;
+  const spent = payCycleSpent(expenses, cycleStartDate);
+  const income = payCycleIncomeFromSources(incomeSources, cycleStartDate, cycleEndDate);
   const canonicalWalletState = buildCanonicalWalletState({
     wallets,
     emergencyFund,
@@ -494,12 +507,11 @@ async function buildMeansSnapshot(profile = {}) {
     !(savingsProtected > 0)
   ) return null;
 
-  const horizonDate = resolveMeansHorizonDate(incomeSources);
-  const routineUpcoming = futureRoutineAmount(owner, horizonDate);
-  const scheduledUpcoming = futureScheduledAmount(owner, horizonDate);
-  const savingsGoalUpcoming = futureSavingsGoalAmount(savingsGoals, horizonDate);
-  const debtUpcoming = futureDebtObligationAmount(debtObligations, horizonDate);
-  const upcoming = routineUpcoming + scheduledUpcoming + savingsGoalUpcoming + debtUpcoming;
+  const moneyScheduleUpcoming = futureRoutineAmount(owner, cycleEndDate);
+  const otherScheduledUpcoming = futureScheduledAmount(owner, cycleEndDate);
+  const savingsGoalUpcoming = futureSavingsGoalAmount(savingsGoals, cycleEndDate);
+  const debtUpcoming = futureDebtObligationAmount(debtObligations, cycleEndDate);
+  const upcoming = debtUpcoming + savingsGoalUpcoming + moneyScheduleUpcoming + otherScheduledUpcoming;
 
   const projectedSpending = upcoming;
   const projectedRoom = availableNow - upcoming;
@@ -517,7 +529,11 @@ async function buildMeansSnapshot(profile = {}) {
     upcoming,
     savingsGoalUpcoming,
     debtUpcoming,
-    horizonDate,
+    moneyScheduleUpcoming,
+    otherScheduledUpcoming,
+    cycleStartDate,
+    cycleEndDate,
+    horizonDate: cycleEndDate,
     availableNow,
     moneyLentUnavailable,
     emergencyProtected,
@@ -604,6 +620,10 @@ function ensureMeansMetric(label, snapshot, onToggle) {
         Math.round(snapshot.upcoming),
         Math.round(snapshot.savingsGoalUpcoming || 0),
         Math.round(snapshot.debtUpcoming || 0),
+        Math.round(snapshot.moneyScheduleUpcoming || 0),
+        Math.round(snapshot.otherScheduledUpcoming || 0),
+        snapshot.cycleStartDate || "",
+        snapshot.cycleEndDate || "",
         Math.round(snapshot.availableNow || 0),
         Math.round(snapshot.moneyLentUnavailable || 0),
         Math.round(snapshot.emergencyProtected || 0),
@@ -635,7 +655,7 @@ function ensureMeansMetric(label, snapshot, onToggle) {
       </span>
       <span data-clara-means-expanded="true" style="display:${expanded ? "block" : "none"};width:min(300px,78vw);margin:10px auto 1px;padding:12px;border:1px solid rgba(112,157,229,.13);border-radius:15px;background:linear-gradient(180deg,rgba(9,21,50,.72),rgba(4,11,31,.66));box-shadow:0 14px 34px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.025);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);text-align:left">
         <strong style="display:block;font-size:10px;font-weight:900;letter-spacing:-.01em;color:rgba(255,255,255,.76)">No monthly income detected yet.</strong>
-        <span style="display:block;margin-top:5px;font-size:9.5px;font-weight:650;line-height:1.5;color:rgba(255,255,255,.40)">Once income is recorded, CLARA will calculate your score from what you have already spent plus upcoming Money Schedule, Debt / Obligations, and Savings Goal commitments.</span>
+        <span style="display:block;margin-top:5px;font-size:9.5px;font-weight:650;line-height:1.5;color:rgba(255,255,255,.40)">Once income is recorded, CLARA will calculate your pay-cycle position from money in hand, spending already recorded in this cycle, and upcoming Debt / Obligations, Savings Goals, Money Schedule, and other scheduled events.</span>
         <span style="display:block;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.06);font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">100 = living within your means</span>
       </span>
     `;
@@ -657,24 +677,26 @@ function ensureMeansMetric(label, snapshot, onToggle) {
       <span style="margin-left:1px;font-size:9px;line-height:1;color:rgba(255,255,255,.25);transform:${expanded ? "rotate(180deg)" : "none"};transition:transform 160ms ease">⌄</span>
     </span>
     <span data-clara-means-expanded="true" style="display:${expanded ? "block" : "none"};width:min(300px,78vw);margin:10px auto 1px;padding:11px 12px;border:1px solid rgba(112,157,229,.13);border-radius:15px;background:linear-gradient(180deg,rgba(9,21,50,.72),rgba(4,11,31,.66));box-shadow:0 14px 34px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.025);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);text-align:left">
-      <span style="display:flex;justify-content:space-between;gap:16px;font-size:10px;color:rgba(255,255,255,.38)"><span>Income this month</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.income)}</strong></span>
+      <span style="display:flex;justify-content:space-between;gap:16px;font-size:10px;color:rgba(255,255,255,.38)"><span>Income this pay cycle</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.income)}</strong></span>
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.50)"><span>Money in hand</span><strong style="color:rgba(255,255,255,.86)">${money(snapshot.availableNow)}</strong></span>
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.38)"><span>Already spent</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.spent)}</strong></span>
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.05);font-size:10px;color:rgba(255,255,255,.44)"><span>Upcoming commitments</span><strong style="color:rgba(255,255,255,.78)">${money(snapshot.upcoming)}</strong></span>
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;padding-left:9px;font-size:9.5px;color:rgba(255,255,255,.31)"><span>↳ Debt / obligations</span><strong style="color:rgba(255,255,255,.58)">${money(snapshot.debtUpcoming)}</strong></span>
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;padding-left:9px;font-size:9.5px;color:rgba(255,255,255,.31)"><span>↳ Savings goals</span><strong style="color:rgba(255,255,255,.58)">${money(snapshot.savingsGoalUpcoming)}</strong></span>
+      <span style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;padding-left:9px;font-size:9.5px;color:rgba(255,255,255,.31)"><span>↳ Money Schedule</span><strong style="color:rgba(255,255,255,.58)">${money(snapshot.moneyScheduleUpcoming)}</strong></span>
+      <span style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;padding-left:9px;font-size:9.5px;color:rgba(255,255,255,.31)"><span>↳ Other scheduled events</span><strong style="color:rgba(255,255,255,.58)">${money(snapshot.otherScheduledUpcoming)}</strong></span>
       ${(snapshot.emergencyProtected || snapshot.savingsProtected || snapshot.otherProtected) > 0 ? `<span style="display:block;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.05)">
         ${snapshot.emergencyProtected > 0 ? `<span style="display:flex;justify-content:space-between;gap:16px;font-size:9.5px;color:rgba(255,255,255,.30)"><span>Emergency Fund · protected</span><strong style="color:rgba(255,255,255,.50)">${money(snapshot.emergencyProtected)}</strong></span>` : ""}
         ${snapshot.savingsProtected > 0 ? `<span style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;font-size:9.5px;color:rgba(255,255,255,.30)"><span>Savings · protected</span><strong style="color:rgba(255,255,255,.50)">${money(snapshot.savingsProtected)}</strong></span>` : ""}
         ${snapshot.otherProtected > 0 ? `<span style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;font-size:9.5px;color:rgba(255,255,255,.30)"><span>Other protected money</span><strong style="color:rgba(255,255,255,.50)">${money(snapshot.otherProtected)}</strong></span>` : ""}
       </span>` : ""}
       ${snapshot.moneyLentUnavailable > 0 ? `<span style="display:flex;justify-content:space-between;gap:16px;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.05);font-size:9.5px;color:rgba(255,255,255,.30)"><span>Money lent · not available</span><strong style="color:rgba(255,255,255,.50)">${money(snapshot.moneyLentUnavailable)}</strong></span>` : ""}
-      <span style="display:flex;justify-content:space-between;gap:16px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.07);font-size:10px;color:rgba(255,255,255,.48)"><span>Room until next payday</span><strong style="color:${snapshot.projectedRoom >= 0 ? "#67e8c8" : "#ff7f8d"}">${snapshot.projectedRoom >= 0 ? "" : "−"}${money(Math.abs(snapshot.projectedRoom))}</strong></span>
+      <span style="display:flex;justify-content:space-between;gap:16px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.07);font-size:10px;color:rgba(255,255,255,.48)"><span>Room until ${formatHorizonDate(snapshot.cycleEndDate)}</span><strong style="color:${snapshot.projectedRoom >= 0 ? "#67e8c8" : "#ff7f8d"}">${snapshot.projectedRoom >= 0 ? "" : "−"}${money(Math.abs(snapshot.projectedRoom))}</strong></span>
       <span style="display:flex;align-items:center;justify-content:center;gap:5px;margin-top:7px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">
         <span>100 = living within your means</span>
         <button type="button" data-clara-means-info-toggle="true" aria-label="How the Means Score is calculated" aria-expanded="false" style="display:inline-grid;place-items:center;width:15px;height:15px;padding:0;border:1px solid rgba(255,255,255,.13);border-radius:999px;background:rgba(255,255,255,.025);color:rgba(255,255,255,.36);font-size:9px;font-weight:800;line-height:1;cursor:pointer;-webkit-tap-highlight-color:transparent">i</button>
       </span>
-      <span data-clara-means-info-copy="true" style="display:none;margin-top:7px;padding:7px 8px;border:1px solid rgba(255,255,255,.05);border-radius:9px;background:rgba(255,255,255,.018);font-size:8.5px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30);text-align:center">This score uses only your money in hand — wallet money that is not protected for Emergency Fund or Savings Goals and is not lent out — and checks whether it can carry you through ${formatHorizonDate(snapshot.horizonDate)}, your next stable payday. Future salary is not treated as available before it arrives.</span>
+      <span data-clara-means-info-copy="true" style="display:none;margin-top:7px;padding:7px 8px;border:1px solid rgba(255,255,255,.05);border-radius:9px;background:rgba(255,255,255,.018);font-size:8.5px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30);text-align:center">This score uses one pay-cycle window: ${formatHorizonDate(snapshot.cycleStartDate)} through ${formatHorizonDate(snapshot.cycleEndDate)}. Income and spending are measured inside that cycle. Upcoming commitments are the exact total of Debt / Obligations, Savings Goals, Money Schedule, and other scheduled events due before the next payday. Protected or lent money is already excluded from money in hand and is not subtracted twice.</span>
     </span>
   `;
 
