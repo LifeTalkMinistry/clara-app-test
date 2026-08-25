@@ -177,6 +177,7 @@ import "../community-feed-post-seams.css";
 import "../onboarding-money-situation-premium.css";
 import "./installClaraOrbIdleLife";
 import "./installClaraOrbGreeting";
+import "./installMeansRefreshRaceGuard";
 import "./installClaraOrbImmersiveNav";
 import "./installClaraOrbPreciseHitTarget";
 // Keep this last in the Community stack so the official CLARA blue/gold/red feed wins the cascade.
