@@ -1,0 +1,31 @@
+name: One-shot past schedule resolution
+
+on:
+  push:
+    paths:
+      - ".github/workflows/one-shot-past-schedule-resolution.yml"
+      - "scripts/add_past_schedule_resolution.py"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Add past schedule resolution banner
+        run: python scripts/add_past_schedule_resolution.py
+      - name: Verify build
+        run: npm ci && npm run build
+      - name: Commit repair to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardSchedulePanel.jsx
+          git commit -m "Prompt to resolve past schedule events"
+          git push origin HEAD:main
