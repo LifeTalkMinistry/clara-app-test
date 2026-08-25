@@ -186,6 +186,58 @@ function compactMoneySchedule(pkg = {}) {
   };
 }
 
+function buildCanonicalMeansContext(purchasePrice = 0) {
+  if (typeof window === "undefined") return null;
+  const snapshot = safeRecord(window.__claraCanonicalMeansSnapshot__);
+  if (!Object.keys(snapshot).length) return null;
+
+  const currentScore = Number(snapshot.score);
+  const availableNow = toNumber(snapshot.availableNow);
+  const upcomingCommitments = toNumber(snapshot.upcoming);
+  const currentRoomUntilPayday = Number.isFinite(Number(snapshot.projectedRoom))
+    ? Number(snapshot.projectedRoom)
+    : availableNow - upcomingCommitments;
+  const price = Math.max(0, toNumber(purchasePrice));
+  const availableAfterPurchase = price > 0 ? Math.max(0, availableNow - price) : null;
+  const projectedRoomAfterPurchase = availableAfterPurchase === null
+    ? null
+    : availableAfterPurchase - upcomingCommitments;
+  const projectedScoreAfterPurchase = availableAfterPurchase === null
+    ? null
+    : availableAfterPurchase > 0
+      ? Math.round(100 + (projectedRoomAfterPurchase / availableAfterPurchase) * 100)
+      : upcomingCommitments > 0
+        ? -100
+        : 100;
+
+  return {
+    protectionLine: 100,
+    currentScore: Number.isFinite(currentScore) ? currentScore : null,
+    projectedScoreAfterPurchase,
+    currentRoomUntilPayday,
+    projectedRoomAfterPurchase,
+    crossesProtectionLine:
+      Number.isFinite(currentScore) &&
+      projectedScoreAfterPurchase !== null &&
+      currentScore >= 100 &&
+      projectedScoreAfterPurchase < 100,
+    cycleStartDate: snapshot.cycleStartDate || null,
+    nextPayday: snapshot.cycleEndDate || snapshot.horizonDate || null,
+    spendableMoney: availableNow,
+    upcomingCommitments,
+    breakdown: {
+      debtAndObligations: toNumber(snapshot.debtUpcoming),
+      savingsGoals: toNumber(snapshot.savingsGoalUpcoming),
+      moneySchedule: toNumber(snapshot.moneyScheduleUpcoming),
+      otherScheduledEvents: toNumber(snapshot.otherScheduledUpcoming),
+    },
+    moneyLentUnavailable: toNumber(snapshot.moneyLentUnavailable),
+    savingsProtected: toNumber(snapshot.savingsProtected),
+    emergencyProtected: toNumber(snapshot.emergencyProtected),
+    dataSource: "canonical-orb-means-snapshot",
+  };
+}
+
 function buildConversationFinancialContext(assistantContext = {}, evidence = {}) {
   const understood = sanitizeEvidence(evidence);
   const purchase = {
@@ -214,8 +266,10 @@ function buildConversationFinancialContext(assistantContext = {}, evidence = {})
   const goals = safeList(savingsGoals.records).slice(0, 6).map(compactGoal);
   const price = toNumber(purchase.price);
   const spendable = toNumber(wallet.spendableTotal);
+  const means = buildCanonicalMeansContext(price);
 
   return {
+    means,
     purchaseAlreadyUnderstood: {
       item: purchase.item,
       price,
@@ -320,7 +374,11 @@ CRITICAL ARCHITECTURE RULE
 - Your financial guidance is part of the conversation itself.
 - When the purchase and price are known, actively consider how that amount fits the verified money situation. Be selective: mention only the financial facts that actually help the user decide.
 - CLARA application data owns what is financially true. You own the economic interpretation of those verified facts.
-- When CLARA supplies a current or projected Means Score, treat it as authoritative. Do not independently rebuild or contradict the Means calculation.
+- When VERIFIED FINANCIAL CONTEXT includes means, that object is the primary financial authority for Ask Before You Spend.
+- means.currentScore is the user's real current Means Score. means.projectedScoreAfterPurchase is the simulated score after this proposed purchase.
+- means.currentRoomUntilPayday and means.projectedRoomAfterPurchase are authoritative breathing-room values through means.nextPayday.
+- NEVER claim the user has no wallet, income, or Means setup when the means object is present.
+- Do not independently rebuild or contradict the Means calculation.
 - Treat 100 as the financial protection line: protect it without moralizing ordinary safe purchases.
 - Supporting facts such as wallet money, obligations, Savings Goals, Money Schedule, and life context may explain the Means position, but they must not create a competing financial verdict.
 - When CLARA already supplies a calculated financial amount, do not create a conflicting calculation.

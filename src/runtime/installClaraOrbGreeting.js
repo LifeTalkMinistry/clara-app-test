@@ -48,6 +48,7 @@ const ORB_LAUNCHER_SELECTOR = '[data-clara-orb-launcher="true"]';
 const ORB_IDLE_COPY_SELECTOR = ".clara-orb-idle-copy";
 const MEANS_METRIC_ATTR = "data-clara-orb-means-metric";
 const MEANS_PLACEHOLDER_ATTR = "data-clara-orb-means-placeholder";
+const MEANS_CONTEXT_KEY = "__claraCanonicalMeansSnapshot__";
 const INCOME_HUB_UPDATED_EVENT = "clara-income-hub-updated";
 const INCOME_HUB_CASH_IN_TYPE = "add_money";
 const SAVINGS_GOAL_SCHEDULE_SOURCE = "savings_goal_card_projection";
@@ -792,12 +793,14 @@ function installClaraOrbGreeting() {
       .then((snapshot) => {
         if (destroyed) return;
         meansSnapshot = snapshot;
+        window[MEANS_CONTEXT_KEY] = snapshot ? { ...snapshot, capturedAt: Date.now() } : null;
         if (activeLabel) ensureMeansMetric(activeLabel, meansSnapshot, toggleMeansMetric);
       })
       .catch((error) => {
         if (destroyed) return;
         console.warn("CLARA Orb Means Score unavailable:", error);
         meansSnapshot = null;
+        window[MEANS_CONTEXT_KEY] = null;
         if (activeLabel) ensureMeansMetric(activeLabel, null, toggleMeansMetric);
       })
       .finally(() => {
@@ -911,6 +914,7 @@ function installClaraOrbGreeting() {
       meansRequest = null;
       canonicalProfile = null;
       meansSnapshot = null;
+      window[MEANS_CONTEXT_KEY] = null;
       window[RUNTIME_KEY] = null;
     },
   };
