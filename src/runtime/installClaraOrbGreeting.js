@@ -25,6 +25,7 @@ import {
 import { getRecurrenceOccurrences } from "@/lib/recurringCashFlowRepository";
 import { buildCanonicalWalletState } from "@/lib/clara-wallet-money-semantics";
 import { isSavingsGoalActive } from "@/lib/savingsGoalLifecycle";
+import { MEANS_SNAPSHOT_UPDATED_EVENT } from "@/lib/clara-means-boundary";
 import { isDebtOccurrencePaid } from "@/lib/debtOccurrenceState";
 import {
   CLARA_MONEY_ROUTINE_UPDATED_EVENT,
@@ -119,7 +120,7 @@ function addLocalDaysKey(dateKey, days) {
 
 function formatHorizonDate(dateKey) {
   const match = String(dateKey || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return "the end of this month";
+  if (!match) return "the next payday";
   const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
   return new Intl.DateTimeFormat("en-PH", {
     month: "short",
@@ -380,10 +381,10 @@ function resolveMeansPayCycle(incomeSources = []) {
     const occurrences = getRecurrenceOccurrences(recurrence, searchStart, searchEnd, { kind: "income" }).sort();
     const previous = [...occurrences].reverse().find((date) => date <= today) || "";
     const next = occurrences.find((date) => date > today) || "";
-    if (next) cycles.push({ start: previous || today, end: next });
+    if (previous && next) cycles.push({ start: previous, end: next });
   });
 
-  if (!cycles.length) return { start: today, end: endOfCurrentMonthKey() };
+  if (!cycles.length) return null;
   return cycles.sort((a, b) => a.end.localeCompare(b.end))[0];
 }
 
@@ -522,6 +523,8 @@ async function buildMeansSnapshot(profile = {}) {
     getEmergencyFund(owner).catch(() => null),
   ]);
   const payCycle = resolveMeansPayCycle(incomeSources);
+  if (!payCycle) return null;
+
   const cycleStartDate = payCycle.start;
   const cycleEndDate = payCycle.end;
   const spent = payCycleSpent(expenses, cycleStartDate);
@@ -563,6 +566,7 @@ async function buildMeansSnapshot(profile = {}) {
         : 100;
 
   return {
+    hasIncomePayCycle: true,
     score,
     income,
     spent,
@@ -681,21 +685,21 @@ function ensureMeansMetric(label, snapshot, onToggle) {
     root.setAttribute(
       "aria-label",
       expanded
-        ? "Means Score details. No monthly income detected yet."
-        : "Means Score. No monthly income detected yet. Tap for details."
+        ? "Means Score details. Waiting for a valid Income Hub pay cycle."
+        : "Means Score. Waiting for a valid Income Hub pay cycle. Tap for details."
     );
     root.innerHTML = `
       <span style="display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:31px;padding:4px 10px 4px 5px;border:1px solid rgba(103,157,255,.14);border-radius:999px;background:linear-gradient(180deg,rgba(13,28,62,.68),rgba(4,10,31,.74));box-shadow:0 10px 28px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.035),0 0 20px rgba(46,110,255,.055);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)">
         <strong style="display:inline-grid;place-items:center;min-width:29px;height:23px;padding:0 6px;border:1px solid rgba(255,255,255,.07);border-radius:999px;background:rgba(255,255,255,.035);font-size:11px;font-weight:900;line-height:1;color:rgba(255,255,255,.58)">—</strong>
         <span style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;line-height:1">
           <span style="font-size:7px;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.26)">Means score</span>
-          <span style="font-size:9px;font-weight:800;letter-spacing:-.01em;color:rgba(255,255,255,.52)">Waiting for income</span>
+          <span style="font-size:9px;font-weight:800;letter-spacing:-.01em;color:rgba(255,255,255,.52)">Waiting for income timing</span>
         </span>
         <span style="margin-left:1px;font-size:9px;line-height:1;color:rgba(255,255,255,.25);transform:${expanded ? "rotate(180deg)" : "none"};transition:transform 160ms ease">⌄</span>
       </span>
       <span data-clara-means-expanded="true" style="display:${expanded ? "block" : "none"};width:min(300px,78vw);margin:10px auto 1px;padding:12px;border:1px solid rgba(112,157,229,.13);border-radius:15px;background:linear-gradient(180deg,rgba(9,21,50,.72),rgba(4,11,31,.66));box-shadow:0 14px 34px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.025);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);text-align:left">
-        <strong style="display:block;font-size:10px;font-weight:900;letter-spacing:-.01em;color:rgba(255,255,255,.76)">No monthly income detected yet.</strong>
-        <span style="display:block;margin-top:5px;font-size:9.5px;font-weight:650;line-height:1.5;color:rgba(255,255,255,.40)">Once income is recorded, CLARA will calculate your pay-cycle position from money in hand, spending already recorded in this cycle, and upcoming Debt / Obligations, Savings Goals, Money Schedule, and other scheduled events.</span>
+        <strong style="display:block;font-size:10px;font-weight:900;letter-spacing:-.01em;color:rgba(255,255,255,.76)">No valid Income Hub pay cycle detected yet.</strong>
+        <span style="display:block;margin-top:5px;font-size:9.5px;font-weight:650;line-height:1.5;color:rgba(255,255,255,.40)">Set a stable income schedule in Income Hub so CLARA can use payday-to-payday boundaries. CLARA will not substitute a calendar-month boundary.</span>
         <span style="display:block;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.06);font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">100 = living within your means</span>
       </span>
     `;
@@ -736,7 +740,7 @@ function ensureMeansMetric(label, snapshot, onToggle) {
         <span>100 = living within your means</span>
         <button type="button" data-clara-means-info-toggle="true" aria-label="How the Means Score is calculated" aria-expanded="false" style="display:inline-grid;place-items:center;width:15px;height:15px;padding:0;border:1px solid rgba(255,255,255,.13);border-radius:999px;background:rgba(255,255,255,.025);color:rgba(255,255,255,.36);font-size:9px;font-weight:800;line-height:1;cursor:pointer;-webkit-tap-highlight-color:transparent">i</button>
       </span>
-      <span data-clara-means-info-copy="true" style="display:none;margin-top:7px;padding:7px 8px;border:1px solid rgba(255,255,255,.05);border-radius:9px;background:rgba(255,255,255,.018);font-size:8.5px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30);text-align:center">This score uses one pay-cycle window: ${formatHorizonDate(snapshot.cycleStartDate)} through ${formatHorizonDate(snapshot.cycleEndDate)}. Income and spending are measured inside that cycle. Upcoming commitments are the exact total of Debt / Obligations, Savings Goals, Money Schedule, and other scheduled events due before the next payday. Protected or lent money is already excluded from money in hand and is not subtracted twice.</span>
+      <span data-clara-means-info-copy="true" style="display:none;margin-top:7px;padding:7px 8px;border:1px solid rgba(255,255,255,.05);border-radius:9px;background:rgba(255,255,255,.018);font-size:8.5px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30);text-align:center">This score uses one Income Hub pay-cycle window: ${formatHorizonDate(snapshot.cycleStartDate)} through ${formatHorizonDate(snapshot.cycleEndDate)}. Income and spending are measured inside that cycle. Upcoming commitments are the exact total of Debt / Obligations, Savings Goals, Money Schedule, and other scheduled events due before the next payday. Protected or lent money is already excluded from money in hand and is not subtracted twice.</span>
     </span>
   `;
 
@@ -770,6 +774,16 @@ function installClaraOrbGreeting() {
   let meansSnapshot = null;
   let meansRequest = null;
 
+  const publishMeansSnapshot = (snapshot) => {
+    const published = snapshot ? { ...snapshot, capturedAt: Date.now() } : null;
+    window[MEANS_CONTEXT_KEY] = published;
+    window.dispatchEvent(
+      new CustomEvent(MEANS_SNAPSHOT_UPDATED_EVENT, {
+        detail: { snapshot: published },
+      })
+    );
+  };
+
   const toggleMeansMetric = (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -786,14 +800,14 @@ function installClaraOrbGreeting() {
       .then((snapshot) => {
         if (destroyed) return;
         meansSnapshot = snapshot;
-        window[MEANS_CONTEXT_KEY] = snapshot ? { ...snapshot, capturedAt: Date.now() } : null;
+        publishMeansSnapshot(snapshot);
         if (activeLabel) ensureMeansMetric(activeLabel, meansSnapshot, toggleMeansMetric);
       })
       .catch((error) => {
         if (destroyed) return;
         console.warn("CLARA Orb Means Score unavailable:", error);
         meansSnapshot = null;
-        window[MEANS_CONTEXT_KEY] = null;
+        publishMeansSnapshot(null);
         if (activeLabel) ensureMeansMetric(activeLabel, null, toggleMeansMetric);
       })
       .finally(() => {
@@ -907,7 +921,7 @@ function installClaraOrbGreeting() {
       meansRequest = null;
       canonicalProfile = null;
       meansSnapshot = null;
-      window[MEANS_CONTEXT_KEY] = null;
+      publishMeansSnapshot(null);
       window[RUNTIME_KEY] = null;
     },
   };
