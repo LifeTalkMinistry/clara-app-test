@@ -49,6 +49,14 @@ function readProtectedBudgetAmount(plan = {}) {
   return 0;
 }
 
+function isMoneyLentWallet(wallet = {}) {
+  const type = String(wallet?.type || wallet?.wallet_type || wallet?.walletType || "")
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, "_");
+  return ["money_lent", "lent", "receivable"].includes(type);
+}
+
 export default function DashboardFinanceModalRenderer({
   financeModal,
   closeFinanceModal,
@@ -108,10 +116,13 @@ export default function DashboardFinanceModalRenderer({
 
   const walletActionAmount = Number(financeForm.amount);
   const validWalletActionAmount = Number.isFinite(walletActionAmount) && walletActionAmount > 0;
-  const transferSpendableBalance = getWalletSpendableBalance(financeModal.payload);
+  const transferIsMoneyLentReturn = isMoneyLentWallet(financeModal.payload);
+  const transferAvailableBalance = transferIsMoneyLentReturn
+    ? Math.max(getWalletDisplayBalance(financeModal.payload), 0)
+    : getWalletSpendableBalance(financeModal.payload);
   const transferDestinationValid = Boolean(financeForm.destinationWalletId);
   const transferAmountValid =
-    validWalletActionAmount && walletActionAmount <= transferSpendableBalance;
+    validWalletActionAmount && walletActionAmount <= transferAvailableBalance;
   const deleteWalletProtectedAmount = readBudgetMoney(
     financeModal.payload?.totalProtectedAmount ??
       financeModal.payload?.total_protected_amount ??
@@ -197,25 +208,31 @@ export default function DashboardFinanceModalRenderer({
 
       <FinanceActionModal
         open={financeModal.type === "transfer_money"}
-        title="Transfer money"
-        description={`Move funds from ${getWalletDisplayName(financeModal.payload)} to another wallet.`}
+        title={transferIsMoneyLentReturn ? "Record returned money" : "Transfer money"}
+        description={
+          transferIsMoneyLentReturn
+            ? `Record money returned by ${getWalletDisplayName(financeModal.payload)} into one of your real wallets.`
+            : `Move funds from ${getWalletDisplayName(financeModal.payload)} to another wallet.`
+        }
         onClose={closeFinanceModal}
         onSubmit={(event) => {
           event.preventDefault();
           transferMoneyInline();
         }}
-        submitLabel="Transfer"
+        submitLabel={transferIsMoneyLentReturn ? "Record payment" : "Transfer"}
         submitDisabled={!transferDestinationValid || !transferAmountValid}
         submitDisabledLabel={
           !transferDestinationValid
             ? "Choose Wallet"
-            : validWalletActionAmount && walletActionAmount > transferSpendableBalance
-              ? "Protected Funds"
+            : validWalletActionAmount && walletActionAmount > transferAvailableBalance
+              ? transferIsMoneyLentReturn
+                ? "Above Amount Owed"
+                : "Protected Funds"
               : "Enter Amount"
         }
         loading={financeActionLoading}
       >
-        <FinanceField label="Destination wallet">
+        <FinanceField label={transferIsMoneyLentReturn ? "Received in wallet" : "Destination wallet"}>
           <select
             value={financeForm.destinationWalletId}
             onChange={(event) =>
@@ -229,7 +246,8 @@ export default function DashboardFinanceModalRenderer({
             {wallets
               .filter(
                 (wallet) =>
-                  String(wallet.id) !== String(financeModal.payload?.id)
+                  String(wallet.id) !== String(financeModal.payload?.id) &&
+                  (!transferIsMoneyLentReturn || !isMoneyLentWallet(wallet))
               )
               .map((wallet) => (
                 <option key={wallet.id} value={String(wallet.id)}>
@@ -241,7 +259,11 @@ export default function DashboardFinanceModalRenderer({
 
         <FinanceField
           label="Amount"
-          helper={`Spendable after protected funds: ${fmt(transferSpendableBalance)}`}
+          helper={
+            transferIsMoneyLentReturn
+              ? `Still owed to you: ${fmt(transferAvailableBalance)}`
+              : `Spendable after protected funds: ${fmt(transferAvailableBalance)}`
+          }
         >
           <input
             type="number"
