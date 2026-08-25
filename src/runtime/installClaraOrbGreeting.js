@@ -166,7 +166,7 @@ function futureRoutineAmount(user, horizonEnd = endOfCurrentMonthKey()) {
   return total;
 }
 
-function futureScheduledAmount(user, horizonEnd = endOfCurrentMonthKey()) {
+function futureScheduledAmount(user, cycleStart = localDateKey(), horizonEnd = endOfCurrentMonthKey()) {
   const today = localDateKey();
 
   return parseScheduleEvents(user).reduce((sum, event) => {
@@ -180,7 +180,7 @@ function futureScheduledAmount(user, horizonEnd = endOfCurrentMonthKey()) {
       source === DEBT_OBLIGATION_SCHEDULE_SOURCE ||
       event?.debtObligationId ||
       event?.debt_obligation_id;
-    if (!date || date <= today || date >= horizonEnd) return sum;
+    if (!date || date < cycleStart || date >= horizonEnd) return sum;
     if (
       direction !== "out" ||
       event?.affectsMoney === false ||
@@ -200,7 +200,7 @@ function futureDebtObligationAmount(records = [], horizonEnd = endOfCurrentMonth
     const date = String(event?.date || "").slice(0, 10);
     const direction = String(event?.direction || "out").trim().toLowerCase();
     const amount = Number(String(event?.amount ?? "0").replace(/[₱,\s]/g, ""));
-    if (!date || date <= today || date >= horizonEnd) return sum;
+    if (!date || date >= horizonEnd) return sum;
     if (direction !== "out") return sum;
     return sum + (Number.isFinite(amount) ? Math.max(0, amount) : 0);
   }, 0);
@@ -549,7 +549,7 @@ async function buildMeansSnapshot(profile = {}) {
   ) return null;
 
   const moneyScheduleUpcoming = futureRoutineAmount(owner, cycleEndDate);
-  const otherScheduledUpcoming = futureScheduledAmount(owner, cycleEndDate);
+  const otherScheduledUpcoming = futureScheduledAmount(owner, cycleStartDate, cycleEndDate);
   const savingsGoalUpcoming = futureSavingsGoalAmount(savingsGoals, cycleEndDate);
   const debtUpcoming =
     futureDebtObligationAmount(debtObligations, cycleEndDate) +
