@@ -1,0 +1,111 @@
+name: One-shot natural Buy Check Means reply repair
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-shot-naturalize-buy-check-means-reply.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Naturalize authoritative Means reply
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('src/lib/clara-buy-check-expert-ai.js')
+          text = path.read_text()
+
+          old = '''    // Enforce the exact projected Means score in application code. Gemini may
+    // explain the result, but it cannot omit the authoritative simulation.
+    const authoritativeMeans = buildCanonicalMeansContext(mergedEvidence.price);
+    if (
+      authoritativeMeans?.purchaseSimulationApplied &&
+      authoritativeMeans.projectedScoreAfterPurchase !== null
+    ) {
+      const before = Number.isFinite(Number(authoritativeMeans.currentScore))
+        ? Number(authoritativeMeans.currentScore)
+        : null;
+      const after = Number(authoritativeMeans.projectedScoreAfterPurchase);
+      const numericTokens = reply.match(/-?\\d+(?:\\.\\d+)?/g) || [];
+      if (!numericTokens.includes(String(after))) {
+        const movement = before !== null
+          ? "Your Means Score would move from " + before + " to " + after + "."
+          : "Your projected Means Score would be " + after + ".";
+        reply = (movement + " " + reply).trim().slice(0, 720);
+      }
+    }
+'''
+
+          new = '''    // Means math is authoritative, but the visible reply should still sound
+    // like one natural CLARA sentence instead of a system-injected prefix.
+    const authoritativeMeans = buildCanonicalMeansContext(mergedEvidence.price);
+    if (
+      authoritativeMeans?.purchaseSimulationApplied &&
+      authoritativeMeans.projectedScoreAfterPurchase !== null
+    ) {
+      const before = Number.isFinite(Number(authoritativeMeans.currentScore))
+        ? Number(authoritativeMeans.currentScore)
+        : null;
+      const after = Number(authoritativeMeans.projectedScoreAfterPurchase);
+      const price = Number(mergedEvidence.price);
+      const item = clean(mergedEvidence.item || previousEvidence.item || "this purchase");
+      const roomAfter = Number(authoritativeMeans.projectedRoomAfterPurchase);
+      const roomText = Number.isFinite(roomAfter) && roomAfter >= 0
+        ? ` with about ₱${Math.round(roomAfter).toLocaleString()} left until payday`
+        : "";
+
+      if (action === "ready") {
+        const movement = before !== null
+          ? `from ${before} to ${after}`
+          : `to ${after}`;
+
+        if (after < 100) {
+          reply = `Buying ${item} for ₱${price.toLocaleString()} would move your Means Score ${movement}, which crosses your 100 protection line. I'd wait or reduce the amount. Will you still buy it?`;
+        } else if (after <= 110) {
+          reply = `Buying ${item} for ₱${price.toLocaleString()} would move your Means Score ${movement}, so you'd still be above 100 but with a thin margin${roomText}. Will you still buy it?`;
+        } else {
+          reply = `Buying ${item} for ₱${price.toLocaleString()} would move your Means Score ${movement}, so you'd still be comfortably above 100${roomText}. Will you still buy it?`;
+        }
+      } else {
+        const numericTokens = reply.match(/-?\\d+(?:\\.\\d+)?/g) || [];
+        if (!numericTokens.includes(String(after))) {
+          const movement = before !== null
+            ? `That would move your Means Score from ${before} to ${after}.`
+            : `Your projected Means Score would be ${after}.`;
+          reply = `${movement} ${reply}`.trim();
+        }
+      }
+
+      reply = reply.slice(0, 720);
+    }
+'''
+
+          if old not in text:
+            raise SystemExit('Means enforcement block not found')
+
+          text = text.replace(old, new, 1)
+          path.write_text(text)
+
+      - name: Verify natural reply enforcement
+        run: |
+          grep -q 'one natural CLARA sentence instead of a system-injected prefix' src/lib/clara-buy-check-expert-ai.js
+          grep -q 'Buying ${item} for ₱${price.toLocaleString()} would move your Means Score' src/lib/clara-buy-check-expert-ai.js
+
+      - name: Commit repair
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/lib/clara-buy-check-expert-ai.js
+          git commit -m 'Naturalize Buy Check Means replies'
+          git push origin main
