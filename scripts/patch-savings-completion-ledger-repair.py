@@ -1,7 +1,6 @@
 from pathlib import Path
 
 REPO = Path('src/lib/financeRepository.js')
-GOAL_ENGINE = Path('src/lib/clara-buy-check-goal-protection-engine.js')
 
 
 def replace_once(text, old, new, label):
@@ -9,7 +8,8 @@ def replace_once(text, old, new, label):
         raise SystemExit(f'{label} anchor missing')
     return text.replace(old, new, 1)
 
-# Repair legacy/broken Savings Goal completions at the repository boundary.
+# Repair legacy/broken Savings Goal completion ledger effects at the repository boundary.
+# Lifecycle eligibility itself is owned by src/lib/savingsGoalLifecycle.js.
 s = REPO.read_text()
 marker = 'SAVINGS_COMPLETION_LEDGER_REPAIR_V1'
 if marker not in s:
@@ -118,7 +118,6 @@ async function repairCompletedSavingsGoalLedgerEffects(repository, localUserId) 
       if (!goalId || !walletId || !wallet || amount <= 0) continue;
 
       const currentBalance = getWalletBalance(wallet);
-      // Never create a negative balance during automatic legacy repair.
       if (currentBalance + 0.0001 < amount) continue;
 
       const now = new Date().toISOString();
@@ -174,13 +173,4 @@ async function repairCompletedSavingsGoalLedgerEffects(repository, localUserId) 
     s = replace_once(s, savings_anchor, savings_override, 'decorated savings getter')
     REPO.write_text(s)
 
-# Means/Buy Check must never protect completed/deleted Savings Goals as future commitments.
-g = GOAL_ENGINE.read_text()
-means_marker = 'SAVINGS_COMPLETION_MEANS_FILTER_V1'
-if means_marker not in g:
-    old = '''  const records = (Array.isArray(context.savingsGoals) ? context.savingsGoals : []).map((goal, index) => savingsGoalSnapshot(goal, budgets, index));'''
-    new = '''  const activeSavingsGoals = (Array.isArray(context.savingsGoals) ? context.savingsGoals : []).filter((goal) => {\n    if (!goal || goal?.deletedAt || goal?.deleted_at || goal?.completedAt || goal?.completed_at) return false;\n    const status = String(goal?.completion_status || goal?.completionStatus || goal?.status || \"\").trim().toLowerCase();\n    return status !== \"completed\";\n  });\n  const records = activeSavingsGoals.map((goal, index) => savingsGoalSnapshot(goal, budgets, index)); // SAVINGS_COMPLETION_MEANS_FILTER_V1'''
-    g = replace_once(g, old, new, 'Means savings filter')
-    GOAL_ENGINE.write_text(g)
-
-print('Savings Goal completion ledger repair patched')
+print('Savings Goal completion ledger repair patched; lifecycle authority unchanged')
