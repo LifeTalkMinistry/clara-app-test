@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# One-shot repair: only the recurring Money Schedule may decay automatically as days pass.
 path = Path("src/runtime/installClaraOrbGreeting.js")
 text = path.read_text()
 
@@ -27,7 +28,6 @@ if old_other_call not in text:
     raise SystemExit('other scheduled call not found')
 text = text.replace(old_other_call, new_other_call, 1)
 
-# Guard the core doctrine: only routine money schedule decays automatically with time.
 checks = [
     'const cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);',
     'while (cursor < end) {',
