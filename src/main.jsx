@@ -28,6 +28,7 @@ import {
 } from "./runtime/installClaraGuideCarouselStep";
 import { installClaraGuideScheduleRuntime } from "./runtime/claraGuideScheduleRuntime";
 import "./runtime/installClaraRuntimePatches";
+import "./runtime/installMeansActualCommitmentGuard";
 import "./runtime/installManualExpenseKeyboardGuard";
 import "./runtime/installCommunityViewerCommentsRuntime";
 import "./runtime/installBudgetRecentReuse";
