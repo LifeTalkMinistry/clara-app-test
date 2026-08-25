@@ -51,7 +51,7 @@ function transactionReasonFromEvidence(evidence = {}) {
 }
 
 function transcript(history = []) {
-  const lines = (Array.isArray(history) ? history.slice(-12) : [])
+  const lines = (Array.isArray(history) ? history.slice(-6) : [])
     .map((message) => {
       const text = clean(message?.text || message?.content || "");
       if (!text) return "";
@@ -276,6 +276,22 @@ function buildConversationFinancialContext(assistantContext = {}, evidence = {})
   const price = toNumber(purchase.price);
   const spendable = toNumber(wallet.spendableTotal);
   const means = buildCanonicalMeansContext(price);
+
+  if (means) {
+    return {
+      means,
+      purchaseAlreadyUnderstood: {
+        item: purchase.item,
+        price,
+        suggestedTransactionReason: purchase.reason,
+      },
+      supportingContext: {
+        nextExpectedIncomeDate: income.estimatedNextIncomeDate || null,
+        nearestObligation: dueObligations[0] || null,
+        nearestScheduledEvent: upcomingSchedule[0] || null,
+      },
+    };
+  }
 
   return {
     means,
@@ -588,6 +604,26 @@ function fallbackTurn(message = "", evidence = {}, assistantContext = {}) {
     };
   }
 
+  const means = buildCanonicalMeansContext(current.price);
+  if (means?.purchaseSimulationApplied && means.projectedScoreAfterPurchase !== null) {
+    const before = Number.isFinite(Number(means.currentScore)) ? Number(means.currentScore) : null;
+    const after = Number(means.projectedScoreAfterPurchase);
+    const movement = before !== null
+      ? `from ${before} to ${after}`
+      : `to ${after}`;
+    const guidance = after >= 100
+      ? `still above your 100 protection line`
+      : `below your 100 protection line, so I'd wait or reduce the amount`;
+
+    return {
+      action: "ready",
+      reply: `₱${Number(current.price).toLocaleString()} would move your Means Score ${movement}, ${guidance}. Will you still buy it?`,
+      evidence: current,
+      readinessConfidence: 0.9,
+      source: "means-fallback",
+    };
+  }
+
   if (!transactionReasonFromEvidence(current)) {
     return {
       action: "probe",
@@ -622,7 +658,7 @@ export async function runClaraBuyCheckExpertTurn({
       feature: "ask-before-you-spend",
       prompt: buildPrompt({ message, history, evidence: previousEvidence, assistantContext }),
       temperature: 0.3,
-      maxOutputTokens: 520,
+      maxOutputTokens: 320,
       label: "CLARA universal spending conversation",
       signal,
     });
