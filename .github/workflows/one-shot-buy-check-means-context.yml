@@ -1,0 +1,40 @@
+name: One-shot Buy Check canonical Means context
+
+on:
+  push:
+    paths:
+      - ".github/workflows/one-shot-buy-check-means-context.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Wire canonical Means snapshot into Buy Check Gemini
+        run: python scripts/fix_buy_check_means_context.py
+      - name: Verify canonical Means wiring
+        shell: python
+        run: |
+          from pathlib import Path
+          orb = Path('src/runtime/installClaraOrbGreeting.js').read_text()
+          ai = Path('src/lib/clara-buy-check-expert-ai.js').read_text()
+          assert '__claraCanonicalMeansSnapshot__' in orb
+          assert 'window[MEANS_CONTEXT_KEY] = snapshot ? { ...snapshot, capturedAt: Date.now() } : null;' in orb
+          assert 'function buildCanonicalMeansContext(' in ai
+          assert 'means = buildCanonicalMeansContext(price)' in ai
+          assert 'projectedScoreAfterPurchase' in ai
+          assert 'NEVER claim the user has no wallet, income, or Means setup when the means object is present.' in ai
+      - name: Commit fix to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/runtime/installClaraOrbGreeting.js src/lib/clara-buy-check-expert-ai.js
+          git commit -m "Wire canonical Means score into Buy Check AI"
+          git push origin HEAD:main
