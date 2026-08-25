@@ -1,70 +1,41 @@
 from pathlib import Path
-import re
 
-path = Path("src/runtime/installClaraOrbGreeting.js")
-text = path.read_text()
+means_path = Path("src/runtime/installClaraOrbGreeting.js")
+text = means_path.read_text()
 
-# One financial window: today < commitment date < next stable payday.
+# One financial window only: today < commitment date < next stable payday.
+# The next salary date itself belongs to the next pay cycle.
 text = text.replace(
     'if (!date || date <= today || date > horizonEnd) return sum;',
     'if (!date || date <= today || date >= horizonEnd) return sum;'
 )
 text = text.replace('while (cursor <= end) {', 'while (cursor < end) {', 1)
 
-# Preserve negative Room values in the UI.
-if 'function signedMoney(value)' not in text:
-    marker = 'function localDateKey(value = new Date()) {'
-    if marker not in text:
-        raise SystemExit('localDateKey marker not found')
-    signed = '''function signedMoney(value) {
-  const amount = Number(value || 0);
-  const absolute = Math.abs(amount).toLocaleString("en-PH", { maximumFractionDigits: 0 });
-  return amount < 0 ? `-₱${absolute}` : `₱${absolute}`;
-}
-
-'''
-    text = text.replace(marker, signed + marker, 1)
-
-# Room must display the same canonical projectedRoom used by the Means calculation.
-room_pattern = re.compile(
-    r'(<span>Room until \$\{formatHorizonDate\(snapshot\.cycleEndDate\)\}</span>\s*<strong[^>]*>)(\$\{.*?\})(</strong>)',
-    re.S,
-)
-text, room_count = room_pattern.subn(r'\1${signedMoney(snapshot.projectedRoom)}\3', text, count=1)
-if room_count != 1:
-    raise SystemExit('Room row not found')
-
-# Explicit integrity total: visible rows must equal Upcoming commitments.
-if 'upcomingBreakdownTotal' not in text:
-    needle = '  const upcoming = debtUpcoming + savingsGoalUpcoming + moneyScheduleUpcoming + otherScheduledUpcoming;\n'
-    if needle not in text:
-        raise SystemExit('upcoming marker not found')
-    text = text.replace(
-        needle,
-        needle + '  const upcomingBreakdownTotal = debtUpcoming + savingsGoalUpcoming + moneyScheduleUpcoming + otherScheduledUpcoming;\n',
-        1,
-    )
-    text = text.replace(
-        '    upcoming,\n    savingsGoalUpcoming,',
-        '    upcoming,\n    upcomingBreakdownTotal,\n    savingsGoalUpcoming,',
-        1,
-    )
-    text = text.replace(
-        '        Math.round(snapshot.upcoming),\n        Math.round(snapshot.savingsGoalUpcoming || 0),',
-        '        Math.round(snapshot.upcoming),\n        Math.round(snapshot.upcomingBreakdownTotal || 0),\n        Math.round(snapshot.savingsGoalUpcoming || 0),',
-        1,
-    )
-
-# Hard invariants.
-if text.count('date >= horizonEnd') < 3:
-    raise SystemExit('not all commitment sources use exclusive payday boundary')
+# The canonical Means snapshot already owns all arithmetic. Keep these invariants explicit.
 for check in [
-    'while (cursor < end)',
+    'const upcoming = debtUpcoming + savingsGoalUpcoming + moneyScheduleUpcoming + otherScheduledUpcoming;',
     'const projectedRoom = availableNow - upcoming;',
-    '${signedMoney(snapshot.projectedRoom)}',
-    'upcomingBreakdownTotal',
+    '${snapshot.projectedRoom >= 0 ? "" : "−"}${money(Math.abs(snapshot.projectedRoom))}',
 ]:
     if check not in text:
-        raise SystemExit(f'missing invariant: {check}')
+        raise SystemExit(f'missing canonical Means invariant: {check}')
 
-path.write_text(text)
+if text.count('date >= horizonEnd') < 3:
+    raise SystemExit('not all dated commitment sources use the exclusive payday boundary')
+if 'while (cursor < end)' not in text:
+    raise SystemExit('Money Schedule still includes the payday boundary')
+
+means_path.write_text(text)
+
+# Remove the legacy DOM post-processor. It was independently adding overdue debt/savings
+# after the canonical snapshot rendered, causing Upcoming/Score to disagree with Room.
+main_path = Path("src/main.jsx")
+main = main_path.read_text()
+legacy_import = 'import "./runtime/installMeansActualCommitmentGuard";\n'
+if legacy_import not in main:
+    raise SystemExit('legacy Means commitment guard import not found')
+main_path.write_text(main.replace(legacy_import, '', 1))
+
+legacy_guard = Path("src/runtime/installMeansActualCommitmentGuard.js")
+if legacy_guard.exists():
+    legacy_guard.unlink()
