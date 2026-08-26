@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
+// Deployment stamp: trial preview keeps TopNav browsable while page content remains locked.
 async function source(path) {
   return readFile(new URL(`../${path}`, import.meta.url), "utf8");
 }
