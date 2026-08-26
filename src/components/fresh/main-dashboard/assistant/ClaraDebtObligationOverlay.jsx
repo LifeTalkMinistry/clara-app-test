@@ -38,10 +38,10 @@ function Bubble({ role = "assistant", children }) {
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[86%] whitespace-pre-wrap rounded-[20px] px-4 py-3 text-[13px] font-semibold leading-[1.55] shadow-[0_10px_24px_rgba(0,0,0,0.16)] ${
+        className={`max-w-[86%] whitespace-pre-wrap rounded-[20px] px-4 py-3 text-[13px] font-semibold leading-5 shadow-[0_12px_28px_rgba(0,0,0,.2)] ${
           isUser
-            ? "rounded-br-[7px] bg-[#1769ff] text-white"
-            : "rounded-bl-[7px] border border-blue-200/12 bg-[#07142b]/92 text-slate-100"
+            ? "rounded-tr-[7px] border border-blue-300/22 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] text-white"
+            : "rounded-tl-[7px] border border-blue-200/12 bg-[#0a1933]/94 text-slate-100"
         }`}
       >
         {children}
@@ -50,18 +50,19 @@ function Bubble({ role = "assistant", children }) {
   );
 }
 
-function ReplyButton({ children, onClick, secondary = false, danger = false, disabled = false }) {
+function ChoiceButton({ children, onClick, secondary = false, danger = false, disabled = false }) {
   const tone = danger
-    ? "border-rose-300/20 bg-rose-400/[0.08] text-rose-100"
+    ? "border-rose-300/18 bg-rose-500/[0.07] text-rose-100"
     : secondary
-      ? "border-blue-100/12 bg-white/[0.035] text-slate-200"
-      : "border-cyan-200/18 bg-[linear-gradient(135deg,rgba(23,105,255,0.22),rgba(43,225,216,0.10))] text-white";
+      ? "border-white/10 bg-white/[.035] text-white/82"
+      : "border-blue-300/22 bg-[#0b2144]/92 text-white shadow-[0_8px_20px_rgba(0,0,0,.16)]";
+
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`relative z-10 min-h-12 w-full touch-manipulation rounded-[17px] border px-4 py-3 text-left text-[12.5px] font-black transition active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-45 ${tone}`}
+      className={`relative z-10 w-full touch-manipulation rounded-[17px] border px-3.5 py-2.5 text-left text-[12px] font-black leading-4 transition active:scale-[.985] disabled:cursor-not-allowed disabled:opacity-40 ${tone}`}
     >
       {children}
     </button>
@@ -76,7 +77,7 @@ function Composer({ value, onChange, onSubmit, placeholder, inputMode = "text", 
         event.preventDefault();
         if (!disabled) onSubmit?.();
       }}
-      className="relative z-10 flex items-center gap-2 rounded-[22px] border border-blue-200/14 bg-[#07142b]/96 p-2 shadow-[0_14px_34px_rgba(0,0,0,0.28)]"
+      className="relative z-10 flex items-center gap-2 rounded-[22px] border border-blue-200/14 bg-[#07142b]/96 p-2 shadow-[0_14px_34px_rgba(0,0,0,.28)]"
     >
       <input
         autoFocus
@@ -90,7 +91,7 @@ function Composer({ value, onChange, onSubmit, placeholder, inputMode = "text", 
       <button
         type="submit"
         disabled={disabled || !clean(value)}
-        className="grid h-11 w-11 shrink-0 touch-manipulation place-items-center rounded-full bg-[#1769ff] text-white shadow-[0_8px_22px_rgba(23,105,255,0.34)] transition active:scale-95 disabled:opacity-40"
+        className="grid h-11 w-11 shrink-0 touch-manipulation place-items-center rounded-full bg-[#1769ff] text-white transition active:scale-95 disabled:opacity-40"
         aria-label="Send"
       >
         {disabled ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
@@ -362,20 +363,20 @@ export default function ClaraDebtObligationOverlay({
       data-clara-ai-layout-variant="debt-obligation"
       data-clara-pause-overlay="true"
       data-clara-buy-check-react-owner="true"
-      className="fixed inset-0 z-[400] mx-auto flex w-full max-w-[430px] flex-col overflow-hidden bg-[#020714] px-2 pb-[max(env(safe-area-inset-bottom),14px)] pt-[max(env(safe-area-inset-top),10px)] text-white"
+      className="fixed inset-0 z-[400] mx-auto flex w-full max-w-[430px] flex-col overflow-hidden bg-[#020714]/98 px-2 pb-[max(env(safe-area-inset-bottom),14px)] pt-[max(env(safe-area-inset-top),10px)] text-white"
     >
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_5%_4%,rgba(23,105,255,0.28),transparent_34%),radial-gradient(circle_at_96%_8%,rgba(43,225,216,0.12),transparent_34%),linear-gradient(180deg,#06152e_0%,#040b1a_44%,#020714_100%)]" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_5%_4%,rgba(23,105,255,.28),transparent_34%),radial-gradient(circle_at_96%_8%,rgba(43,225,216,.12),transparent_34%),linear-gradient(180deg,#06152e_0%,#040b1a_44%,#020714_100%)]" />
 
-      <header className="relative z-20 mx-1 min-h-[92px] shrink-0 overflow-hidden rounded-[28px] border border-blue-200/18 bg-[linear-gradient(115deg,rgba(5,26,62,0.98),rgba(7,22,48,0.98)_56%,rgba(7,31,38,0.96))] shadow-[0_16px_38px_rgba(0,0,0,0.28)]">
+      <header className="relative z-20 mx-1 shrink-0 overflow-hidden rounded-[24px] border border-blue-200/18 bg-[linear-gradient(115deg,rgba(5,26,62,.98),rgba(7,22,48,.98)_56%,rgba(7,31,38,.96))] px-4 py-3.5 pr-14 shadow-[0_16px_38px_rgba(0,0,0,.28)]">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,#1769ff,#2be1d8)]" />
-        <div className="absolute inset-0 flex flex-col items-center justify-center pr-[72px] pl-6 text-center">
-          <h1 className="text-[16px] font-black leading-none tracking-[-0.02em] text-white">Debt / Obligations</h1>
-          <p className="mt-3 text-[10.5px] font-black uppercase tracking-[0.16em] text-slate-200/72">Balance · Monthly · Due</p>
-        </div>
+        <p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#8ffff8]/78">CLARA CHAT</p>
+        <h1 className="mt-1 text-[17px] font-black tracking-[-.025em] text-white">Debt / Obligations</h1>
+        <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-100/42">Track · Review · Stay ahead</p>
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-3 top-1/2 z-30 grid h-11 w-11 -translate-y-1/2 touch-manipulation place-items-center rounded-full border border-blue-100/28 bg-[#07152d]/86 text-white/88 transition active:scale-95"
+          disabled={busy}
+          className="absolute inset-y-0 right-4 z-30 my-auto grid h-9 w-9 touch-manipulation place-items-center rounded-full border border-blue-100/28 bg-[#07152d]/86 text-white/88 transition active:scale-95 disabled:opacity-50"
           aria-label="Close Debt / Obligations"
         >
           <X className="h-4 w-4" />
@@ -392,107 +393,117 @@ export default function ClaraDebtObligationOverlay({
             <Bubble key={`${message.role}-${index}`} role={message.role}>{message.text}</Bubble>
           ))}
 
-          {loading && <Bubble>Loading your obligations…</Bubble>}
-          {error && <Bubble>{error}</Bubble>}
+          {loading ? <Bubble>Loading your obligations…</Bubble> : null}
+          {error ? (
+            <p className="rounded-[16px] border border-red-300/15 bg-red-500/[0.06] px-3.5 py-3 text-[11.5px] font-bold leading-5 text-red-100/88" aria-live="polite">
+              {error}
+            </p>
+          ) : null}
 
-          {!loading && phase === "home" && (
-            <div className="grid gap-2 pt-1">
-              <ReplyButton onClick={beginAdd}>Add a new obligation</ReplyButton>
-              <ReplyButton onClick={() => setPhase("view")}>View existing obligations</ReplyButton>
-              <ReplyButton onClick={() => setPhase("manage")} disabled={!records.length}>Edit or delete an obligation</ReplyButton>
-              <ReplyButton onClick={() => setPhase("pressure")} secondary>Review debt pressure</ReplyButton>
+          {!loading && phase === "home" ? (
+            <div className="relative z-20 mt-1 grid gap-2">
+              <ChoiceButton onClick={beginAdd}>Add a new obligation</ChoiceButton>
+              <ChoiceButton onClick={() => setPhase("view")}>View existing obligations</ChoiceButton>
+              <ChoiceButton onClick={() => setPhase("manage")} disabled={!records.length}>Edit or delete an obligation</ChoiceButton>
+              <ChoiceButton onClick={() => setPhase("pressure")} secondary>Review debt pressure</ChoiceButton>
             </div>
-          )}
+          ) : null}
 
-          {phase === "view" && (
-            <div className="grid gap-2 pt-1">
+          {phase === "view" ? (
+            <div className="relative z-20 mt-1 grid gap-2">
               {!records.length ? (
                 <Bubble>You do not have any active obligations yet.</Bubble>
               ) : records.map((record) => (
-                <div key={record.id} className="rounded-[18px] border border-white/10 bg-white/[0.035] px-4 py-3 text-[12px] font-semibold text-white/86">
+                <div key={record.id} className="rounded-[17px] border border-blue-200/10 bg-[#07142b]/76 px-3.5 py-3 text-[11.5px] font-semibold leading-5 text-white/82">
                   {summaryText(record)}
                 </div>
               ))}
-              <ReplyButton secondary onClick={() => backHome("Done")}>Back</ReplyButton>
+              <ChoiceButton secondary onClick={() => backHome("Done")}>Back</ChoiceButton>
             </div>
-          )}
+          ) : null}
 
-          {phase === "manage" && (
-            <div className="grid gap-2 pt-1">
+          {phase === "manage" ? (
+            <div className="relative z-20 mt-1 grid gap-2">
               {records.map((record) => (
-                <ReplyButton key={record.id} onClick={() => { setSelectedId(record.id); setPhase("manage-action"); }}>
+                <ChoiceButton key={record.id} onClick={() => { setSelectedId(record.id); setPhase("manage-action"); }}>
                   {summaryText(record)}
-                </ReplyButton>
+                </ChoiceButton>
               ))}
-              <ReplyButton secondary onClick={() => backHome()}>Back</ReplyButton>
+              <ChoiceButton secondary onClick={() => backHome()}>Back</ChoiceButton>
             </div>
-          )}
+          ) : null}
 
-          {phase === "manage-action" && selectedRecord && (
-            <div className="grid gap-2 pt-1">
+          {phase === "manage-action" && selectedRecord ? (
+            <div className="relative z-20 mt-1 grid gap-2">
               <Bubble>{summaryText(selectedRecord)}</Bubble>
-              <ReplyButton onClick={() => beginEdit(selectedRecord)}>Edit this obligation</ReplyButton>
-              <ReplyButton danger onClick={() => setPhase("delete-confirm")}>Delete this obligation</ReplyButton>
-              <ReplyButton secondary onClick={() => setPhase("manage")}>Back</ReplyButton>
+              <ChoiceButton onClick={() => beginEdit(selectedRecord)}>Edit this obligation</ChoiceButton>
+              <ChoiceButton danger onClick={() => setPhase("delete-confirm")}>Delete this obligation</ChoiceButton>
+              <ChoiceButton secondary onClick={() => setPhase("manage")}>Back</ChoiceButton>
             </div>
-          )}
+          ) : null}
 
-          {phase === "delete-confirm" && selectedRecord && (
-            <div className="grid gap-2 pt-1">
+          {phase === "delete-confirm" && selectedRecord ? (
+            <div className="relative z-20 mt-1 grid gap-2">
               <Bubble>Delete {getDebtTitle(selectedRecord)}? This removes it from your active Debt / Obligations records.</Bubble>
-              <ReplyButton danger disabled={busy} onClick={remove}>{busy ? "Deleting…" : "Yes, delete it"}</ReplyButton>
-              <ReplyButton secondary disabled={busy} onClick={() => setPhase("manage-action")}>Cancel</ReplyButton>
+              <ChoiceButton danger disabled={busy} onClick={remove}>{busy ? "Deleting…" : "Yes, delete it"}</ChoiceButton>
+              <ChoiceButton secondary disabled={busy} onClick={() => setPhase("manage-action")}>Cancel</ChoiceButton>
             </div>
-          )}
+          ) : null}
 
-          {phase === "pressure" && (
-            <div className="grid gap-2 pt-1">
-              <Bubble>{records.length ? `You have ${pressure.activeCount} active obligation${pressure.activeCount === 1 ? "" : "s"}. Total remaining balance: ${fmt(pressure.totalDebt)}. Monthly obligation: ${fmt(pressure.monthlyDebt)}. Current debt pressure: ${pressure.debtRatio.toFixed(0)}% (${pressure.riskLevel}).` : "You currently have no active debt or obligations recorded."}</Bubble>
-              <ReplyButton secondary onClick={() => backHome("Done")}>Back</ReplyButton>
+          {phase === "pressure" ? (
+            <div className="relative z-20 mt-1 grid gap-2">
+              <Bubble>
+                {records.length
+                  ? `You have ${pressure.activeCount} active obligation${pressure.activeCount === 1 ? "" : "s"}. Total remaining balance: ${fmt(pressure.totalDebt)}. Monthly obligation: ${fmt(pressure.monthlyDebt)}. Current debt pressure: ${pressure.debtRatio.toFixed(0)}% (${pressure.riskLevel}).`
+                  : "You currently have no active debt or obligations recorded."}
+              </Bubble>
+              <ChoiceButton secondary onClick={() => backHome("Done")}>Back</ChoiceButton>
             </div>
-          )}
+          ) : null}
 
-          {phase === "name" && <Composer value={input} onChange={setInput} onSubmit={submitName} placeholder="Name or lender" disabled={busy} />}
+          {phase === "name" ? <div className="mt-auto pt-3"><Composer value={input} onChange={setInput} onSubmit={submitName} placeholder="Name or lender" disabled={busy} /></div> : null}
 
-          {phase === "type" && (
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              {DEBT_TYPES.map((item) => <ReplyButton key={item.value} onClick={() => chooseType(item.value)}>{item.label}</ReplyButton>)}
+          {phase === "type" ? (
+            <div className="relative z-20 mt-1 grid grid-cols-2 gap-2">
+              {DEBT_TYPES.map((item) => <ChoiceButton key={item.value} onClick={() => chooseType(item.value)}>{item.label}</ChoiceButton>)}
             </div>
-          )}
+          ) : null}
 
-          {phase === "mode" && (
-            <div className="grid gap-2 pt-1">
-              <ReplyButton onClick={() => chooseMode("balance")}>Balance I’m paying off</ReplyButton>
-              <ReplyButton onClick={() => chooseMode("recurring")}>Ongoing monthly obligation</ReplyButton>
+          {phase === "mode" ? (
+            <div className="relative z-20 mt-1 grid gap-2">
+              <ChoiceButton onClick={() => chooseMode("balance")}>Balance I’m paying off</ChoiceButton>
+              <ChoiceButton onClick={() => chooseMode("recurring")}>Ongoing monthly obligation</ChoiceButton>
             </div>
-          )}
+          ) : null}
 
-          {phase === "balance" && <Composer value={input} onChange={(value) => setInput(cleanMoney(value))} onSubmit={submitBalance} placeholder="Remaining balance" inputMode="decimal" disabled={busy} />}
-          {phase === "monthly" && <Composer value={input} onChange={(value) => setInput(cleanMoney(value))} onSubmit={submitMonthly} placeholder="Monthly payment" inputMode="decimal" disabled={busy} />}
-          {phase === "interest" && <Composer value={input} onChange={(value) => setInput(cleanMoney(value))} onSubmit={submitInterest} placeholder="Annual interest %" inputMode="decimal" disabled={busy} />}
+          {phase === "balance" ? <div className="mt-auto pt-3"><Composer value={input} onChange={(value) => setInput(cleanMoney(value))} onSubmit={submitBalance} placeholder="Remaining balance" inputMode="decimal" disabled={busy} /></div> : null}
+          {phase === "monthly" ? <div className="mt-auto pt-3"><Composer value={input} onChange={(value) => setInput(cleanMoney(value))} onSubmit={submitMonthly} placeholder="Monthly payment" inputMode="decimal" disabled={busy} /></div> : null}
+          {phase === "interest" ? <div className="mt-auto pt-3"><Composer value={input} onChange={(value) => setInput(cleanMoney(value))} onSubmit={submitInterest} placeholder="Annual interest %" inputMode="decimal" disabled={busy} /></div> : null}
 
-          {phase === "due" && (
-            <div className="grid gap-2 pt-1">
+          {phase === "due" ? (
+            <div className="mt-auto grid gap-2 pt-3">
               <Composer value={input} onChange={(value) => setInput(String(value).replace(/[^0-9]/g, "").slice(0, 2))} onSubmit={() => finishDue(false)} placeholder="Due day (1–31)" inputMode="numeric" disabled={busy} />
-              <ReplyButton secondary disabled={busy} onClick={() => finishDue(true)}>Skip due day</ReplyButton>
+              <ChoiceButton secondary disabled={busy} onClick={() => finishDue(true)}>Skip due day</ChoiceButton>
             </div>
-          )}
+          ) : null}
 
-          {phase === "review" && (
-            <div className="grid gap-2 pt-1">
-              <div className="rounded-[20px] border border-cyan-300/15 bg-cyan-300/[0.05] p-4 text-[12px] font-semibold leading-6 text-white/86">
-                <div><span className="text-white/45">Name:</span> {draft.title}</div>
-                <div><span className="text-white/45">Type:</span> {DEBT_TYPES.find((item) => item.value === draft.debtType)?.label || draft.debtType}</div>
-                <div><span className="text-white/45">Mode:</span> {draft.obligationMode === "recurring" ? "Ongoing monthly" : "Balance payoff"}</div>
-                {draft.obligationMode === "balance" && <div><span className="text-white/45">Remaining:</span> {fmt(draft.totalDebt)}</div>}
-                <div><span className="text-white/45">Monthly:</span> {fmt(draft.monthlyDebt)}</div>
-                {draft.obligationMode === "balance" && <div><span className="text-white/45">Interest:</span> {toDebtNumber(draft.interestRate)}%</div>}
-                <div><span className="text-white/45">Due day:</span> {draft.dueDay || "Not set"}</div>
+          {phase === "review" ? (
+            <div className="relative z-20 mt-1 grid gap-2">
+              <div className="rounded-[18px] border border-blue-300/12 bg-[#07172f]/84 p-3.5 text-[11.5px] font-semibold leading-5 text-white/82">
+                <div><span className="text-white/42">Name:</span> {draft.title}</div>
+                <div><span className="text-white/42">Type:</span> {DEBT_TYPES.find((item) => item.value === draft.debtType)?.label || draft.debtType}</div>
+                <div><span className="text-white/42">Mode:</span> {draft.obligationMode === "recurring" ? "Ongoing monthly" : "Balance payoff"}</div>
+                {draft.obligationMode === "balance" ? <div><span className="text-white/42">Remaining:</span> {fmt(draft.totalDebt)}</div> : null}
+                <div><span className="text-white/42">Monthly:</span> {fmt(draft.monthlyDebt)}</div>
+                {draft.obligationMode === "balance" ? <div><span className="text-white/42">Interest:</span> {toDebtNumber(draft.interestRate)}%</div> : null}
+                <div><span className="text-white/42">Due day:</span> {draft.dueDay || "Not set"}</div>
               </div>
-              <ReplyButton disabled={busy} onClick={save}>{busy ? "Saving…" : draft.id ? "Save changes" : "Save obligation"}</ReplyButton>
-              <ReplyButton secondary disabled={busy} onClick={() => backHome("Cancel")}>Cancel</ReplyButton>
+              <div className="grid grid-cols-2 gap-2.5">
+                <ChoiceButton disabled={busy} onClick={save}>{busy ? "Saving…" : draft.id ? "Save changes" : "Save obligation"}</ChoiceButton>
+                <ChoiceButton secondary disabled={busy} onClick={() => backHome("Cancel")}>Cancel</ChoiceButton>
+              </div>
             </div>
-          )}
+          ) : null}
         </div>
       </main>
     </div>
