@@ -1,3 +1,4 @@
+import "./installWeeklyCrossCheckForegroundOwnership";
 import { getEffectiveDemoFinanceLocalUserId } from "@/lib/demo/activeDemoProfile";
 import { reconcileWeeklyMoneyCheckWallets } from "@/lib/weeklyMoneyCheckReconciliationRepository";
 import { WEEKLY_MONEY_CHECK_UPDATED_EVENT } from "@/lib/weeklyMoneyCheckState";
