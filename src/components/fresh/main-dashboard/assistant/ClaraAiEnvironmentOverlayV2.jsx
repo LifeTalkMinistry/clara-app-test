@@ -116,8 +116,14 @@ function PauseEntryBoard({ onReadyChange }) {
     >
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,#1769ff_0%,#1769ff_42%,#ffd84a_42%,#ffd84a_56%,#e53945_56%,#e53945_100%)]" />
       <p className="text-[9px] font-black uppercase tracking-[0.22em] text-blue-200/52">BUY CHECK</p>
-      <strong className="mt-4 block text-[18px] font-black leading-[1.4] text-white/95">What are you thinking about buying?</strong>
-      <span className="mt-2 block text-[12px] font-semibold leading-[1.55] text-slate-300/72">Tell CLARA the item and price if you already know it.</span>
+      <div
+        data-clara-buy-check-active-question="true"
+        aria-live="polite"
+        className="mx-auto mt-4 max-w-[318px] text-center"
+      >
+        <strong className="block text-[18px] font-black leading-[1.4] text-white/95">What are you thinking about buying?</strong>
+        <span className="mt-2 block text-[12px] font-semibold leading-[1.55] text-slate-300/72">Tell CLARA the item and price if you already know it.</span>
+      </div>
     </section>
   );
 }
