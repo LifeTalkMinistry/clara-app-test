@@ -1,13 +1,15 @@
 import { requestGeminiJson } from "./clara-gemini-json-utils";
 import {
-  buildClaraPurchaseMetricImpact,
-  formatClaraMetricImpactLine,
-} from "./clara-buy-check-metric-impact.js";
+  buildClaraBuyCheckPaymentImpact,
+  formatClaraBuyCheckPaymentImpactLine,
+} from "./clara-buy-check-payment-impact.js";
 import {
   CLARA_BUY_CHECK_PHASE,
   applyLocalPurchaseFacts,
+  claraPaymentAmountDueNow,
   compactClaraPurchaseContext,
-  hasConfirmedClaraPurchasePrice,
+  getClaraBuyCheckMissingDecisionField,
+  hasConfirmedClaraPaymentStructure,
   isClaraPurchaseContextMature,
   mergeClaraPurchaseEvidence,
   routeClaraBuyCheckPhase,
@@ -17,6 +19,11 @@ import {
 
 const clean = (value = "") => String(value ?? "").replace(/\s+/g, " ").trim();
 const ASK_MORE_PATTERN = /\b(ask\s+more|more\s+before\s+deciding|still\s+unsure|not\s+sure|explain\s+more)\b/i;
+const READINESS_CLAIM_PATTERN = /\b(i have everything i need|we(?:'re| are) ready to calculate|i can evaluate this now|ready to calculate|ready for the metric)\b/i;
+const POSITIVE_OPENING_BIAS_PATTERN = /\b(sounds nice|sounds great|sounds exciting|that sounds nice|that sounds great|exciting purchase)\b/i;
+const PERMISSION_BIAS_PATTERN = /\b(go for it|plenty of cushion|you can afford it|you can afford this|you have room for it|safe to buy|no problem buying)\b/i;
+const NEED_PATTERN = /\b(need|necessary|replace|replacement|broken|broke|unusable|work|school|medical|required|must)\b/i;
+const WANT_PATTERN = /\b(just like|design|want it|looks good|nice to have|already have enough|nothing happens|can wait|not urgent)\b/i;
 
 function firstName(value = "") {
   return clean(value).split(/\s+/).filter(Boolean)[0] || "";
@@ -42,7 +49,9 @@ function userNameFromContext(context = {}) {
 
 function peso(value = 0) {
   const amount = Number(value);
-  return `₱${(Number.isFinite(amount) ? amount : 0).toLocaleString("en-PH", { maximumFractionDigits: 0 })}`;
+  return `₱${(Number.isFinite(amount) ? amount : 0).toLocaleString("en-PH", {
+    maximumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+  })}`;
 }
 
 function transcript(history = [], limit = 4) {
@@ -59,11 +68,15 @@ function transcript(history = [], limit = 4) {
 function basePrompt() {
   return `FEATURE: ASK BEFORE YOU SPEND / BUY CHECK
 You are CLARA, a personal money accountability companion.
-Be warm, direct, human, and brief.
-Ask one question at a time.
+Be warm, neutral, direct, human, and brief.
+Never praise or emotionally validate a purchase before evaluating it.
+Ask at most ONE decision-seeking question in a reply.
+Never join two separate unknowns with "and".
 Never lecture or sound like a report.
 Never invent a financial fact.
-The application owns every financial calculation.
+The application owns every financial calculation and every readiness decision.
+Gemini only extracts language evidence and explains application-calculated results.
+Never say "I have everything I need", "we're ready to calculate", or similar readiness claims.
 All unlabelled purchase amounts are Philippine pesos (₱). Never render a peso amount with $.`;
 }
 
@@ -74,11 +87,15 @@ export function buildEstablishPrompt({ message = "", history = [], evidence = {}
 PHASE 1 — ESTABLISH
 This is the first CLARA response in this Buy Check session.
 Establish connection in seconds, not through length.
-Acknowledge what the user already said, then ask ONE useful question.
-If they already named an item or price, do not ask for it again.
-If they entered directly with a purchase, greet naturally while acknowledging it.
+Acknowledge the purchase neutrally: "Got it—a ..." is good.
+Do NOT say an item sounds nice, exciting, great, or worth buying.
+Extract every decision-relevant fact the user already supplied before deciding whether a question is useful.
+Do not ask a question merely because this is the first turn.
+If one critical fact is still missing, ask only the single question whose answer could change the decision most.
+If the payment amount or payment structure is ambiguous, resolving the money takes priority over motivation.
+Do not ask about style, category, occasion, or other trivia when need/urgency is already clear.
 Do not mention Means Score, affordability, wallets, schedules, debts, savings, or a verdict.
-Visible reply: 10–25 words.
+Visible reply: 8–25 words.
 
 User name: ${name || "unknown"}
 Known purchase facts from the app:
@@ -90,16 +107,26 @@ ${transcript(history, 2)}
 Latest user message:
 ${clean(message)}
 
-Extract only purchase facts the user actually stated or clearly confirmed.
-If the message contains multiple amounts, discounts, vouchers, installments, deposits, or another ambiguous payable amount, you may propose the actual payable amount as priceCandidate but set priceNeedsConfirmation=true. Never declare that candidate confirmed yourself.
+Extract only purchase facts and decision context the user actually stated.
+For ambiguous discounts/installments, Gemini may propose candidate payment facts, but it must set paymentNeedsConfirmation=true.
+Gemini never makes an inferred amount or payment structure authoritative.
 
 Return JSON only:
 {
-  "reply": "short natural response",
+  "reply": "short neutral response or one useful question",
   "evidence": {
     "item": "",
     "priceCandidate": 0,
     "priceNeedsConfirmation": false,
+    "purchaseType": "",
+    "amountDueNow": 0,
+    "paymentAmount": 0,
+    "remainingPayments": 0,
+    "totalPayments": 0,
+    "totalCommitment": 0,
+    "frequency": "",
+    "fees": 0,
+    "paymentNeedsConfirmation": false,
     "purpose": "",
     "currentSituation": "",
     "urgency": "",
@@ -117,13 +144,14 @@ export function buildDiscoveryPrompt({ message = "", history = [], evidence = {}
 
 PHASE 2 — UNDERSTAND
 Do not discuss the user's financial position yet.
-Your only job is to understand whether this purchase actually matters enough to make a useful decision.
-Ask ONE short question only when information is still missing.
-Useful missing signals include purpose, current situation, urgency, what happens if they wait, timing, a constraint, or a realistic alternative.
-Do not ask something already answered.
-If the payable amount is ambiguous, confirm the exact amount before anything financial is calculated.
-If the latest answer completes the needed context, do not pad the conversation or ask another unnecessary question. A short acknowledgment is enough; the application may immediately move to the metric phase after your evidence is returned.
-Visible reply: 8–20 words.
+Your job is to extract decision evidence and ask only what could materially change the recommendation.
+Decision-relevant unknowns are: need, urgency, current situation, consequence of waiting, realistic alternatives, timing, meaningful constraint, or authoritative payable structure.
+Never ask lifestyle trivia.
+Never ask something already answered.
+If the payable amount or payment structure is ambiguous, confirm that before motivation.
+Ask AT MOST ONE decision-seeking question.
+If the latest answer completes the decision context, do not invent another question. A short acknowledgment is enough; the application alone decides whether Metric unlocks.
+Visible reply: 6–20 words.
 
 Purchase context already known:
 ${JSON.stringify(compactClaraPurchaseContext(evidence), null, 2)}
@@ -134,7 +162,9 @@ ${transcript(history, 4)}
 Latest user message:
 ${clean(message)}
 
-Extract only newly supported facts. For an ambiguous payable amount, set priceCandidate and priceNeedsConfirmation=true. Gemini never confirms money by itself.
+Extract only newly supported facts.
+For ambiguous money, return a candidate with priceNeedsConfirmation/paymentNeedsConfirmation=true.
+Gemini never confirms money and never declares readiness.
 
 Return JSON only:
 {
@@ -143,6 +173,15 @@ Return JSON only:
     "item": "",
     "priceCandidate": 0,
     "priceNeedsConfirmation": false,
+    "purchaseType": "",
+    "amountDueNow": 0,
+    "paymentAmount": 0,
+    "remainingPayments": 0,
+    "totalPayments": 0,
+    "totalCommitment": 0,
+    "frequency": "",
+    "fees": 0,
+    "paymentNeedsConfirmation": false,
     "purpose": "",
     "currentSituation": "",
     "urgency": "",
@@ -160,11 +199,30 @@ export function buildMetricPrompt({ evidence = {}, metric = {} } = {}) {
 
 PHASE 3 — METRIC DECISION
 The application has already calculated the financial effect. Do NOT recalculate it.
+
+GOVERNING RULE:
+100 IS A PROTECTION LINE, NOT A PERMISSION LINE.
+"I can absorb this" is NOT the same as "this is a good use of my money."
+
 Use the authoritative consequence sentence exactly once.
-Then give ONE short practical interpretation or recommendation based on the purchase reason and the result.
-Protect the Means Score 100 line without automatically discouraging harmless wants.
-End with a short natural version of: "Still buying it?"
-Visible reply: normally 20–45 words, maximum 2 short sentences.
+Then make ONE short accountability interpretation using:
+- necessity
+- urgency
+- current situation
+- consequence of waiting
+- existing alternatives
+- value of the purchase
+- any future installment commitment already calculated by the application
+
+For unnecessary wants, generally lean toward preserving financial room.
+For genuine needs, you may be supportive while still communicating the consequence.
+If the protection line is crossed, become materially more cautious.
+Do not be moralistic.
+Do not automatically discourage spending.
+Do not automatically permit spending.
+Never say "go for it", "plenty of cushion", "you can afford it", or "you have room for it" merely because the projected score stays above 100.
+End with one short user-choice question such as "Still buying it?"
+Visible reply: normally 20–55 words, maximum 2 short sentences.
 Never use labels like "Means impact", "New pressure", arrows, or parenthetical score deltas.
 
 Purchase context:
@@ -178,22 +236,53 @@ ${clean(metric.metricSentence)}
 
 Return JSON only:
 {
-  "reply": "short decision-stage reply",
+  "reply": "short accountability decision-stage reply",
   "recommendation": "buy" | "wait" | "reconsider"
 }`;
 }
 
 function normalizeModelEvidence(value = {}, current = {}) {
   const source = value && typeof value === "object" ? value : {};
-  const next = sanitizeClaraPurchaseEvidence({ ...current, ...source });
-  const candidate = Number(source.priceCandidate);
-  const needsConfirmation = source.priceNeedsConfirmation === true;
+  const languageOnly = {
+    ...current,
+    item: clean(source.item) || current.item,
+    purpose: clean(source.purpose) || current.purpose,
+    currentSituation: clean(source.currentSituation) || current.currentSituation,
+    urgency: clean(source.urgency) || current.urgency,
+    consequenceOfWaiting: clean(source.consequenceOfWaiting) || current.consequenceOfWaiting,
+    alternatives: clean(source.alternatives) || current.alternatives,
+    timing: clean(source.timing) || current.timing,
+    constraints: clean(source.constraints) || current.constraints,
+    readinessSummary: clean(source.readinessSummary) || current.readinessSummary,
+  };
+  let next = sanitizeClaraPurchaseEvidence(languageOnly);
 
-  if (!hasConfirmedClaraPurchasePrice(current) && needsConfirmation && Number.isFinite(candidate) && candidate > 0) {
-    delete next.price;
-    delete next.priceSource;
-    next.priceCandidate = candidate;
-    next.priceStatus = "needs_confirmation";
+  if (!hasConfirmedClaraPaymentStructure(current)) {
+    const priceCandidate = Number(source.priceCandidate);
+    if (source.priceNeedsConfirmation === true && Number.isFinite(priceCandidate) && priceCandidate > 0) {
+      next = sanitizeClaraPurchaseEvidence({
+        ...next,
+        purchaseType: "one_time",
+        priceCandidate,
+        priceStatus: "needs_confirmation",
+      });
+    }
+
+    if (clean(source.purchaseType).toLowerCase() === "installment" && source.paymentNeedsConfirmation === true) {
+      next = sanitizeClaraPurchaseEvidence({
+        ...next,
+        purchaseType: "installment",
+        amountDueNow: Number(source.amountDueNow || 0),
+        paymentAmount: Number(source.paymentAmount || 0),
+        remainingPayments: Number(source.remainingPayments || 0),
+        totalPayments: Number(source.totalPayments || 0),
+        totalCommitment: Number(source.totalCommitment || 0),
+        frequency: clean(source.frequency || "monthly"),
+        fees: Number(source.fees || 0),
+        paymentStructureStatus: "needs_confirmation",
+        paymentStructureSource: "gemini_candidate",
+      });
+    }
   }
 
   return next;
@@ -204,19 +293,41 @@ function metricPacket(impact = {}) {
     scoreBefore: impact?.currentScore ?? null,
     scoreAfter: impact?.projectedScoreAfterPurchase ?? null,
     incrementalImpact: Number(impact?.incrementalImpact || 0),
+    currentCashImpact: Number(impact?.currentCashImpact ?? impact?.purchasePrice ?? 0),
     alreadyAccounted: Number(impact?.alreadyAccountedAmount || 0),
+    futureRequiredCommitment: Number(impact?.futureRequiredCommitment || 0),
+    totalCommitment: Number(impact?.totalCommitment ?? impact?.purchasePrice ?? 0),
+    futureCommitmentIncludedInCurrentScore: Boolean(impact?.futureCommitmentIncludedInCurrentScore),
     crossesProtectionLine: Boolean(impact?.crossesProtectionLine),
     protectionLine: 100,
-    metricSentence: formatClaraMetricImpactLine(impact),
+    metricSentence: formatClaraBuyCheckPaymentImpactLine(impact),
+  };
+}
+
+function paymentStructureForMetric(evidence = {}) {
+  const source = sanitizeClaraPurchaseEvidence(evidence);
+  if (source.purchaseType !== "installment") return null;
+  return {
+    purchaseType: "installment",
+    amountDueNow: Number(source.amountDueNow || 0),
+    paymentAmount: Number(source.paymentAmount || 0),
+    remainingPayments: Number(source.remainingPayments || 0),
+    totalPayments: Number(source.totalPayments || 0),
+    totalCommitment: Number(source.totalCommitment || 0),
+    frequency: source.frequency || "monthly",
+    fees: Number(source.fees || 0),
   };
 }
 
 function buildMetricImpact(evidence = {}, assistantContext = {}) {
   const source = sanitizeClaraPurchaseEvidence(evidence);
-  if (!hasConfirmedClaraPurchasePrice(source)) return null;
-  return buildClaraPurchaseMetricImpact({
-    purchasePrice: Number(source.price),
+  if (!hasConfirmedClaraPaymentStructure(source)) return null;
+  const amountDueNow = claraPaymentAmountDueNow(source);
+  if (!(amountDueNow > 0)) return null;
+  return buildClaraBuyCheckPaymentImpact({
+    purchasePrice: amountDueNow,
     item: clean(source.item),
+    paymentStructure: paymentStructureForMetric(source),
     assistantContext,
   });
 }
@@ -225,42 +336,117 @@ async function requestPhaseJson(prompt, phase, signal) {
   return requestGeminiJson({
     feature: "ask-before-you-spend",
     prompt,
-    temperature: phase === CLARA_BUY_CHECK_PHASE.METRIC ? 0.2 : 0.35,
-    maxOutputTokens: 220,
+    temperature: phase === CLARA_BUY_CHECK_PHASE.METRIC ? 0.2 : 0.3,
+    maxOutputTokens: 240,
     label: `CLARA Buy Check ${phase}`,
     signal,
   });
 }
 
-function fallbackEstablish({ evidence = {}, assistantContext = {} } = {}) {
+function paymentConfirmationQuestion(evidence = {}) {
   const source = sanitizeClaraPurchaseEvidence(evidence);
-  const name = firstName(userNameFromContext(assistantContext));
-  const hello = `Hey${name ? ` ${name}` : ""} 👋`;
-  if (!source.item) return `${hello} What are you thinking about buying?`;
-  if (!hasConfirmedClaraPurchasePrice(source)) return `${hello} Got you—the ${source.item}. How much will you actually pay for it?`;
-  return `${hello} Got you—the ${source.item} at ${peso(source.price)}. What’s making you want it?`;
+  if (source.purchaseType === "installment") {
+    const dueNow = Number(source.amountDueNow || 0);
+    const payment = Number(source.paymentAmount || 0);
+    const remaining = Number(source.remainingPayments);
+    const total = Number(source.totalCommitment || 0);
+    if (dueNow > 0 && payment > 0 && Number.isInteger(remaining) && remaining >= 0 && total > 0) {
+      const future = remaining
+        ? `, then ${remaining} more ${source.frequency || "monthly"} payment${remaining === 1 ? "" : "s"} of ${peso(payment)}`
+        : "";
+      return `Just to confirm: ${peso(dueNow)} is due now${future}, for ${peso(total)} total, right?`;
+    }
+    return "What’s the exact installment structure, including what’s due now and the remaining payments?";
+  }
+  if (Number(source.priceCandidate) > 0) {
+    return `So you’ll actually pay ${peso(source.priceCandidate)}, right?`;
+  }
+  return "What’s the exact amount you’ll actually pay after everything?";
 }
 
-function fallbackDiscovery(evidence = {}) {
+function fallbackDiscovery(evidence = {}, { assistantContext = {}, establishing = false } = {}) {
   const source = sanitizeClaraPurchaseEvidence(evidence);
-  if (source.priceStatus === "needs_confirmation") {
-    if (Number(source.priceCandidate) > 0) return `Just to confirm, you’ll actually pay ${peso(source.priceCandidate)}, right?`;
-    return "What’s the exact amount you’ll actually pay after everything?";
+  const missing = getClaraBuyCheckMissingDecisionField(source);
+  const name = firstName(userNameFromContext(assistantContext));
+  const hello = establishing ? `Hey${name ? ` ${name}` : ""}! ` : "";
+
+  if (missing === "item") return `${hello}What are you thinking about buying?`;
+  if (missing === "payment") {
+    const question = paymentConfirmationQuestion(source);
+    return establishing && source.item ? `${hello}Got it—the ${source.item}. ${question}` : question;
   }
-  if (!source.item) return "What are you thinking about buying?";
-  if (!hasConfirmedClaraPurchasePrice(source)) return `How much will you actually pay for the ${source.item}?`;
-  if (!clean(source.purpose)) return "What’s making you want or need it?";
-  return "If you wait, would anything important actually be affected?";
+
+  const amount = claraPaymentAmountDueNow(source);
+  const purchase = source.item
+    ? `${amount > 0 ? `${peso(amount)} ` : ""}${source.item}`
+    : "purchase";
+
+  if (missing === "purpose") {
+    return `${hello}Got it—a ${purchase}. What’s making you want or need it?`;
+  }
+  if (missing === "decision_signal") {
+    return "Would anything important happen if you waited?";
+  }
+  return `${hello}Got it.`;
+}
+
+function isSafeModelDiscoveryReply(reply = "", missing = "") {
+  const text = clean(reply);
+  if (!text) return false;
+  if (READINESS_CLAIM_PATTERN.test(text) || POSITIVE_OPENING_BIAS_PATTERN.test(text)) return false;
+  const questionCount = (text.match(/\?/g) || []).length;
+  if (questionCount > 1) return false;
+  if (missing && questionCount === 0) return false;
+  if (missing === "payment") return false;
+  return true;
+}
+
+function looksLikeGenuineNeed(evidence = {}) {
+  const source = sanitizeClaraPurchaseEvidence(evidence);
+  return NEED_PATTERN.test(
+    [source.purpose, source.currentSituation, source.urgency].filter(Boolean).join(" "),
+  );
+}
+
+function looksLikePureWant(evidence = {}) {
+  const source = sanitizeClaraPurchaseEvidence(evidence);
+  return WANT_PATTERN.test(
+    [source.purpose, source.currentSituation, source.consequenceOfWaiting, source.alternatives]
+      .filter(Boolean)
+      .join(" "),
+  );
 }
 
 function fallbackMetric(evidence = {}, impact = {}) {
   const metric = metricPacket(impact);
   const after = Number(metric.scoreAfter);
-  if (!metric.metricSentence) return "I understand the purchase, but I can’t verify the Means impact yet.";
+  const sentence = clean(metric.metricSentence);
+  if (!sentence) return "I understand the purchase, but I can’t verify the Means impact yet.";
+
   if (Number.isFinite(after) && after < 100) {
-    return `${metric.metricSentence} That puts you below 100, so I’d wait or reduce the cost. Still buying it?`;
+    if (looksLikeGenuineNeed(evidence)) {
+      return `${sentence} That crosses the 100 protection line, so if this is necessary, I’d first look for a cheaper way to cover the need. Still buying it?`;
+    }
+    return `${sentence} That crosses the 100 protection line, so I’d wait or reduce the cost rather than give up that runway for this purchase. Still buying it?`;
   }
-  return `${metric.metricSentence} You’d still be above 100, so you have room for it. Still buying it?`;
+
+  if (looksLikeGenuineNeed(evidence)) {
+    return `${sentence} Given what you’ve told me, this looks like a necessary purchase rather than just a want. Still buying it?`;
+  }
+
+  if (looksLikePureWant(evidence)) {
+    return `${sentence} Since waiting doesn’t cost you anything, I’d preserve that financial room unless this is genuinely worth the money to you. Still buying it?`;
+  }
+
+  return `${sentence} Staying above 100 means your runway can absorb it, but that alone doesn’t make it a good use of your money. Still buying it?`;
+}
+
+function isSafeMetricReply(reply = "", metric = {}) {
+  const text = clean(reply);
+  if (!text || PERMISSION_BIAS_PATTERN.test(text) || READINESS_CLAIM_PATTERN.test(text)) return false;
+  if ((text.match(/\?/g) || []).length > 1) return false;
+  if (Number(metric.scoreAfter) < 100 && /\b(go ahead|buy it|recommend buying|good to buy)\b/i.test(text)) return false;
+  return true;
 }
 
 async function runMetricTurn({ evidence, assistantContext, signal } = {}) {
@@ -283,15 +469,18 @@ async function runMetricTurn({ evidence, assistantContext, signal } = {}) {
       CLARA_BUY_CHECK_PHASE.METRIC,
       signal,
     );
-    const reply = clean(json?.reply);
+    const modelReply = clean(json?.reply);
+    const reply = isSafeMetricReply(modelReply, metric)
+      ? modelReply
+      : fallbackMetric(evidence, impact);
     return {
       action: "ready",
-      reply: reply || fallbackMetric(evidence, impact),
+      reply,
       evidence,
       readinessConfidence: 0.95,
       recommendation: clean(json?.recommendation),
       metric,
-      source: "ai-metric",
+      source: isSafeMetricReply(modelReply, metric) ? "ai-metric" : "metric-guardrail",
       model,
       phase: CLARA_BUY_CHECK_PHASE.METRIC,
     };
@@ -339,18 +528,23 @@ export async function runClaraBuyCheckExpertTurn({
     const modelEvidence = normalizeModelEvidence(json?.evidence, locallyUpdated);
     const mergedEvidence = mergeClaraPurchaseEvidence(locallyUpdated, modelEvidence);
 
-    // The discovery Gemini call supplies language understanding only. Once that
-    // evidence completes the decision context, the app calculates Means locally
-    // and sends only the compact result into the metric Gemini prompt.
-    if (phase === CLARA_BUY_CHECK_PHASE.DISCOVER && !askMore && isClaraPurchaseContextMature(mergedEvidence)) {
+    // Gemini only supplies language evidence. The application merges it and
+    // deterministically decides whether the Metric phase is actually unlocked.
+    if (!askMore && isClaraPurchaseContextMature(mergedEvidence)) {
       return runMetricTurn({ evidence: mergedEvidence, assistantContext, signal });
     }
 
-    const reply = clean(json?.reply) || (phase === CLARA_BUY_CHECK_PHASE.ESTABLISH
-      ? fallbackEstablish({ evidence: mergedEvidence, assistantContext })
-      : askMore && isClaraPurchaseContextMature(mergedEvidence)
-        ? "Sure. What are you still unsure about?"
-        : fallbackDiscovery(mergedEvidence));
+    const missing = getClaraBuyCheckMissingDecisionField(mergedEvidence);
+    const deterministicReply = askMore && !missing
+      ? "Sure. What are you still unsure about?"
+      : fallbackDiscovery(mergedEvidence, {
+          assistantContext,
+          establishing: phase === CLARA_BUY_CHECK_PHASE.ESTABLISH,
+        });
+    const modelReply = clean(json?.reply);
+    const reply = isSafeModelDiscoveryReply(modelReply, missing)
+      ? modelReply
+      : deterministicReply;
 
     return {
       action: "probe",
@@ -364,11 +558,17 @@ export async function runClaraBuyCheckExpertTurn({
   } catch (error) {
     if (error?.code === "CLARA_AI_CANCELLED" || error?.name === "AbortError") throw error;
     console.warn(`[CLARA Buy Check] ${phase} conversation fallback used.`, error);
+
+    if (!askMore && isClaraPurchaseContextMature(locallyUpdated)) {
+      return runMetricTurn({ evidence: locallyUpdated, assistantContext, signal });
+    }
+
     return {
       action: "probe",
-      reply: phase === CLARA_BUY_CHECK_PHASE.ESTABLISH
-        ? fallbackEstablish({ evidence: locallyUpdated, assistantContext })
-        : fallbackDiscovery(locallyUpdated),
+      reply: fallbackDiscovery(locallyUpdated, {
+        assistantContext,
+        establishing: phase === CLARA_BUY_CHECK_PHASE.ESTABLISH,
+      }),
       evidence: locallyUpdated,
       readinessConfidence: 0.45,
       source: `${phase}-fallback`,
@@ -390,11 +590,20 @@ export function transactionReasonFromEvidence(evidence = {}) {
 }
 
 export function buildPrompt(args = {}) {
-  const phase = routeClaraBuyCheckPhase({ connected: Boolean(args.connected), evidence: args.evidence });
+  const phase = routeClaraBuyCheckPhase({
+    connected: Boolean(args.connected),
+    evidence: args.evidence,
+  });
   if (phase === CLARA_BUY_CHECK_PHASE.ESTABLISH) {
-    return buildEstablishPrompt({ ...args, userName: args.userName || userNameFromContext(args.assistantContext || {}) });
+    return buildEstablishPrompt({
+      ...args,
+      userName: args.userName || userNameFromContext(args.assistantContext || {}),
+    });
   }
   if (phase === CLARA_BUY_CHECK_PHASE.DISCOVER) return buildDiscoveryPrompt(args);
   const impact = buildMetricImpact(args.evidence, args.assistantContext || {});
-  return buildMetricPrompt({ evidence: args.evidence, metric: metricPacket(impact || {}) });
+  return buildMetricPrompt({
+    evidence: args.evidence,
+    metric: metricPacket(impact || {}),
+  });
 }
