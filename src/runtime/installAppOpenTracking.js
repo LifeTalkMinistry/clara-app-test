@@ -1,3 +1,5 @@
+import "./installDailyAwarenessStreak";
+
 import {
   backendRequest,
   getStoredBackendToken,
