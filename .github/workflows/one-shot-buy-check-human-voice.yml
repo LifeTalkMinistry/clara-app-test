@@ -1,0 +1,180 @@
+name: One-shot Buy Check human voice retraining
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/one-shot-buy-check-human-voice.yml
+
+permissions:
+  contents: write
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Retrain Buy Check response structure
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          metric_path = Path('src/lib/clara-buy-check-metric-impact.js')
+          metric = metric_path.read_text()
+          start = metric.index('function formatClaraMetricImpactLine(impact = {}) {')
+          end = metric.index('\n}\n\nexport {', start) + 2
+          new_formatter = '''function formatClaraMetricImpactLine(impact = {}) {
+            if (!impact?.purchaseSimulationApplied || impact?.projectedScoreAfterPurchase == null) return "";
+            const before = Number.isFinite(Number(impact.currentScore)) ? Number(impact.currentScore) : null;
+            const after = Number(impact.projectedScoreAfterPurchase);
+            const price = Math.max(0, Number(impact.purchasePrice) || 0);
+            const accounted = Math.max(0, Number(impact.alreadyAccountedAmount) || 0);
+            const incremental = Number(impact.incrementalImpact) || 0;
+            const sourceLabel = impact.impactSource === "money_schedule_routine" || impact.impactSource === "money_schedule_event"
+              ? "Money Schedule"
+              : "your plan";
+
+            const movement = before === null
+              ? `put your Means Score at ${after}`
+              : after < before
+                ? `bring your Means Score from ${before} down to ${after}`
+                : after > before
+                  ? `move your Means Score from ${before} up to ${after}`
+                  : `keep your Means Score at ${after}`;
+
+            // Financial math stays deterministic, but the user should hear it as
+            // normal CLARA conversation — never as telemetry or a diagnostic row.
+            if (!(accounted > 0)) {
+              return `That ${peso(price)} would ${movement}.`;
+            }
+            if (Math.abs(incremental) < 0.005) {
+              return `You already planned ${peso(accounted)} for this in ${sourceLabel}, so buying it at ${peso(price)} would ${movement}.`;
+            }
+            if (incremental > 0) {
+              return `You planned ${peso(accounted)} for this, so only the extra ${peso(incremental)} is new spending. That would ${movement}.`;
+            }
+            return `You planned ${peso(accounted)} for this, and at ${peso(price)} you're ${peso(Math.abs(incremental))} under plan. That would ${movement}.`;
+          }'''
+          metric = metric[:start] + new_formatter + metric[end:]
+          metric_path.write_text(metric)
+
+          expert_path = Path('src/lib/clara-buy-check-expert-ai.js')
+          expert = expert_path.read_text()
+
+          # Once canonical Means is unavailable, do not rebuild the removed legacy
+          # Budget context. The conversation can simply collect the missing purchase
+          # facts and calculate Means on the next useful turn.
+          legacy_start = expert.index('  let pkg = {};', expert.index('function buildConversationFinancialContext'))
+          legacy_end = expert.index('\n}\n\nfunction buildPrompt', legacy_start)
+          minimal_no_means = '''  return {
+            means: null,
+            purchaseAlreadyUnderstood: {
+              item: purchase.item,
+              price,
+              suggestedTransactionReason: purchase.reason,
+            },
+          };'''
+          expert = expert[:legacy_start] + minimal_no_means + expert[legacy_end:]
+
+          old_primary = '''- The application prepends the exact deterministic Means impact line to the visible reply. Do not invent, recalculate, or contradict it. Focus your own sentence on the practical recommendation or tradeoff.
+          - Prefer stating the before → after movement when means.currentScore is also available (for example: 144 → 142), but at minimum the projected score must always be visible.
+          - Do not replace the exact score with vague wording such as "comfortably above 100", "healthy", or "plenty of breathing room" without also stating the projected score.'''
+          new_primary = '''- The application owns the exact Means math and adds one short, natural consequence sentence to the visible reply. Never invent, recalculate, or contradict those values.
+          - Do NOT repeat the score movement when the application has already stated it. Continue from it with the practical meaning, recommendation, or one useful question.
+          - Never speak in telemetry labels such as "Means impact", "New pressure", arrows, parenthetical point deltas, or report-style headings. Speak like a financially smart human.
+          - You may say the projected position naturally (for example, "You'd still be above 100") after the exact application sentence, but do not turn the reply into a metric report.'''
+          if old_primary not in expert:
+              raise SystemExit('primary prompt block not found')
+          expert = expert.replace(old_primary, new_primary, 1)
+
+          old_style = '''- The deterministic Means impact line is ALWAYS the primary visible financial point once a price is known.
+          - Do not repeat the full metric line unless repetition is necessary for clarity; add the human recommendation after it.
+          - Never contradict the before → after score, incremental pressure, or already-accounted amount supplied by the application.'''
+          new_style = '''- Once a price is known, the deterministic Means consequence is the primary financial truth, but it must read as a normal sentence inside the conversation — not a dashboard readout.
+          - The application will state the exact before/after consequence. Pick up naturally from that sentence instead of echoing it.
+          - Never use labels like "Means impact:" or "New pressure:" in normal chat. Never expose raw arrows or parenthetical score deltas as if the user is reading telemetry.
+          - Never contradict the before/after score, incremental spending, or already-planned amount supplied by the application.'''
+          if old_style not in expert:
+              raise SystemExit('visible style block not found')
+          expert = expert.replace(old_style, new_style, 1)
+
+          old_run = '''  const previousEvidence = sanitizeEvidence(evidence);
+            const fallback = fallbackTurn(message, previousEvidence, assistantContext);
+
+            try {
+              const { json, model } = await requestGeminiJson({
+                feature: "ask-before-you-spend",
+                prompt: buildPrompt({ message, history, evidence: previousEvidence, assistantContext }),'''
+          new_run = '''  const previousEvidence = sanitizeEvidence(evidence);
+            const fallback = fallbackTurn(message, previousEvidence, assistantContext);
+            // Reuse the local first-turn extraction so Gemini sees the purchase and
+            // canonical Means simulation immediately instead of one turn later.
+            const promptEvidence = mergeEvidence(previousEvidence, fallback?.evidence || {});
+
+            try {
+              const { json, model } = await requestGeminiJson({
+                feature: "ask-before-you-spend",
+                prompt: buildPrompt({ message, history, evidence: promptEvidence, assistantContext }),'''
+          if old_run not in expert:
+              raise SystemExit('run setup block not found')
+          expert = expert.replace(old_run, new_run, 1)
+          expert = expert.replace(
+              '    const mergedEvidence = mergeEvidence(previousEvidence, json?.evidence);',
+              '    const mergedEvidence = mergeEvidence(promptEvidence, json?.evidence);',
+              1,
+          )
+
+          expert = expert.replace(
+              '// canonical metric impact first so the user sees the exact consequence.',
+              '// canonical consequence first so the user gets exact math in human language.',
+              1,
+          )
+          expert_path.write_text(expert)
+
+          tests_path = Path('tests/buy-check-metric-impact.test.mjs')
+          tests = tests_path.read_text()
+          tests = tests.replace(
+              '  assert.match(formatClaraMetricImpactLine(impact), /already accounted for in Money Schedule/);',
+              '  assert.match(formatClaraMetricImpactLine(impact), /already planned ₱1,000 for this in Money Schedule/);',
+          )
+          tests = tests.replace(
+              '  assert.match(formatClaraMetricImpactLine(impact), /creates ₱200 extra room/);',
+              '  assert.match(formatClaraMetricImpactLine(impact), /₱200 under plan/);',
+          )
+          needle = '''  assert.equal(impact.projectedRoomAfterPurchase, 4000);
+          });'''
+          replacement = '''  assert.equal(impact.projectedRoomAfterPurchase, 4000);
+            const line = formatClaraMetricImpactLine(impact);
+            assert.equal(line, "That ₱1,000 would bring your Means Score from 150 down to 140.");
+            assert.doesNotMatch(line, /Means impact|New pressure|→|\\(−/);
+          });'''
+          if needle not in tests:
+              raise SystemExit('unplanned test block not found')
+          tests = tests.replace(needle, replacement, 1)
+          tests_path.write_text(tests)
+          PY
+
+      - name: Verify retraining
+        shell: bash
+        run: |
+          node --check src/lib/clara-buy-check-metric-impact.js
+          node --check src/lib/clara-buy-check-expert-ai.js
+          node --test tests/buy-check-metric-impact.test.mjs
+          ! grep -q 'Means impact:' src/lib/clara-buy-check-metric-impact.js
+          ! grep -q 'New pressure:' src/lib/clara-buy-check-metric-impact.js
+          grep -q 'promptEvidence = mergeEvidence' src/lib/clara-buy-check-expert-ai.js
+
+      - name: Commit and push retraining
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/one-shot-buy-check-human-voice.yml
+          git add src/lib/clara-buy-check-metric-impact.js src/lib/clara-buy-check-expert-ai.js tests/buy-check-metric-impact.test.mjs
+          git commit -m "Retrain Buy Check to speak naturally"
+          git push origin HEAD:main
