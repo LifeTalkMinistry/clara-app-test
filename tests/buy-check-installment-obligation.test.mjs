@@ -104,16 +104,19 @@ test("Buy Check installment UI documents an obligation instead of asking for a w
   assert.match(source, /isBuy && !isInstallment && !selectedWallet/);
 });
 
-test("installment due day uses a native 1-31 picker instead of a fragile text input", () => {
+test("installment due day uses an explicit 1-31 button grid", () => {
   const source = fs.readFileSync(
     new URL("../src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx", import.meta.url),
     "utf8",
   );
 
-  assert.match(source, /data-clara-installment-due-day-picker="true"/);
-  assert.match(source, /<select[\s\S]*id="clara-installment-due-day"/);
+  assert.match(source, /data-clara-installment-due-day-trigger="true"/);
+  assert.match(source, /data-clara-installment-due-day-grid="true"/);
+  assert.match(source, /data-clara-installment-due-day-option/);
   assert.match(source, /Array\.from\(\{ length: 31 \}/);
-  assert.match(source, /Choose day/);
+  assert.match(source, /setDueDayPickerOpen\(\(open\) => !open\)/);
+  assert.match(source, /onInstallmentDueDayChange\?\.\(String\(day\)\)/);
+  assert.doesNotMatch(source, /<select[\s\S]*clara-installment-due-day/);
   assert.doesNotMatch(source, /placeholder="1-31"/);
-  assert.match(source, /installment-obligation-day-picker/);
+  assert.match(source, /installment-obligation-day-grid/);
 });
