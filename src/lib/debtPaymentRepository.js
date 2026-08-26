@@ -80,7 +80,7 @@ function sumOccurrencePayments(history, dueDate) {
  * One IndexedDB transaction owns all three mutations:
  * - wallet balance decreases
  * - debt/obligation payment state updates
- * - wallet transaction history receives a linked debt-payment record
+ * - wallet transaction history receives a linked debt-payment audit record
  */
 export async function payDebtObligationFromWallet(localUserId, debtId, options = {}) {
   const safeLocalUserId = clean(localUserId);
@@ -208,16 +208,18 @@ export async function payDebtObligationFromWallet(localUserId, debtId, options =
       };
       await tx.putRaw(WALLET_STORE, walletRecord);
 
+      // This is an audit record. The Debt flow owns the balance mutation, so the
+      // Transaction Hub must not independently reverse/edit this row like a normal expense.
       const transactionRecord = tx.makeRecord(WALLET_TRANSACTION_STORE, {
         id: paymentId,
         wallet_id: walletId,
         walletId,
         amount: paymentAmount,
-        type: "expense",
+        type: "debt_payment",
         category: "Debt / Obligations",
         planning_status: "planned",
-        source_type: "debt_payment",
-        sourceType: "debt_payment",
+        source_type: "expense_debt_payment",
+        sourceType: "expense_debt_payment",
         tag: "debt_payment",
         title: `Debt payment — ${title}`,
         name: `Debt payment — ${title}`,
@@ -226,6 +228,8 @@ export async function payDebtObligationFromWallet(localUserId, debtId, options =
         debtObligationId: safeDebtId,
         debt_payment_id: paymentId,
         debtPaymentId: paymentId,
+        non_editable: true,
+        nonEditable: true,
         due_date: dueDate || null,
         dueDate: dueDate || null,
         created_at: now,
