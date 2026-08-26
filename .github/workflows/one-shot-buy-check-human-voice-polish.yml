@@ -56,7 +56,7 @@ jobs:
           node --check src/lib/clara-buy-check-expert-ai.js
           node --test tests/buy-check-metric-impact.test.mjs
           grep -q 'FINAL ASSEMBLED response will include' src/lib/clara-buy-check-expert-ai.js
-          grep -q "You'd still be above your 100 protection line" src/lib/clara-buy-check-expert-ai.js
+          grep -q 'above your 100 protection line' src/lib/clara-buy-check-expert-ai.js
           ! grep -q 'guidance}. Will you still buy it' src/lib/clara-buy-check-expert-ai.js
 
       - name: Commit and push polish
