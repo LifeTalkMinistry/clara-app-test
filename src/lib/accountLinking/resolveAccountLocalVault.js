@@ -89,12 +89,6 @@ function dispatchAccountVaultSwitch(result) {
   });
 }
 
-function resolverError(message, code) {
-  const error = new Error(message);
-  error.code = code;
-  return error;
-}
-
 async function resolveResetFreshLocalVault(input = {}) {
   if (!isOnlineSyncPaused()) return null;
 
@@ -109,26 +103,28 @@ async function resolveResetFreshLocalVault(input = {}) {
 
   const previousVaultId = String(getActiveLocalVaultId() || "").trim();
   const existingOwner = findAccountMappingByVaultId(vaultId);
-  if (existingOwner && String(existingOwner.accountId || "").trim() !== accountUserId) {
-    throw resolverError(
-      "The fresh reset vault is already assigned to another CLARA account.",
-      "VAULT_ACCOUNT_CONFLICT"
-    );
+  const mappedOwnerId = String(existingOwner?.accountId || "").trim();
+
+  // The post-reset fresh vault belongs only to the account that claimed it.
+  // If another legitimate account signs in on the same device, ignore this
+  // account-specific reset vault and let the normal multi-account resolver open
+  // that account's own mapped vault (or create a new isolated one). Blocking the
+  // entire login here caused one account's Clear Data state to lock out every
+  // other account on the browser.
+  if (mappedOwnerId && mappedOwnerId !== accountUserId) {
+    return null;
   }
 
   const metadata = await initializeVaultMetadata(vaultId);
   const metadataOwner = String(metadata?.accountUserId || "").trim();
   if (metadataOwner && metadataOwner !== accountUserId) {
-    throw resolverError(
-      "The fresh reset vault belongs to another CLARA account.",
-      "VAULT_ACCOUNT_CONFLICT"
-    );
+    return null;
   }
 
   // A reset is an explicit request to sever this phone from the old local vault.
   // Never recover account-linked metadata from a surviving old IndexedDB here.
   // The freshly generated reset vault is the only local vault that may be used
-  // until the user explicitly chooses Sync online data.
+  // for the account that owns this reset state until online sync is resumed.
   removeVaultMappingForAccount(accountUserId);
   setActiveLocalVaultId(vaultId);
   await linkLocalVaultToAccount({
@@ -156,8 +152,8 @@ async function resolveResetFreshLocalVault(input = {}) {
 
 export async function resolveAccountLocalVault(input = {}) {
   // Clear This Device intentionally creates a new local vault and pauses Online
-  // Sync. While that policy is active, login must never scan old account-linked
-  // metadata and reconnect the account to a surviving pre-reset vault.
+  // Sync. That fresh vault is account-specific: another account signing in on
+  // the same browser must still be allowed to resolve its own isolated vault.
   const resetResult = await resolveResetFreshLocalVault(input);
   const result = resetResult || (await resolveAccountLocalVaultWithAdapters(input, defaultAdapters));
 
