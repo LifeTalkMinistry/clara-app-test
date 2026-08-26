@@ -76,6 +76,20 @@ test("app-derived voucher candidate cannot be overwritten by Gemini", () => {
   assert.equal(merged.purpose, "buying shoes");
 });
 
+test("user confirmation overrides the older pending voucher candidate", () => {
+  const pending = applyLocalPurchaseFacts(
+    "Can I buy these shoes? They cost ₱2,500 but I have a ₱500 voucher.",
+    {},
+  );
+  const confirmed = applyLocalPurchaseFacts("Yes", pending);
+  const merged = mergeClaraPurchaseEvidence(pending, confirmed);
+
+  assert.equal(hasConfirmedClaraPaymentStructure(merged), true);
+  assert.equal(merged.price, 2000);
+  assert.equal(merged.priceStatus, "confirmed");
+  assert.equal(merged.priceSource, "user_confirmation");
+});
+
 test("installment shorthand never collapses into a one-time price", () => {
   const pending = applyLocalPurchaseFacts("Can I get a phone? It’s ₱1,500 per month for 6 months.", {});
   assert.equal(pending.purchaseType, "installment");
@@ -117,6 +131,19 @@ test("user confirmation locks the installment as 1500 due now and 9000 total", (
   assert.equal(claraPaymentAmountDueNow(confirmed), 1500);
   assert.equal(claraTotalCommitment(confirmed), 9000);
   assert.equal(claraFutureCommitmentAmount(confirmed), 7500);
+});
+
+test("user confirmation overrides the older pending installment structure", () => {
+  const pending = applyLocalPurchaseFacts("Can I get a phone? It’s ₱1,500 per month for 6 months.", {});
+  const confirmed = applyLocalPurchaseFacts("Yes", pending);
+  const merged = mergeClaraPurchaseEvidence(pending, confirmed);
+
+  assert.equal(hasConfirmedClaraPaymentStructure(merged), true);
+  assert.equal(merged.paymentStructureStatus, "confirmed");
+  assert.equal(merged.paymentStructureSource, "user_confirmation");
+  assert.equal(claraPaymentAmountDueNow(merged), 1500);
+  assert.equal(claraTotalCommitment(merged), 9000);
+  assert.equal(claraFutureCommitmentAmount(merged), 7500);
 });
 
 test("an explicit installment with no fees can be confirmed directly", () => {
