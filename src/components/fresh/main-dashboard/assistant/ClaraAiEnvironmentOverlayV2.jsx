@@ -7,7 +7,7 @@ import {
   getClaraTypingPlan,
 } from "@/lib/clara-conversation-pacing";
 
-const CLARA_AI_BRAIN_VERSION = "progressive-buy-check-v9-compact";
+const CLARA_AI_BRAIN_VERSION = "progressive-buy-check-v10-installment-obligation";
 
 const BUY_CHECK_ACKNOWLEDGMENTS = [
   "Good move—you paused before buying. Let’s see if it fits your money.",
@@ -176,7 +176,16 @@ function PauseEntryBoard({ acknowledgmentMessage, pacingEnabled = true, onReadyC
   );
 }
 
-function FinalDecisionPanel({ finalDecision, walletOptions, item, onExplanationChange, onWalletChange, onSave, onCancel }) {
+function FinalDecisionPanel({
+  finalDecision,
+  walletOptions,
+  item,
+  onExplanationChange,
+  onWalletChange,
+  onInstallmentDueDayChange,
+  onSave,
+  onCancel,
+}) {
   const [walletPickerOpen, setWalletPickerOpen] = useState(false);
 
   if (!finalDecision || !["explain", "resolved"].includes(finalDecision.phase)) return null;
@@ -185,7 +194,7 @@ function FinalDecisionPanel({ finalDecision, walletOptions, item, onExplanationC
     return (
       <section className="relative overflow-hidden rounded-[26px] border border-blue-200/20 bg-[#050d1f]/96 px-5 py-5 text-left shadow-[0_20px_52px_rgba(0,0,0,0.46)] backdrop-blur-2xl">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,#1769ff_0%,#1769ff_42%,#ffd84a_42%,#ffd84a_56%,#e53945_56%,#e53945_100%)]" />
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ffd84a]/76">DECISION SAVED</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ffd84a]/76">{finalDecision.result?.eyebrow || "DECISION SAVED"}</p>
         <h3 className="mt-2 text-[19px] font-black text-white">{finalDecision.result?.title}</h3>
         <p className="mt-2 text-[13px] font-semibold leading-6 text-slate-100/88">{finalDecision.result?.message}</p>
         <p className="mt-4 text-[14px] font-black text-white/94">Anything else you want to check?</p>
@@ -194,32 +203,86 @@ function FinalDecisionPanel({ finalDecision, walletOptions, item, onExplanationC
   }
 
   const isBuy = finalDecision.choice === "buy";
+  const installmentStructure = finalDecision.paymentStructure || null;
+  const isInstallment = Boolean(
+    isBuy &&
+    finalDecision.recordMode === "installment_obligation" &&
+    installmentStructure?.purchaseType === "installment",
+  );
+  const installmentDueDay = String(finalDecision.installmentDueDay || "");
+  const dueDayNumber = Number(installmentDueDay);
+  const validInstallmentDueDay = Boolean(
+    Number.isInteger(dueDayNumber) && dueDayNumber >= 1 && dueDayNumber <= 31,
+  );
   const safeWalletOptions = Array.isArray(walletOptions) ? walletOptions : [];
   const selectedWallet = safeWalletOptions.find((wallet) => wallet.id === finalDecision.walletId) || null;
   const hasWallets = safeWalletOptions.length > 0;
+  const saveDisabled = Boolean(
+    finalDecision.busy ||
+    (isInstallment && !validInstallmentDueDay) ||
+    (isBuy && !isInstallment && !selectedWallet),
+  );
 
   return (
     <section
       data-clara-buy-check-final-decision-panel={finalDecision.choice}
+      data-clara-buy-check-installment-documentation={isInstallment ? "true" : "false"}
       className="relative overflow-hidden rounded-[26px] border border-blue-200/18 bg-[#050d1f]/96 px-4 py-5 text-left shadow-[0_22px_56px_rgba(0,0,0,0.48)] backdrop-blur-2xl"
     >
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,#1769ff_0%,#1769ff_42%,#ffd84a_42%,#ffd84a_56%,#e53945_56%,#e53945_100%)]" />
       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-200/68">YOUR DECISION</p>
       <h3 className="mt-2 text-[19px] font-black text-white">{isBuy ? `You chose to buy ${item}` : `You chose not to buy ${item}`}</h3>
       <p className="mt-2 text-[12px] font-semibold leading-5 text-slate-200/82">
-        {isBuy
-          ? "CLARA prepared this reason from your conversation. Use it as-is or edit it before saving to Transaction Hub."
-          : "CLARA prepared this reason from your conversation. You can keep it or edit it before saving the decision."}
+        {isInstallment
+          ? "This is an installment. CLARA will document it under Debt / Obligations instead of logging it as a one-time expense. Review the structure and add the monthly due day before saving."
+          : isBuy
+            ? "CLARA prepared this reason from your conversation. Use it as-is or edit it before saving to Transaction Hub."
+            : "CLARA prepared this reason from your conversation. You can keep it or edit it before saving the decision."}
       </p>
       <textarea
         rows={3}
         value={finalDecision.explanation || ""}
         onChange={(event) => onExplanationChange?.(event.target.value)}
-        placeholder={isBuy ? "Reason for this transaction" : "Reason for this decision"}
+        placeholder={isInstallment ? "Reason for this installment" : isBuy ? "Reason for this transaction" : "Reason for this decision"}
         className="mt-4 w-full resize-none rounded-[18px] border border-blue-200/14 bg-[#08142b]/96 px-4 py-3 text-[13px] font-semibold leading-5 text-white shadow-inner outline-none placeholder:text-slate-400/72 focus:border-blue-300/42"
         disabled={finalDecision.busy}
       />
-      {isBuy ? (
+
+      {isInstallment ? (
+        <div className="mt-3" data-clara-installment-obligation-panel="true">
+          <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.16em] text-[#ffd84a]/72">INSTALLMENT TO DOCUMENT</label>
+          <article className="rounded-[18px] border border-blue-200/14 bg-[#08142b]/96 px-4 py-3 shadow-inner">
+            <div className="grid gap-2 text-[11.5px] font-semibold leading-5 text-white/84">
+              <div className="flex items-center justify-between gap-3"><span className="text-white/42">Total commitment</span><strong className="text-white">{money(installmentStructure.totalCommitment)}</strong></div>
+              <div className="flex items-center justify-between gap-3"><span className="text-white/42">Due now</span><strong className="text-white">{money(installmentStructure.amountDueNow)}</strong></div>
+              <div className="flex items-center justify-between gap-3"><span className="text-white/42">Regular payment</span><strong className="text-white">{money(installmentStructure.paymentAmount)}/month</strong></div>
+              <div className="flex items-center justify-between gap-3"><span className="text-white/42">Schedule</span><strong className="text-white">{Number(installmentStructure.totalPayments) || 0} payments total</strong></div>
+              <div className="flex items-center justify-between gap-3"><span className="text-white/42">After the first</span><strong className="text-white">{Number(installmentStructure.remainingPayments) || 0} payments</strong></div>
+              {Number(installmentStructure.fees) > 0 ? (
+                <div className="flex items-center justify-between gap-3"><span className="text-white/42">Fees included</span><strong className="text-white">{money(installmentStructure.fees)}</strong></div>
+              ) : null}
+            </div>
+          </article>
+
+          <label className="mb-1.5 mt-3 block text-[10px] font-black uppercase tracking-[0.16em] text-[#ffd84a]/66">DUE EACH MONTH</label>
+          <div className="flex min-h-12 items-center gap-3 rounded-[18px] border border-blue-200/14 bg-[#08142b]/96 px-4 py-2 shadow-inner focus-within:border-blue-300/42">
+            <input
+              value={installmentDueDay}
+              onChange={(event) => onInstallmentDueDayChange?.(event.target.value)}
+              disabled={finalDecision.busy}
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder="1-31"
+              aria-label="Installment due day of month"
+              className="min-w-0 flex-1 bg-transparent py-1 text-[13px] font-black text-white outline-none placeholder:text-slate-400/72 disabled:opacity-55"
+            />
+            <span className="shrink-0 text-[10.5px] font-semibold text-slate-300/58">day of month</span>
+          </div>
+          <p className="mt-2 text-[11px] font-semibold leading-5 text-blue-100/65">
+            CLARA will save this under Debt / Obligations. No wallet money is deducted just for documenting it. Record the actual payment from the obligation when you pay.
+          </p>
+        </div>
+      ) : isBuy ? (
         <div className="mt-3">
           <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.16em] text-[#ffd84a]/66">PAY FROM</label>
           <button
@@ -284,10 +347,10 @@ function FinalDecisionPanel({ finalDecision, walletOptions, item, onExplanationC
         <button
           type="button"
           onClick={onSave}
-          disabled={finalDecision.busy || (isBuy && !selectedWallet)}
+          disabled={saveDisabled}
           className="min-h-11 rounded-full border border-blue-300/26 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] px-4 text-[12px] font-black text-white shadow-[0_12px_30px_rgba(23,105,255,0.25)] transition hover:brightness-110 disabled:opacity-50"
         >
-          {finalDecision.busy ? "Saving..." : isBuy ? "Log expense" : "Save decision"}
+          {finalDecision.busy ? "Saving..." : isInstallment ? "Document installment" : isBuy ? "Log expense" : "Save decision"}
         </button>
         <button
           type="button"
@@ -667,6 +730,7 @@ export default function ClaraAiEnvironmentOverlay({
                   item={activeState?.item || "this purchase"}
                   onExplanationChange={ownedFlow.setDecisionExplanation}
                   onWalletChange={ownedFlow.setDecisionWallet}
+                  onInstallmentDueDayChange={ownedFlow.setDecisionInstallmentDueDay}
                   onSave={ownedFlow.submitFinalDecision}
                   onCancel={ownedFlow.cancelFinalDecision}
                 />
