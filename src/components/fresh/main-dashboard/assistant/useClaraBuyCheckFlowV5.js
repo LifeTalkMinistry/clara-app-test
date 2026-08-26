@@ -208,9 +208,7 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
           result: {
             choice: "buy",
             title: "Expense logged",
-            message: metricImpact?.projectedScoreAfterPurchase != null
-              ? `${purchase.item} was added to your transactions and deducted from ${wallet.name}. Means: ${metricImpact.currentScore} → ${metricImpact.projectedScoreAfterPurchase}.`
-              : `${purchase.item} was added to your transactions and deducted from ${wallet.name}.`,
+            message: `${purchase.item} was added to your transactions and deducted from ${wallet.name}.`,
           },
         }));
         return true;

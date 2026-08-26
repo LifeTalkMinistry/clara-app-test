@@ -83,6 +83,8 @@ test("user still has Yes, No, and Ask more choices", async () => {
   assert.match(overlay, />\s*Yes\s*</);
   assert.match(overlay, />\s*No\s*</);
   assert.match(overlay, />\s*Ask more\s*</);
+  assert.match(overlay, /Anything else you want to check\?/);
+  assert.match(overlay, />\s*No, I’m done\s*</);
   assert.match(flow, /I want to ask more before deciding/);
 });
 
