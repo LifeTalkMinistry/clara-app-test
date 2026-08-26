@@ -6,14 +6,18 @@ async function source(path) {
   return readFile(new URL(`../${path}`, import.meta.url), "utf8");
 }
 
-test("trial gate owns the Community chrome while product access is locked", async () => {
+test("trial gate keeps Community navigation visible as an inert preview", async () => {
   const runtime = await source("src/lib/clara-product-runtime-access.js");
 
   assert.match(runtime, /let productLocked = true/);
   assert.match(runtime, /data-clara-product-locked/);
   assert.match(runtime, /clara-community-root:has\(\[data-clara-trial-access-gate="true"\]\)/);
   assert.match(runtime, /> \.clara-community-shell-header/);
-  assert.match(runtime, /display: none !important/);
+  assert.match(runtime, /opacity: \.34 !important/);
+  assert.match(runtime, /pointer-events: none !important/);
+  assert.match(runtime, /header\.inert = true/);
+  assert.match(runtime, /data\.claraTrialNavPreview/);
+  assert.doesNotMatch(runtime, /> \.clara-community-shell-header \{\s*display: none !important/);
 });
 
 test("daily awareness cannot persist a check-in before product access is active", async () => {
