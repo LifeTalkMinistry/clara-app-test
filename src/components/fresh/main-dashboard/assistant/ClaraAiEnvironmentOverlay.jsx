@@ -29,6 +29,7 @@ const ORB_ENTRY_MODES = new Set([
   "emergency-fund",
   "savings-goal",
   "debt-obligation",
+  "weekly-cross-check",
 ]);
 
 function restoreReadyStateWhenWeeklyCheckWasNotStarted(user) {
@@ -87,6 +88,7 @@ export default function ClaraAiEnvironmentOverlay(props) {
   const emergencyFundMode = !guidePreview && entryMode === "emergency-fund";
   const savingsGoalMode = !guidePreview && entryMode === "savings-goal";
   const debtObligationMode = !guidePreview && entryMode === "debt-obligation";
+  const weeklyCrossCheckMode = !guidePreview && entryMode === "weekly-cross-check";
   const weeklyAutoOpenRef = useRef(false);
   const lifeContext = useClaraBuyCheckLifeContext(props?.claraAssistantContext?.user);
   const enrichedAssistantContext = useMemo(
@@ -111,6 +113,7 @@ export default function ClaraAiEnvironmentOverlay(props) {
       const mode = String(event?.detail?.mode || "").trim();
       const nextMode = ORB_ENTRY_MODES.has(mode) ? mode : null;
       setEntryMode(nextMode);
+      if (nextMode === "weekly-cross-check") setWeeklyMoneyCheckMode(false);
       setWalletHandoff(null);
       if (nextMode === "log-expense") setLogExpenseResume(null);
       if (nextMode === "add-income") setAddIncomeResume(null);
@@ -420,6 +423,22 @@ export default function ClaraAiEnvironmentOverlay(props) {
         {...props}
         claraAssistantContext={enrichedAssistantContext}
         onClose={closeDebtObligation}
+      />
+    );
+  }
+
+  if (weeklyCrossCheckMode) {
+    const closeWeeklyCrossCheck = () => {
+      setEntryMode(null);
+      restoreReadyStateWhenWeeklyCheckWasNotStarted(enrichedAssistantContext?.user);
+      props?.onClose?.();
+    };
+
+    return (
+      <ClaraWeeklyMoneyCheckOverlay
+        {...props}
+        claraAssistantContext={enrichedAssistantContext}
+        onClose={closeWeeklyCrossCheck}
       />
     );
   }
