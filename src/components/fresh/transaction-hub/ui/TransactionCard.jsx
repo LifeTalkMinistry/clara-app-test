@@ -64,6 +64,15 @@ export default function TransactionCard({ item, onEdit }) {
   const sign = item.signedAmount > 0 ? "+" : item.signedAmount < 0 ? "-" : "";
   const raw = item.raw || {};
   const isEmergencyAllocation = isEmergencyFundAllocation(item);
+  const isDebtPayment = Boolean(
+    raw.debt_payment_id ||
+      raw.debtPaymentId ||
+      raw.debt_obligation_id ||
+      raw.debtObligationId ||
+      String(raw.type || "").toLowerCase() === "debt_payment" ||
+      String(raw.source_type || raw.sourceType || "").toLowerCase().includes("debt_payment")
+  );
+  const isNonEditable = Boolean(raw.non_editable || raw.nonEditable || isDebtPayment);
   const rawPlanningStatus = isEmergencyAllocation
     ? "planned"
     : raw.planning_status || raw.planningStatus || item.planningStatus || item.budgetStatus;
@@ -101,19 +110,21 @@ export default function TransactionCard({ item, onEdit }) {
       <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/12 to-transparent" />
       <div className={`absolute left-0 top-5 h-10 w-1 rounded-r-full ${tone.rail}`} />
 
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          onEdit?.(item);
-        }}
-        className="absolute right-3 top-3 z-20 flex h-10 w-10 touch-manipulation items-center justify-center rounded-[14px] border border-white/10 bg-white/[0.04] text-slate-300/62 shadow-[0_10px_22px_rgba(0,0,0,0.16)] backdrop-blur-2xl transition duration-200 hover:bg-white/[0.075] hover:text-slate-50/84 active:scale-[0.94]"
-        aria-label={`Edit ${item.title}`}
-      >
-        <Edit3 className="h-3.5 w-3.5" />
-      </button>
+      {!isNonEditable ? (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onEdit?.(item);
+          }}
+          className="absolute right-3 top-3 z-20 flex h-10 w-10 touch-manipulation items-center justify-center rounded-[14px] border border-white/10 bg-white/[0.04] text-slate-300/62 shadow-[0_10px_22px_rgba(0,0,0,0.16)] backdrop-blur-2xl transition duration-200 hover:bg-white/[0.075] hover:text-slate-50/84 active:scale-[0.94]"
+          aria-label={`Edit ${item.title}`}
+        >
+          <Edit3 className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
 
-      <div className="relative flex items-start gap-3 pr-8">
+      <div className={`relative flex items-start gap-3 ${isNonEditable ? "pr-0" : "pr-8"}`}>
         <div
           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[17px] border ${tone.border} ${tone.icon}`}
         >
@@ -155,13 +166,19 @@ export default function TransactionCard({ item, onEdit }) {
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             <StatusBadge icon={Tag}>{titleCase(item.group)}</StatusBadge>
 
+            {isDebtPayment ? (
+              <StatusBadge icon={CheckCircle2} tone="good">
+                Debt Payment
+              </StatusBadge>
+            ) : null}
+
             {isEmergencyAllocation ? (
               <StatusBadge icon={CheckCircle2} tone="good">
                 Protected Allocation
               </StatusBadge>
             ) : null}
 
-            {!isEmergencyAllocation && item.group === "expense" && item.budgetStatus ? (
+            {!isEmergencyAllocation && !isDebtPayment && item.group === "expense" && item.budgetStatus ? (
               <StatusBadge
                 icon={CheckCircle2}
                 tone={item.budgetStatus === "planned" ? "good" : "warn"}
@@ -170,25 +187,25 @@ export default function TransactionCard({ item, onEdit }) {
               </StatusBadge>
             ) : null}
 
-            {!isEmergencyAllocation && item.isBudgetRisk ? (
+            {!isEmergencyAllocation && !isDebtPayment && item.isBudgetRisk ? (
               <StatusBadge icon={ShieldAlert} tone="bad">
                 Budget Risk
               </StatusBadge>
             ) : null}
 
-            {!isEmergencyAllocation && item.isGoodDecision ? (
+            {!isEmergencyAllocation && !isDebtPayment && item.isGoodDecision ? (
               <StatusBadge icon={CheckCircle2} tone="good">
                 Good Decision
               </StatusBadge>
             ) : null}
 
-            {!isEmergencyAllocation && item.isFrequent ? (
+            {!isEmergencyAllocation && !isDebtPayment && item.isFrequent ? (
               <StatusBadge icon={Flame} tone="warn">
                 Frequent
               </StatusBadge>
             ) : null}
 
-            {!isEmergencyAllocation && item.isHighSpend ? (
+            {!isEmergencyAllocation && !isDebtPayment && item.isHighSpend ? (
               <StatusBadge icon={TrendingUp} tone="bad">
                 High Spend
               </StatusBadge>
