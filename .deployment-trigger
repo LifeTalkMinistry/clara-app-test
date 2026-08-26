@@ -1,5 +1,5 @@
 CLARA deployment trigger
-Reason: retry production deployment for merged Buy Check retraining.
-Version: clara-buy-check-retrain-v1
-Source-commit: ffdd706d6243e8853e56c4d0b45f65e36f344095
-Timestamp: 2026-08-27T01:12:00+08:00
+Reason: deploy Buy Check payment candidate authority repair.
+Version: clara-buy-check-voucher-authority-v1
+Source-commit: 1de62142407ab049a7b6f1f2688dd34af5ccf1ca
+Timestamp: 2026-08-27T01:30:00+08:00
