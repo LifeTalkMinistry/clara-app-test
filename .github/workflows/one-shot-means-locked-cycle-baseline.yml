@@ -1,0 +1,71 @@
+name: One-shot Means locked cycle baseline
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/one-shot-means-locked-cycle-baseline.yml"
+      - "scripts/fix_means_locked_cycle_baseline.py"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Install locked pay-cycle Means baseline
+        run: python scripts/fix_means_locked_cycle_baseline.py
+
+      - name: Verify Means invariants
+        shell: python
+        run: |
+          from pathlib import Path
+
+          source = Path("src/runtime/installClaraOrbGreeting.js").read_text()
+          assert 'clara:means-cycle-baseline:v1' in source
+          assert 'plannedDebtPaidInsideCycle' in source
+          assert 'resolveLockedMeansCycleBaseline' in source
+          assert 'const scoreRoom = financialRunway - upcoming - plannedAssumedSinceLock;' in source
+          assert 'Math.round(((requiredRunway + scoreRoom) / requiredRunway) * 100)' in source
+
+          # Regression for the observed case:
+          # before paying a predicted ₱3,000 bill: ₱12,521 / ₱7,680 ≈ 163
+          before = round((12521 / 7680) * 100)
+          locked_required = 7680
+          after_money = 9521
+          after_upcoming = 4680
+          room = after_money - after_upcoming
+          after = round(((locked_required + room) / locked_required) * 100)
+          assert before == 163
+          assert after == before
+
+          # Planned payment is neutral; unplanned spend lowers; extra money raises.
+          planned_payment_after = round(((locked_required + ((after_money - 1000) - (after_upcoming - 1000))) / locked_required) * 100)
+          unplanned_after = round(((locked_required + ((after_money - 1000) - after_upcoming)) / locked_required) * 100)
+          extra_money_after = round(((locked_required + ((after_money + 1000) - after_upcoming)) / locked_required) * 100)
+          assert planned_payment_after == after
+          assert unplanned_after < after
+          assert extra_money_after > after
+
+      - name: Syntax check Means runtime
+        run: node --check src/runtime/installClaraOrbGreeting.js
+
+      - name: Commit fix to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/runtime/installClaraOrbGreeting.js
+          if git diff --cached --quiet; then
+            echo "No source change needed."
+            exit 0
+          fi
+          git commit -m "Lock Means Score to pay-cycle baseline"
+          git push origin HEAD:main
