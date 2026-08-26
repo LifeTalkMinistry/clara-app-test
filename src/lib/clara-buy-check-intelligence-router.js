@@ -69,6 +69,14 @@ function normalizePaymentStatus(value = "") {
   return "";
 }
 
+function normalizeFeeTreatment(value = "") {
+  const treatment = clean(value).toLowerCase();
+  if (["none", "unresolved", "upfront", "separate_later", "split_evenly", "installments_unspecified"].includes(treatment)) {
+    return treatment;
+  }
+  return "";
+}
+
 function isPurposeReply(message = "") {
   const source = clean(message);
   if (!source || AFFIRMATIVE_PATTERN.test(source) || NEGATIVE_ONLY_PATTERN.test(source)) return false;
@@ -116,6 +124,9 @@ export function sanitizeClaraPurchaseEvidence(value = {}) {
       }
     });
 
+    const feeTreatment = normalizeFeeTreatment(source.feeTreatment);
+    if (feeTreatment) evidence.feeTreatment = feeTreatment;
+
     if (paymentStatus) evidence.paymentStructureStatus = paymentStatus;
     const paymentSource = clean(source.paymentStructureSource || source.priceSource);
     if (paymentSource) evidence.paymentStructureSource = paymentSource.slice(0, 60);
@@ -159,6 +170,8 @@ function copyPaymentAuthority(target, source) {
       if (Object.prototype.hasOwnProperty.call(left, key)) preserved[key] = left[key];
     });
     if (left.frequency) preserved.frequency = left.frequency;
+    if (left.feeTreatment) preserved.feeTreatment = left.feeTreatment;
+    else delete preserved.feeTreatment;
     if (left.paymentStructureSource) preserved.paymentStructureSource = left.paymentStructureSource;
   } else {
     preserved.purchaseType = "one_time";
@@ -200,6 +213,8 @@ function copyPendingPaymentAuthority(target, source) {
     });
     if (left.frequency) preserved.frequency = left.frequency;
     else delete preserved.frequency;
+    if (left.feeTreatment) preserved.feeTreatment = left.feeTreatment;
+    else delete preserved.feeTreatment;
     if (left.paymentStructureSource) preserved.paymentStructureSource = left.paymentStructureSource;
   } else {
     preserved.purchaseType = "one_time";
@@ -261,23 +276,98 @@ function voucherCandidateFromText(source = "", amounts = []) {
   };
 }
 
+function installmentFeeAmountFromText(source = "") {
+  const amountBeforeFee = source.match(
+    /(?:₱|php\s*)?(\d[\d,]*(?:\.\d{1,2})?)\s*(?:pesos?\s*)?(?:(?:processing|service|admin(?:istration)?|handling|transaction)\s+)?fees?\b/i,
+  );
+  if (amountBeforeFee) return parseMoneyToken(amountBeforeFee[1]);
+
+  const feeBeforeAmount = source.match(
+    /\b(?:(?:processing|service|admin(?:istration)?|handling|transaction)\s+)?fees?\s*(?:of|:|is|are|costs?)?\s*(?:a\s*)?(?:₱|php\s*)?(\d[\d,]*(?:\.\d{1,2})?)/i,
+  );
+  return feeBeforeAmount ? parseMoneyToken(feeBeforeAmount[1]) : 0;
+}
+
+function feeTreatmentFromText(source = "", { hasFee = false } = {}) {
+  if (/\b(no|zero|without)\s+(?:extra\s+)?fees?\b/i.test(source)) return "none";
+  if (!hasFee) return "";
+
+  // When CLARA has just asked how a known fee is paid, the user should not
+  // have to repeat the words "processing fee" for the answer to be authoritative.
+  if (/\b(upfront|due\s+now|pay(?:able|ing)?\s+now|with\s+(?:the\s+)?first\s+payment)\b/i.test(source)) {
+    return "upfront";
+  }
+  if (/\b(?:split|spread|divided|distributed)\s+evenly\b/i.test(source)) {
+    return "split_evenly";
+  }
+  if (/\b(?:included|added)\s+(?:in|into|across|to)\s+(?:the\s+)?(?:monthly\s+)?(?:payments?|installments?)\b/i.test(source)) {
+    return "installments_unspecified";
+  }
+  if (/\b(separately?|later|afterward|afterwards)\b/i.test(source)) {
+    return "separate_later";
+  }
+
+  return "unresolved";
+}
+
+function resolvePendingInstallmentFeeTreatment(source = "", previous = {}) {
+  const current = sanitizeClaraPurchaseEvidence(previous);
+  if (
+    current.purchaseType !== "installment" ||
+    positiveNumber(current.fees) <= 0 ||
+    !["unresolved", "installments_unspecified"].includes(current.feeTreatment)
+  ) {
+    return null;
+  }
+
+  const treatment = feeTreatmentFromText(source, { hasFee: true });
+  if (!treatment || treatment === "unresolved") return null;
+
+  const next = {
+    ...current,
+    feeTreatment: treatment,
+    paymentStructureStatus: "needs_confirmation",
+    paymentStructureSource: "candidate_fee_resolved",
+  };
+  const fees = positiveNumber(current.fees);
+
+  if (treatment === "upfront") {
+    next.amountDueNow = positiveNumber(current.amountDueNow) + fees;
+  } else if (treatment === "split_evenly") {
+    const totalPayments = nonNegativeInteger(current.totalPayments);
+    if (totalPayments && positiveNumber(current.paymentAmount) > 0) {
+      const feePerPayment = fees / totalPayments;
+      next.paymentAmount = positiveNumber(current.paymentAmount) + feePerPayment;
+      next.amountDueNow = positiveNumber(current.amountDueNow) + feePerPayment;
+    }
+  }
+
+  return sanitizeClaraPurchaseEvidence(next);
+}
+
 function installmentCandidateFromText(source = "", amounts = []) {
   if (!INSTALLMENT_SIGNAL_PATTERN.test(source)) return null;
 
-  const feeMatch = source.match(/\bfees?\s*(?:of|:|is|are)?\s*(?:₱|php\s*)?(\d[\d,]*(?:\.\d{1,2})?)/i);
-  const fees = feeMatch ? parseMoneyToken(feeMatch[1]) : 0;
+  const fees = installmentFeeAmountFromText(source);
   const explicitlyNoFees = /\b(no|zero|without)\s+(?:extra\s+)?fees?\b/i.test(source);
+  const feeTreatment = explicitlyNoFees
+    ? "none"
+    : fees > 0
+      ? feeTreatmentFromText(source, { hasFee: true })
+      : "";
 
   const detailedCount = source.match(/\b(\d+)\s+(?:additional\s+|more\s+|remaining\s+)?months?\b/i);
   const hasDueNow = /\b(today|due\s+now|pay\s+now|right\s+now|upfront|down\s*payment|downpayment)\b/i.test(source);
   const hasFutureMonthly = /\b(every\s+month|monthly|per\s+month)\b/i.test(source);
 
   if (hasDueNow && hasFutureMonthly && detailedCount && amounts.length >= 2) {
-    const amountDueNow = positiveNumber(amounts[0]);
+    let amountDueNow = positiveNumber(amounts[0]);
     const paymentAmount = positiveNumber(amounts[1]);
     const remainingPayments = Number(detailedCount[1]);
     if (amountDueNow > 0 && paymentAmount > 0 && Number.isInteger(remainingPayments) && remainingPayments >= 1) {
-      const totalCommitment = amountDueNow + paymentAmount * remainingPayments + fees;
+      if (fees > 0 && feeTreatment === "upfront") amountDueNow += fees;
+      const totalCommitment = amountDueNow + paymentAmount * remainingPayments + (feeTreatment === "upfront" ? 0 : fees);
+      const feeResolved = fees <= 0 || ["upfront", "separate_later", "split_evenly"].includes(feeTreatment);
       return {
         purchaseType: "installment",
         amountDueNow,
@@ -287,8 +377,9 @@ function installmentCandidateFromText(source = "", amounts = []) {
         totalCommitment,
         frequency: "monthly",
         fees,
-        paymentStructureStatus: explicitlyNoFees || feeMatch ? "confirmed" : "needs_confirmation",
-        paymentStructureSource: explicitlyNoFees || feeMatch ? "user_direct" : "candidate",
+        ...(feeTreatment ? { feeTreatment } : {}),
+        paymentStructureStatus: (explicitlyNoFees || feeResolved) ? "confirmed" : "needs_confirmation",
+        paymentStructureSource: (explicitlyNoFees || feeResolved) ? "user_direct" : "candidate",
       };
     }
   }
@@ -309,6 +400,7 @@ function installmentCandidateFromText(source = "", amounts = []) {
         totalCommitment: paymentAmount * totalPayments + fees,
         frequency: "monthly",
         fees,
+        ...(feeTreatment ? { feeTreatment } : {}),
         paymentStructureStatus: "needs_confirmation",
         paymentStructureSource: "candidate",
       };
@@ -317,6 +409,7 @@ function installmentCandidateFromText(source = "", amounts = []) {
 
   return {
     purchaseType: "installment",
+    ...(fees > 0 ? { fees, feeTreatment: feeTreatment || "unresolved" } : {}),
     paymentStructureStatus: "needs_confirmation",
     paymentStructureSource: "candidate",
   };
@@ -350,9 +443,15 @@ export function applyLocalPurchaseFacts(message = "", previousEvidence = {}) {
   const amounts = parseClaraMoneyAmounts(source);
   const previousHadPurchaseCore = Boolean(clean(previous.item) && hasConfirmedClaraPaymentStructure(previous));
 
+  const feeResolved = resolvePendingInstallmentFeeTreatment(source, previous);
+  if (feeResolved) {
+    return feeResolved;
+  }
+
   if (
     previous.purchaseType === "installment" &&
     previous.paymentStructureStatus === "needs_confirmation" &&
+    !["unresolved", "installments_unspecified"].includes(previous.feeTreatment) &&
     AFFIRMATIVE_PATTERN.test(source) &&
     positiveNumber(previous.amountDueNow) > 0 &&
     positiveNumber(previous.paymentAmount) > 0 &&
@@ -445,7 +544,9 @@ export function hasConfirmedClaraPurchasePrice(evidence = {}) {
 export function hasConfirmedClaraPaymentStructure(evidence = {}) {
   const source = sanitizeClaraPurchaseEvidence(evidence);
   if (source.purchaseType === "installment") {
+    const feeResolved = !(positiveNumber(source.fees) > 0 && ["unresolved", "installments_unspecified"].includes(source.feeTreatment));
     return Boolean(
+      feeResolved &&
       source.paymentStructureStatus === "confirmed" &&
       positiveNumber(source.amountDueNow) > 0 &&
       positiveNumber(source.paymentAmount) > 0 &&
@@ -530,6 +631,7 @@ export function compactClaraPurchaseContext(evidence = {}) {
     totalCommitment: installment && Number.isFinite(Number(source.totalCommitment)) ? Number(source.totalCommitment) : null,
     frequency: installment ? source.frequency || null : null,
     fees: installment && Number.isFinite(Number(source.fees)) ? Number(source.fees) : null,
+    feeTreatment: installment ? source.feeTreatment || null : null,
     purpose: source.purpose || null,
     currentSituation: source.currentSituation || null,
     urgency: source.urgency || null,
