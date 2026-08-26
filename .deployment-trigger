@@ -1,5 +1,5 @@
 CLARA deployment trigger
-Reason: retry production deploy for Buy Check installment processing-fee ambiguity repair.
-Version: clara-buy-check-processing-fee-v1-retry-2
+Reason: retry production deploy for Buy Check installment processing-fee ambiguity repair after Vercel rate-limit window.
+Version: clara-buy-check-processing-fee-v1-retry-3
 Source-commit: e9fc8e680446f3476154865542ecbdaeee406aa0
-Timestamp: 2026-08-27T07:18+08:00
+Trigger-base: 9b636bfab764c6cb866e3b0300ebfc5574293a73
