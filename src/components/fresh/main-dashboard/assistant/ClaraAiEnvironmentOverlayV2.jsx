@@ -7,7 +7,7 @@ import {
   getClaraTypingPlan,
 } from "@/lib/clara-conversation-pacing";
 
-const CLARA_AI_BRAIN_VERSION = "progressive-buy-check-v10-installment-obligation-day-picker";
+const CLARA_AI_BRAIN_VERSION = "progressive-buy-check-v10-installment-obligation-day-grid";
 
 const BUY_CHECK_ACKNOWLEDGMENTS = [
   "Good move—you paused before buying. Let’s see if it fits your money.",
@@ -187,6 +187,7 @@ function FinalDecisionPanel({
   onCancel,
 }) {
   const [walletPickerOpen, setWalletPickerOpen] = useState(false);
+  const [dueDayPickerOpen, setDueDayPickerOpen] = useState(false);
 
   if (!finalDecision || !["explain", "resolved"].includes(finalDecision.phase)) return null;
 
@@ -264,26 +265,53 @@ function FinalDecisionPanel({
             </div>
           </article>
 
-          <label htmlFor="clara-installment-due-day" className="mb-1.5 mt-3 block text-[10px] font-black uppercase tracking-[0.16em] text-[#ffd84a]/66">DUE EACH MONTH</label>
-          <div className="relative z-20 flex min-h-12 items-center gap-3 rounded-[18px] border border-blue-200/14 bg-[#08142b]/96 px-4 py-2 shadow-inner focus-within:border-blue-300/42">
-            <select
-              id="clara-installment-due-day"
-              data-clara-installment-due-day-picker="true"
-              value={installmentDueDay}
-              onChange={(event) => onInstallmentDueDayChange?.(event.target.value)}
-              disabled={finalDecision.busy}
-              aria-label="Installment due day of month"
-              className="relative z-20 min-w-0 flex-1 cursor-pointer touch-manipulation appearance-none bg-transparent py-1 text-[13px] font-black text-white outline-none disabled:cursor-not-allowed disabled:opacity-55"
+          <p className="mb-1.5 mt-3 block text-[10px] font-black uppercase tracking-[0.16em] text-[#ffd84a]/66">DUE EACH MONTH</p>
+          <button
+            type="button"
+            data-clara-installment-due-day-trigger="true"
+            onClick={() => setDueDayPickerOpen((open) => !open)}
+            disabled={finalDecision.busy}
+            aria-expanded={dueDayPickerOpen}
+            className="relative z-20 flex min-h-12 w-full touch-manipulation items-center justify-between gap-3 rounded-[18px] border border-blue-200/14 bg-[#08142b]/96 px-4 py-3 text-left shadow-inner outline-none transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-55"
+          >
+            <span className="text-[13px] font-black text-white">
+              {validInstallmentDueDay ? `Day ${installmentDueDay}` : "Choose day"}
+            </span>
+            <span className="shrink-0 text-[10.5px] font-semibold text-slate-300/58">
+              day of month {dueDayPickerOpen ? "⌃" : "⌄"}
+            </span>
+          </button>
+
+          {dueDayPickerOpen ? (
+            <div
+              data-clara-installment-due-day-grid="true"
+              role="listbox"
+              aria-label="Choose installment due day"
+              className="relative z-30 mt-2 grid grid-cols-7 gap-1.5 rounded-[18px] border border-blue-200/12 bg-[#050d1f]/98 p-2.5 shadow-[0_16px_36px_rgba(0,0,0,0.34)]"
             >
-              <option value="" disabled>Choose day</option>
-              {Array.from({ length: 31 }, (_, index) => index + 1).map((day) => (
-                <option key={day} value={String(day)} className="bg-[#08142b] text-white">
-                  {day}
-                </option>
-              ))}
-            </select>
-            <span className="pointer-events-none shrink-0 text-[10.5px] font-semibold text-slate-300/58">day of month ▾</span>
-          </div>
+              {Array.from({ length: 31 }, (_, index) => index + 1).map((day) => {
+                const selected = installmentDueDay === String(day);
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    data-clara-installment-due-day-option={String(day)}
+                    disabled={finalDecision.busy}
+                    onClick={() => {
+                      onInstallmentDueDayChange?.(String(day));
+                      setDueDayPickerOpen(false);
+                    }}
+                    className={`grid aspect-square min-h-9 touch-manipulation place-items-center rounded-[11px] border text-[11.5px] font-black transition active:scale-95 disabled:opacity-50 ${selected ? "border-blue-300/42 bg-blue-500/18 text-white" : "border-white/8 bg-white/[0.035] text-white/84"}`}
+                  >
+                    {day}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
           <p className="mt-2 text-[11px] font-semibold leading-5 text-blue-100/65">
             CLARA will save this under Debt / Obligations. No wallet money is deducted just for documenting it. Record the actual payment from the obligation when you pay.
           </p>
@@ -613,7 +641,6 @@ export default function ClaraAiEnvironmentOverlay({
   } else if (!isActive && acknowledgmentSessionRef.current.active) {
     acknowledgmentSessionRef.current = { active: false, sessionId: "", index: -1, message: "" };
   }
-
 
   const visibleMessages = useMemo(
     () => (Array.isArray(activeMessages) ? activeMessages : []).filter(Boolean),
