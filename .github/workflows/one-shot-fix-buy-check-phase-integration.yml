@@ -1,0 +1,43 @@
+name: One-shot Buy Check phase integration repair
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-shot-fix-buy-check-phase-integration.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply Buy Check integration repair
+        run: python .github/scripts/fix-buy-check-phase-integration.py
+
+      - name: Verify targeted Buy Check intelligence
+        run: |
+          node --check src/lib/clara-buy-check-expert-ai.js
+          node --check src/lib/clara-buy-check-intelligence-router.js
+          node --test tests/buy-check-progressive-router.test.mjs tests/buy-check-gemini-authority.test.mjs tests/buy-check-metric-impact.test.mjs
+
+      - name: Verify production compile
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npx vite build
+
+      - name: Commit repair and remove one-shot files
+        run: |
+          rm -f .github/workflows/one-shot-fix-buy-check-phase-integration.yml
+          rm -f .github/scripts/fix-buy-check-phase-integration.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/clara-buy-check-expert-ai.js src/lib/clara-buy-check-intelligence-router.js tests/buy-check-progressive-router.test.mjs tests/buy-check-gemini-authority.test.mjs .github/workflows .github/scripts
+          git commit -m "Fix Buy Check phase prompt integration"
+          git pull --rebase origin main
+          git push origin HEAD:main
