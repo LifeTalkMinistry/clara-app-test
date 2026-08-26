@@ -51,6 +51,7 @@ export default function DailyTipCard({
     challengeDotStates,
     challengeStatus,
     currentStreak,
+    checkInToday,
   } = useDailyCheckIn({ userId, simulationMode });
   const [flipped, setFlipped] = useState(false);
   const { reaction, saving: feedbackSaving, syncNotice, react } = useDailyTipFeedback({
@@ -62,6 +63,7 @@ export default function DailyTipCard({
   const [isFlipping, setIsFlipping] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationLevel, setCelebrationLevel] = useState("normal");
+  const [checkInFeedback, setCheckInFeedback] = useState("");
   const isFlippingRef = useRef(false);
   const flipUnlockTimerRef = useRef(null);
   const celebrationTimerRef = useRef(null);
@@ -79,23 +81,33 @@ export default function DailyTipCard({
   const cardHeadline = isGuideMode
     ? "Today’s money reminder"
     : challengeStatus === "completed"
-      ? "30 Days of Awareness"
+      ? "30-Day Challenge Complete"
       : `Day ${displayedChallengeDay} of ${CHECK_IN_DAYS}`;
-  const cardSubtitle = isGuideMode
-    ? "Tap to see how CLARA gives you one practical money reminder each day."
-    : challengeStatus === "completed"
-      ? "You showed up and checked your financial position for 30 days."
-      : "";
+  const cardSubtitle = checkInFeedback
+    ? checkInFeedback
+    : isGuideMode
+      ? "Tap to see how CLARA gives you one practical money reminder each day."
+      : challengeStatus === "completed"
+        ? "You completed all 30 local Daily Money Tip check-ins."
+        : "";
+  const checkInPromptLead = personalStreak > 0
+    ? `Keep your ${personalStreak}-day streak going.`
+    : completedDayCount > 0
+      ? "Continue your 30-day progress."
+      : "Start your 30-day streak.";
   const showProgressDots = Boolean(
     isGuideMode ||
       checkedInToday ||
-      challengeStatus === "completed",
+      challengeStatus === "completed" ||
+      checkInFeedback,
   );
   const actionLabel = isGuideMode
     ? "Preview"
     : checkedInToday
-      ? "Awareness active ✓"
-      : "Opening today…";
+      ? "Checked in ✓"
+      : isFlipping
+        ? "Checking…"
+        : "Tap to check in";
 
   const releaseFlipLock = () => {
     if (flipUnlockTimerRef.current) {
@@ -123,14 +135,24 @@ export default function DailyTipCard({
   useEffect(() => {
     if (!isGuideMode) return;
     setFlipped(false);
+    setCheckInFeedback("");
     releaseFlipLock();
   }, [isGuideMode, guideStep]);
 
   useEffect(() => {
     setFlipped(false);
     setShowCelebration(false);
+    setCheckInFeedback("");
     releaseFlipLock();
   }, [todayKey]);
+
+  useEffect(() => {
+    setCheckInFeedback("");
+  }, [userId]);
+
+  useEffect(() => {
+    if (checkedInToday) setCheckInFeedback("");
+  }, [checkedInToday]);
 
   useEffect(() => {
     return () => {
@@ -145,6 +167,44 @@ export default function DailyTipCard({
       }
     };
   }, []);
+
+  const triggerCheckInCelebration = (milestoneType = null) => {
+    if (typeof window === "undefined") return;
+
+    const level =
+      milestoneType === "streak_30_completed"
+        ? "thirty"
+        : milestoneType === "streak_14_day"
+          ? "fourteen"
+          : milestoneType === "streak_7_day"
+            ? "seven"
+            : "normal";
+    const duration =
+      level === "thirty" ? 1900 : level === "fourteen" ? 1450 : level === "seven" ? 1200 : 950;
+
+    setShowCelebration(false);
+    setCelebrationLevel(level);
+
+    if (celebrationTimerRef.current) {
+      window.clearTimeout(celebrationTimerRef.current);
+      celebrationTimerRef.current = null;
+    }
+
+    const startCelebration = () => {
+      setShowCelebration(true);
+      celebrationTimerRef.current = window.setTimeout(() => {
+        setShowCelebration(false);
+        celebrationTimerRef.current = null;
+      }, duration);
+    };
+
+    if (typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(startCelebration);
+      return;
+    }
+
+    startCelebration();
+  };
 
   const handleFlip = () => {
     if (isGuideMode) {
@@ -167,6 +227,29 @@ export default function DailyTipCard({
       setFlipped(false);
       flipUnlockTimerRef.current = window.setTimeout(releaseFlipLock, FLIP_UNLOCK_DELAY_MS);
       return;
+    }
+
+    const checkInResult = checkInToday();
+    const mayRevealTip =
+      checkInResult?.status === "completed" ||
+      checkInResult?.status === "already_checked_in";
+
+    if (!mayRevealTip) {
+      if (checkInResult?.status === "identity_unavailable") {
+        setCheckInFeedback("Sign in with your CLARA account to save today’s check-in.");
+      } else if (checkInResult?.status === "busy") {
+        setCheckInFeedback("Today’s check-in is still being saved. Please tap again.");
+      } else {
+        setCheckInFeedback("We couldn’t save today’s check-in. Tap to retry.");
+      }
+      releaseFlipLock();
+      return;
+    }
+
+    setCheckInFeedback("");
+
+    if (checkInResult?.status === "completed") {
+      triggerCheckInCelebration(checkInResult.milestoneType);
     }
 
     setFlipped(true);
@@ -240,7 +323,14 @@ export default function DailyTipCard({
     );
   }
 
-  const sparkCount = celebrationLevel === "thirty" ? 30 : celebrationLevel === "fourteen" ? 24 : celebrationLevel === "seven" ? 20 : 18;
+  const sparkCount =
+    celebrationLevel === "thirty"
+      ? 30
+      : celebrationLevel === "fourteen"
+        ? 24
+        : celebrationLevel === "seven"
+          ? 20
+          : 18;
 
   return (
     <div
@@ -260,7 +350,15 @@ export default function DailyTipCard({
             handleFlip();
           }
         }}
-        aria-label={isGuideMode ? "Open the simulated Daily Money Tip guide step" : "Show today’s Daily Money Tip"}
+        aria-label={
+          isGuideMode
+            ? "Open the simulated Daily Money Tip guide step"
+            : hasCommittedAccess
+              ? checkedInToday
+                ? "Show today’s Daily Money Tip"
+                : "Check in for today and reveal Daily Money Tip"
+              : "Open the Committed Version to unlock Daily Check-In"
+        }
         aria-pressed={flipped}
         aria-disabled={isFlipping && hasCommittedAccess}
         className={`group relative h-[clamp(150px,18.5dvh,160px)] w-full cursor-pointer overflow-hidden rounded-2xl bg-transparent text-left outline-none transition-[box-shadow,filter,transform] duration-300 ${
@@ -286,7 +384,7 @@ export default function DailyTipCard({
 
               <div className="relative grid h-full grid-rows-[auto_1fr_auto_auto] gap-y-1 px-4 py-2.5 text-white">
                 <div className="text-[8.5px] font-black uppercase leading-none tracking-[0.24em] text-cyan-200/70">
-                  {isGuideMode ? "Daily Money Tip" : "Daily Awareness"}
+                  Daily Money Tip
                 </div>
 
                 <div className="flex min-h-0 items-center justify-between gap-3">
@@ -296,109 +394,169 @@ export default function DailyTipCard({
                     </div>
 
                     {cardSubtitle ? (
-                      <p className="mt-1 max-w-[14.5rem] text-[10px] font-semibold leading-[1.25] text-cyan-50/72">
+                      <p className={`mt-1 max-w-[14.5rem] text-[10px] font-semibold leading-[1.25] ${
+                        checkInFeedback ? "text-rose-200/90" : "text-cyan-50/72"
+                      }`}>
                         {cardSubtitle}
                       </p>
                     ) : null}
                   </div>
 
-                  <span className="clara-checkin-action shrink-0 px-3 py-1.5 text-[8.5px] font-black uppercase tracking-[0.12em] text-cyan-50/88">
+                  <span className="clara-checkin-action shrink-0 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.12em]">
                     {actionLabel}
                   </span>
                 </div>
 
                 {showProgressDots ? (
-                  <div className="grid grid-cols-10 gap-[5px]" aria-label={`${completedDayCount} of ${CHECK_IN_DAYS} awareness days completed`}>
-                    {challengeDotStates.slice(0, CHECK_IN_DAYS).map((state, index) => (
-                      <span
-                        key={`${todayKey}-${index}`}
-                        aria-hidden="true"
-                        className={`h-[8px] w-[8px] rounded-full border ${
-                          state === "completed"
-                            ? "border-cyan-100/70 bg-cyan-100 shadow-[0_0_10px_rgba(165,243,252,0.72)]"
-                            : state === "current"
-                              ? "border-cyan-200/50 bg-cyan-300/22"
-                              : "border-cyan-100/10 bg-white/[0.025]"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                ) : null}
+                  <div
+                    className="clara-checkin-grid"
+                    role="img"
+                    aria-label={`30-day progress: ${completedDayCount} of ${CHECK_IN_DAYS} completed`}
+                  >
+                    {(challengeDotStates?.length ? challengeDotStates : Array.from({ length: CHECK_IN_DAYS })).map((dot, dotIndex) => {
+                      const isDone = Boolean(dot?.completed);
+                      const isToday = Boolean(dot?.today);
+                      const isMissed = Boolean(dot?.pastMissed);
 
-                <div className="grid grid-cols-2 gap-2 text-[8px] font-black uppercase tracking-[0.09em] text-cyan-100/48">
-                  <div className="rounded-xl border border-white/[0.055] bg-black/10 px-2.5 py-1.5">
-                    <span>Awareness streak</span>
-                    <span className="float-right text-[10px] normal-case tracking-normal text-white/88">{pluralizeDay(personalStreak)}</span>
+                      return (
+                        <span
+                          key={dot?.dateKey || dotIndex}
+                          aria-hidden="true"
+                          className={`clara-checkin-dot ${isDone ? "clara-checkin-dot--done" : ""} ${
+                            isToday ? "clara-checkin-dot--today" : ""
+                          } ${isMissed ? "clara-checkin-dot--missed" : ""}`}
+                        />
+                      );
+                    })}
                   </div>
-                  <div className="rounded-xl border border-white/[0.055] bg-black/10 px-2.5 py-1.5">
-                    <span>Awareness progress</span>
-                    <span className="float-right text-[10px] tracking-normal text-white/88">{completedDayCount}/{CHECK_IN_DAYS}</span>
+                ) : (
+                  <div className="flex min-h-[42px] items-center justify-center px-4 text-center">
+                    <p className="max-w-[19rem] text-[clamp(12px,3.15vw,13.5px)] font-extrabold leading-[1.4] tracking-[-0.015em] text-cyan-50/88">
+                      <span className="block">{checkInPromptLead}</span>
+                      <span className="mt-0.5 block">Check in today.</span>
+                    </p>
                   </div>
+                )}
+
+                <div className="clara-checkin-metrics" aria-label="Daily check-in summary">
+                  <span>
+                    <small>Personal streak</small>
+                    <strong>{pluralizeDay(personalStreak)}</strong>
+                  </span>
+                  <span>
+                    <small>30-day progress</small>
+                    <strong>{completedDayCount}/{CHECK_IN_DAYS}</strong>
+                  </span>
                 </div>
               </div>
             </div>
 
-            <div className="clara-preserve-flip-face clara-daily-tip-face clara-daily-tip-face--back rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-400/10 via-slate-900/40 to-indigo-500/10">
-              <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(103,232,249,0.10),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.12),transparent_48%)]" />
-              <div className="relative flex h-full flex-col px-4 py-3 text-white">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-[8.5px] font-black uppercase tracking-[0.24em] text-cyan-200/70">Daily Money Tip</div>
-                  <span className="text-[8px] font-black uppercase tracking-[0.12em] text-cyan-100/50">Tap to return</span>
+            <div className="clara-preserve-flip-face clara-daily-tip-face clara-daily-tip-face--back rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-indigo-500/15 via-slate-950/70 to-cyan-400/10">
+              <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_right,rgba(103,232,249,0.12),transparent_44%),radial-gradient(circle_at_bottom_left,rgba(129,140,248,0.12),transparent_48%)]" />
+
+              <div className="relative grid h-full grid-rows-[auto_1fr_auto] px-3 py-3 text-center text-white">
+                <div className="pt-0.5 text-center">
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-200/66">
+                    Today’s Money Tip
+                  </span>
                 </div>
 
-                <div className="mt-2 min-h-0 flex-1 overflow-y-auto pr-1">
-                  <p className="text-[11.4px] font-semibold leading-[1.48] text-cyan-50/84">{tip}</p>
+                <div className="flex items-center justify-center px-2">
+                  <p className="max-w-[20rem] text-[13px] font-semibold leading-relaxed text-white/90">
+                    {tip}
+                  </p>
                 </div>
 
-                <div className="mt-2 flex items-center justify-between gap-3 border-t border-white/[0.055] pt-2">
-                  <span className="text-[8px] font-black uppercase tracking-[0.12em] text-cyan-100/45">Was this useful?</span>
-                  <div className="flex items-center gap-1.5">
+                {simulationMode ? (
+                  <div>
+                    <div className="mx-auto h-px w-16 bg-gradient-to-r from-transparent via-cyan-100/25 to-transparent" />
+                    <p className="mt-2 text-[8px] font-bold uppercase tracking-[0.14em] text-white/42">
+                      Tap to return to progress
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-[44px_1fr_44px] items-end gap-1">
                     <button
                       type="button"
-                      onClick={(event) => handleTipReaction(event, "up")}
+                      aria-label={reaction === "dislike" ? "Remove dislike from this money tip" : "Dislike this money tip"}
+                      aria-pressed={reaction === "dislike"}
                       disabled={feedbackSaving}
-                      className={`flex h-7 w-7 items-center justify-center rounded-full border transition ${reaction === "up" ? "border-cyan-200/35 bg-cyan-300/15 text-cyan-100" : "border-white/10 bg-white/[0.04] text-white/55"}`}
-                      aria-label="Helpful"
+                      onClick={(event) => handleTipReaction(event, "dislike")}
+                      onKeyDown={(event) => event.stopPropagation()}
+                      className={`flex h-11 w-11 items-center justify-center rounded-full border transition-[background-color,border-color,color,transform,opacity] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200/80 disabled:opacity-55 ${
+                        reaction === "dislike"
+                          ? "border-rose-300/55 bg-rose-400/18 text-rose-100"
+                          : "border-white/12 bg-white/[0.055] text-white/48 hover:border-rose-300/32 hover:bg-rose-400/10 hover:text-rose-100/88"
+                      }`}
                     >
-                      <ThumbsUp className="h-3.5 w-3.5" />
+                      <ThumbsDown className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
                     </button>
+
+                    <div className="self-center px-1">
+                      <div className="mx-auto h-px w-16 bg-gradient-to-r from-transparent via-cyan-100/25 to-transparent" />
+                      <p className="mt-2 text-[8px] font-bold uppercase tracking-[0.14em] text-white/42" aria-live="polite">
+                        {syncNotice || "Tap to return to progress"}
+                      </p>
+                    </div>
+
                     <button
                       type="button"
-                      onClick={(event) => handleTipReaction(event, "down")}
+                      aria-label={reaction === "like" ? "Remove like from this money tip" : "Like this money tip"}
+                      aria-pressed={reaction === "like"}
                       disabled={feedbackSaving}
-                      className={`flex h-7 w-7 items-center justify-center rounded-full border transition ${reaction === "down" ? "border-rose-200/35 bg-rose-300/15 text-rose-100" : "border-white/10 bg-white/[0.04] text-white/55"}`}
-                      aria-label="Not helpful"
+                      onClick={(event) => handleTipReaction(event, "like")}
+                      onKeyDown={(event) => event.stopPropagation()}
+                      className={`flex h-11 w-11 items-center justify-center rounded-full border transition-[background-color,border-color,color,transform,opacity] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/80 disabled:opacity-55 ${
+                        reaction === "like"
+                          ? "border-cyan-200/55 bg-cyan-300/16 text-cyan-100"
+                          : "border-white/12 bg-white/[0.055] text-white/48 hover:border-cyan-200/32 hover:bg-cyan-300/10 hover:text-cyan-100/88"
+                      }`}
                     >
-                      <ThumbsDown className="h-3.5 w-3.5" />
+                      <ThumbsUp className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
                     </button>
                   </div>
-                </div>
-
-                {syncNotice ? <p className="mt-1 text-[8px] font-semibold text-cyan-100/45">{syncNotice}</p> : null}
+                )}
               </div>
             </div>
           </div>
         </div>
 
-        {!hasCommittedAccess ? (
-          <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-slate-950/45 backdrop-blur-[1.5px]">
-            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/80 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.12em] text-white/75">
-              <Lock className="h-3.5 w-3.5" />
-              Committed Version
-            </div>
-          </div>
-        ) : null}
-
         {showCelebration ? (
-          <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden rounded-2xl">
+          <div
+            className="clara-checkin-celebration"
+            aria-hidden="true"
+            style={{
+              transform:
+                celebrationLevel === "thirty"
+                  ? "scale(1.08)"
+                  : celebrationLevel === "fourteen"
+                    ? "scale(1.04)"
+                    : undefined,
+            }}
+          >
             {Array.from({ length: sparkCount }).map((_, index) => (
               <span
                 key={index}
-                className="absolute h-1.5 w-1.5 rounded-full bg-cyan-100/80 shadow-[0_0_9px_rgba(165,243,252,0.8)]"
-                style={{ left: `${8 + ((index * 31) % 84)}%`, top: `${8 + ((index * 47) % 78)}%` }}
+                className={`clara-checkin-spark clara-checkin-spark--${(index % 18) + 1}`}
               />
             ))}
           </div>
+        ) : null}
+
+        {!hasCommittedAccess ? (
+          <span className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-black/[0.14] backdrop-blur-[0.8px]">
+            <span className="rounded-[22px] border border-white/16 bg-[rgba(9,18,36,0.72)] px-4 py-3 text-center text-white shadow-[0_16px_42px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+              <span className="mx-auto flex h-9 w-9 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.08] text-white/76">
+                <Lock className="h-3.5 w-3.5" />
+              </span>
+              <span className="mt-2 block text-[9px] font-black uppercase tracking-[0.2em] text-white/58">
+                Committed Version
+              </span>
+              <span className="mt-1 block text-[11px] font-black text-white/88">
+                Tap to unlock
+              </span>
+            </span>
+          </span>
         ) : null}
       </div>
     </div>
