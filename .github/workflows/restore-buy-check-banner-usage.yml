@@ -1,0 +1,48 @@
+name: Restore Buy Check banner usage anchor
+
+on:
+  push:
+    paths:
+      - '.github/workflows/restore-buy-check-banner-usage.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  restore-buy-check-ui-anchor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Restore canonical Buy Check portal anchor
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx')
+          text = path.read_text()
+          old = '''      <p className="text-[9px] font-black uppercase tracking-[0.22em] text-blue-200/52">BUY CHECK</p>\n      <strong className="mt-4 block text-[18px] font-black leading-[1.4] text-white/95">What are you thinking about buying?</strong>\n      <span className="mt-2 block text-[12px] font-semibold leading-[1.55] text-slate-300/72">Tell CLARA the item and price if you already know it.</span>'''
+          new = '''      <p className="text-[9px] font-black uppercase tracking-[0.22em] text-blue-200/52">BUY CHECK</p>\n      <div\n        data-clara-buy-check-active-question="true"\n        aria-live="polite"\n        className="mx-auto mt-4 max-w-[318px] text-center"\n      >\n        <strong className="block text-[18px] font-black leading-[1.4] text-white/95">What are you thinking about buying?</strong>\n        <span className="mt-2 block text-[12px] font-semibold leading-[1.55] text-slate-300/72">Tell CLARA the item and price if you already know it.</span>\n      </div>'''
+          if old not in text:
+              raise SystemExit('Current compact Buy Check opening block not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Verify targeted behavior
+        run: |
+          grep -q 'data-clara-buy-check-active-question="true"' src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx
+          grep -q 'TARGET_SELECTOR = '\''\[data-clara-buy-check-active-question="true"\]'\''' src/components/fresh/main-dashboard/assistant/ClaraBuyCheckUsagePortal.jsx
+          node --check src/lib/clara-buy-check-intelligence-router.js
+          node --check src/lib/clara-buy-check-expert-ai.js
+          node --test tests/buy-check-progressive-router.test.mjs tests/buy-check-metric-impact.test.mjs tests/buy-check-gemini-authority.test.mjs
+
+      - name: Commit surgical restoration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/restore-buy-check-banner-usage.yml
+          git add src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx
+          git commit -m "Restore Buy Check banner and daily reply counter"
+          git push origin HEAD:main
