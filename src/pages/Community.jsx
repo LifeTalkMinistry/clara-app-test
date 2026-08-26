@@ -292,30 +292,6 @@ export default function Community() {
     return () => window.clearInterval(intervalId);
   }, [isAdmin, loadNotifications, token]);
 
-  useEffect(() => {
-    if (
-      checkingProductAccess ||
-      isAdmin ||
-      hasProductAccess ||
-      activeView === "orb" ||
-      activeView === "settings"
-    ) {
-      return;
-    }
-
-    const nextParams = new URLSearchParams(searchParams);
-    nextParams.set("view", "orb");
-    nextParams.delete("learning");
-    setSearchParams(nextParams, { replace: true });
-  }, [
-    activeView,
-    checkingProductAccess,
-    hasProductAccess,
-    isAdmin,
-    searchParams,
-    setSearchParams,
-  ]);
-
   const markNotificationRead = async (notification) => {
     if (!notification?.id || notification.is_read || !token || !isAdmin) return;
     try {
@@ -426,7 +402,17 @@ export default function Community() {
         }
       `}</style>
 
-      {activeView === "settings" ? (
+      <div
+        className="relative flex min-h-0 flex-1 overflow-hidden"
+        data-clara-community-content-stack="true"
+      >
+        <div
+          className="flex min-h-0 flex-1"
+          inert={gateCurrentView ? "" : undefined}
+          aria-hidden={gateCurrentView ? "true" : undefined}
+          data-clara-trial-preview-page={gateCurrentView ? "true" : undefined}
+        >
+          {activeView === "settings" ? (
         <main className="clara-community-settings-view relative z-[1] min-h-0 flex-1 overflow-y-auto bg-[#040b18] px-4 pb-[calc(env(safe-area-inset-bottom)+30px)] pt-5 sm:px-6">
           <div className="mx-auto w-full max-w-md">
             <DashboardSettingsPanel
@@ -443,14 +429,6 @@ export default function Community() {
             />
           </div>
         </main>
-      ) : gateCurrentView ? (
-        <ClaraTrialAccessGate
-          trial={trial}
-          checking={checkingProductAccess}
-          error={productAccessError}
-          onRedeem={redeemTrialCode}
-          onRetry={refreshAccess}
-        />
       ) : adminOnlyForCurrentUser ? (
         <UnderConstructionView />
       ) : activeView === "orb" ? (
@@ -550,7 +528,24 @@ export default function Community() {
             )}
           </div>
         </main>
-      )}
+          )}
+        </div>
+
+        {gateCurrentView ? (
+          <div
+            className="absolute inset-0 z-[80] flex min-h-0"
+            data-clara-trial-gate-layer="true"
+          >
+            <ClaraTrialAccessGate
+              trial={trial}
+              checking={checkingProductAccess}
+              error={productAccessError}
+              onRedeem={redeemTrialCode}
+              onRetry={refreshAccess}
+            />
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

@@ -6,29 +6,29 @@ async function source(path) {
   return readFile(new URL(`../${path}`, import.meta.url), "utf8");
 }
 
-test("trial gate keeps Community navigation visible as an inert preview", async () => {
+test("trial gate leaves TopNav fully browsable while product content stays locked", async () => {
   const runtime = await source("src/lib/clara-product-runtime-access.js");
+  const community = await source("src/pages/Community.jsx");
 
   assert.match(runtime, /let productLocked = true/);
-  assert.match(runtime, /data-clara-product-locked/);
-  assert.match(runtime, /clara-community-root:has\(\[data-clara-trial-access-gate="true"\]\)/);
-  assert.match(runtime, /> \.clara-community-shell-header/);
-  assert.match(runtime, /opacity: \.34 !important/);
-  assert.match(runtime, /pointer-events: none !important/);
-  assert.match(runtime, /header\.inert = true/);
-  assert.match(runtime, /data\.claraTrialNavPreview/);
-  assert.doesNotMatch(runtime, /> \.clara-community-shell-header \{\s*display: none !important/);
+  assert.doesNotMatch(runtime, /clara-community-shell-header/);
+  assert.doesNotMatch(runtime, /header\.inert/);
+  assert.match(community, /data-clara-community-content-stack="true"/);
+  assert.match(community, /data-clara-trial-preview-page=\{gateCurrentView/);
+  assert.match(community, /data-clara-trial-gate-layer="true"/);
+  assert.doesNotMatch(community, /nextParams\.set\("view", "orb"\)/);
 });
 
-test("trial banner keeps the actual CLARA Orb visible underneath while locked", async () => {
+test("trial banner overlays the actual selected page instead of mounting a second Orb", async () => {
   const gate = await source("src/components/community/ClaraTrialAccessGate.jsx");
+  const community = await source("src/pages/Community.jsx");
 
-  assert.match(gate, /import ClaraOrbPage from/);
-  assert.match(gate, /data-clara-trial-preview-content="true"/);
-  assert.match(gate, /inert=""/);
-  assert.match(gate, /<ClaraOrbPage onActivate=\{\(\) => \{\}\} \/>/);
-  assert.match(gate, /data-clara-trial-preview-scrim="true"/);
-  assert.match(gate, /relative z-20 w-full max-w-\[440px\]/);
+  assert.doesNotMatch(gate, /import ClaraOrbPage from/);
+  assert.doesNotMatch(gate, /data-clara-trial-preview-content/);
+  assert.match(gate, /rgba\(1,2,23,0\.10\)/);
+  assert.match(gate, /rgba\(13,24,55,\.78\)/);
+  assert.match(community, /inert=\{gateCurrentView \? "" : undefined\}/);
+  assert.match(community, /<ClaraTrialAccessGate/);
 });
 
 test("daily awareness cannot persist a check-in before product access is active", async () => {

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { ExternalLink, KeyRound, Sparkles } from "lucide-react";
-import ClaraOrbPage from "@/components/community/ClaraOrbPage";
 import { normalizeBetaTesterCodeInput } from "@/lib/beta-tester-access-client";
 
 const CREATOR_FACEBOOK_URL =
@@ -55,26 +54,11 @@ export default function ClaraTrialAccessGate({
 
   return (
     <div
-      className="relative flex min-h-0 w-full flex-1 items-center justify-center overflow-y-auto bg-[#010217] px-5 py-8 text-white"
+      className="relative flex min-h-0 w-full flex-1 items-center justify-center overflow-y-auto bg-[linear-gradient(180deg,rgba(1,2,23,0.10),rgba(1,2,23,0.24))] px-5 py-8 text-white"
       aria-label="CLARA trial access"
       data-clara-trial-access-gate="true"
     >
-      <div
-        className="pointer-events-none absolute inset-0 z-0 flex min-h-0 select-none"
-        aria-hidden="true"
-        inert=""
-        data-clara-trial-preview-content="true"
-      >
-        <ClaraOrbPage onActivate={() => {}} />
-      </div>
-
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(circle_at_50%_16%,rgba(52,91,255,0.08),transparent_34%),radial-gradient(circle_at_50%_76%,rgba(235,185,52,0.035),transparent_34%),linear-gradient(180deg,rgba(1,2,23,0.18),rgba(1,2,23,0.38))]"
-        data-clara-trial-preview-scrim="true"
-      />
-
-      <section className="relative z-20 w-full max-w-[440px] overflow-hidden rounded-[30px] border border-white/[0.09] bg-[linear-gradient(160deg,rgba(13,24,55,.96),rgba(5,9,31,.985)_56%,rgba(22,12,43,.97))] p-6 shadow-[0_28px_90px_rgba(0,0,0,.48),0_0_44px_rgba(66,111,255,.08)] backdrop-blur-2xl sm:p-7">
+      <section className="relative z-20 w-full max-w-[440px] overflow-hidden rounded-[30px] border border-white/[0.09] bg-[linear-gradient(160deg,rgba(13,24,55,.78),rgba(5,9,31,.84)_56%,rgba(22,12,43,.80))] p-6 shadow-[0_28px_90px_rgba(0,0,0,.48),0_0_44px_rgba(66,111,255,.08)] backdrop-blur-md sm:p-7">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-12 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(92,214,255,.9),rgba(255,217,77,.75),transparent)]"
