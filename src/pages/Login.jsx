@@ -1,9 +1,20 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowRight, Eye, EyeOff } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  Play,
+  X,
+} from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { requestClaraPasswordReset } from "@/lib/password-reset-client";
 import ClaraLogo from "@/components/ClaraLogo";
+
+const CLARA_FACEBOOK_URL =
+  "https://www.facebook.com/profile.php?id=61590352695488";
 
 const MODE_COPY = {
   login: {
@@ -76,12 +87,156 @@ function FieldShell({ label, hint, children }) {
   );
 }
 
+function TrialRequestModal({ onClose }) {
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/72 px-4 pb-4 pt-12 backdrop-blur-sm sm:items-center"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section
+        className="relative w-full max-w-sm overflow-hidden rounded-[28px] border border-white/12 bg-[#090d20] p-5 text-white shadow-[0_28px_90px_rgba(0,0,0,0.68)]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="clara-trial-title"
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/60 transition hover:bg-white/10 hover:text-white"
+          aria-label="Close trial information"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-300/80">
+          15-Day CLARA Trial
+        </p>
+        <h2 id="clara-trial-title" className="mt-2 pr-10 text-2xl font-bold leading-tight">
+          Your trial starts with a real CLARA introduction.
+        </h2>
+        <p className="mt-3 text-sm leading-6 text-white/62">
+          We’ll take you to the official CLARA Facebook page. Send us a message and the CLARA team will provide your trial access code and help you get started.
+        </p>
+
+        <a
+          href={CLARA_FACEBOOK_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-5 inline-flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 px-4 text-sm font-semibold text-[#020617] shadow-[0_18px_42px_rgba(59,130,246,0.28)] transition active:scale-[0.985]"
+        >
+          Continue to CLARA Facebook
+          <ExternalLink className="h-4 w-4" />
+        </a>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-2 h-11 w-full rounded-xl text-sm font-medium text-white/48 transition hover:bg-white/[0.05] hover:text-white/78"
+        >
+          Not now
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function FirstGlance({ onLogin, onSignup, onStartTrial }) {
+  return (
+    <div className="relative min-h-screen overflow-x-hidden bg-[#050716] text-white">
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,#050716_0%,#070a1f_52%,#02030b_100%)]" />
+        <div className="absolute left-1/2 top-[-8rem] h-[22rem] w-[22rem] -translate-x-1/2 rounded-full bg-blue-500/10 blur-[90px]" />
+        <div className="absolute bottom-[-10rem] right-[-8rem] h-[22rem] w-[22rem] rounded-full bg-violet-500/10 blur-[100px]" />
+      </div>
+
+      <main className="relative mx-auto flex min-h-screen w-full max-w-md flex-col px-5 pb-8 pt-[max(18px,env(safe-area-inset-top))] sm:px-6">
+        <header className="flex items-center justify-between gap-4 py-2">
+          <button
+            type="button"
+            onClick={onLogin}
+            className="text-sm font-semibold text-white/64 transition hover:text-white"
+          >
+            Log in
+          </button>
+          <button
+            type="button"
+            onClick={onSignup}
+            className="rounded-full border border-white/12 bg-white/[0.05] px-4 py-2 text-sm font-semibold text-white/88 transition hover:bg-white/10"
+          >
+            Sign up
+          </button>
+        </header>
+
+        <section className="flex flex-1 flex-col justify-center py-8 text-center">
+          <div className="mx-auto flex items-center justify-center">
+            <ClaraLogo variant="full" theme="dark" className="scale-[0.88]" />
+          </div>
+          <p className="-mt-3 text-[13px] font-medium tracking-[0.08em] text-white/55">
+            Personal Money Coach
+          </p>
+
+          <h1 className="mx-auto mt-9 max-w-[20rem] text-[2rem] font-bold leading-[1.12] tracking-[-0.035em] text-white sm:text-[2.2rem]">
+            Could ₱99 a month help you keep ₱3,000–₱5,000 more of your money?
+          </h1>
+          <p className="mt-4 text-base font-medium text-white/62">
+            Watch the video and see how.
+          </p>
+
+          <div
+            className="mt-8 overflow-hidden rounded-[26px] border border-white/10 bg-[linear-gradient(145deg,rgba(12,18,38,0.78),rgba(5,8,22,0.92))] shadow-[0_24px_70px_rgba(0,0,0,0.42)]"
+            data-clara-demo-video
+          >
+            <div className="relative flex aspect-video items-center justify-center">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(59,130,246,0.22),transparent_50%),linear-gradient(135deg,rgba(34,211,238,0.07),rgba(139,92,246,0.08))]" />
+              <div className="relative flex flex-col items-center gap-3">
+                <span className="inline-flex h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-[0_10px_35px_rgba(0,0,0,0.36)] backdrop-blur-xl">
+                  <Play className="ml-1 h-6 w-6 fill-white text-white" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-white">CLARA Demo Video</p>
+                  <p className="mt-1 text-xs text-white/42">Creator walkthrough will play here.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onStartTrial}
+            className="group mt-8 inline-flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 px-5 text-[15px] font-bold text-[#020617] shadow-[0_18px_48px_rgba(59,130,246,0.3)] transition active:scale-[0.985]"
+          >
+            Start your 15-Day Trial
+            <ArrowRight className="h-[18px] w-[18px] transition group-hover:translate-x-0.5" />
+          </button>
+          <p className="mt-3 text-xs leading-5 text-white/38">
+            Trial access is personally activated through the official CLARA page.
+          </p>
+        </section>
+
+        <p className="pb-[max(0px,env(safe-area-inset-bottom))] text-center text-[11px] font-semibold uppercase tracking-[0.22em] text-white/28">
+          Ask before you spend.
+        </p>
+      </main>
+    </div>
+  );
+}
+
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { signIn, signUp, loading: authLoading } = useAuth();
+  const requestedMode = new URLSearchParams(location.search).get("mode");
+  const initialMode =
+    requestedMode === "signup"
+      ? "signup"
+      : requestedMode === "login" || location.state?.from
+        ? "login"
+        : "landing";
 
-  const [mode, setMode] = useState("login");
+  const [mode, setMode] = useState(initialMode);
+  const [trialModalOpen, setTrialModalOpen] = useState(false);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -91,7 +246,6 @@ export default function Login() {
   const [message, setMessage] = useState("");
   const [success, setSuccess] = useState(false);
 
-  const copy = MODE_COPY[mode];
   const loading = submitting || authLoading;
   const destination = location.state?.from?.pathname || "/dashboard";
 
@@ -169,6 +323,23 @@ export default function Login() {
   const inputClass =
     "h-13 w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(0,0,0,0.28)_0%,rgba(0,0,0,0.36)_100%)] px-4 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-cyan-300/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.13)] disabled:cursor-not-allowed disabled:border-white/7 disabled:bg-white/[0.035] disabled:text-white/34 disabled:placeholder:text-white/18";
 
+  if (mode === "landing") {
+    return (
+      <>
+        <FirstGlance
+          onLogin={() => switchMode("login")}
+          onSignup={() => switchMode("signup")}
+          onStartTrial={() => setTrialModalOpen(true)}
+        />
+        {trialModalOpen ? (
+          <TrialRequestModal onClose={() => setTrialModalOpen(false)} />
+        ) : null}
+      </>
+    );
+  }
+
+  const copy = MODE_COPY[mode];
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#050716] text-white">
       <div className="absolute inset-0">
@@ -180,6 +351,16 @@ export default function Login() {
       </div>
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-6 sm:px-6">
+        <button
+          type="button"
+          onClick={() => switchMode("landing")}
+          disabled={loading}
+          className="mb-3 inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-medium text-white/42 transition hover:bg-white/[0.05] hover:text-white/72 disabled:opacity-40"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to CLARA
+        </button>
+
         <div className="mb-4 flex justify-center">
           <ClaraLogo variant="icon" theme="dark" />
         </div>
