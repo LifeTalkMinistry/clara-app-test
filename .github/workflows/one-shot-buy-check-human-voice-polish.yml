@@ -23,19 +23,16 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-
           path = Path('src/lib/clara-buy-check-expert-ai.js')
           text = path.read_text()
 
           old = '- Also use means.currentRoomUntilPayday → means.projectedRoomAfterPurchase when that makes the consequence clearer.'
           new = '- Use means.currentRoomUntilPayday and means.projectedRoomAfterPurchase only when the breathing-room consequence materially helps, and phrase it naturally without arrows or report notation.'
-          if old in text:
-              text = text.replace(old, new, 1)
+          text = text.replace(old, new, 1)
 
           old = '- When means.purchaseSimulationApplied is true and means.projectedScoreAfterPurchase is available, the visible response MUST include that exact projected score.\n- Never say a purchase "keeps" the current score unless means.currentScore and means.projectedScoreAfterPurchase are actually equal.\n- Never ignore a non-zero means.scoreChange or means.roomChange. Describe the before → after score movement accurately whenever both scores are available.'
           new = '- When means.purchaseSimulationApplied is true and means.projectedScoreAfterPurchase is available, the FINAL ASSEMBLED response will include that exact projected score through the application-owned natural consequence sentence. Do not repeat it in your own reply.\n- Never say a purchase "keeps" the current score unless means.currentScore and means.projectedScoreAfterPurchase are actually equal.\n- Never ignore a non-zero means.scoreChange or means.roomChange in your reasoning. The application-owned sentence will state the exact movement; your own reply should interpret what it means for the user.'
-          if old in text:
-              text = text.replace(old, new, 1)
+          text = text.replace(old, new, 1)
 
           start_marker = '    const before = Number.isFinite(Number(means.currentScore)) ? Number(means.currentScore) : null;'
           end_marker = '      reply: `${metricLine} ${guidance}. Will you still buy it?`.trim(),'
@@ -44,37 +41,12 @@ jobs:
           if start == -1 or end == -1:
               raise SystemExit('fallback block markers not found')
           end += len(end_marker)
-          replacement = '''    const after = Number(means.projectedScoreAfterPurchase);
-    const guidance = after >= 100
-      ? "You'd still be above your 100 protection line."
-      : "That would put you below your 100 protection line, so I'd wait or reduce the amount.";
-
-    const metricLine = formatClaraMetricImpactLine(means);
-    return {
-      action: "ready",
-      reply: `${metricLine} ${guidance} Will you still buy it?`.trim(),'''
+          replacement = '    const after = Number(means.projectedScoreAfterPurchase);\n    const guidance = after >= 100\n      ? "You\\\'d still be above your 100 protection line."\n      : "That would put you below your 100 protection line, so I\\\'d wait or reduce the amount.";\n\n    const metricLine = formatClaraMetricImpactLine(means);\n    return {\n      action: "ready",\n      reply: `${metricLine} ${guidance} Will you still buy it?`.trim(),'
           text = text[:start] + replacement + text[end:]
 
-          # Clean the no-Means return indentation left by the first surgical pass.
-          malformed = '''  return {
-  means: null,
-  purchaseAlreadyUnderstood: {
-    item: purchase.item,
-    price,
-    suggestedTransactionReason: purchase.reason,
-  },
-};'''
-          clean = '''  return {
-    means: null,
-    purchaseAlreadyUnderstood: {
-      item: purchase.item,
-      price,
-      suggestedTransactionReason: purchase.reason,
-    },
-  };'''
-          if malformed in text:
-              text = text.replace(malformed, clean, 1)
-
+          malformed = '  return {\n  means: null,\n  purchaseAlreadyUnderstood: {\n    item: purchase.item,\n    price,\n    suggestedTransactionReason: purchase.reason,\n  },\n};'
+          clean = '  return {\n    means: null,\n    purchaseAlreadyUnderstood: {\n      item: purchase.item,\n      price,\n      suggestedTransactionReason: purchase.reason,\n    },\n  };'
+          text = text.replace(malformed, clean, 1)
           path.write_text(text)
           PY
 
