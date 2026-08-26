@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -7,10 +7,15 @@ import {
   Eye,
   EyeOff,
   Play,
+  Upload,
   X,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { requestClaraPasswordReset } from "@/lib/password-reset-client";
+import {
+  fetchPublicLanding,
+  uploadPublicLandingVideo,
+} from "@/lib/public-landing-client";
 import ClaraLogo from "@/components/ClaraLogo";
 
 const CLARA_FACEBOOK_URL =
@@ -142,7 +147,24 @@ function TrialRequestModal({ onClose }) {
   );
 }
 
-function FirstGlance({ onLogin, onSignup, onStartTrial }) {
+function FirstGlance({
+  onLogin,
+  onSignup,
+  onStartTrial,
+  isAdmin,
+  landingContent,
+  landingLoading,
+  videoUploading,
+  videoMessage,
+  onUploadVideo,
+}) {
+  const fileInputRef = useRef(null);
+  const videoSrc = landingContent?.demo_video_url
+    ? `${landingContent.demo_video_url}?v=${encodeURIComponent(
+        landingContent.demo_video_updated_at || "current"
+      )}`
+    : null;
+
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#050716] text-white">
       <div className="pointer-events-none fixed inset-0">
@@ -193,22 +215,67 @@ function FirstGlance({ onLogin, onSignup, onStartTrial }) {
           </p>
 
           <div
-            className="mt-8 overflow-hidden rounded-[26px] border border-white/10 bg-[linear-gradient(145deg,rgba(12,18,38,0.78),rgba(5,8,22,0.92))] shadow-[0_24px_70px_rgba(0,0,0,0.42)]"
+            className="relative mt-8 overflow-hidden rounded-[26px] border border-white/10 bg-[linear-gradient(145deg,rgba(12,18,38,0.78),rgba(5,8,22,0.92))] shadow-[0_24px_70px_rgba(0,0,0,0.42)]"
             data-clara-demo-video
           >
-            <div className="relative flex aspect-video items-center justify-center">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(59,130,246,0.22),transparent_50%),linear-gradient(135deg,rgba(34,211,238,0.07),rgba(139,92,246,0.08))]" />
-              <div className="relative flex flex-col items-center gap-3">
-                <span className="inline-flex h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-[0_10px_35px_rgba(0,0,0,0.36)] backdrop-blur-xl">
-                  <Play className="ml-1 h-6 w-6 fill-white text-white" />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold text-white">CLARA Demo Video</p>
-                  <p className="mt-1 text-xs text-white/42">Creator walkthrough will play here.</p>
+            {videoSrc ? (
+              <video
+                key={videoSrc}
+                className="aspect-video w-full bg-black object-contain"
+                controls
+                playsInline
+                preload="metadata"
+                src={videoSrc}
+              >
+                Your browser does not support this CLARA video.
+              </video>
+            ) : (
+              <div className="relative flex aspect-video items-center justify-center">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(59,130,246,0.22),transparent_50%),linear-gradient(135deg,rgba(34,211,238,0.07),rgba(139,92,246,0.08))]" />
+                <div className="relative flex flex-col items-center gap-3">
+                  <span className="inline-flex h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-[0_10px_35px_rgba(0,0,0,0.36)] backdrop-blur-xl">
+                    <Play className="ml-1 h-6 w-6 fill-white text-white" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-white">CLARA Demo Video</p>
+                    <p className="mt-1 text-xs text-white/42">
+                      {landingLoading ? "Loading video..." : "Creator walkthrough will play here."}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {isAdmin ? (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="video/mp4,video/webm"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    if (file) onUploadVideo(file);
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={videoUploading}
+                  className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/55 text-white shadow-lg backdrop-blur-md transition hover:bg-black/75 disabled:cursor-wait disabled:opacity-55"
+                  aria-label="Upload CLARA public demo video"
+                  title="Upload public demo video"
+                >
+                  <Upload className={`h-4 w-4 ${videoUploading ? "animate-pulse" : ""}`} />
+                </button>
+              </>
+            ) : null}
           </div>
+
+          {isAdmin && videoMessage ? (
+            <p className="mt-2 text-xs font-medium text-cyan-200/80">{videoMessage}</p>
+          ) : null}
 
           <button
             type="button"
@@ -234,7 +301,7 @@ function FirstGlance({ onLogin, onSignup, onStartTrial }) {
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, signUp, loading: authLoading } = useAuth();
+  const { user, signIn, signUp, loading: authLoading } = useAuth();
   const requestedMode = new URLSearchParams(location.search).get("mode");
   const initialMode =
     requestedMode === "signup"
@@ -245,6 +312,10 @@ export default function Login() {
 
   const [mode, setMode] = useState(initialMode);
   const [trialModalOpen, setTrialModalOpen] = useState(false);
+  const [landingContent, setLandingContent] = useState({ has_video: false });
+  const [landingLoading, setLandingLoading] = useState(true);
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [videoMessage, setVideoMessage] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -256,6 +327,40 @@ export default function Login() {
 
   const loading = submitting || authLoading;
   const destination = location.state?.from?.pathname || "/dashboard";
+  const isAdmin = String(user?.role || "").toLowerCase() === "admin";
+
+  useEffect(() => {
+    let active = true;
+    setLandingLoading(true);
+    fetchPublicLanding()
+      .then((payload) => {
+        if (active) setLandingContent(payload);
+      })
+      .catch(() => {
+        if (active) setLandingContent({ has_video: false });
+      })
+      .finally(() => {
+        if (active) setLandingLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handlePublicVideoUpload = async (file) => {
+    if (!isAdmin || videoUploading) return;
+    setVideoUploading(true);
+    setVideoMessage("Publishing video...");
+    try {
+      const payload = await uploadPublicLandingVideo(file);
+      setLandingContent(payload);
+      setVideoMessage("Published for everyone.");
+    } catch (error) {
+      setVideoMessage(error?.message || "CLARA could not publish this video.");
+    } finally {
+      setVideoUploading(false);
+    }
+  };
 
   const validate = () => {
     if (mode === "signup" && !fullName.trim()) return "Your name is required.";
@@ -338,6 +443,12 @@ export default function Login() {
           onLogin={() => switchMode("login")}
           onSignup={() => switchMode("signup")}
           onStartTrial={() => setTrialModalOpen(true)}
+          isAdmin={isAdmin}
+          landingContent={landingContent}
+          landingLoading={landingLoading}
+          videoUploading={videoUploading}
+          videoMessage={videoMessage}
+          onUploadVideo={handlePublicVideoUpload}
         />
         {trialModalOpen ? (
           <TrialRequestModal onClose={() => setTrialModalOpen(false)} />
