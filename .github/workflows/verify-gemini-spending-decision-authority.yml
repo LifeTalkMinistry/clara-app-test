@@ -13,14 +13,17 @@ on:
       - "src/lib/clara-buy-check-intelligence-router.js"
       - "src/lib/clara-buy-check-metric-impact.js"
       - "src/lib/clara-buy-check-payment-impact.js"
+      - "src/lib/clara-buy-check-installment-obligation.js"
       - "src/components/fresh/main-dashboard/assistant/useClaraBuyCheckExpertFlow.js"
       - "src/components/fresh/main-dashboard/assistant/useClaraBuyCheckBudgetFlow.js"
       - "src/components/fresh/main-dashboard/assistant/useClaraBuyCheckFlowV5.js"
+      - "src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx"
       - "tests/buy-check-context-facts.test.mjs"
       - "tests/buy-check-gemini-authority.test.mjs"
       - "tests/buy-check-metric-impact.test.mjs"
       - "tests/buy-check-payment-impact.test.mjs"
       - "tests/buy-check-progressive-router.test.mjs"
+      - "tests/buy-check-installment-obligation.test.mjs"
       - "tests/gemini-request-lifecycle.test.mjs"
       - "package.json"
       - ".github/workflows/verify-gemini-spending-decision-authority.yml"
@@ -48,4 +51,5 @@ jobs:
           tests/buy-check-gemini-authority.test.mjs
           tests/buy-check-metric-impact.test.mjs
           tests/buy-check-payment-impact.test.mjs
+          tests/buy-check-installment-obligation.test.mjs
           tests/gemini-request-lifecycle.test.mjs
