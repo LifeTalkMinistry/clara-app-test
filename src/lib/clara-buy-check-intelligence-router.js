@@ -221,7 +221,7 @@ export function mergeClaraPurchaseEvidence(previous = {}, incoming = {}) {
   // app-derived candidate that is still waiting for the user's confirmation.
   if (hasConfirmedClaraPaymentStructure(left) && !hasConfirmedClaraPaymentStructure(right)) {
     merged = copyPaymentAuthority(merged, left);
-  } else if (hasPendingClaraPaymentAuthority(left)) {
+  } else if (hasPendingClaraPaymentAuthority(left) && !hasConfirmedClaraPaymentStructure(right)) {
     merged = copyPendingPaymentAuthority(merged, left);
   }
 
