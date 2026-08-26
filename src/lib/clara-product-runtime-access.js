@@ -15,11 +15,6 @@ function ensureRuntimeBoundaryStyles() {
       display: none !important;
     }
 
-    html[data-clara-product-locked="true"] [data-clara-orb-launcher="true"] {
-      display: none !important;
-      pointer-events: none !important;
-    }
-
     html[data-clara-product-locked="true"] #clara-daily-awareness-streak-banner,
     html[data-clara-product-locked="true"] #clara-weekly-cross-check-reminder,
     html[data-clara-product-locked="true"] #clara-weekly-cross-check-day-setup {
