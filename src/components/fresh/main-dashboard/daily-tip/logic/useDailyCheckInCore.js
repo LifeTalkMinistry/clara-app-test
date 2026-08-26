@@ -53,6 +53,7 @@ export default function useDailyCheckIn({
     return loadState(resolvedUserId, initialTodayKey);
   });
   const checkInLockRef = useRef(false);
+  const autoAwarenessDayRef = useRef("");
   const temporaryIdentityIdsRef = useRef(
     new Set(isTemporaryIdentity || !identityReady ? [resolvedUserId] : []),
   );
@@ -90,6 +91,54 @@ export default function useDailyCheckIn({
     setCheckInState(nextState);
     return nextState;
   }, [identityReady, resolvedUserId, simulationMode]);
+
+  const checkInToday = useCallback(() => {
+    const freshTodayKey = getEligibleDayKey();
+    setTodayKey(freshTodayKey);
+
+    if (simulationMode) {
+      const nextState = createSimulationState(resolvedUserId, freshTodayKey, true);
+      setCheckInState(nextState);
+      return buildResult("completed", nextState);
+    }
+
+    if (!identityReady || isTemporaryIdentity) {
+      return buildResult(
+        "identity_unavailable",
+        createEmptyState(resolvedUserId),
+      );
+    }
+
+    if (checkInLockRef.current) {
+      const current = normalizeState(checkInState, resolvedUserId, freshTodayKey);
+      const status = current.checkInEvents.some((event) => event.eligibleDay === freshTodayKey)
+        ? "already_checked_in"
+        : "busy";
+      return buildResult(status, current);
+    }
+
+    checkInLockRef.current = true;
+    try {
+      const latestState = loadState(resolvedUserId, freshTodayKey);
+      const validation = validateState(latestState, resolvedUserId, freshTodayKey);
+      const result = performDailyCheckIn({
+        value: validation.state,
+        userId: resolvedUserId,
+        todayKey: freshTodayKey,
+        persist: (nextState, expectedEvent) =>
+          writeState(resolvedUserId, nextState, "awareness_open", freshTodayKey, expectedEvent),
+      });
+
+      if (result.status === "completed" || result.status === "already_checked_in") {
+        setCheckInState(result.state);
+      } else if (result.status === "storage_error") {
+        setCheckInState(latestState);
+      }
+      return result;
+    } finally {
+      checkInLockRef.current = false;
+    }
+  }, [checkInState, identityReady, isTemporaryIdentity, resolvedUserId, simulationMode]);
 
   useEffect(() => {
     const freshTodayKey = getEligibleDayKey();
@@ -129,18 +178,34 @@ export default function useDailyCheckIn({
 
     validateStreak();
 
+    if (!isTemporaryIdentity && autoAwarenessDayRef.current !== freshTodayKey) {
+      const result = checkInToday();
+      if (result?.status === "completed" || result?.status === "already_checked_in") {
+        autoAwarenessDayRef.current = freshTodayKey;
+      }
+    }
+
     if (typeof window === "undefined") return undefined;
 
     let eligibleDayTimer = null;
+    const recordVisibleAwareness = () => {
+      const visibleDayKey = getEligibleDayKey();
+      validateStreak();
+      if (isTemporaryIdentity || autoAwarenessDayRef.current === visibleDayKey) return;
+      const result = checkInToday();
+      if (result?.status === "completed" || result?.status === "already_checked_in") {
+        autoAwarenessDayRef.current = visibleDayKey;
+      }
+    };
     const scheduleEligibleDayValidation = () => {
       if (eligibleDayTimer) window.clearTimeout(eligibleDayTimer);
       eligibleDayTimer = window.setTimeout(() => {
-        validateStreak();
+        recordVisibleAwareness();
         scheduleEligibleDayValidation();
       }, millisecondsUntilNextEligibleDay());
     };
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") validateStreak();
+      if (document.visibilityState === "visible") recordVisibleAwareness();
     };
     const handleStorage = (event) => {
       if (
@@ -163,73 +228,26 @@ export default function useDailyCheckIn({
     };
 
     scheduleEligibleDayValidation();
-    window.addEventListener("focus", validateStreak);
+    window.addEventListener("focus", recordVisibleAwareness);
     window.addEventListener("storage", handleStorage);
     window.addEventListener(UPDATE_EVENT, handleLocalUpdate);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       if (eligibleDayTimer) window.clearTimeout(eligibleDayTimer);
-      window.removeEventListener("focus", validateStreak);
+      window.removeEventListener("focus", recordVisibleAwareness);
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener(UPDATE_EVENT, handleLocalUpdate);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [
+    checkInToday,
     identityReady,
     isTemporaryIdentity,
     resolvedUserId,
     simulationMode,
     validateStreak,
   ]);
-
-  const checkInToday = useCallback(() => {
-    const freshTodayKey = getEligibleDayKey();
-    setTodayKey(freshTodayKey);
-
-    if (simulationMode) {
-      const nextState = createSimulationState(resolvedUserId, freshTodayKey, true);
-      setCheckInState(nextState);
-      return buildResult("completed", nextState);
-    }
-
-    if (!identityReady || isTemporaryIdentity) {
-      return buildResult(
-        "identity_unavailable",
-        createEmptyState(resolvedUserId),
-      );
-    }
-
-    if (checkInLockRef.current) {
-      const current = normalizeState(checkInState, resolvedUserId, freshTodayKey);
-      const status = current.checkInEvents.some((event) => event.eligibleDay === freshTodayKey)
-        ? "already_checked_in"
-        : "busy";
-      return buildResult(status, current);
-    }
-
-    checkInLockRef.current = true;
-    try {
-      const latestState = loadState(resolvedUserId, freshTodayKey);
-      const validation = validateState(latestState, resolvedUserId, freshTodayKey);
-      const result = performDailyCheckIn({
-        value: validation.state,
-        userId: resolvedUserId,
-        todayKey: freshTodayKey,
-        persist: (nextState, expectedEvent) =>
-          writeState(resolvedUserId, nextState, "check_in", freshTodayKey, expectedEvent),
-      });
-
-      if (result.status === "completed" || result.status === "already_checked_in") {
-        setCheckInState(result.state);
-      } else if (result.status === "storage_error") {
-        setCheckInState(latestState);
-      }
-      return result;
-    } finally {
-      checkInLockRef.current = false;
-    }
-  }, [checkInState, identityReady, isTemporaryIdentity, resolvedUserId, simulationMode]);
 
   const dismissPendingBubble = useCallback(
     (eventId = null) => {
