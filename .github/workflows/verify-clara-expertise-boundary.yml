@@ -1,6 +1,13 @@
 name: Verify CLARA Expertise Boundary
 
 on:
+  push:
+    branches: [fix/clara-expertise-boundary]
+    paths:
+      - 'src/lib/clara-expertise-boundary.js'
+      - 'src/lib/ai-command/ai-engine.js'
+      - 'tests/clara-expertise-boundary.test.mjs'
+      - '.github/workflows/verify-clara-expertise-boundary.yml'
   pull_request:
     branches: [main]
     paths:
@@ -20,5 +27,3 @@ jobs:
       - run: node --test tests/clara-expertise-boundary.test.mjs
       - run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
       - run: npm run build
-
-# Synchronize PR after workflow registration.
