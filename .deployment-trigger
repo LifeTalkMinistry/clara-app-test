@@ -1,5 +1,5 @@
 CLARA deployment trigger
-Reason: retry production deployment for Buy Check voucher payment authority fix.
-Version: clara-buy-check-voucher-authority-retry-v2
-Source-commit: 007e3d6f63a016e93b2058fbe6ac6d1e83c05299
+Reason: deploy Buy Check installment purchases into Debt / Obligations.
+Version: clara-buy-check-installment-obligation-v1
+Source-commit: 33aa80b3df8d720a6f765edf79ef025525b9276e
 Timestamp: 2026-08-27
