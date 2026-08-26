@@ -9,6 +9,7 @@ import {
   Settings,
   Trophy,
   UsersRound,
+  Wrench,
 } from "lucide-react";
 import CommunityBackend from "./CommunityBackend";
 import Challenges from "./Challenges";
@@ -17,10 +18,12 @@ import MessagesBackend from "./MessagesBackend";
 import CommunityProfile from "./CommunityProfile";
 import CommunityHomeFinancialCarousel from "@/components/community/CommunityHomeFinancialCarousel";
 import ClaraOrbPage, { ClaraOrbMark } from "@/components/community/ClaraOrbPage";
+import ClaraTrialAccessGate from "@/components/community/ClaraTrialAccessGate";
 import FreeDailyTipCard from "@/components/fresh/main-dashboard/daily-tip";
 import LearningHub from "@/components/fresh/main-dashboard/learning-hub/LearningHub";
 import DashboardSchedulePanel from "@/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardSchedulePanel";
 import DashboardSettingsPanel from "@/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel";
+import useClaraProductAccess from "@/hooks/useClaraProductAccess";
 import useUserRole from "@/hooks/useUserRole";
 import {
   backendRequest,
@@ -28,6 +31,28 @@ import {
   getStoredBackendUser,
 } from "@/lib/clara-backend-client";
 import { consumeSupportConversationTarget } from "@/lib/support-conversation-navigation";
+
+const VALID_VIEWS = new Set([
+  "orb",
+  "home",
+  "schedule",
+  "settings",
+  "feed",
+  "circles",
+  "challenges",
+  "messages",
+  "notifications",
+  "profile",
+]);
+
+const ADMIN_ONLY_VIEWS = new Set([
+  "feed",
+  "circles",
+  "challenges",
+  "messages",
+  "notifications",
+  "profile",
+]);
 
 function formatNotificationTime(value) {
   if (!value) return "Just now";
@@ -85,7 +110,29 @@ function CommunityShellHeader({ activeView, unreadCount }) {
         </Link>
 
         <Link
-          to="/community"
+          to="/community?view=schedule"
+          className={itemClass(activeView === "schedule")}
+          aria-label="Open Calendar"
+          title="Calendar"
+          aria-current={activeView === "schedule" ? "page" : undefined}
+        >
+          <CalendarDays className="h-[18px] w-[18px] max-[420px]:h-[17px] max-[420px]:w-[17px] sm:h-[19px] sm:w-[19px]" />
+          <ActiveMarker active={activeView === "schedule"} />
+        </Link>
+
+        <Link
+          to="/community?view=settings"
+          className={itemClass(activeView === "settings")}
+          aria-label="Open Settings"
+          title="Settings"
+          aria-current={activeView === "settings" ? "page" : undefined}
+        >
+          <Settings className="h-[18px] w-[18px] max-[420px]:h-[17px] max-[420px]:w-[17px] sm:h-[19px] sm:w-[19px]" />
+          <ActiveMarker active={activeView === "settings"} />
+        </Link>
+
+        <Link
+          to="/community?view=feed"
           className={itemClass(activeView === "feed")}
           aria-label="Open Community feed"
           title="Feed"
@@ -93,17 +140,6 @@ function CommunityShellHeader({ activeView, unreadCount }) {
         >
           <Newspaper className="h-[18px] w-[18px] max-[420px]:h-[17px] max-[420px]:w-[17px] sm:h-[19px] sm:w-[19px]" />
           <ActiveMarker active={activeView === "feed"} />
-        </Link>
-
-        <Link
-          to="/community?view=schedule"
-          className={itemClass(activeView === "schedule")}
-          aria-label="Open Schedule"
-          title="Schedule"
-          aria-current={activeView === "schedule" ? "page" : undefined}
-        >
-          <CalendarDays className="h-[18px] w-[18px] max-[420px]:h-[17px] max-[420px]:w-[17px] sm:h-[19px] sm:w-[19px]" />
-          <ActiveMarker active={activeView === "schedule"} />
         </Link>
 
         <Link
@@ -169,20 +205,29 @@ function CommunityShellHeader({ activeView, unreadCount }) {
           ME
           <ActiveMarker active={activeView === "profile"} />
         </Link>
-
-        <Link
-          to="/community?view=settings"
-          className={itemClass(activeView === "settings")}
-          style={{ order: 1 }}
-          aria-label="Open Settings"
-          title="Settings"
-          aria-current={activeView === "settings" ? "page" : undefined}
-        >
-          <Settings className="h-[18px] w-[18px] max-[420px]:h-[17px] max-[420px]:w-[17px] sm:h-[19px] sm:w-[19px]" />
-          <ActiveMarker active={activeView === "settings"} />
-        </Link>
       </div>
     </header>
+  );
+}
+
+function UnderConstructionView() {
+  return (
+    <main className="flex min-h-0 flex-1 items-center justify-center bg-[radial-gradient(circle_at_50%_18%,rgba(56,108,255,0.12),transparent_35%),#06111f] px-5 py-10 text-white">
+      <section className="w-full max-w-md rounded-[28px] border border-white/[0.08] bg-white/[0.025] px-6 py-10 text-center shadow-2xl shadow-black/20">
+        <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl border border-white/10 bg-[#0b1730]">
+          <Wrench className="h-6 w-6 text-cyan-100/75" aria-hidden="true" />
+        </div>
+        <p className="mt-5 text-[10px] font-black uppercase tracking-[.22em] text-cyan-100/45">
+          CLARA
+        </p>
+        <h1 className="mt-2 text-2xl font-black tracking-[-0.035em]">
+          Under Construction
+        </h1>
+        <p className="mx-auto mt-3 max-w-xs text-[13px] font-semibold leading-6 text-white/48">
+          This area is still being prepared for CLARA users. It is currently available only to the admin team.
+        </p>
+      </section>
+    </main>
   );
 }
 
@@ -190,14 +235,25 @@ export default function Community() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user: appUser, isAdmin = false } = useUserRole();
+  const {
+    trial,
+    checking: checkingProductAccess,
+    error: productAccessError,
+    hasProductAccess,
+    refreshAccess,
+    redeemTrialCode,
+  } = useClaraProductAccess();
   const [notifications, setNotifications] = useState([]);
   const token = getStoredBackendToken();
   const backendUser = getStoredBackendUser();
   const settingsUser = appUser || backendUser;
-  const requestedView = searchParams.get("view") || "feed";
-  const activeView = ["orb", "home", "feed", "schedule", "circles", "challenges", "messages", "notifications", "profile", "settings"].includes(requestedView)
-    ? requestedView
-    : "feed";
+  const requestedView = searchParams.get("view") || "orb";
+  const activeView = VALID_VIEWS.has(requestedView) ? requestedView : "orb";
+  const adminOnlyForCurrentUser = !isAdmin && ADMIN_ONLY_VIEWS.has(activeView);
+  const gateCurrentView =
+    !isAdmin &&
+    !hasProductAccess &&
+    activeView !== "settings";
   const hubOpen = activeView === "home" && searchParams.get("learning") === "hub";
 
   const handleOpenLearningHub = useCallback(() => {
@@ -215,29 +271,53 @@ export default function Community() {
   }, [searchParams, setSearchParams]);
 
   const loadNotifications = useCallback(async () => {
-    if (!token) return;
+    if (!token || !isAdmin) return;
     try {
       const data = await backendRequest("/api/community/notifications?limit=50", { token });
       setNotifications(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("[Community shell] notifications failed:", error);
     }
-  }, [token]);
+  }, [isAdmin, token]);
 
   useEffect(() => {
-    if (token) loadNotifications();
-  }, [loadNotifications, token]);
+    if (token && isAdmin) loadNotifications();
+  }, [isAdmin, loadNotifications, token]);
 
   useEffect(() => {
-    if (!token) return undefined;
+    if (!token || !isAdmin) return undefined;
     const intervalId = window.setInterval(() => {
       if (document.visibilityState !== "hidden") loadNotifications();
     }, 8000);
     return () => window.clearInterval(intervalId);
-  }, [loadNotifications, token]);
+  }, [isAdmin, loadNotifications, token]);
+
+  useEffect(() => {
+    if (
+      checkingProductAccess ||
+      isAdmin ||
+      hasProductAccess ||
+      activeView === "orb" ||
+      activeView === "settings"
+    ) {
+      return;
+    }
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("view", "orb");
+    nextParams.delete("learning");
+    setSearchParams(nextParams, { replace: true });
+  }, [
+    activeView,
+    checkingProductAccess,
+    hasProductAccess,
+    isAdmin,
+    searchParams,
+    setSearchParams,
+  ]);
 
   const markNotificationRead = async (notification) => {
-    if (!notification?.id || notification.is_read || !token) return;
+    if (!notification?.id || notification.is_read || !token || !isAdmin) return;
     try {
       await backendRequest(`/api/community/notifications/${notification.id}/read`, {
         method: "PATCH",
@@ -254,7 +334,9 @@ export default function Community() {
     }
   };
 
-  const unreadCount = notifications.filter((item) => !item.is_read).length;
+  const unreadCount = isAdmin
+    ? notifications.filter((item) => !item.is_read).length
+    : 0;
 
   return (
     <div
@@ -344,7 +426,34 @@ export default function Community() {
         }
       `}</style>
 
-      {activeView === "orb" ? (
+      {activeView === "settings" ? (
+        <main className="clara-community-settings-view relative z-[1] min-h-0 flex-1 overflow-y-auto bg-[#040b18] px-4 pb-[calc(env(safe-area-inset-bottom)+30px)] pt-5 sm:px-6">
+          <div className="mx-auto w-full max-w-md">
+            <DashboardSettingsPanel
+              user={settingsUser}
+              isAdmin={isAdmin}
+              onOpenMessages={() => {
+                const targetUserId = consumeSupportConversationTarget();
+                navigate(
+                  targetUserId
+                    ? `/community?view=messages&userId=${encodeURIComponent(targetUserId)}`
+                    : "/community?view=messages"
+                );
+              }}
+            />
+          </div>
+        </main>
+      ) : gateCurrentView ? (
+        <ClaraTrialAccessGate
+          trial={trial}
+          checking={checkingProductAccess}
+          error={productAccessError}
+          onRedeem={redeemTrialCode}
+          onRetry={refreshAccess}
+        />
+      ) : adminOnlyForCurrentUser ? (
+        <UnderConstructionView />
+      ) : activeView === "orb" ? (
         <ClaraOrbPage />
       ) : activeView === "home" ? (
         <main
@@ -371,19 +480,19 @@ export default function Community() {
             <CommunityHomeFinancialCarousel />
           </div>
         </main>
-      ) : activeView === "feed" ? (
-        <div className="clara-community-feed-view min-h-0 flex-1 overflow-hidden">
-          <CommunityBackend />
-        </div>
       ) : activeView === "schedule" ? (
         <main
           className="clara-community-schedule-view min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[radial-gradient(circle_at_88%_8%,rgba(79,70,229,0.12),transparent_30%),radial-gradient(circle_at_12%_22%,rgba(20,184,166,0.07),transparent_30%),#06111f] pb-[calc(env(safe-area-inset-bottom)+30px)]"
-          aria-label="CLARA Schedule"
+          aria-label="CLARA Calendar"
         >
           <div className="mx-auto min-h-full w-full max-w-3xl">
             <DashboardSchedulePanel />
           </div>
         </main>
+      ) : activeView === "feed" ? (
+        <div className="clara-community-feed-view min-h-0 flex-1 overflow-hidden">
+          <CommunityBackend />
+        </div>
       ) : activeView === "circles" ? (
         <div className="clara-community-circles-view min-h-0 flex-1 overflow-y-auto">
           <MyCircle />
@@ -396,23 +505,6 @@ export default function Community() {
         <div className="clara-community-messages-view min-h-0 flex-1 overflow-hidden">
           <MessagesBackend />
         </div>
-      ) : activeView === "settings" ? (
-        <main className="clara-community-settings-view relative z-[1] min-h-0 flex-1 overflow-y-auto bg-[#040b18] px-4 pb-[calc(env(safe-area-inset-bottom)+30px)] pt-5 sm:px-6">
-          <div className="mx-auto w-full max-w-md">
-            <DashboardSettingsPanel
-              user={settingsUser}
-              isAdmin={isAdmin}
-              onOpenMessages={() => {
-                const targetUserId = consumeSupportConversationTarget();
-                navigate(
-                  targetUserId
-                    ? `/community?view=messages&userId=${encodeURIComponent(targetUserId)}`
-                    : "/community?view=messages"
-                );
-              }}
-            />
-          </div>
-        </main>
       ) : activeView === "profile" ? (
         <div className="clara-community-profile-view min-h-0 flex-1 overflow-y-auto">
           <CommunityProfile />
