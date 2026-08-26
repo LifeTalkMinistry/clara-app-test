@@ -170,12 +170,20 @@ function FirstGlance({ onLogin, onSignup, onStartTrial }) {
         </header>
 
         <section className="flex flex-1 flex-col justify-center py-8 text-center">
-          <div className="mx-auto flex items-center justify-center">
-            <ClaraLogo variant="full" theme="dark" className="scale-[0.88]" />
+          <div className="mx-auto flex flex-col items-center justify-center">
+            <ClaraLogo variant="icon" theme="dark" className="scale-[0.9]" />
+            <p
+              className="-mt-2 font-heading text-2xl font-bold leading-none tracking-[0.16em]"
+              aria-label="CLARA"
+            >
+              <span className="text-[#4d8cff]">CL</span>
+              <span className="text-[#ffd42f]">A</span>
+              <span className="text-[#ff4d55]">RA</span>
+            </p>
+            <p className="mt-2 text-[13px] font-medium tracking-[0.08em] text-white/55">
+              Personal Money Coach
+            </p>
           </div>
-          <p className="-mt-3 text-[13px] font-medium tracking-[0.08em] text-white/55">
-            Personal Money Coach
-          </p>
 
           <h1 className="mx-auto mt-9 max-w-[20rem] text-[2rem] font-bold leading-[1.12] tracking-[-0.035em] text-white sm:text-[2.2rem]">
             Could ₱99 a month help you keep ₱3,000–₱5,000 more of your money?
