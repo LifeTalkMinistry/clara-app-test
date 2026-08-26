@@ -16,6 +16,7 @@ import {
   routeAssistantInput,
   shouldUseGeminiForRoute,
 } from "@/lib/ai-command/clara-router";
+import { buildClaraExpertiseBoundaryResponse } from "@/lib/clara-expertise-boundary";
 
 const READ_INTENTS = new Set([
   AI_INTENTS.GET_LAST_EXPENSE,
@@ -234,6 +235,29 @@ export async function processAssistantTurn({ text, session, user }) {
   }
 
   const financeSnapshot = await safeLoadFinanceSnapshot(activeUser);
+  const expertiseBoundary = buildClaraExpertiseBoundaryResponse({ text: input });
+
+  if (expertiseBoundary) {
+    const command = buildCommand(
+      AI_INTENTS.GENERAL_GUIDANCE,
+      {
+        label: input,
+        expertiseBoundary: expertiseBoundary.domain,
+        capitalAmount: expertiseBoundary.amount || 0,
+      },
+      0.99,
+      expertiseBoundary.message
+    );
+
+    return {
+      command,
+      assistantMessage: expertiseBoundary.message,
+      executionResult: null,
+      status: "detected",
+      awaitingConfirmation: false,
+      expertiseBoundary,
+    };
+  }
 
   if (isBalanceQuestion(input)) {
     const command = buildCommand(AI_INTENTS.CHECK_BALANCE, { scope: "all" }, 0.98);
