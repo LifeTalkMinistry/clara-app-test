@@ -1,0 +1,40 @@
+name: One-shot Buy Check discovery prompt alignment
+
+on:
+  push:
+    paths:
+      - '.github/workflows/one-shot-buy-check-discovery-prompt-polish.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  polish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Align prompt
+        run: python scripts/polish-buy-check-discovery-prompt.py
+
+      - name: Verify
+        shell: bash
+        run: |
+          node --check src/lib/clara-buy-check-expert-ai.js
+          node --test tests/buy-check-conversation-gate.test.mjs
+          node --test tests/buy-check-metric-impact.test.mjs
+          grep -q 'Keep it private during discovery' src/lib/clara-buy-check-expert-ai.js
+          grep -q 'Once purchase context is mature' src/lib/clara-buy-check-expert-ai.js
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/one-shot-buy-check-discovery-prompt-polish.yml
+          git rm scripts/polish-buy-check-discovery-prompt.py
+          git add src/lib/clara-buy-check-expert-ai.js
+          git commit -m 'Align Buy Check prompt with discovery gate'
+          git push origin HEAD:main
