@@ -1,5 +1,5 @@
 CLARA deployment trigger
-Reason: deploy Buy Check payment candidate authority repair.
-Version: clara-buy-check-voucher-authority-v1
-Source-commit: 1de62142407ab049a7b6f1f2688dd34af5ccf1ca
-Timestamp: 2026-08-27T01:30:00+08:00
+Reason: retry production deployment for Buy Check voucher payment authority fix.
+Version: clara-buy-check-voucher-authority-retry-v2
+Source-commit: 007e3d6f63a016e93b2058fbe6ac6d1e83c05299
+Timestamp: 2026-08-27
