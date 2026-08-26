@@ -18,6 +18,7 @@ const CHAT_COMMAND_MODES = Object.freeze({
   "emergency-fund": "emergency-fund",
   "savings-goal": "savings-goal",
   "debt-obligation": "debt-obligation",
+  "weekly-cross-check": "weekly-cross-check",
 });
 const registeredAmountInputs = new WeakSet();
 
