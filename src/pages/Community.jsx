@@ -249,12 +249,13 @@ export default function Community() {
   const settingsUser = appUser || backendUser;
   const requestedView = searchParams.get("view") || "orb";
   const activeView = VALID_VIEWS.has(requestedView) ? requestedView : "orb";
-  const adminOnlyForCurrentUser = !isAdmin && ADMIN_ONLY_VIEWS.has(activeView);
+  const hubOpen = activeView === "home" && searchParams.get("learning") === "hub";
+  const adminOnlyForCurrentUser =
+    !isAdmin && (ADMIN_ONLY_VIEWS.has(activeView) || hubOpen);
   const gateCurrentView =
     !isAdmin &&
     !hasProductAccess &&
     activeView !== "settings";
-  const hubOpen = activeView === "home" && searchParams.get("learning") === "hub";
 
   const handleOpenLearningHub = useCallback(() => {
     const nextParams = new URLSearchParams(searchParams);
