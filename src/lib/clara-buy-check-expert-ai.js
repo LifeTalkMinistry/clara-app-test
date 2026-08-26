@@ -12,6 +12,11 @@ import {
   buildClaraPurchaseMetricImpact,
   formatClaraMetricImpactLine,
 } from "./clara-buy-check-metric-impact.js";
+import {
+  buildClaraBuyCheckDiscoveryQuestion,
+  getClaraBuyCheckDiscoveryState,
+  shouldRevealClaraBuyCheckMeans,
+} from "./clara-buy-check-conversation-gate.js";
 
 const ACTIONS = new Set(["reply", "probe", "ready", "continue", "reassess", "redirect"]);
 
@@ -268,6 +273,17 @@ Help the user protect a Means Score of 100 or higher while making their own spen
 - Necessity may change the practical recommendation, but it never changes or hides the financial math.
 - The final decision for an ordinary safe purchase remains with the user.
 
+CONVERSATION PHASE GATE — DISCOVERY BEFORE VERDICT
+- Item + price is NOT enough context for a normal Ask Before You Spend decision.
+- For a thin request such as "Can I buy a T-shirt for ₱1,000?", do NOT reveal the Means Score, projected score, score movement, protection-line position, or a buy/wait verdict yet.
+- First understand WHY the user wants or needs the purchase. Ask one natural decision-relevant question.
+- If the first answer gives only one decision signal, normally ask one more useful question about urgency, the real consequence of waiting, current situation, timing, constraints, or a realistic alternative.
+- The normal target is roughly TWO meaningful clarification turns before the financial consequence is revealed. This is not a rigid questionnaire.
+- Do NOT force extra questions when the user already supplied rich context up front. Purpose plus a concrete situation, urgency, timing, or constraint may be enough to move directly to the decision phase.
+- Never ask a question whose answer is already present in recent conversation or PURCHASE EVIDENCE ALREADY UNDERSTOOD.
+- Means may be calculated and used internally from turn one, but it must remain invisible during discovery.
+- Only once purchase context is mature should CLARA reveal the deterministic Means consequence, interpret it naturally, give guidance, and move toward the user's final choice.
+
 SAFETY BOUNDARY
 - Financial affordability never overrides safety.
 - If the user's stated purchase or intended use would facilitate serious harm to themselves or another person, do not encourage, approve, validate, optimize, or financially justify it.
@@ -315,6 +331,7 @@ MONEY SCHEDULE INTERPRETATION
 
 CONVERSATION BEHAVIOR
 - Treat this as one continuous natural conversation, not a form or questionnaire.
+- During discovery, ask before judging: do not expose Means math or a financial verdict until the purchase context is mature.
 - Read the recent conversation, the purchase evidence already understood, the latest message, and verified financial context together before responding.
 - Match your directness to the financial risk while staying practical, concise, financially mature, respectful, and non-shaming.
 - Use the user's name naturally when appropriate, but do not repeat it mechanically.
@@ -366,6 +383,7 @@ BUY / NOT-BUY GUIDANCE
 - The USER makes the final decision. You guide; you do not take control away from them.
 
 WHEN YOU ARE SATISFIED
+- Do not use ready until the purchase context is mature under the discovery-before-verdict rule.
 - Stay engaged. Do not announce that another analysis is about to run.
 - If one genuinely useful money-saving alternative is still worth offering and the user has not already accepted or declined it, ask permission first instead of jumping directly to "ready".
 - When you have enough context to be genuinely useful, any useful alternative has been resolved or is unnecessary, and the user has received your guidance, set action to "ready" and end the visible reply with a natural version of: "Will you still buy it?"
@@ -509,12 +527,23 @@ function fallbackTurn(message = "", evidence = {}, assistantContext = {}) {
     };
   }
 
+  const discoveryState = getClaraBuyCheckDiscoveryState(current);
+  if (!discoveryState.mature) {
+    return {
+      action: "probe",
+      reply: buildClaraBuyCheckDiscoveryQuestion(current),
+      evidence: current,
+      readinessConfidence: discoveryState.hasMotive ? 0.68 : 0.55,
+      source: "discovery-gate-fallback",
+    };
+  }
+
   const means = buildCanonicalMeansContext(current.price, assistantContext, current);
   if (means?.purchaseSimulationApplied && means.projectedScoreAfterPurchase !== null) {
     const after = Number(means.projectedScoreAfterPurchase);
     const guidance = after >= 100
-      ? "You\'d still be above your 100 protection line."
-      : "That would put you below your 100 protection line, so I\'d wait or reduce the amount.";
+      ? "You'd still be above your 100 protection line."
+      : "That would put you below your 100 protection line, so I'd wait or reduce the amount.";
 
     const metricLine = formatClaraMetricImpactLine(means);
     return {
@@ -523,16 +552,6 @@ function fallbackTurn(message = "", evidence = {}, assistantContext = {}) {
       evidence: current,
       readinessConfidence: 0.9,
       source: "means-fallback",
-    };
-  }
-
-  if (!transactionReasonFromEvidence(current)) {
-    return {
-      action: "probe",
-      reply: "Do you need it, or is it more of a want?",
-      evidence: current,
-      readinessConfidence: 0.65,
-      source: "fallback",
     };
   }
 
@@ -572,25 +591,44 @@ export async function runClaraBuyCheckExpertTurn({
     const requestedAction = clean(json?.action).toLowerCase();
     const action = ACTIONS.has(requestedAction) ? requestedAction : fallback.action;
     let reply = clean(json?.reply).slice(0, 720);
+    const discoveryState = getClaraBuyCheckDiscoveryState(mergedEvidence);
 
-    // The application, not Gemini, owns the financial math. Always put the
-    // canonical consequence first so the user gets exact math in human language.
-    const authoritativeMeans = buildCanonicalMeansContext(mergedEvidence.price, assistantContext, mergedEvidence);
-    if (
-      authoritativeMeans?.purchaseSimulationApplied &&
-      authoritativeMeans.projectedScoreAfterPurchase !== null
-    ) {
-      const metricLine = formatClaraMetricImpactLine(authoritativeMeans);
-      if (metricLine && !reply.startsWith(metricLine)) {
-        reply = `${metricLine} ${reply}`.trim().slice(0, 720);
+    // Item + price can start internal Means reasoning, but cannot end discovery.
+    // If Gemini tries to finish before enough purchase context exists, the app
+    // forces one useful clarification and keeps all Means values out of sight.
+    if (action === "ready" && !discoveryState.mature) {
+      return {
+        action: "probe",
+        reply: buildClaraBuyCheckDiscoveryQuestion(mergedEvidence),
+        evidence: mergedEvidence,
+        readinessConfidence: Math.min(0.7, Math.max(0, Number(json?.readinessConfidence || 0))),
+        source: "conversation-gate",
+        model,
+      };
+    }
+
+    // The application, not Gemini, owns the financial math. Reveal the exact
+    // consequence only after discovery has matured into a decision-phase turn.
+    if (shouldRevealClaraBuyCheckMeans(action, mergedEvidence)) {
+      const authoritativeMeans = buildCanonicalMeansContext(
+        mergedEvidence.price,
+        assistantContext,
+        mergedEvidence,
+      );
+      if (
+        authoritativeMeans?.purchaseSimulationApplied &&
+        authoritativeMeans.projectedScoreAfterPurchase !== null
+      ) {
+        const metricLine = formatClaraMetricImpactLine(authoritativeMeans);
+        if (metricLine && !reply.startsWith(metricLine)) {
+          reply = `${metricLine} ${reply}`.trim().slice(0, 720);
+        }
       }
     }
 
     const readinessConfidence = Math.max(0, Math.min(1, Number(json?.readinessConfidence || 0)));
     const readyEnough = Boolean(
-      mergedEvidence.item &&
-        Number(mergedEvidence.price) > 0 &&
-        transactionReasonFromEvidence(mergedEvidence),
+      discoveryState.mature && transactionReasonFromEvidence(mergedEvidence),
     );
 
     if (action === "ready" && !readyEnough) {
