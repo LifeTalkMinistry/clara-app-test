@@ -170,15 +170,59 @@ function copyPaymentAuthority(target, source) {
   return preserved;
 }
 
+function hasPendingClaraPaymentAuthority(evidence = {}) {
+  const source = sanitizeClaraPurchaseEvidence(evidence);
+  if (source.purchaseType === "installment") {
+    return source.paymentStructureStatus === "needs_confirmation" && (
+      positiveNumber(source.amountDueNow) > 0 ||
+      positiveNumber(source.paymentAmount) > 0 ||
+      positiveNumber(source.totalCommitment) > 0
+    );
+  }
+  return source.priceStatus === "needs_confirmation" && positiveNumber(source.priceCandidate) > 0;
+}
+
+function copyPendingPaymentAuthority(target, source) {
+  const left = sanitizeClaraPurchaseEvidence(source);
+  if (!hasPendingClaraPaymentAuthority(left)) return target;
+
+  const preserved = { ...target };
+  if (left.purchaseType === "installment") {
+    delete preserved.price;
+    delete preserved.priceCandidate;
+    delete preserved.priceStatus;
+    delete preserved.priceSource;
+    preserved.purchaseType = "installment";
+    preserved.paymentStructureStatus = "needs_confirmation";
+    PAYMENT_NUMERIC_KEYS.forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(left, key)) preserved[key] = left[key];
+      else delete preserved[key];
+    });
+    if (left.frequency) preserved.frequency = left.frequency;
+    else delete preserved.frequency;
+    if (left.paymentStructureSource) preserved.paymentStructureSource = left.paymentStructureSource;
+  } else {
+    preserved.purchaseType = "one_time";
+    preserved.priceCandidate = left.priceCandidate;
+    preserved.priceStatus = "needs_confirmation";
+    delete preserved.price;
+    delete preserved.priceSource;
+  }
+  return preserved;
+}
+
 export function mergeClaraPurchaseEvidence(previous = {}, incoming = {}) {
   const left = sanitizeClaraPurchaseEvidence(previous);
   const right = sanitizeClaraPurchaseEvidence(incoming);
   let merged = { ...left, ...right };
 
-  // The application owns payment authority. Gemini may add evidence or propose
-  // a candidate, but an already-confirmed structure cannot be silently replaced.
+  // The application owns payment authority. Gemini may add language evidence,
+  // but it cannot silently replace either a confirmed structure or an
+  // app-derived candidate that is still waiting for the user's confirmation.
   if (hasConfirmedClaraPaymentStructure(left) && !hasConfirmedClaraPaymentStructure(right)) {
     merged = copyPaymentAuthority(merged, left);
+  } else if (hasPendingClaraPaymentAuthority(left)) {
+    merged = copyPendingPaymentAuthority(merged, left);
   }
 
   return sanitizeClaraPurchaseEvidence(merged);
