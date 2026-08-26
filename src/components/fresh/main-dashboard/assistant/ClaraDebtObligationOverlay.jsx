@@ -14,6 +14,8 @@ import {
   toDebtNumber,
   upsertDebtObligation,
 } from "@/lib/debtObligationStore";
+import { payDebtObligationFromWallet } from "@/lib/debtPaymentRepository";
+import { getWalletOptions } from "@/lib/clara-buy-check-budget-intelligence";
 import { DEBT_TYPES } from "@/components/financial-carousel/cards/debt/logic/useDebtCardLogic";
 import {
   getClaraReadDelay,
@@ -161,6 +163,15 @@ function summaryText(record = {}) {
   return parts.join(" • ");
 }
 
+function suggestedPayment(record = {}) {
+  const mode = getDebtObligationMode(record);
+  const monthly = Math.max(getMonthlyDebtPayment(record), 0);
+  if (mode !== "balance") return monthly;
+  const balance = Math.max(getDebtBalance(record), 0);
+  if (balance <= 0) return 0;
+  return Math.min(monthly > 0 ? monthly : balance, balance);
+}
+
 export default function ClaraDebtObligationOverlay({
   isActive = false,
   claraAssistantContext = {},
@@ -182,6 +193,9 @@ export default function ClaraDebtObligationOverlay({
   const [draft, setDraft] = useState(freshDraft);
   const [input, setInput] = useState("");
   const [selectedId, setSelectedId] = useState("");
+  const [paymentAmount, setPaymentAmount] = useState(0);
+  const [paymentWalletId, setPaymentWalletId] = useState("");
+  const [paymentOrigin, setPaymentOrigin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -196,6 +210,16 @@ export default function ClaraDebtObligationOverlay({
   const selectedRecord = useMemo(
     () => records.find((record) => String(record.id) === String(selectedId)) || null,
     [records, selectedId]
+  );
+
+  const paymentWalletOptions = useMemo(
+    () => (paymentAmount > 0 ? getWalletOptions(claraAssistantContext, paymentAmount) : []),
+    [claraAssistantContext, paymentAmount]
+  );
+
+  const selectedPaymentWallet = useMemo(
+    () => paymentWalletOptions.find((wallet) => String(wallet.id) === String(paymentWalletId)) || null,
+    [paymentWalletOptions, paymentWalletId]
   );
 
   const pressure = useMemo(
@@ -288,10 +312,17 @@ export default function ClaraDebtObligationOverlay({
     return normalized;
   };
 
+  const resetPaymentFields = () => {
+    setPaymentAmount(0);
+    setPaymentWalletId("");
+    setPaymentOrigin("");
+  };
+
   const resetDraft = () => {
     setDraft(freshDraft());
     setInput("");
     setSelectedId("");
+    resetPaymentFields();
     setBusy(false);
     setError("");
   };
@@ -407,10 +438,132 @@ export default function ClaraDebtObligationOverlay({
     runAssistantSequence([pressureText], "pressure");
   };
 
+  const openPay = () => {
+    if (!records.length) return;
+    resetDraft();
+    append(chatMessage("user", "Pay an obligation"));
+    setPaymentOrigin("pay-select");
+    runAssistantSequence(["Choose the obligation you want to pay."], "pay-select");
+  };
+
   const selectManagedRecord = (record) => {
     setSelectedId(String(record.id));
     append(chatMessage("user", getDebtTitle(record)));
     runAssistantSequence([`What would you like to do with ${getDebtTitle(record)}?`], "manage-action");
+  };
+
+  const beginPayment = (record, origin = "pay-select") => {
+    if (!record?.id || !controlsReady) return;
+    const suggested = suggestedPayment(record);
+    setSelectedId(String(record.id));
+    setPaymentAmount(0);
+    setPaymentWalletId("");
+    setPaymentOrigin(origin);
+    setInput(suggested > 0 ? String(suggested) : "");
+    setError("");
+    append(chatMessage("user", origin === "manage-action" ? "Make a payment" : getDebtTitle(record)));
+    runAssistantSequence(
+      [
+        suggested > 0
+          ? `How much are you paying toward ${getDebtTitle(record)}? I prefilled the usual payment of ${fmt(suggested)}.`
+          : `How much are you paying toward ${getDebtTitle(record)}?`,
+      ],
+      "pay-amount"
+    );
+  };
+
+  const submitPaymentAmount = () => {
+    if (!controlsReady || !selectedRecord) return;
+    const value = toDebtNumber(input);
+    if (value <= 0) {
+      setError("Enter a payment amount greater than zero.");
+      return;
+    }
+    if (getDebtObligationMode(selectedRecord) === "balance") {
+      const balance = getDebtBalance(selectedRecord);
+      if (value > balance) {
+        setError(`Payment cannot exceed the remaining balance of ${fmt(balance)}.`);
+        return;
+      }
+    }
+    setPaymentAmount(value);
+    setPaymentWalletId("");
+    setInput("");
+    setError("");
+    append(chatMessage("user", fmt(value)));
+    runAssistantSequence(["Which wallet are you paying from?"], "pay-wallet");
+  };
+
+  const choosePaymentWallet = (wallet) => {
+    if (!controlsReady || !selectedRecord || !wallet?.id || !wallet?.enough) return;
+    setPaymentWalletId(String(wallet.id));
+    setError("");
+    append(chatMessage("user", wallet.name));
+    const mode = getDebtObligationMode(selectedRecord);
+    const remaining = mode === "balance"
+      ? Math.max(getDebtBalance(selectedRecord) - paymentAmount, 0)
+      : null;
+    runAssistantSequence(
+      [
+        mode === "balance"
+          ? `Confirm ${fmt(paymentAmount)} to ${getDebtTitle(selectedRecord)} from ${wallet.name}? Remaining balance will be ${fmt(remaining)}.`
+          : `Confirm ${fmt(paymentAmount)} to ${getDebtTitle(selectedRecord)} from ${wallet.name}?`,
+      ],
+      "pay-confirm"
+    );
+  };
+
+  const confirmPayment = async () => {
+    if (!controlsReady || !selectedRecord?.id || !selectedPaymentWallet || paymentAmount <= 0) return;
+    const title = getDebtTitle(selectedRecord);
+    const walletName = selectedPaymentWallet.name;
+    cancelConversationPacing();
+    const operationToken = sequenceTokenRef.current;
+    setBusy(true);
+    setError("");
+    setPhase("paying");
+    append(chatMessage("user", "Confirm payment"));
+    try {
+      const result = await payDebtObligationFromWallet(localUserId, selectedRecord.id, {
+        amount: paymentAmount,
+        walletId: selectedPaymentWallet.id,
+        maxSpendable: selectedPaymentWallet.balance,
+      });
+      if (operationToken !== sequenceTokenRef.current) return;
+      const loaded = await reload(operationToken);
+      if (loaded === null || operationToken !== sequenceTokenRef.current) return;
+      setBusy(false);
+      setInput("");
+      setSelectedId("");
+      resetPaymentFields();
+      const reply = result.completed
+        ? `${fmt(result.amount)} was paid from ${walletName}. ${title} is now fully paid.`
+        : result.mode === "balance"
+          ? `${fmt(result.amount)} was paid from ${walletName}. ${fmt(result.balance)} remains on ${title}.`
+          : `${fmt(result.amount)} was paid from ${walletName}. The payment is recorded for ${title}.`;
+      runAssistantSequence([reply, "What would you like to do next?"], "home", { skipInitialDelay: true });
+    } catch (nextError) {
+      if (operationToken !== sequenceTokenRef.current) return;
+      const message = clean(nextError?.message || "Unable to record this payment.");
+      setBusy(false);
+      setError(message);
+      runAssistantSequence([message], "pay-confirm", { skipInitialDelay: true });
+    }
+  };
+
+  const backFromPaymentAmount = () => {
+    setInput("");
+    setPaymentAmount(0);
+    setPaymentWalletId("");
+    setError("");
+    append(chatMessage("user", "Back"));
+    if (paymentOrigin === "manage-action" && selectedRecord) {
+      runAssistantSequence([`What would you like to do with ${getDebtTitle(selectedRecord)}?`], "manage-action");
+      return;
+    }
+    setSelectedId("");
+    setPaymentOrigin("pay-select");
+    runAssistantSequence(["Choose the obligation you want to pay."], "pay-select");
   };
 
   const beginEdit = (record) => {
@@ -605,6 +758,7 @@ export default function ClaraDebtObligationOverlay({
       data-clara-pause-overlay="true"
       data-clara-buy-check-react-owner="true"
       data-clara-debt-obligation-chat="true"
+      data-clara-debt-payment-flow="true"
       data-clara-conversation-pacing="masterclass"
     >
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_5%_4%,rgba(23,105,255,0.28),transparent_34%),radial-gradient(circle_at_96%_8%,rgba(43,225,216,0.12),transparent_34%),linear-gradient(180deg,#06152e_0%,#040b1a_44%,#020714_100%)]" />
@@ -613,7 +767,7 @@ export default function ClaraDebtObligationOverlay({
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,#1769ff,#2be1d8)]" />
         <p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#8ffff8]/78">CLARA CHAT</p>
         <h1 className="mt-1 text-[17px] font-black tracking-[-0.025em] text-white">Debt / Obligations</h1>
-        <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-100/42">Record · Review · Stay accountable</p>
+        <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-100/42">Record · Pay · Review · Stay accountable</p>
         <button
           type="button"
           onClick={closeChat}
@@ -638,6 +792,7 @@ export default function ClaraDebtObligationOverlay({
           {phase === "home" && controlsReady ? (
             <div className="relative z-20 mt-1 grid gap-2.5">
               <ChoiceButton onClick={beginAdd}>Add an obligation</ChoiceButton>
+              <ChoiceButton onClick={openPay} disabled={!records.length}>Pay an obligation</ChoiceButton>
               <ChoiceButton onClick={openView}>View obligations</ChoiceButton>
               <ChoiceButton onClick={openManage} disabled={!records.length}>Edit or delete an obligation</ChoiceButton>
               <ChoiceButton onClick={openPressure}>Review debt pressure</ChoiceButton>
@@ -654,6 +809,84 @@ export default function ClaraDebtObligationOverlay({
                 </article>
               ))}
               <ChoiceButton secondary onClick={() => goHome("Back")}>Back</ChoiceButton>
+            </div>
+          ) : null}
+
+          {phase === "pay-select" && controlsReady ? (
+            <div className="mt-1 grid gap-2.5">
+              {records.map((record) => (
+                <ChoiceButton key={record.id} onClick={() => beginPayment(record, "pay-select")}>
+                  <span className="block text-left">{getDebtTitle(record)}</span>
+                  <span className="mt-1 block text-left text-[10px] font-semibold text-white/55">{summaryText(record)}</span>
+                </ChoiceButton>
+              ))}
+              <ChoiceButton secondary onClick={() => goHome("Back")}>Back</ChoiceButton>
+            </div>
+          ) : null}
+
+          {phase === "pay-amount" && selectedRecord && controlsReady ? (
+            <div className="mt-auto grid gap-2.5 pt-3">
+              <Composer
+                value={input}
+                onChange={(value) => { setInput(cleanMoney(value)); setError(""); }}
+                onSubmit={submitPaymentAmount}
+                placeholder="Payment amount"
+                inputMode="decimal"
+              />
+              <ChoiceButton secondary onClick={backFromPaymentAmount}>Back</ChoiceButton>
+            </div>
+          ) : null}
+
+          {phase === "pay-wallet" && selectedRecord && controlsReady ? (
+            <div className="relative z-20 mt-1 grid gap-2.5">
+              {paymentWalletOptions.length ? paymentWalletOptions.map((wallet) => (
+                <button
+                  key={wallet.id}
+                  type="button"
+                  disabled={!wallet.enough}
+                  onClick={() => choosePaymentWallet(wallet)}
+                  className="relative z-20 flex min-h-14 touch-manipulation items-center justify-between gap-3 rounded-[18px] border border-blue-200/12 bg-[#07142b]/88 px-4 py-3 text-left transition active:scale-[0.985] disabled:opacity-40"
+                >
+                  <span>
+                    <span className="block text-[13px] font-black text-white">{wallet.name}</span>
+                    <span className="mt-0.5 block text-[10.5px] font-semibold text-slate-300/62">
+                      {wallet.enough ? "Available to pay" : "Not enough spendable balance"}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-[12px] font-black text-[#8ffff8]/82">{fmt(wallet.balance)}</span>
+                </button>
+              )) : (
+                <Bubble role="assistant">There isn’t any spendable wallet money available for this payment. Protected money stays protected.</Bubble>
+              )}
+              <ChoiceButton secondary onClick={() => {
+                setPaymentWalletId("");
+                setInput(String(paymentAmount || suggestedPayment(selectedRecord) || ""));
+                append(chatMessage("user", "Back"));
+                runAssistantSequence([`How much are you paying toward ${getDebtTitle(selectedRecord)}?`], "pay-amount");
+              }}>Back</ChoiceButton>
+            </div>
+          ) : null}
+
+          {phase === "pay-confirm" && selectedRecord && selectedPaymentWallet && controlsReady ? (
+            <div className="mt-1 grid gap-2.5">
+              <article className="rounded-[21px] border border-blue-200/12 bg-[#07142b]/88 p-3.5 shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
+                <div className="space-y-2 text-[11.5px] font-semibold leading-5 text-white/82">
+                  <div><span className="text-white/42">Obligation:</span> {getDebtTitle(selectedRecord)}</div>
+                  <div><span className="text-white/42">Payment:</span> {fmt(paymentAmount)}</div>
+                  <div><span className="text-white/42">From:</span> {selectedPaymentWallet.name}</div>
+                  {getDebtObligationMode(selectedRecord) === "balance" ? (
+                    <div><span className="text-white/42">Remaining:</span> {fmt(Math.max(getDebtBalance(selectedRecord) - paymentAmount, 0))}</div>
+                  ) : null}
+                </div>
+              </article>
+              <div className="grid grid-cols-2 gap-2.5">
+                <ChoiceButton onClick={confirmPayment} disabled={busy}>{busy ? "Paying..." : "Confirm payment"}</ChoiceButton>
+                <ChoiceButton secondary onClick={() => {
+                  setPaymentWalletId("");
+                  append(chatMessage("user", "Back"));
+                  runAssistantSequence(["Which wallet are you paying from?"], "pay-wallet");
+                }}>Back</ChoiceButton>
+              </div>
             </div>
           ) : null}
 
@@ -675,6 +908,7 @@ export default function ClaraDebtObligationOverlay({
                 <p className="text-[12.5px] font-black leading-5 text-white/92">{getDebtTitle(selectedRecord)}</p>
                 <p className="mt-1 text-[10.5px] font-semibold leading-5 text-white/48">{summaryText(selectedRecord)}</p>
               </article>
+              <ChoiceButton onClick={() => beginPayment(selectedRecord, "manage-action")}>Make a payment</ChoiceButton>
               <ChoiceButton onClick={() => beginEdit(selectedRecord)}>Edit this obligation</ChoiceButton>
               <ChoiceButton danger onClick={askDelete}>Delete this obligation</ChoiceButton>
               <ChoiceButton secondary onClick={() => {
