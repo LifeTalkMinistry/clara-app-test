@@ -7,7 +7,7 @@ import {
   getClaraTypingPlan,
 } from "@/lib/clara-conversation-pacing";
 
-const CLARA_AI_BRAIN_VERSION = "progressive-buy-check-v10-installment-obligation";
+const CLARA_AI_BRAIN_VERSION = "progressive-buy-check-v10-installment-obligation-day-picker";
 
 const BUY_CHECK_ACKNOWLEDGMENTS = [
   "Good move—you paused before buying. Let’s see if it fits your money.",
@@ -264,19 +264,25 @@ function FinalDecisionPanel({
             </div>
           </article>
 
-          <label className="mb-1.5 mt-3 block text-[10px] font-black uppercase tracking-[0.16em] text-[#ffd84a]/66">DUE EACH MONTH</label>
-          <div className="flex min-h-12 items-center gap-3 rounded-[18px] border border-blue-200/14 bg-[#08142b]/96 px-4 py-2 shadow-inner focus-within:border-blue-300/42">
-            <input
+          <label htmlFor="clara-installment-due-day" className="mb-1.5 mt-3 block text-[10px] font-black uppercase tracking-[0.16em] text-[#ffd84a]/66">DUE EACH MONTH</label>
+          <div className="relative z-20 flex min-h-12 items-center gap-3 rounded-[18px] border border-blue-200/14 bg-[#08142b]/96 px-4 py-2 shadow-inner focus-within:border-blue-300/42">
+            <select
+              id="clara-installment-due-day"
+              data-clara-installment-due-day-picker="true"
               value={installmentDueDay}
               onChange={(event) => onInstallmentDueDayChange?.(event.target.value)}
               disabled={finalDecision.busy}
-              inputMode="numeric"
-              pattern="[0-9]*"
-              placeholder="1-31"
               aria-label="Installment due day of month"
-              className="min-w-0 flex-1 bg-transparent py-1 text-[13px] font-black text-white outline-none placeholder:text-slate-400/72 disabled:opacity-55"
-            />
-            <span className="shrink-0 text-[10.5px] font-semibold text-slate-300/58">day of month</span>
+              className="relative z-20 min-w-0 flex-1 cursor-pointer touch-manipulation appearance-none bg-transparent py-1 text-[13px] font-black text-white outline-none disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              <option value="" disabled>Choose day</option>
+              {Array.from({ length: 31 }, (_, index) => index + 1).map((day) => (
+                <option key={day} value={String(day)} className="bg-[#08142b] text-white">
+                  {day}
+                </option>
+              ))}
+            </select>
+            <span className="pointer-events-none shrink-0 text-[10.5px] font-semibold text-slate-300/58">day of month ▾</span>
           </div>
           <p className="mt-2 text-[11px] font-semibold leading-5 text-blue-100/65">
             CLARA will save this under Debt / Obligations. No wallet money is deducted just for documenting it. Record the actual payment from the obligation when you pay.
