@@ -1,11 +1,14 @@
+import { CLARA_ORB_COMMAND_SELECT_EVENT } from "@/lib/clara-orb-command-ring";
 import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "@/lib/clara-pause-events";
 
 const RUNTIME_KEY = "__claraOrbChatHandoffRuntime__";
 const READY_FLAG = "claraOrbTransitionReady";
 const MAX_HANDOFF_AGE_MS = 2200;
 const COPY_EXIT_LEAD_MS = 72;
-const OVERLAY_SELECTOR =
-  '[data-clara-pause-overlay="true"][data-clara-buy-check-react-owner="true"]';
+const OVERLAY_CANDIDATE_SELECTOR =
+  '[data-clara-pause-overlay="true"], [data-clara-weekly-cross-check-chat="true"]';
+const CHAT_HEADER_SELECTOR =
+  '[data-clara-chat-header="true"], [data-clara-buy-check-header="true"]';
 const ORB_COMPOSITION_SELECTOR =
   '.clara-community-root[data-community-view="orb"] [data-clara-orb-composition="true"]';
 const ORB_LAUNCHER_SELECTOR = '[data-clara-orb-launcher="true"]';
@@ -20,6 +23,13 @@ function safeAnimate(element, keyframes, options) {
   }
 }
 
+function prefersReducedMotion() {
+  return (
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
 function rectSnapshot(rect) {
   if (!rect) return null;
   return {
@@ -31,6 +41,72 @@ function rectSnapshot(rect) {
     bottom: rect.bottom,
     centerX: rect.left + rect.width / 2,
     centerY: rect.top + rect.height / 2,
+  };
+}
+
+function resolveChatOverlay() {
+  const candidates = [...document.querySelectorAll(OVERLAY_CANDIDATE_SELECTOR)].filter(
+    (candidate) => candidate.querySelector(CHAT_HEADER_SELECTOR)
+  );
+
+  if (!candidates.length) return null;
+
+  // Prefer the most recently mounted matching chat surface. This avoids a
+  // hidden legacy pause surface winning ownership if more than one candidate
+  // temporarily exists during a React handoff.
+  return candidates[candidates.length - 1] || null;
+}
+
+function resolveDirectForm(overlay) {
+  if (!overlay) return null;
+  return [...overlay.children].find((child) => child?.tagName === "FORM") || null;
+}
+
+function resolveChatRegions(overlay) {
+  const sharedHeader = overlay.querySelector('[data-clara-chat-header="true"]');
+  const legacyBuyCheckHeader = overlay.querySelector('[data-clara-buy-check-header="true"]');
+  const header = sharedHeader || legacyBuyCheckHeader || null;
+  const closeButton =
+    header?.querySelector(
+      '[data-clara-chat-close="true"], button[aria-label^="Close "]'
+    ) || null;
+  const viewport =
+    overlay.querySelector(
+      '[data-clara-chat-viewport="true"], [data-clara-ai-message-viewport="true"]'
+    ) || overlay.querySelector("main");
+  const primaryContent =
+    overlay.querySelector(
+      '[data-clara-chat-primary-content="true"], [data-clara-pause-entry-board="true"], [data-clara-ai-message-stack="true"]'
+    ) ||
+    viewport?.firstElementChild ||
+    null;
+  const rawComposer =
+    overlay.querySelector(
+      '[data-clara-chat-composer="true"], form[data-clara-buy-check-react-form="true"]'
+    ) || resolveDirectForm(overlay);
+  const composer =
+    rawComposer && primaryContent?.contains(rawComposer) ? null : rawComposer || null;
+
+  const legacyBoard = overlay.querySelector('[data-clara-pause-entry-board="true"]');
+  const buyCheckLabel = legacyBoard?.querySelector(":scope > p") || null;
+  const activeQuestion =
+    legacyBoard?.querySelector('[data-clara-buy-check-active-question="true"]') || null;
+  const acknowledgmentPanel = activeQuestion?.previousElementSibling || null;
+  const acknowledgmentCopy = acknowledgmentPanel?.querySelector("p") || null;
+
+  return {
+    sharedHeader,
+    legacyBuyCheckHeader,
+    header,
+    closeButton,
+    viewport,
+    primaryContent,
+    composer,
+    legacyBoard,
+    buyCheckLabel,
+    activeQuestion,
+    acknowledgmentPanel,
+    acknowledgmentCopy,
   };
 }
 
@@ -117,28 +193,30 @@ function animateOrbToChat(overlay) {
 
   overlay.dataset.claraOrbChatHandoffPlayed = "true";
 
-  const board = overlay.querySelector('[data-clara-pause-entry-board="true"]');
-  const form = overlay.querySelector('[data-clara-buy-check-react-form="true"]');
-  const closeButton = overlay.querySelector(
-    '[data-clara-buy-check-header="true"] > button[aria-label="Close CLARA Ask Before You Spend"]'
-  );
-  const buyCheckLabel = board?.querySelector(":scope > p") || null;
-  const activeQuestion = board?.querySelector('[data-clara-buy-check-active-question="true"]') || null;
-  const acknowledgmentPanel = activeQuestion?.previousElementSibling || null;
-  const acknowledgmentCopy = acknowledgmentPanel?.querySelector("p") || null;
-  const mainViewport = overlay.querySelector('[data-clara-ai-message-viewport="true"]');
+  const {
+    sharedHeader,
+    closeButton,
+    primaryContent,
+    composer,
+    legacyBoard,
+    buyCheckLabel,
+    activeQuestion,
+    acknowledgmentPanel,
+    acknowledgmentCopy,
+  } = resolveChatRegions(overlay);
 
+  const contentSurface = legacyBoard || primaryContent;
   const animations = [];
   const touched = [
     overlay,
-    board,
-    form,
+    sharedHeader,
+    contentSurface,
+    composer,
     closeButton,
     buyCheckLabel,
     acknowledgmentPanel,
     acknowledgmentCopy,
     activeQuestion,
-    mainViewport,
   ].filter(Boolean);
 
   const remember = (animation) => {
@@ -146,12 +224,22 @@ function animateOrbToChat(overlay) {
   };
 
   overlay.style.willChange = "opacity";
-  [board, form, closeButton, buyCheckLabel, acknowledgmentPanel, acknowledgmentCopy, activeQuestion]
+  [
+    sharedHeader,
+    contentSurface,
+    composer,
+    closeButton,
+    buyCheckLabel,
+    acknowledgmentPanel,
+    acknowledgmentCopy,
+    activeQuestion,
+  ]
     .filter(Boolean)
     .forEach((element) => {
       element.style.willChange = "transform, opacity";
     });
 
+  // Canonical destination takeover: the full chat surface fades into ownership.
   remember(
     safeAnimate(
       overlay,
@@ -167,9 +255,31 @@ function animateOrbToChat(overlay) {
     )
   );
 
+  // Shared CLARA Chat headers enter as part of the same handoff. Ask Before You
+  // Spend keeps its legacy zero-height header shell, so its existing close-only
+  // entrance remains visually unchanged.
   remember(
     safeAnimate(
-      board,
+      sharedHeader,
+      [
+        { transform: "translateY(-8px)", opacity: 0 },
+        { transform: "translateY(0px)", opacity: 1 },
+      ],
+      {
+        duration: 240,
+        delay: 35,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        fill: "both",
+      }
+    )
+  );
+
+  // Every conversational destination gets the same main-surface rise used by
+  // Ask Before You Spend's opening board. The semantic target may be a message
+  // stack or a feature-specific first conversation surface.
+  remember(
+    safeAnimate(
+      contentSurface,
       [
         { transform: "translateY(14px) scale(0.992)", opacity: 0 },
         { transform: "translateY(0px) scale(1)", opacity: 1 },
@@ -183,6 +293,8 @@ function animateOrbToChat(overlay) {
     )
   );
 
+  // Preserve the finer Ask Before You Spend choreography when those optional
+  // sub-regions exist. Other CLARA chats do not need to impersonate Buy Check.
   remember(
     safeAnimate(
       buyCheckLabel,
@@ -249,7 +361,7 @@ function animateOrbToChat(overlay) {
 
   remember(
     safeAnimate(
-      form,
+      composer,
       [
         { transform: "translateY(16px)", opacity: 0 },
         { transform: "translateY(0px)", opacity: 1 },
@@ -335,6 +447,13 @@ function installClaraOrbChatHandoff() {
     cleanupLaunchDelay = null;
   };
 
+  const beginHomeLead = () => {
+    if (prefersReducedMotion()) return;
+    clearTapLead();
+    cleanupTapLead = hideOrbHomeCopyImmediately();
+    cleanupLaunchDelay = delayOrbLaunchMotion();
+  };
+
   const clearHomeExit = () => {
     window.clearTimeout(homeRestoreTimer);
     homeRestoreTimer = 0;
@@ -365,14 +484,10 @@ function installClaraOrbChatHandoff() {
       return;
     }
 
-    const overlay = document.querySelector(OVERLAY_SELECTOR);
+    const overlay = resolveChatOverlay();
     if (!overlay) return;
 
-    const reducedMotion =
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    if (!reducedMotion) {
+    if (!prefersReducedMotion()) {
       clearAnimation();
       cleanupAnimation = animateOrbToChat(overlay);
       homeRestoreTimer = window.setTimeout(clearHomeExit, 390);
@@ -404,11 +519,15 @@ function installClaraOrbChatHandoff() {
     if (!launcher || launcher.disabled) return;
     if (!launcher.closest?.(ORB_COMPOSITION_SELECTOR)) return;
 
-    // Capture runs before React's onClick. The supporting home copy is therefore
-    // removed before ClaraOrbPage flips `launching` and starts the Orb motion.
-    clearTapLead();
-    cleanupTapLead = hideOrbHomeCopyImmediately();
-    cleanupLaunchDelay = delayOrbLaunchMotion();
+    // Direct Ask Before You Spend taps get the same clean copy-first lead.
+    beginHomeLead();
+  };
+
+  const handleCommandSelectLead = () => {
+    // Radial commands do not reliably emit the same launcher click as the direct
+    // Buy Check tap. Arm the identical copy-first lead when the command is
+    // actually committed, before routing dispatches the pause-open request.
+    beginHomeLead();
   };
 
   const handlePauseOpenRequest = (event) => {
@@ -419,15 +538,12 @@ function installClaraOrbChatHandoff() {
     const launcher = document.querySelector(ORB_LAUNCHER_SELECTOR);
     if (!launcher) return;
 
-    const reducedMotion =
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
     cleanupHomeExit?.();
     cleanupHomeExit = null;
-    if (!reducedMotion) {
-      // The click-capture phase already removed the copy. Keep it hidden and
-      // begin only the Orb-side exit motion here.
+    if (!prefersReducedMotion()) {
+      // Direct taps and radial command selection both arm the copy-first lead
+      // before the canonical Orb launch. Keep that state and finish only the
+      // Orb-side exit here.
       cleanupHomeExit = animateOrbHomeExit({ hideCopy: !cleanupTapLead });
     }
 
@@ -448,12 +564,14 @@ function installClaraOrbChatHandoff() {
   };
 
   document.addEventListener("click", handleOrbClickCapture, true);
+  window.addEventListener(CLARA_ORB_COMMAND_SELECT_EVENT, handleCommandSelectLead);
   window.addEventListener(CLARA_PAUSE_OPEN_REQUEST_EVENT, handlePauseOpenRequest, true);
 
   window[RUNTIME_KEY] = {
     destroy() {
       stopPendingObserver();
       document.removeEventListener("click", handleOrbClickCapture, true);
+      window.removeEventListener(CLARA_ORB_COMMAND_SELECT_EVENT, handleCommandSelectLead);
       window.removeEventListener(CLARA_PAUSE_OPEN_REQUEST_EVENT, handlePauseOpenRequest, true);
       window.clearTimeout(clearPendingTimer);
       clearAnimation();
