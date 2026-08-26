@@ -11,8 +11,11 @@ import {
   WalletCards,
 } from "lucide-react";
 import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "@/lib/clara-pause-events";
+import useUserRole from "@/hooks/useUserRole";
+import ClaraDebtObligationOverlay from "@/components/fresh/main-dashboard/assistant/ClaraDebtObligationOverlay.jsx";
 import { triggerClaraHaptic } from "@/lib/claraHaptics";
 import {
+  CLARA_ORB_COMMAND_SELECT_EVENT,
   CLARA_ORB_COMMANDS,
   ORB_COMMAND_HOLD_MS,
   ORB_COMMAND_PRE_HOLD_MOVE_PX,
@@ -361,6 +364,8 @@ function ClaraOrbCommandPresentation({
 }
 
 export default function ClaraOrbPage({ onActivate, activationDelayMs = 0 }) {
+  const { user } = useUserRole();
+  const [debtObligationOpen, setDebtObligationOpen] = useState(false);
   const [launching, setLaunching] = useState(false);
   const [pastSchedule, setPastSchedule] = useState(null);
   const [reschedulingPastSchedule, setReschedulingPastSchedule] = useState(false);
@@ -465,6 +470,20 @@ export default function ClaraOrbPage({ onActivate, activationDelayMs = 0 }) {
     if (typeof document === "undefined") return undefined;
     document.body.classList.add("clara-orb-page-active");
     return () => document.body.classList.remove("clara-orb-page-active");
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const handleOrbOwnedDebt = (event) => {
+      const commandId = String(event?.detail?.commandId || "").trim();
+      if (commandId !== "debt-obligation") return;
+      event.preventDefault?.();
+      setDebtObligationOpen(true);
+    };
+
+    window.addEventListener(CLARA_ORB_COMMAND_SELECT_EVENT, handleOrbOwnedDebt);
+    return () => window.removeEventListener(CLARA_ORB_COMMAND_SELECT_EVENT, handleOrbOwnedDebt);
   }, []);
 
   useEffect(() => {
@@ -777,6 +796,13 @@ export default function ClaraOrbPage({ onActivate, activationDelayMs = 0 }) {
       aria-label="CLARA Orb"
       data-clara-orb-page="true"
     >
+      {debtObligationOpen ? (
+        <ClaraDebtObligationOverlay
+          isActive
+          claraAssistantContext={{ user }}
+          onClose={() => setDebtObligationOpen(false)}
+        />
+      ) : null}
       {pastSchedule ? (
         <section className="absolute left-4 right-4 top-4 z-50 mx-auto max-w-[560px] rounded-[26px] border border-amber-200/25 bg-[linear-gradient(135deg,rgba(42,27,5,.97),rgba(12,11,31,.98)_58%,rgba(34,18,55,.96))] p-4 text-left shadow-[0_18px_60px_rgba(0,0,0,.48),0_0_28px_rgba(251,191,36,.08)] backdrop-blur-2xl" data-clara-orb-past-schedule-banner="true">
           <div className="flex items-start gap-3">
