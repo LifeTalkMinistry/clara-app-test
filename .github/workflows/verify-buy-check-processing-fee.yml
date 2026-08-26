@@ -20,3 +20,4 @@ jobs:
       - run: node --test tests/buy-check-processing-fee-ambiguity.test.mjs tests/buy-check-progressive-router.test.mjs
       - run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
       - run: npm run build
+      # Focused regression: installment processing-fee timing must remain authoritative.
