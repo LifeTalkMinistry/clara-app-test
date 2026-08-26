@@ -5,6 +5,7 @@ const INSTALLED_FLAG = "__CLARA_WEEKLY_CROSS_CHECK_REMINDER_INSTALLED__";
 const BANNER_ID = "clara-weekly-cross-check-reminder";
 const SETUP_ID = "clara-weekly-cross-check-day-setup";
 const DISMISS_PREFIX = "clara_weekly_cross_check_dismissed_v1_";
+const DAILY_STREAK_TITLE_ID = "clara-streak-bubble-title";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -111,6 +112,10 @@ function shouldRenderOnCurrentRoute() {
   return !/(login|sign-in|signin|register|signup|onboarding)/.test(hash);
 }
 
+function isDailyAwarenessBannerVisible() {
+  return Boolean(document.getElementById(DAILY_STREAK_TITLE_ID));
+}
+
 function removeNode(id) {
   document.getElementById(id)?.remove();
 }
@@ -211,6 +216,11 @@ function showSetup(pair) {
 
 function showBanner(state) {
   if (!state || document.getElementById(BANNER_ID) || !shouldRenderOnCurrentRoute()) return;
+  if (isDailyAwarenessBannerVisible()) {
+    removeNode(BANNER_ID);
+    return;
+  }
+
   const dismissalKey = `${DISMISS_PREFIX}${state.owner}_${state.dueDateKey}`;
   if (window.sessionStorage?.getItem(dismissalKey) === "1") return;
   ensureStyles();
@@ -249,6 +259,12 @@ function showBanner(state) {
 
 function refreshReminder() {
   if (typeof window === "undefined" || typeof document === "undefined" || !document.body) return;
+
+  if (isDailyAwarenessBannerVisible()) {
+    removeNode(BANNER_ID);
+    return;
+  }
+
   const pair = getActivePair();
   if (!pair) {
     removeNode(BANNER_ID);
@@ -275,11 +291,45 @@ export function installWeeklyCrossCheckReminder() {
   if (window[INSTALLED_FLAG]) return;
   window[INSTALLED_FLAG] = true;
 
-  const scheduleRefresh = () => window.setTimeout(refreshReminder, 80);
+  let queueRefreshTimer = null;
+  let dailyWasVisible = false;
+  const scheduleRefresh = (delay = 80) => {
+    if (queueRefreshTimer) window.clearTimeout(queueRefreshTimer);
+    queueRefreshTimer = window.setTimeout(() => {
+      queueRefreshTimer = null;
+      refreshReminder();
+    }, delay);
+  };
+
+  const syncBannerPriority = () => {
+    const dailyIsVisible = isDailyAwarenessBannerVisible();
+    if (dailyIsVisible) {
+      dailyWasVisible = true;
+      removeNode(BANNER_ID);
+      return;
+    }
+
+    if (dailyWasVisible) {
+      dailyWasVisible = false;
+      scheduleRefresh(120);
+    }
+  };
+
+  const installPriorityObserver = () => {
+    if (!document.body || typeof MutationObserver === "undefined") return;
+    const observer = new MutationObserver(syncBannerPriority);
+    observer.observe(document.body, { childList: true, subtree: true });
+    syncBannerPriority();
+  };
+
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", scheduleRefresh, { once: true });
+    document.addEventListener("DOMContentLoaded", () => {
+      installPriorityObserver();
+      scheduleRefresh(220);
+    }, { once: true });
   } else {
-    scheduleRefresh();
+    installPriorityObserver();
+    scheduleRefresh(220);
   }
 
   window.addEventListener(UPDATED_EVENT, scheduleRefresh);
