@@ -292,28 +292,18 @@ function feeTreatmentFromText(source = "", { hasFee = false } = {}) {
   if (/\b(no|zero|without)\s+(?:extra\s+)?fees?\b/i.test(source)) return "none";
   if (!hasFee) return "";
 
-  if (
-    /\b(?:fee|fees|processing\s+fee|service\s+fee)\b[\s\S]{0,36}\b(?:upfront|due\s+now|pay(?:able|ing)?\s+now|with\s+(?:the\s+)?first\s+payment)\b/i.test(source) ||
-    /\b(?:upfront|due\s+now|pay(?:able|ing)?\s+now|with\s+(?:the\s+)?first\s+payment)\b[\s\S]{0,36}\b(?:fee|fees|processing\s+fee|service\s+fee)\b/i.test(source)
-  ) {
+  // When CLARA has just asked how a known fee is paid, the user should not
+  // have to repeat the words "processing fee" for the answer to be authoritative.
+  if (/\b(upfront|due\s+now|pay(?:able|ing)?\s+now|with\s+(?:the\s+)?first\s+payment)\b/i.test(source)) {
     return "upfront";
   }
-
-  if (
-    /\b(?:split|spread|divided|distributed)\s+evenly\b[\s\S]{0,45}\b(?:payments?|installments?)\b/i.test(source) ||
-    /\b(?:payments?|installments?)\b[\s\S]{0,45}\b(?:split|spread|divided|distributed)\s+evenly\b/i.test(source)
-  ) {
+  if (/\b(?:split|spread|divided|distributed)\s+evenly\b/i.test(source)) {
     return "split_evenly";
   }
-
   if (/\b(?:included|added)\s+(?:in|into|across|to)\s+(?:the\s+)?(?:monthly\s+)?(?:payments?|installments?)\b/i.test(source)) {
     return "installments_unspecified";
   }
-
-  if (
-    /\b(?:fee|fees|processing\s+fee|service\s+fee)\b[\s\S]{0,36}\b(?:separately?|later|afterward|afterwards)\b/i.test(source) ||
-    /\b(?:separately?|later|afterward|afterwards)\b[\s\S]{0,36}\b(?:fee|fees|processing\s+fee|service\s+fee)\b/i.test(source)
-  ) {
+  if (/\b(separately?|later|afterward|afterwards)\b/i.test(source)) {
     return "separate_later";
   }
 
