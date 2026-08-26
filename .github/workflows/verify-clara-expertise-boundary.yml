@@ -20,3 +20,5 @@ jobs:
       - run: node --test tests/clara-expertise-boundary.test.mjs
       - run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
       - run: npm run build
+
+# Synchronize PR after workflow registration.
