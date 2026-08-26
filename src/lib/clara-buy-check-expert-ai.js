@@ -8,6 +8,10 @@ import {
 } from "./clara-buy-check-budget-intelligence.js";
 import { buildBudgetMetadata } from "./clara-buy-check-budget-engine.js";
 import { buildClaraLifeContextStatement } from "./clara-life-context.js";
+import {
+  buildClaraPurchaseMetricImpact,
+  formatClaraMetricImpactLine,
+} from "./clara-buy-check-metric-impact.js";
 
 const ACTIONS = new Set(["reply", "probe", "ready", "continue", "reassess", "redirect"]);
 
@@ -186,65 +190,12 @@ function compactMoneySchedule(pkg = {}) {
   };
 }
 
-function buildCanonicalMeansContext(purchasePrice = 0) {
-  if (typeof window === "undefined") return null;
-  const snapshot = safeRecord(window.__claraCanonicalMeansSnapshot__);
-  if (!Object.keys(snapshot).length) return null;
-
-  const currentScore = Number(snapshot.score);
-  const availableNow = toNumber(snapshot.availableNow);
-  const upcomingCommitments = toNumber(snapshot.upcoming);
-  const currentRoomUntilPayday = Number.isFinite(Number(snapshot.projectedRoom))
-    ? Number(snapshot.projectedRoom)
-    : availableNow - upcomingCommitments;
-  const price = Math.max(0, toNumber(purchasePrice));
-  const availableAfterPurchase = price > 0 ? Math.max(0, availableNow - price) : null;
-  const projectedRoomAfterPurchase = availableAfterPurchase === null
-    ? null
-    : availableAfterPurchase - upcomingCommitments;
-  const projectedScoreAfterPurchase = availableAfterPurchase === null
-    ? null
-    : availableAfterPurchase > 0
-      ? Math.round(100 + (projectedRoomAfterPurchase / availableAfterPurchase) * 100)
-      : upcomingCommitments > 0
-        ? -100
-        : 100;
-
-  return {
-    protectionLine: 100,
-    currentScore: Number.isFinite(currentScore) ? currentScore : null,
-    projectedScoreAfterPurchase,
-    scoreChange:
-      Number.isFinite(currentScore) && projectedScoreAfterPurchase !== null
-        ? projectedScoreAfterPurchase - currentScore
-        : null,
-    currentRoomUntilPayday,
-    projectedRoomAfterPurchase,
-    roomChange:
-      projectedRoomAfterPurchase !== null
-        ? projectedRoomAfterPurchase - currentRoomUntilPayday
-        : null,
-    purchaseSimulationApplied: price > 0,
-    crossesProtectionLine:
-      Number.isFinite(currentScore) &&
-      projectedScoreAfterPurchase !== null &&
-      currentScore >= 100 &&
-      projectedScoreAfterPurchase < 100,
-    cycleStartDate: snapshot.cycleStartDate || null,
-    nextPayday: snapshot.cycleEndDate || snapshot.horizonDate || null,
-    spendableMoney: availableNow,
-    upcomingCommitments,
-    breakdown: {
-      debtAndObligations: toNumber(snapshot.debtUpcoming),
-      savingsGoals: toNumber(snapshot.savingsGoalUpcoming),
-      moneySchedule: toNumber(snapshot.moneyScheduleUpcoming),
-      otherScheduledEvents: toNumber(snapshot.otherScheduledUpcoming),
-    },
-    moneyLentUnavailable: toNumber(snapshot.moneyLentUnavailable),
-    savingsProtected: toNumber(snapshot.savingsProtected),
-    emergencyProtected: toNumber(snapshot.emergencyProtected),
-    dataSource: "canonical-orb-means-snapshot",
-  };
+function buildCanonicalMeansContext(purchasePrice = 0, assistantContext = {}, evidence = {}) {
+  return buildClaraPurchaseMetricImpact({
+    purchasePrice,
+    item: clean(evidence?.item || ""),
+    assistantContext,
+  });
 }
 
 function buildConversationFinancialContext(assistantContext = {}, evidence = {}) {
@@ -257,7 +208,7 @@ function buildConversationFinancialContext(assistantContext = {}, evidence = {})
   };
 
   const price = toNumber(purchase.price);
-  const means = buildCanonicalMeansContext(price);
+  const means = buildCanonicalMeansContext(price, assistantContext, understood);
 
   // Canonical Means is already the source of truth. Avoid rebuilding legacy
   // context first, because optional legacy data may be incomplete.
@@ -370,9 +321,12 @@ Help the user protect a Means Score of 100 or higher while making their own spen
 - 100 is CLARA's financial protection line.
 - Do not judge a normal harmless purchase simply because it is a want.
 - When a purchase price is known, ALWAYS treat the projected Means values as the real-time what-if result of buying the item.
+- The application computes the metric impact deterministically. means.purchasePrice is the proposed cost; means.alreadyAccountedAmount is money already represented in the current Means plan; means.incrementalImpact is the NEW financial pressure after removing that already-accounted amount.
+- If means.alreadyAccountedAmount is greater than zero, NEVER subtract the full purchase price again in your reasoning. Judge the decision from means.incrementalImpact.
+- A negative means.incrementalImpact means the user is spending less than CLARA had already accounted for and is creating additional room.
 - Compare means.currentScore BEFORE the purchase with means.projectedScoreAfterPurchase AFTER the purchase.
 - Never describe means.currentScore as the score the user will keep after buying when means.projectedScoreAfterPurchase is available.
-- When a purchase price is known and means.projectedScoreAfterPurchase is available, ALWAYS state the exact projected Means Score in the visible reply.
+- The application prepends the exact deterministic Means impact line to the visible reply. Do not invent, recalculate, or contradict it. Focus your own sentence on the practical recommendation or tradeoff.
 - Prefer stating the before → after movement when means.currentScore is also available (for example: 144 → 142), but at minimum the projected score must always be visible.
 - Do not replace the exact score with vague wording such as "comfortably above 100", "healthy", or "plenty of breathing room" without also stating the projected score.
 - Also use means.currentRoomUntilPayday → means.projectedRoomAfterPurchase when that makes the consequence clearer.
@@ -451,9 +405,9 @@ VISIBLE RESPONSE STYLE — COMPACT
 - Aim for roughly 20–45 words. Treat about 60 words as a hard ceiling for an ordinary reply.
 - Sound like a financially smart friend, not a financial adviser giving a report, lecture, sermon, coaching session, or classroom explanation.
 - Mention only the ONE most important financial point for this turn. A second fact is allowed only when it is essential to understand the first.
-- When a purchase price is known and means.projectedScoreAfterPurchase exists, the projected score/change is ALWAYS the primary visible financial point.
-- State the exact projected score every time. Prefer natural before → after wording, for example: "That would move you from 144 to 142, still comfortably above 100."
-- Never give only a qualitative statement like "you stay above 100" when the exact projected score is available.
+- The deterministic Means impact line is ALWAYS the primary visible financial point once a price is known.
+- Do not repeat the full metric line unless repetition is necessary for clarity; add the human recommendation after it.
+- Never contradict the before → after score, incremental pressure, or already-accounted amount supplied by the application.
 - Do not recite every balance, obligation, budget, Money Schedule amount, savings goal, tradeoff, or calculation you considered.
 - Do not prove that you analyzed the context by listing it back to the user.
 - Prefer plain conversational phrasing such as: "₱6k is pretty heavy for a casual want. I'd probably wait on this one. Still want to buy it?"
@@ -622,7 +576,7 @@ function fallbackTurn(message = "", evidence = {}, assistantContext = {}) {
     };
   }
 
-  const means = buildCanonicalMeansContext(current.price);
+  const means = buildCanonicalMeansContext(current.price, assistantContext, current);
   if (means?.purchaseSimulationApplied && means.projectedScoreAfterPurchase !== null) {
     const before = Number.isFinite(Number(means.currentScore)) ? Number(means.currentScore) : null;
     const after = Number(means.projectedScoreAfterPurchase);
@@ -633,9 +587,10 @@ function fallbackTurn(message = "", evidence = {}, assistantContext = {}) {
       ? `still above your 100 protection line`
       : `below your 100 protection line, so I'd wait or reduce the amount`;
 
+    const metricLine = formatClaraMetricImpactLine(means);
     return {
       action: "ready",
-      reply: `₱${Number(current.price).toLocaleString()} would move your Means Score ${movement}, ${guidance}. Will you still buy it?`,
+      reply: `${metricLine} ${guidance}. Will you still buy it?`.trim(),
       evidence: current,
       readinessConfidence: 0.9,
       source: "means-fallback",
@@ -686,23 +641,16 @@ export async function runClaraBuyCheckExpertTurn({
     const action = ACTIONS.has(requestedAction) ? requestedAction : fallback.action;
     let reply = clean(json?.reply).slice(0, 720);
 
-    // Enforce the exact projected Means score in application code. Gemini may
-    // explain the result, but it cannot omit the authoritative simulation.
-    const authoritativeMeans = buildCanonicalMeansContext(mergedEvidence.price);
+    // The application, not Gemini, owns the financial math. Always put the
+    // canonical metric impact first so the user sees the exact consequence.
+    const authoritativeMeans = buildCanonicalMeansContext(mergedEvidence.price, assistantContext, mergedEvidence);
     if (
       authoritativeMeans?.purchaseSimulationApplied &&
       authoritativeMeans.projectedScoreAfterPurchase !== null
     ) {
-      const before = Number.isFinite(Number(authoritativeMeans.currentScore))
-        ? Number(authoritativeMeans.currentScore)
-        : null;
-      const after = Number(authoritativeMeans.projectedScoreAfterPurchase);
-      const numericTokens = reply.match(/-?\d+(?:\.\d+)?/g) || [];
-      if (!numericTokens.includes(String(after))) {
-        const movement = before !== null
-          ? "Your Means Score would move from " + before + " to " + after + "."
-          : "Your projected Means Score would be " + after + ".";
-        reply = (movement + " " + reply).trim().slice(0, 720);
+      const metricLine = formatClaraMetricImpactLine(authoritativeMeans);
+      if (metricLine && !reply.startsWith(metricLine)) {
+        reply = `${metricLine} ${reply}`.trim().slice(0, 720);
       }
     }
 

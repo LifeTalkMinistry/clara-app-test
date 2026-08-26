@@ -657,6 +657,24 @@ function resolveLockedMeansCycleBaseline({
   return fallback;
 }
 
+function realizedBuyCheckMeansOffset(expenses = [], cycleStart = "", cycleEnd = "") {
+  const today = localDateKey();
+  return (Array.isArray(expenses) ? expenses : []).reduce((sum, expense) => {
+    const date = localDateKey(getTransactionDate(expense));
+    if (!date || date < cycleStart || date >= cycleEnd) return sum;
+    const amount = Math.max(0, Number(expense?.means_accounted_amount || 0));
+    const source = normalizeLower(expense?.means_accounted_source);
+    if (!(amount > 0) || !source || source === "unplanned") return sum;
+
+    // One-off scheduled events stop needing an offset after their planned
+    // date leaves Upcoming. Weekly routine items remain represented as
+    // Assumed spent, so their offset remains valid for the whole cycle.
+    const offsetUntil = String(expense?.means_accounted_until || "").slice(0, 10);
+    if (source === "money_schedule_event" && offsetUntil && today > offsetUntil) return sum;
+    return sum + amount;
+  }, 0);
+}
+
 async function buildMeansSnapshot(profile = {}) {
   const owner = getOwnerIdentity(profile);
   const [expenses, incomeSources, savingsGoals, debtObligations, wallets, emergencyFund] = await Promise.all([
@@ -673,6 +691,7 @@ async function buildMeansSnapshot(profile = {}) {
   const cycleStartDate = payCycle.start;
   const cycleEndDate = payCycle.end;
   const spent = payCycleSpent(expenses, cycleStartDate);
+  const realizedPlannedBuyCheckOffset = realizedBuyCheckMeansOffset(expenses, cycleStartDate, cycleEndDate);
   const income = payCycleIncomeFromSources(incomeSources, cycleStartDate, cycleEndDate);
   const canonicalWalletState = buildCanonicalWalletState({
     wallets,
@@ -730,7 +749,7 @@ async function buildMeansSnapshot(profile = {}) {
     0,
     assumedSpent - Math.max(0, Number(cycleBaseline.assumedSpentAtLock || 0))
   );
-  const scoreRoom = financialRunway - upcoming - plannedAssumedSinceLock;
+  const scoreRoom = financialRunway - upcoming - plannedAssumedSinceLock + realizedPlannedBuyCheckOffset;
   const score =
     requiredRunway > 0
       ? Math.round(((requiredRunway + scoreRoom) / requiredRunway) * 100)
@@ -758,6 +777,7 @@ async function buildMeansSnapshot(profile = {}) {
     requiredRunway,
     scoreRoom,
     plannedAssumedSinceLock,
+    realizedPlannedBuyCheckOffset,
     moneyLentUnavailable,
     emergencyProtected,
     savingsProtected,

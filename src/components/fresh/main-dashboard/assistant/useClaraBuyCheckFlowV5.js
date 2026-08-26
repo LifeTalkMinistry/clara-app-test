@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { addBuyCheckExpense } from "@/lib/clara-buy-check-expense-repository";
 import { saveAvoidedSpendingDecision } from "@/lib/clara-buy-check-impact-ledger";
+import { buildClaraPurchaseMetricImpact } from "@/lib/clara-buy-check-metric-impact";
 import useClaraBuyCheckBudgetFlow from "./useClaraBuyCheckBudgetFlow.js";
 import {
   clean,
@@ -128,16 +129,21 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
       return false;
     }
 
-    const selectedBudget = base.state?.budgetAssessment?.selectedBudget || null;
     const conversationReason = clean(decision.explanation) || preparedReason(base.state);
+    const metricImpact = buildClaraPurchaseMetricImpact({
+      purchasePrice: amount,
+      item: clean(base.state?.item),
+      assistantContext,
+    });
+    const plannedByMetric = Number(metricImpact?.alreadyAccountedAmount || 0) > 0;
     const purchase = {
       item: clean(base.state?.item),
       price: amount,
       reason: conversationReason,
-      planningStatus: base.state?.planningStatus || "unplanned",
+      planningStatus: plannedByMetric ? "planned" : "unplanned",
       category: normalizeExpenseCategory(`${base.state?.item || ""} ${conversationReason}`),
-      budgetId: selectedBudget?.id || "",
-      budgetName: selectedBudget?.title || "",
+      budgetId: "",
+      budgetName: "",
     };
     const createdAt = new Date().toISOString();
 
@@ -167,9 +173,16 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
           budget_category: purchase.category,
           source: "local",
           syncStatus: "local_only",
+          means_accounted_amount: Number(metricImpact?.alreadyAccountedAmount || 0),
+          means_incremental_impact: Number(metricImpact?.incrementalImpact ?? amount),
+          means_accounted_source: metricImpact?.impactSource || "unplanned",
+          means_accounted_key: metricImpact?.impactKey || null,
+          means_accounted_target_date: metricImpact?.targetDate || null,
+          means_accounted_until: metricImpact?.offsetUntil || null,
+          means_metric_score_before: metricImpact?.currentScore ?? null,
+          means_metric_score_after: metricImpact?.projectedScoreAfterPurchase ?? null,
         }, {
-          budgetId: purchase.budgetId,
-          budgetRemaining: selectedBudget?.remaining,
+          budgetId: "",
         });
 
         const memoryPayload = {
@@ -195,9 +208,9 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
           result: {
             choice: "buy",
             title: "Expense logged",
-            message: purchase.budgetName
-              ? `${purchase.item} was added to your transactions, linked to ${purchase.budgetName}, and deducted from ${wallet.name}.`
-              : `${purchase.item} was added to your transactions and deducted from ${wallet.name}. No budget was linked.`,
+            message: metricImpact?.projectedScoreAfterPurchase != null
+              ? `${purchase.item} was added to your transactions and deducted from ${wallet.name}. Means: ${metricImpact.currentScore} → ${metricImpact.projectedScoreAfterPurchase}.`
+              : `${purchase.item} was added to your transactions and deducted from ${wallet.name}.`,
           },
         }));
         return true;
