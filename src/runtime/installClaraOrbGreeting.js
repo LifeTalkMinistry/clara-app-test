@@ -17,6 +17,7 @@ import {
 import {
   DEBT_OBLIGATIONS_UPDATED_EVENT,
   getDebtObligations,
+  getMonthlyDebtPayment,
 } from "@/lib/debtObligationStore";
 import {
   DEBT_OBLIGATION_SCHEDULE_SOURCE,
@@ -54,6 +55,7 @@ const MEANS_CONTEXT_KEY = "__claraCanonicalMeansSnapshot__";
 const INCOME_HUB_UPDATED_EVENT = "clara-income-hub-updated";
 const INCOME_HUB_CASH_IN_TYPE = "add_money";
 const SAVINGS_GOAL_SCHEDULE_SOURCE = "savings_goal_card_projection";
+const MEANS_CYCLE_BASELINE_STORAGE_PREFIX = "clara:means-cycle-baseline:v1";
 
 function resolveGreetingLabel() {
   return (
@@ -552,6 +554,109 @@ function currentMonthIncomeFromSources(incomeSources, currentMonthKey) {
   }, 0);
 }
 
+function readDebtPaymentHistory(record = {}) {
+  const source = Array.isArray(record?.paymentHistory)
+    ? record.paymentHistory
+    : Array.isArray(record?.payment_history)
+      ? record.payment_history
+      : [];
+  return source.filter(Boolean);
+}
+
+function plannedDebtPaidInsideCycle(records = [], cycleStart = "", cycleEnd = "") {
+  return (Array.isArray(records) ? records : []).reduce((total, record) => {
+    const monthlyPayment = Math.max(0, Number(getMonthlyDebtPayment(record) || 0));
+    if (!(monthlyPayment > 0)) return total;
+
+    const paidByOccurrence = new Map();
+    readDebtPaymentHistory(record).forEach((payment) => {
+      const paidDate = String(payment?.paidAt || payment?.paid_at || "").slice(0, 10);
+      const dueDate = String(payment?.dueDate || payment?.due_date || "").slice(0, 10);
+      if (!paidDate || paidDate < cycleStart || paidDate >= cycleEnd) return;
+      if (!dueDate || dueDate < cycleStart || dueDate >= cycleEnd) return;
+
+      const amount = Math.max(0, Number(payment?.amount || 0));
+      if (!(amount > 0)) return;
+      paidByOccurrence.set(dueDate, (paidByOccurrence.get(dueDate) || 0) + amount);
+    });
+
+    let plannedPaid = 0;
+    paidByOccurrence.forEach((paidAmount) => {
+      // Only the amount CLARA had already scheduled is neutral. Paying extra toward
+      // principal is a real additional outflow and must still reduce Means Score.
+      plannedPaid += Math.min(paidAmount, monthlyPayment);
+    });
+    return total + plannedPaid;
+  }, 0);
+}
+
+function meansCycleBaselineStorageKey(owner, cycleStart, cycleEnd) {
+  const ownerKey = encodeURIComponent(String(owner || "local-user").trim() || "local-user");
+  return `${MEANS_CYCLE_BASELINE_STORAGE_PREFIX}:${ownerKey}:${cycleStart}:${cycleEnd}`;
+}
+
+function resolveLockedMeansCycleBaseline({
+  owner,
+  cycleStart,
+  cycleEnd,
+  upcoming,
+  assumedSpent,
+  debtObligations,
+}) {
+  const plannedDebtAlreadyPaid = plannedDebtPaidInsideCycle(
+    debtObligations,
+    cycleStart,
+    cycleEnd
+  );
+
+  // Migration-safe reconstruction: if the fix lands after a scheduled debt payment,
+  // add only that already-planned payment back to the current requirement. This
+  // restores the same denominator CLARA was using immediately before the payment.
+  const reconstructedRequiredRunway = Math.max(
+    Number(upcoming || 0) + plannedDebtAlreadyPaid,
+    0
+  );
+  const fallback = {
+    requiredRunway: reconstructedRequiredRunway,
+    assumedSpentAtLock: Math.max(0, Number(assumedSpent || 0)),
+    cycleStart,
+    cycleEnd,
+  };
+
+  if (typeof window === "undefined" || !window.localStorage) return fallback;
+
+  const key = meansCycleBaselineStorageKey(owner, cycleStart, cycleEnd);
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(key) || "null");
+    if (
+      parsed &&
+      parsed.cycleStart === cycleStart &&
+      parsed.cycleEnd === cycleEnd &&
+      Number.isFinite(Number(parsed.requiredRunway)) &&
+      Number(parsed.requiredRunway) >= 0
+    ) {
+      return {
+        requiredRunway: Math.max(0, Number(parsed.requiredRunway)),
+        assumedSpentAtLock: Math.max(0, Number(parsed.assumedSpentAtLock || 0)),
+        cycleStart,
+        cycleEnd,
+      };
+    }
+  } catch {
+    // Replace malformed local state with a clean cycle lock below.
+  }
+
+  try {
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({ ...fallback, lockedAt: new Date().toISOString() })
+    );
+  } catch {
+    // Means must remain available even if localStorage is temporarily unavailable.
+  }
+  return fallback;
+}
+
 async function buildMeansSnapshot(profile = {}) {
   const owner = getOwnerIdentity(profile);
   const [expenses, incomeSources, savingsGoals, debtObligations, wallets, emergencyFund] = await Promise.all([
@@ -604,14 +709,31 @@ async function buildMeansSnapshot(profile = {}) {
   const projectedSpending = upcoming;
   const projectedRoom = availableNow - upcoming;
 
-  // Means Score is an uncapped financial-runway index.
-  // 100 means the user has exactly the resources required to reach the next payday.
-  // Emergency Fund increases financial runway, but remains protected from ordinary spending.
+  // Means Score uses one locked measuring stick for the whole payday-to-payday window.
+  // Paying a commitment CLARA already predicted must be neutral: cash and remaining
+  // commitments fall together, so the user's real room has not changed.
   const financialRunway = availableNow + emergencyProtected;
-  const requiredRunway = upcoming;
+  const cycleBaseline = resolveLockedMeansCycleBaseline({
+    owner,
+    cycleStart: cycleStartDate,
+    cycleEnd: cycleEndDate,
+    upcoming,
+    assumedSpent,
+    debtObligations,
+  });
+  const requiredRunway = Math.max(0, Number(cycleBaseline.requiredRunway || 0));
+
+  // Money Schedule becomes "assumed spent" as time passes without directly mutating
+  // the wallet. Neutralize only the amount assumed after this cycle was locked so time
+  // progression alone cannot manufacture a higher score.
+  const plannedAssumedSinceLock = Math.max(
+    0,
+    assumedSpent - Math.max(0, Number(cycleBaseline.assumedSpentAtLock || 0))
+  );
+  const scoreRoom = financialRunway - upcoming - plannedAssumedSinceLock;
   const score =
     requiredRunway > 0
-      ? Math.round((financialRunway / requiredRunway) * 100)
+      ? Math.round(((requiredRunway + scoreRoom) / requiredRunway) * 100)
       : financialRunway > 0
         ? 100
         : 0;
@@ -634,6 +756,8 @@ async function buildMeansSnapshot(profile = {}) {
     availableNow,
     financialRunway,
     requiredRunway,
+    scoreRoom,
+    plannedAssumedSinceLock,
     moneyLentUnavailable,
     emergencyProtected,
     savingsProtected,
@@ -736,6 +860,8 @@ function ensureMeansMetric(label, snapshot, onToggle) {
         Math.round(snapshot.availableNow || 0),
         Math.round(snapshot.financialRunway || 0),
         Math.round(snapshot.requiredRunway || 0),
+        Math.round(snapshot.scoreRoom || 0),
+        Math.round(snapshot.plannedAssumedSinceLock || 0),
         Math.round(snapshot.moneyLentUnavailable || 0),
         Math.round(snapshot.emergencyProtected || 0),
         Math.round(snapshot.savingsProtected || 0),
