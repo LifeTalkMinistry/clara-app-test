@@ -224,13 +224,13 @@ function buildConversationFinancialContext(assistantContext = {}, evidence = {})
   }
 
   return {
-  means: null,
-  purchaseAlreadyUnderstood: {
-    item: purchase.item,
-    price,
-    suggestedTransactionReason: purchase.reason,
-  },
-};
+    means: null,
+    purchaseAlreadyUnderstood: {
+      item: purchase.item,
+      price,
+      suggestedTransactionReason: purchase.reason,
+    },
+  };
 }
 
 function buildPrompt({ message, history = [], evidence = {}, assistantContext = {} } = {}) {
@@ -261,7 +261,7 @@ Help the user protect a Means Score of 100 or higher while making their own spen
 - Do NOT repeat the score movement when the application has already stated it. Continue from it with the practical meaning, recommendation, or one useful question.
 - Never speak in telemetry labels such as "Means impact", "New pressure", arrows, parenthetical point deltas, or report-style headings. Speak like a financially smart human.
 - You may say the projected position naturally (for example, "You'd still be above 100") after the exact application sentence, but do not turn the reply into a metric report.
-- Also use means.currentRoomUntilPayday → means.projectedRoomAfterPurchase when that makes the consequence clearer.
+- Use means.currentRoomUntilPayday and means.projectedRoomAfterPurchase only when the breathing-room consequence materially helps, and phrase it naturally without arrows or report notation.
 - If the purchase keeps the user comfortably above 100, you may support it while mentioning a meaningful tradeoff when useful.
 - If it brings the user close to 100, clearly warn that their breathing room is becoming thin.
 - If it pushes the user below 100, normally recommend waiting, reducing the cost, choosing an alternative, or reconsidering it.
@@ -293,9 +293,9 @@ CRITICAL ARCHITECTURE RULE
 - means.currentScore is the user's BEFORE-PURCHASE Means Score. means.projectedScoreAfterPurchase is the authoritative AFTER-PURCHASE simulated score when a price is known.
 - means.currentRoomUntilPayday and means.projectedRoomAfterPurchase are authoritative before/after breathing-room values through means.nextPayday.
 - REAL-TIME PURCHASE SIMULATION RULE: once means.purchaseSimulationApplied is true, base the recommendation on the projected state, not the current state.
-- When means.purchaseSimulationApplied is true and means.projectedScoreAfterPurchase is available, the visible response MUST include that exact projected score.
+- When means.purchaseSimulationApplied is true and means.projectedScoreAfterPurchase is available, the FINAL ASSEMBLED response will include that exact projected score through the application-owned natural consequence sentence. Do not repeat it in your own reply.
 - Never say a purchase "keeps" the current score unless means.currentScore and means.projectedScoreAfterPurchase are actually equal.
-- Never ignore a non-zero means.scoreChange or means.roomChange. Describe the before → after score movement accurately whenever both scores are available.
+- Never ignore a non-zero means.scoreChange or means.roomChange in your reasoning. The application-owned sentence will state the exact movement; your own reply should interpret what it means for the user.
 - NEVER claim the user has no wallet, income, or Means setup when the means object is present.
 - Do not independently rebuild or contradict the Means calculation.
 - Treat 100 as the financial protection line: protect it without moralizing ordinary safe purchases.
@@ -511,19 +511,15 @@ function fallbackTurn(message = "", evidence = {}, assistantContext = {}) {
 
   const means = buildCanonicalMeansContext(current.price, assistantContext, current);
   if (means?.purchaseSimulationApplied && means.projectedScoreAfterPurchase !== null) {
-    const before = Number.isFinite(Number(means.currentScore)) ? Number(means.currentScore) : null;
     const after = Number(means.projectedScoreAfterPurchase);
-    const movement = before !== null
-      ? `from ${before} to ${after}`
-      : `to ${after}`;
     const guidance = after >= 100
-      ? `still above your 100 protection line`
-      : `below your 100 protection line, so I'd wait or reduce the amount`;
+      ? "You\'d still be above your 100 protection line."
+      : "That would put you below your 100 protection line, so I\'d wait or reduce the amount.";
 
     const metricLine = formatClaraMetricImpactLine(means);
     return {
       action: "ready",
-      reply: `${metricLine} ${guidance}. Will you still buy it?`.trim(),
+      reply: `${metricLine} ${guidance} Will you still buy it?`.trim(),
       evidence: current,
       readinessConfidence: 0.9,
       source: "means-fallback",
