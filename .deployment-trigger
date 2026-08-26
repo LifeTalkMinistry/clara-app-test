@@ -1,5 +1,5 @@
 CLARA deployment trigger
-Reason: deploy Buy Check installment purchases into Debt / Obligations.
-Version: clara-buy-check-installment-obligation-v1
-Source-commit: 33aa80b3df8d720a6f765edf79ef025525b9276e
+Reason: deploy clickable Buy Check installment due-day picker.
+Version: clara-buy-check-installment-due-day-picker-v1
+Source-commit: b745ccd282b3d184e3ea76cd941a9535c16ad458
 Timestamp: 2026-08-27
