@@ -27,7 +27,7 @@ jobs:
 
       - name: Install and build
         run: |
-          npm ci
+          npm install --no-audit --no-fund
           npm run build
 
       - name: Commit verified repair
