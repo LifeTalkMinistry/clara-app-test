@@ -773,9 +773,9 @@ function statusForScore(score) {
   if (score >= 2000) return "Silver";
   if (score >= 1000) return "Bronze";
   if (score >= 500) return "Vanguard";
-  if (score >= 400) return "3 Cycles Ahead";
-  if (score >= 300) return "2 Cycles Ahead";
-  if (score >= 200) return "1 Cycle Ahead";
+  if (score >= 400) return "Level IV";
+  if (score >= 300) return "Level III";
+  if (score >= 200) return "Level II";
   if (score >= 101) return "Below Your Means";
   if (score === 100) return "Within Your Means";
   if (score >= 1) return "Above Your Means";
