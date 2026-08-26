@@ -1,5 +1,5 @@
 CLARA deployment trigger
-Reason: deploy clickable Buy Check installment due-day picker.
-Version: clara-buy-check-installment-due-day-picker-v1
+Reason: retry production deploy for clickable Buy Check installment due-day picker.
+Version: clara-buy-check-installment-due-day-picker-v1-retry-20260827-0635
 Source-commit: b745ccd282b3d184e3ea76cd941a9535c16ad458
-Timestamp: 2026-08-27
+Timestamp: 2026-08-27T06:35+08:00
