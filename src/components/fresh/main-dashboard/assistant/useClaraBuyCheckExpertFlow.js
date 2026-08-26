@@ -10,7 +10,8 @@ import {
   transactionReasonFromEvidence,
 } from "@/lib/clara-buy-check-expert-ai";
 import {
-  hasConfirmedClaraPurchasePrice,
+  claraPaymentAmountDueNow,
+  hasConfirmedClaraPaymentStructure,
   isClaraPurchaseContextMature,
 } from "@/lib/clara-buy-check-intelligence-router";
 import "@/clara-buy-check-thinking.css";
@@ -51,16 +52,43 @@ function reasonFromEvidence(evidence = {}) {
 function confirmationFromEvidence(evidence = {}) {
   return {
     item: clean(evidence.item),
-    price: hasConfirmedClaraPurchasePrice(evidence) ? Number(evidence.price || 0) : 0,
+    price: hasConfirmedClaraPaymentStructure(evidence)
+      ? claraPaymentAmountDueNow(evidence)
+      : 0,
     reason: reasonFromEvidence(evidence),
     clarification: "",
     followUpAnswer: "",
-    purchaseContext: clean(evidence.readinessSummary || evidence.currentSituation || evidence.purpose),
+    purchaseContext: clean(
+      evidence.readinessSummary ||
+      evidence.currentSituation ||
+      evidence.purpose,
+    ),
   };
 }
 
 function historyForTurn(snapshot = {}) {
   return Array.isArray(snapshot.messages) ? [...snapshot.messages] : [];
+}
+
+function clearPaymentEvidence(evidence = {}) {
+  const next = { ...(evidence || {}) };
+  [
+    "purchaseType",
+    "price",
+    "priceCandidate",
+    "priceStatus",
+    "priceSource",
+    "paymentStructureStatus",
+    "paymentStructureSource",
+    "amountDueNow",
+    "paymentAmount",
+    "remainingPayments",
+    "totalPayments",
+    "totalCommitment",
+    "frequency",
+    "fees",
+  ].forEach((key) => delete next[key]);
+  return next;
 }
 
 export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {}) {
@@ -131,7 +159,9 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
 
         const evidence = mergeEvidence(current.evidence, turn.evidence);
         const item = clean(evidence.item);
-        const price = hasConfirmedClaraPurchasePrice(evidence) ? Number(evidence.price || 0) : 0;
+        const price = hasConfirmedClaraPaymentStructure(evidence)
+          ? claraPaymentAmountDueNow(evidence)
+          : 0;
         const reason = reasonFromEvidence(evidence);
         const isReadyForChoice = Boolean(
           turn.action === "ready" &&
@@ -149,36 +179,56 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
           item: item || current.item,
           price: price || current.price,
           reason: reason || current.reason,
-          purchaseContext: clean(evidence.readinessSummary || evidence.currentSituation || evidence.purpose) || current.purchaseContext,
+          purchaseContext: clean(
+            evidence.readinessSummary ||
+            evidence.currentSituation ||
+            evidence.purpose,
+          ) || current.purchaseContext,
           readinessConfidence: Number(turn.readinessConfidence || 0),
           conversationTurns: Number(current.conversationTurns || 0) + 1,
           confirmation: isReadyForChoice ? confirmationFromEvidence(evidence) : null,
           step: isReadyForChoice ? "confirm" : "conversation",
           done: false,
           busy: false,
-          messages: replaceThinkingMessage(current.messages, thinkingMessage.id, turn.reply),
+          messages: replaceThinkingMessage(
+            current.messages,
+            thinkingMessage.id,
+            turn.reply,
+          ),
         };
       });
       return true;
     } catch (error) {
-      if (error?.code === "CLARA_AI_CANCELLED" || error?.name === "AbortError") return false;
+      if (error?.code === "CLARA_AI_CANCELLED" || error?.name === "AbortError") {
+        return false;
+      }
 
       console.warn("[CLARA Buy Check] Progressive conversation turn failed safely.", error);
       await holdThinkingUntil(thinkingStartedAt);
       const dailyLimitReached = error?.code === "CLARA_AI_DAILY_LIMIT_REACHED";
       const failureReply = dailyLimitReached
-        ? clean(error?.message || "You've used today's CLARA replies for your current plan. Your allowance resets tomorrow.")
+        ? clean(
+            error?.message ||
+            "You've used today's CLARA replies for your current plan. Your allowance resets tomorrow.",
+          )
         : "I missed that. Say it once more and I’ll keep it simple.";
-      setState((current) => current.sessionId !== snapshot.sessionId
-        ? current
-        : {
-            ...current,
-            connected: true,
-            busy: false,
-            step: "conversation",
-            confirmation: null,
-            messages: replaceThinkingMessage(current.messages, thinkingMessage.id, failureReply),
-          });
+
+      setState((current) =>
+        current.sessionId !== snapshot.sessionId
+          ? current
+          : {
+              ...current,
+              connected: true,
+              busy: false,
+              step: "conversation",
+              confirmation: null,
+              messages: replaceThinkingMessage(
+                current.messages,
+                thinkingMessage.id,
+                failureReply,
+              ),
+            },
+      );
       return false;
     } finally {
       if (activeGeminiRequestRef.current === requestToken) {
@@ -197,20 +247,22 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
       ? "Got it. Choose where you’ll pay from."
       : "Got it. I’ll remember why you passed on it.";
 
-    setState((current) => current.sessionId !== state.sessionId
-      ? current
-      : {
-          ...current,
-          step: "complete",
-          busy: false,
-          done: true,
-          confirmation: null,
-          messages: [
-            ...current.messages,
-            createMessage("user", userText),
-            createMessage("clara", claraText),
-          ],
-        });
+    setState((current) =>
+      current.sessionId !== state.sessionId
+        ? current
+        : {
+            ...current,
+            step: "complete",
+            busy: false,
+            done: true,
+            confirmation: null,
+            messages: [
+              ...current.messages,
+              createMessage("user", userText),
+              createMessage("clara", claraText),
+            ],
+          },
+    );
     return true;
   }, [state]);
 
@@ -221,14 +273,16 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
 
   const returnToChoice = useCallback(() => {
     if (state.step !== "complete" || state.busy) return false;
-    setState((current) => current.sessionId !== state.sessionId
-      ? current
-      : {
-          ...current,
-          step: "confirm",
-          done: false,
-          confirmation: confirmationFromEvidence(current.evidence),
-        });
+    setState((current) =>
+      current.sessionId !== state.sessionId
+        ? current
+        : {
+            ...current,
+            step: "confirm",
+            done: false,
+            confirmation: confirmationFromEvidence(current.evidence),
+          },
+    );
     return true;
   }, [state]);
 
@@ -238,11 +292,7 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
     if (!["confirm", "complete"].includes(state.step) || state.busy) return false;
 
     const sessionId = state.sessionId;
-    const evidence = { ...(state.evidence || {}) };
-    delete evidence.price;
-    delete evidence.priceCandidate;
-    delete evidence.priceStatus;
-    delete evidence.priceSource;
+    const evidence = clearPaymentEvidence(state.evidence);
     const thinkingMessage = createMessage("clara", "");
 
     setState({
@@ -261,13 +311,19 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
     });
 
     window.setTimeout(() => {
-      setState((current) => current.sessionId !== sessionId
-        ? current
-        : {
-            ...current,
-            busy: false,
-            messages: replaceThinkingMessage(current.messages, thinkingMessage.id, "Sure. What’s the exact amount you’ll actually pay?"),
-          });
+      setState((current) =>
+        current.sessionId !== sessionId
+          ? current
+          : {
+              ...current,
+              busy: false,
+              messages: replaceThinkingMessage(
+                current.messages,
+                thinkingMessage.id,
+                "Sure. What’s the exact amount or payment structure you’ll actually pay?",
+              ),
+            },
+      );
     }, MIN_THINKING_MS);
 
     return true;
@@ -288,13 +344,19 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
     });
 
     window.setTimeout(() => {
-      setState((current) => current.sessionId !== sessionId
-        ? current
-        : {
-            ...current,
-            busy: false,
-            messages: replaceThinkingMessage(current.messages, thinkingMessage.id, "Sure. What changed?"),
-          });
+      setState((current) =>
+        current.sessionId !== sessionId
+          ? current
+          : {
+              ...current,
+              busy: false,
+              messages: replaceThinkingMessage(
+                current.messages,
+                thinkingMessage.id,
+                "Sure. What changed?",
+              ),
+            },
+      );
     }, MIN_THINKING_MS);
 
     return true;
@@ -302,10 +364,12 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
 
   const checkAnother = useCallback(() => {
     cancelActiveGeminiRequest();
-    setState(createExpertInitialState(
-      `buy-check-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      { connected: true },
-    ));
+    setState(
+      createExpertInitialState(
+        `buy-check-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        { connected: true },
+      ),
+    );
     return true;
   }, [cancelActiveGeminiRequest]);
 

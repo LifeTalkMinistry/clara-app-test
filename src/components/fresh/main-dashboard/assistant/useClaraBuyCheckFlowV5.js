@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { addBuyCheckExpense } from "@/lib/clara-buy-check-expense-repository";
 import { saveAvoidedSpendingDecision } from "@/lib/clara-buy-check-impact-ledger";
-import { buildClaraPurchaseMetricImpact } from "@/lib/clara-buy-check-metric-impact";
+import { buildClaraBuyCheckPaymentImpact } from "@/lib/clara-buy-check-payment-impact";
 import useClaraBuyCheckBudgetFlow from "./useClaraBuyCheckBudgetFlow.js";
 import {
   clean,
@@ -26,13 +26,46 @@ function preparedReason(state = {}) {
   );
 }
 
+function paymentStructureFromEvidence(evidence = {}) {
+  if (evidence?.purchaseType !== "installment") return null;
+  if (evidence?.paymentStructureStatus !== "confirmed") return null;
+
+  const amountDueNow = Math.max(0, Number(evidence.amountDueNow) || 0);
+  const paymentAmount = Math.max(0, Number(evidence.paymentAmount) || 0);
+  const remainingPayments = Math.max(
+    0,
+    Math.trunc(Number(evidence.remainingPayments) || 0),
+  );
+  const totalCommitment = Math.max(0, Number(evidence.totalCommitment) || 0);
+
+  if (!(amountDueNow > 0) || !(paymentAmount > 0) || !(totalCommitment >= amountDueNow)) {
+    return null;
+  }
+
+  return {
+    purchaseType: "installment",
+    amountDueNow,
+    paymentAmount,
+    remainingPayments,
+    totalPayments: Math.max(
+      remainingPayments + 1,
+      Math.trunc(Number(evidence.totalPayments) || remainingPayments + 1),
+    ),
+    totalCommitment,
+    frequency: clean(evidence.frequency || "monthly") || "monthly",
+    fees: Math.max(0, Number(evidence.fees) || 0),
+  };
+}
+
 function decisionPanelState({ choice, snapshot, amount, walletOptions }) {
   const item = clean(snapshot?.item || "this purchase");
   const reason = preparedReason(snapshot) || (choice === "buy"
     ? `Buying ${item}`
     : `Decided not to buy ${item}`);
   const eligibleWallets = (walletOptions || []).filter((wallet) => wallet.enough);
-  const defaultWallet = choice === "buy" && eligibleWallets.length === 1 ? eligibleWallets[0].id : "";
+  const defaultWallet = choice === "buy" && eligibleWallets.length === 1
+    ? eligibleWallets[0].id
+    : "";
 
   return {
     ...createDecisionState(),
@@ -54,7 +87,10 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
   const base = useClaraBuyCheckBudgetFlow({ assistantContext });
   const [decision, setDecision] = useState(createDecisionState);
   const amount = toNumber(base.state?.price);
-  const walletOptions = useMemo(() => getWalletOptions(assistantContext, amount), [assistantContext, amount]);
+  const walletOptions = useMemo(
+    () => getWalletOptions(assistantContext, amount),
+    [assistantContext, amount],
+  );
 
   useEffect(() => setDecision(createDecisionState()), [base.state?.sessionId]);
 
@@ -78,7 +114,12 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
     const snapshot = base.state;
     const ok = await base.confirm("buy");
     if (!ok) return false;
-    setDecision(decisionPanelState({ choice: "buy", snapshot, amount, walletOptions }));
+    setDecision(decisionPanelState({
+      choice: "buy",
+      snapshot,
+      amount,
+      walletOptions,
+    }));
     return true;
   }, [amount, base, walletOptions]);
 
@@ -87,7 +128,12 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
     const snapshot = base.state;
     const ok = await base.confirm("not_buy");
     if (!ok) return false;
-    setDecision(decisionPanelState({ choice: "not_buy", snapshot, amount, walletOptions }));
+    setDecision(decisionPanelState({
+      choice: "not_buy",
+      snapshot,
+      amount,
+      walletOptions,
+    }));
     return true;
   }, [amount, base, walletOptions]);
 
@@ -108,7 +154,13 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
   }, [base]);
 
   const setDecisionExplanation = useCallback((explanation) => {
-    setDecision((current) => ({ ...current, explanation, userEdited: true, generatingExplanation: false, error: "" }));
+    setDecision((current) => ({
+      ...current,
+      explanation,
+      userEdited: true,
+      generatingExplanation: false,
+      error: "",
+    }));
   }, []);
 
   const setDecisionWallet = useCallback((walletId) => {
@@ -116,7 +168,14 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
   }, []);
 
   const submitFinalDecision = useCallback(async () => {
-    if (base.state?.step !== "complete" || decision.phase !== "explain" || decision.busy) return false;
+    if (
+      base.state?.step !== "complete" ||
+      decision.phase !== "explain" ||
+      decision.busy
+    ) {
+      return false;
+    }
+
     if (
       decision.sessionId !== clean(base.state?.sessionId) ||
       decision.item !== clean(base.state?.item) ||
@@ -129,10 +188,13 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
       return false;
     }
 
-    const conversationReason = clean(decision.explanation) || preparedReason(base.state);
-    const metricImpact = buildClaraPurchaseMetricImpact({
+    const paymentStructure = paymentStructureFromEvidence(base.state?.evidence);
+    const conversationReason =
+      clean(decision.explanation) || preparedReason(base.state);
+    const metricImpact = buildClaraBuyCheckPaymentImpact({
       purchasePrice: amount,
       item: clean(base.state?.item),
+      paymentStructure,
       assistantContext,
     });
     const plannedByMetric = Number(metricImpact?.alreadyAccountedAmount || 0) > 0;
@@ -140,23 +202,52 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
       item: clean(base.state?.item),
       price: amount,
       reason: conversationReason,
+      purchaseType: paymentStructure ? "installment" : "one_time",
+      totalCommitment: paymentStructure?.totalCommitment || amount,
       planningStatus: plannedByMetric ? "planned" : "unplanned",
-      category: normalizeExpenseCategory(`${base.state?.item || ""} ${conversationReason}`),
+      category: normalizeExpenseCategory(
+        `${base.state?.item || ""} ${conversationReason}`,
+      ),
       budgetId: "",
       budgetName: "",
     };
     const createdAt = new Date().toISOString();
 
+    // Buy Check may simulate installment judgment now, but the current
+    // transaction flow cannot safely persist the future payment schedule.
+    // Stop before wallet/transaction mutation instead of pretending this is a
+    // one-time expense or inventing future due dates.
+    if (decision.choice === "buy" && paymentStructure) {
+      setDecision((current) => ({
+        ...current,
+        busy: false,
+        error: "CLARA can evaluate this installment, but it cannot safely record the future payment schedule yet. No money was changed.",
+      }));
+      return false;
+    }
+
     setDecision((current) => ({ ...current, busy: true, error: "" }));
 
     try {
       if (decision.choice === "buy") {
-        const wallet = walletOptions.find((option) => option.id === decision.walletId);
+        const wallet = walletOptions.find(
+          (option) => option.id === decision.walletId,
+        );
         if (!wallet) throw new Error("Choose a wallet before logging this expense.");
-        if (!wallet.enough) throw new Error("The selected wallet does not have enough spendable balance.");
+        if (!wallet.enough) {
+          throw new Error(
+            "The selected wallet does not have enough spendable balance.",
+          );
+        }
 
-        const localUserId = clean(assistantContext?.user?.id || assistantContext?.user?.email || "local-user");
-        const planningStatus = purchase.planningStatus === "planned" ? "planned" : "unplanned";
+        const localUserId = clean(
+          assistantContext?.user?.id ||
+          assistantContext?.user?.email ||
+          "local-user",
+        );
+        const planningStatus =
+          purchase.planningStatus === "planned" ? "planned" : "unplanned";
+
         await addBuyCheckExpense(localUserId, {
           item: purchase.item,
           reason: purchase.reason,
@@ -167,20 +258,28 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
           notes: purchase.reason,
           need_type: normalizeNeedType(purchase.reason, purchase.category),
           planning_status: planningStatus,
-          unplanned_reason: planningStatus === "unplanned" ? `Ask Before You Spend — ${purchase.reason}` : null,
+          unplanned_reason:
+            planningStatus === "unplanned"
+              ? `Ask Before You Spend — ${purchase.reason}`
+              : null,
           budget_id: purchase.budgetId || null,
           budget_name: purchase.budgetName || null,
           budget_category: purchase.category,
           source: "local",
           syncStatus: "local_only",
-          means_accounted_amount: Number(metricImpact?.alreadyAccountedAmount || 0),
-          means_incremental_impact: Number(metricImpact?.incrementalImpact ?? amount),
+          means_accounted_amount: Number(
+            metricImpact?.alreadyAccountedAmount || 0,
+          ),
+          means_incremental_impact: Number(
+            metricImpact?.incrementalImpact ?? amount,
+          ),
           means_accounted_source: metricImpact?.impactSource || "unplanned",
           means_accounted_key: metricImpact?.impactKey || null,
           means_accounted_target_date: metricImpact?.targetDate || null,
           means_accounted_until: metricImpact?.offsetUntil || null,
           means_metric_score_before: metricImpact?.currentScore ?? null,
-          means_metric_score_after: metricImpact?.projectedScoreAfterPurchase ?? null,
+          means_metric_score_after:
+            metricImpact?.projectedScoreAfterPurchase ?? null,
         }, {
           budgetId: "",
         });
@@ -190,14 +289,20 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
           user_action: "buy",
           suggested_reason: preparedReason(base.state),
           saved_reason: purchase.reason,
-          explanation_source: decision.userEdited ? "user_edited" : "clara_conversation",
+          explanation_source: decision.userEdited
+            ? "user_edited"
+            : "clara_conversation",
           wallet_id: wallet.id,
           wallet_name: wallet.name,
           purchase,
           created_at: createdAt,
         };
         saveLocalList("clara_buy_check_buy_explanations", memoryPayload);
-        window.dispatchEvent(new CustomEvent("clara:buy-check-decision-memory", { detail: memoryPayload }));
+        window.dispatchEvent(
+          new CustomEvent("clara:buy-check-decision-memory", {
+            detail: memoryPayload,
+          }),
+        );
         dispatchFinanceUpdates();
 
         setDecision((current) => ({
@@ -224,7 +329,11 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
       };
       saveLocalList("clara_buy_check_not_buy_reflections", memoryPayload);
       saveAvoidedSpendingDecision(memoryPayload);
-      window.dispatchEvent(new CustomEvent("clara:buy-check-decision-memory", { detail: memoryPayload }));
+      window.dispatchEvent(
+        new CustomEvent("clara:buy-check-decision-memory", {
+          detail: memoryPayload,
+        }),
+      );
       setDecision((current) => ({
         ...current,
         phase: "resolved",
@@ -241,9 +350,16 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
       return true;
     } catch (error) {
       const message = error?.code === "BUY_CHECK_CONTEXT_CHANGED"
-        ? clean(error?.message || "Your wallet or budget changed. Talk with CLARA again before logging the expense.")
+        ? clean(
+            error?.message ||
+            "Your wallet or budget changed. Talk with CLARA again before logging the expense.",
+          )
         : clean(error?.message || "Could not save your decision.");
-      setDecision((current) => ({ ...current, busy: false, error: message }));
+      setDecision((current) => ({
+        ...current,
+        busy: false,
+        error: message,
+      }));
       return false;
     }
   }, [amount, assistantContext, base.state, decision, walletOptions]);

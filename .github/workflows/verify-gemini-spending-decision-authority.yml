@@ -10,11 +10,17 @@ on:
       - "src/lib/clara-gemini-*.js"
       - "src/lib/clara-spending-decision-ai.js"
       - "src/lib/clara-buy-check-expert-ai.js"
+      - "src/lib/clara-buy-check-intelligence-router.js"
+      - "src/lib/clara-buy-check-metric-impact.js"
+      - "src/lib/clara-buy-check-payment-impact.js"
       - "src/components/fresh/main-dashboard/assistant/useClaraBuyCheckExpertFlow.js"
       - "src/components/fresh/main-dashboard/assistant/useClaraBuyCheckBudgetFlow.js"
       - "src/components/fresh/main-dashboard/assistant/useClaraBuyCheckFlowV5.js"
       - "tests/buy-check-context-facts.test.mjs"
       - "tests/buy-check-gemini-authority.test.mjs"
+      - "tests/buy-check-metric-impact.test.mjs"
+      - "tests/buy-check-payment-impact.test.mjs"
+      - "tests/buy-check-progressive-router.test.mjs"
       - "tests/gemini-request-lifecycle.test.mjs"
       - "package.json"
       - ".github/workflows/verify-gemini-spending-decision-authority.yml"
@@ -36,4 +42,10 @@ jobs:
           node-version: 22
 
       - name: Verify Gemini spending authority contract
-        run: node --test tests/buy-check-gemini-authority.test.mjs tests/gemini-request-lifecycle.test.mjs
+        run: >-
+          node --test
+          tests/buy-check-progressive-router.test.mjs
+          tests/buy-check-gemini-authority.test.mjs
+          tests/buy-check-metric-impact.test.mjs
+          tests/buy-check-payment-impact.test.mjs
+          tests/gemini-request-lifecycle.test.mjs
