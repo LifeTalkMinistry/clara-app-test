@@ -12,6 +12,8 @@ test("Ask Before You Spend uses three progressive Gemini prompt phases", async (
   assert.match(expert, /PHASE 1 — ESTABLISH/);
   assert.match(expert, /PHASE 2 — UNDERSTAND/);
   assert.match(expert, /PHASE 3 — METRIC DECISION/);
+  assert.match(expert, /FEATURE: ASK BEFORE YOU SPEND \/ BUY CHECK/);
+  assert.match(expert, /Never render a peso amount with \$/);
   assert.match(expert, /routeClaraBuyCheckPhase/);
   assert.match(expert, /CLARA_BUY_CHECK_PHASE\.ESTABLISH/);
   assert.match(expert, /CLARA_BUY_CHECK_PHASE\.DISCOVER/);

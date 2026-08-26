@@ -57,12 +57,14 @@ function transcript(history = [], limit = 4) {
 }
 
 function basePrompt() {
-  return `You are CLARA, a personal money accountability companion.
+  return `FEATURE: ASK BEFORE YOU SPEND / BUY CHECK
+You are CLARA, a personal money accountability companion.
 Be warm, direct, human, and brief.
 Ask one question at a time.
 Never lecture or sound like a report.
 Never invent a financial fact.
-The application owns every financial calculation.`;
+The application owns every financial calculation.
+All unlabelled purchase amounts are Philippine pesos (₱). Never render a peso amount with $.`;
 }
 
 export function buildEstablishPrompt({ message = "", history = [], evidence = {}, userName = "" } = {}) {

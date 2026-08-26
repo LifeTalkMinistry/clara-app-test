@@ -63,3 +63,19 @@ test("purpose plus one meaningful decision signal unlocks metric phase", () => {
   assert.equal(isClaraPurchaseContextMature(evidence), true);
   assert.equal(routeClaraBuyCheckPhase({ connected: true, evidence }), CLARA_BUY_CHECK_PHASE.METRIC);
 });
+
+
+test("local discovery fallback carries reason and waiting consequence forward", () => {
+  const purchase = applyLocalPurchaseFacts("Can I buy a T-shirt for ₱1,000?", {});
+  const reason = applyLocalPurchaseFacts("I just like the design.", purchase);
+  assert.equal(reason.purpose, "I just like the design.");
+  assert.equal(isClaraPurchaseContextMature(reason), false);
+
+  const context = applyLocalPurchaseFacts(
+    "I already have enough shirts. Nothing happens if I wait.",
+    reason,
+  );
+  assert.equal(context.consequenceOfWaiting, "I already have enough shirts. Nothing happens if I wait.");
+  assert.equal(isClaraPurchaseContextMature(context), true);
+  assert.equal(routeClaraBuyCheckPhase({ connected: true, evidence: context }), CLARA_BUY_CHECK_PHASE.METRIC);
+});

@@ -24,6 +24,22 @@ const SECOND_SIGNAL_KEYS = [
 const AMBIGUOUS_PRICE_PATTERN = /\b(voucher|coupon|discount|less\s+\d|off|installment|monthly|per\s+month|months?|deposit|down\s*payment|downpayment|interest|fee|shipping|split|each|total\s+with|after\s+discount)\b/i;
 const BUYING_PATTERN = /\b(buy|buying|purchase|get|getting|spend|spending|worth|cost|price|pay|paying)\b/i;
 const AFFIRMATIVE_PATTERN = /^(yes|yeah|yep|yup|correct|right|exactly|that'?s right|oo|opo|yes\s+that'?s\s+right)[.!\s]*$/i;
+const NEGATIVE_ONLY_PATTERN = /^(no|nope|nah|not really|hindi|wala)[.!\s]*$/i;
+const META_DISCOVERY_QUESTION_PATTERN = /^(why|what|how|can you|could you|would you|explain|tell me)\b.*\?$/i;
+const WAIT_SIGNAL_PATTERN = /\b(wait|waiting|later|nothing|happen|happens|affected|affect|delay|skip|skipping)\b/i;
+const URGENCY_SIGNAL_PATTERN = /\b(urgent|urgently|asap|today|tomorrow|now|immediately|broken|work|school|deadline)\b/i;
+
+function isPurposeReply(message = "") {
+  const source = clean(message);
+  if (!source || AFFIRMATIVE_PATTERN.test(source) || NEGATIVE_ONLY_PATTERN.test(source)) return false;
+  return !META_DISCOVERY_QUESTION_PATTERN.test(source);
+}
+
+function isDecisionSignalReply(message = "") {
+  const source = clean(message);
+  if (!source) return false;
+  return !META_DISCOVERY_QUESTION_PATTERN.test(source);
+}
 
 export const CLARA_BUY_CHECK_PHASE = Object.freeze({
   ESTABLISH: "establish",
@@ -97,6 +113,7 @@ export function applyLocalPurchaseFacts(message = "", previousEvidence = {}) {
   const next = { ...previous };
   const source = clean(message);
   const amounts = parseClaraMoneyAmounts(source);
+  const previousHadPurchaseCore = Boolean(clean(previous.item) && hasConfirmedClaraPurchasePrice(previous));
 
   if (previous.priceStatus === "needs_confirmation" && previous.priceCandidate > 0 && AFFIRMATIVE_PATTERN.test(source)) {
     next.price = Number(previous.priceCandidate);
@@ -121,6 +138,28 @@ export function applyLocalPurchaseFacts(message = "", previousEvidence = {}) {
   if (!next.item) {
     const item = inferItem(source);
     if (item) next.item = item;
+  }
+
+  // Gemini is the preferred language-understanding layer, but a temporary AI
+  // failure must not trap Buy Check in the same question forever. Once the
+  // user has already established an item and authoritative price, preserve
+  // their next plain-language replies as discovery evidence locally.
+  if (previousHadPurchaseCore && previous.priceStatus !== "needs_confirmation") {
+    if (!clean(previous.purpose) && isPurposeReply(source)) {
+      next.purpose = source.slice(0, 360);
+    } else if (
+      clean(previous.purpose) &&
+      !hasClaraSecondDecisionSignal(previous) &&
+      isDecisionSignalReply(source)
+    ) {
+      if (WAIT_SIGNAL_PATTERN.test(source) || NEGATIVE_ONLY_PATTERN.test(source)) {
+        next.consequenceOfWaiting = source.slice(0, 360);
+      } else if (URGENCY_SIGNAL_PATTERN.test(source)) {
+        next.urgency = source.slice(0, 360);
+      } else {
+        next.currentSituation = source.slice(0, 360);
+      }
+    }
   }
 
   return next;
