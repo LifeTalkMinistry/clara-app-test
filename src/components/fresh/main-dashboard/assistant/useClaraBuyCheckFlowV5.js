@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { addBuyCheckExpense } from "@/lib/clara-buy-check-expense-repository";
 import { saveAvoidedSpendingDecision } from "@/lib/clara-buy-check-impact-ledger";
 import { buildClaraBuyCheckPaymentImpact } from "@/lib/clara-buy-check-payment-impact";
+import { buildClaraInstallmentObligationPayload } from "@/lib/clara-buy-check-installment-obligation";
+import { upsertDebtObligation } from "@/lib/debtObligationStore";
+import { getEffectiveDemoFinanceLocalUserId } from "@/lib/demo/activeDemoProfile";
 import useClaraBuyCheckBudgetFlow from "./useClaraBuyCheckBudgetFlow.js";
 import {
   clean,
@@ -57,13 +60,22 @@ function paymentStructureFromEvidence(evidence = {}) {
   };
 }
 
-function decisionPanelState({ choice, snapshot, amount, walletOptions }) {
+function decisionPanelState({
+  choice,
+  snapshot,
+  amount,
+  walletOptions,
+  paymentStructure = null,
+}) {
   const item = clean(snapshot?.item || "this purchase");
   const reason = preparedReason(snapshot) || (choice === "buy"
     ? `Buying ${item}`
     : `Decided not to buy ${item}`);
+  const installmentDocumentation = Boolean(
+    choice === "buy" && paymentStructure?.purchaseType === "installment",
+  );
   const eligibleWallets = (walletOptions || []).filter((wallet) => wallet.enough);
-  const defaultWallet = choice === "buy" && eligibleWallets.length === 1
+  const defaultWallet = choice === "buy" && !installmentDocumentation && eligibleWallets.length === 1
     ? eligibleWallets[0].id
     : "";
 
@@ -80,6 +92,13 @@ function decisionPanelState({ choice, snapshot, amount, walletOptions }) {
     sessionId: clean(snapshot?.sessionId),
     item,
     amount,
+    recordMode: installmentDocumentation
+      ? "installment_obligation"
+      : choice === "buy"
+        ? "expense"
+        : "decision",
+    paymentStructure: installmentDocumentation ? paymentStructure : null,
+    installmentDueDay: "",
   };
 }
 
@@ -112,6 +131,7 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
   const confirm = useCallback(async () => {
     if (base.state?.step !== "confirm" || base.state?.busy) return false;
     const snapshot = base.state;
+    const paymentStructure = paymentStructureFromEvidence(snapshot?.evidence);
     const ok = await base.confirm("buy");
     if (!ok) return false;
     setDecision(decisionPanelState({
@@ -119,6 +139,7 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
       snapshot,
       amount,
       walletOptions,
+      paymentStructure,
     }));
     return true;
   }, [amount, base, walletOptions]);
@@ -167,6 +188,15 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
     setDecision((current) => ({ ...current, walletId, error: "" }));
   }, []);
 
+  const setDecisionInstallmentDueDay = useCallback((value) => {
+    const next = String(value ?? "").replace(/\D/g, "").slice(0, 2);
+    setDecision((current) => ({
+      ...current,
+      installmentDueDay: next,
+      error: "",
+    }));
+  }, []);
+
   const submitFinalDecision = useCallback(async () => {
     if (
       base.state?.step !== "complete" ||
@@ -213,22 +243,64 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
     };
     const createdAt = new Date().toISOString();
 
-    // Buy Check may simulate installment judgment now, but the current
-    // transaction flow cannot safely persist the future payment schedule.
-    // Stop before wallet/transaction mutation instead of pretending this is a
-    // one-time expense or inventing future due dates.
-    if (decision.choice === "buy" && paymentStructure) {
-      setDecision((current) => ({
-        ...current,
-        busy: false,
-        error: "CLARA can evaluate this installment, but it cannot safely record the future payment schedule yet. No money was changed.",
-      }));
-      return false;
-    }
-
     setDecision((current) => ({ ...current, busy: true, error: "" }));
 
     try {
+      if (decision.choice === "buy" && paymentStructure) {
+        const obligationPayload = buildClaraInstallmentObligationPayload({
+          item: purchase.item,
+          reason: purchase.reason,
+          paymentStructure,
+          dueDay: decision.installmentDueDay,
+          sessionId: base.state?.sessionId,
+        });
+        const rawLocalUserId = clean(
+          assistantContext?.user?.id ||
+          assistantContext?.user?.email ||
+          "local-user",
+        );
+        const localUserId = getEffectiveDemoFinanceLocalUserId(rawLocalUserId);
+        const obligation = await upsertDebtObligation(localUserId, obligationPayload);
+        const dueDay = Number(obligationPayload.dueDay);
+
+        const memoryPayload = {
+          source: "buy_check_installment_obligation",
+          user_action: "buy",
+          suggested_reason: preparedReason(base.state),
+          saved_reason: purchase.reason,
+          explanation_source: decision.userEdited
+            ? "user_edited"
+            : "clara_conversation",
+          purchase,
+          payment_structure: paymentStructure,
+          obligation_id: obligation?.id || "",
+          obligation: obligationPayload,
+          created_at: createdAt,
+        };
+        saveLocalList("clara_buy_check_installment_obligations", memoryPayload);
+        saveLocalList("clara_buy_check_buy_explanations", memoryPayload);
+        window.dispatchEvent(
+          new CustomEvent("clara:buy-check-decision-memory", {
+            detail: memoryPayload,
+          }),
+        );
+        dispatchFinanceUpdates();
+
+        setDecision((current) => ({
+          ...current,
+          phase: "resolved",
+          busy: false,
+          error: "",
+          result: {
+            choice: "buy",
+            eyebrow: "INSTALLMENT SAVED",
+            title: "Installment documented",
+            message: `${purchase.item} is now under Debt / Obligations at ${money(paymentStructure.totalCommitment)} total and ${money(paymentStructure.paymentAmount)}/month, due every month on day ${dueDay}. No wallet money was deducted yet. Record each actual payment from Debt / Obligations when you pay it.`,
+          },
+        }));
+        return true;
+      }
+
       if (decision.choice === "buy") {
         const wallet = walletOptions.find(
           (option) => option.id === decision.walletId,
@@ -377,6 +449,7 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
     cancelFinalDecision,
     setDecisionExplanation,
     setDecisionWallet,
+    setDecisionInstallmentDueDay,
     submitFinalDecision,
   }), [
     askMore,
@@ -389,6 +462,7 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
     decision,
     decline,
     setDecisionExplanation,
+    setDecisionInstallmentDueDay,
     setDecisionWallet,
     startSession,
     submitFinalDecision,
