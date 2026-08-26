@@ -14,15 +14,15 @@ export function normalizeBetaTesterCodeInput(value) {
 export async function redeemBetaTesterCode(code) {
   const token = getStoredBackendToken();
   if (!token) {
-    const error = new Error("Sign in to your CLARA account before activating beta access.");
+    const error = new Error("Sign in to your CLARA account before activating your trial.");
     error.code = "AUTH_REQUIRED";
     throw error;
   }
 
   const normalizedCode = normalizeBetaTesterCodeInput(code);
   if (normalizedCode.length !== 6) {
-    const error = new Error("Enter your complete 6-character beta tester code.");
-    error.code = "INVALID_BETA_CODE_FORMAT";
+    const error = new Error("Enter your complete 6-character trial code.");
+    error.code = "INVALID_TRIAL_CODE_FORMAT";
     throw error;
   }
 
