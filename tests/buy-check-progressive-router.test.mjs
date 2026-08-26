@@ -3,79 +3,92 @@ import assert from "node:assert/strict";
 import {
   CLARA_BUY_CHECK_PHASE,
   applyLocalPurchaseFacts,
+  claraFutureCommitmentAmount,
+  claraPaymentAmountDueNow,
+  claraTotalCommitment,
+  hasConfirmedClaraPaymentStructure,
   hasConfirmedClaraPurchasePrice,
   isClaraPurchaseContextMature,
   routeClaraBuyCheckPhase,
 } from "../src/lib/clara-buy-check-intelligence-router.js";
 
-test("first turn always establishes connection without needing financial context", () => {
-  const evidence = applyLocalPurchaseFacts("Can I buy a shirt for ₱1,000?", {});
-  assert.equal(evidence.price, 1000);
-  assert.equal(evidence.priceStatus, "confirmed");
+test("first turn preserves ESTABLISH architecture even when local facts are rich", () => {
+  const evidence = applyLocalPurchaseFacts("I need shoes for ₱1,500 because mine broke and I have work tomorrow.", {});
   assert.equal(routeClaraBuyCheckPhase({ connected: false, evidence }), CLARA_BUY_CHECK_PHASE.ESTABLISH);
+  assert.equal(isClaraPurchaseContextMature(evidence), true);
 });
 
-test("a direct single user-stated amount becomes authoritative", () => {
+test("a direct one-time amount becomes authoritative", () => {
   const evidence = applyLocalPurchaseFacts("I want to buy shoes for ₱2,500", {});
   assert.equal(hasConfirmedClaraPurchasePrice(evidence), true);
+  assert.equal(hasConfirmedClaraPaymentStructure(evidence), true);
   assert.equal(evidence.price, 2500);
-  assert.equal(evidence.priceSource, "user_direct");
+  assert.equal(evidence.purchaseType, "one_time");
 });
 
-test("discounts and multiple amounts stay unconfirmed", () => {
-  const evidence = applyLocalPurchaseFacts("The shoes are ₱2,500 but I have a ₱500 voucher", {});
-  assert.equal(hasConfirmedClaraPurchasePrice(evidence), false);
-  assert.equal(evidence.priceStatus, "needs_confirmation");
-});
-
-test("user confirmation locks a Gemini-proposed payable candidate", () => {
-  const pending = {
-    item: "shoes",
-    priceCandidate: 2000,
-    priceStatus: "needs_confirmation",
-  };
-  const evidence = applyLocalPurchaseFacts("Yes", pending);
-  assert.equal(evidence.price, 2000);
-  assert.equal(evidence.priceStatus, "confirmed");
-  assert.equal(evidence.priceSource, "user_confirmation");
-});
-
-test("item and confirmed price are not enough for the metric phase", () => {
-  const evidence = {
-    item: "T-shirt",
-    price: 1000,
-    priceStatus: "confirmed",
-    priceSource: "user_direct",
-  };
-  assert.equal(isClaraPurchaseContextMature(evidence), false);
-  assert.equal(routeClaraBuyCheckPhase({ connected: true, evidence }), CLARA_BUY_CHECK_PHASE.DISCOVER);
-});
-
-test("purpose plus one meaningful decision signal unlocks metric phase", () => {
-  const evidence = {
-    item: "work shoes",
-    price: 1000,
-    priceStatus: "confirmed",
-    priceSource: "user_direct",
-    purpose: "Replacing broken work shoes",
-    urgency: "Needed for work tomorrow",
-  };
-  assert.equal(isClaraPurchaseContextMature(evidence), true);
-  assert.equal(routeClaraBuyCheckPhase({ connected: true, evidence }), CLARA_BUY_CHECK_PHASE.METRIC);
-});
-
-
-test("local discovery fallback carries reason and waiting consequence forward", () => {
+test("pure want requires one meaningful decision signal before metric", () => {
   const purchase = applyLocalPurchaseFacts("Can I buy a T-shirt for ₱1,000?", {});
   const reason = applyLocalPurchaseFacts("I just like the design.", purchase);
-  assert.equal(reason.purpose, "I just like the design.");
   assert.equal(isClaraPurchaseContextMature(reason), false);
 
-  const context = applyLocalPurchaseFacts(
-    "I already have enough shirts. Nothing happens if I wait.",
-    reason,
-  );
-  assert.equal(context.consequenceOfWaiting, "I already have enough shirts. Nothing happens if I wait.");
+  const context = applyLocalPurchaseFacts("I already have enough shirts. Nothing happens if I wait.", reason);
   assert.equal(isClaraPurchaseContextMature(context), true);
   assert.equal(routeClaraBuyCheckPhase({ connected: true, evidence: context }), CLARA_BUY_CHECK_PHASE.METRIC);
+});
+
+test("rich urgent need can become mature immediately without redundant discovery", () => {
+  const evidence = applyLocalPurchaseFacts("I need shoes for ₱1,500 because mine broke and I have work tomorrow.", {});
+  assert.equal(evidence.item.toLowerCase(), "shoes");
+  assert.equal(claraPaymentAmountDueNow(evidence), 1500);
+  assert.match(evidence.currentSituation, /broke/i);
+  assert.match(evidence.urgency, /tomorrow/i);
+  assert.equal(isClaraPurchaseContextMature(evidence), true);
+});
+
+test("voucher math remains a candidate until the user confirms it", () => {
+  const pending = applyLocalPurchaseFacts("The shoes are ₱2,500 but I have a ₱500 voucher", {});
+  assert.equal(hasConfirmedClaraPaymentStructure(pending), false);
+  assert.equal(pending.priceCandidate, 2000);
+  assert.equal(pending.priceStatus, "needs_confirmation");
+
+  const confirmed = applyLocalPurchaseFacts("Yes", pending);
+  assert.equal(hasConfirmedClaraPaymentStructure(confirmed), true);
+  assert.equal(confirmed.price, 2000);
+  assert.equal(confirmed.priceSource, "user_confirmation");
+});
+
+test("installment shorthand never collapses into a one-time price", () => {
+  const pending = applyLocalPurchaseFacts("Can I get a phone? It’s ₱1,500 per month for 6 months.", {});
+  assert.equal(pending.purchaseType, "installment");
+  assert.equal(hasConfirmedClaraPurchasePrice(pending), false);
+  assert.equal(hasConfirmedClaraPaymentStructure(pending), false);
+  assert.equal(pending.amountDueNow, 1500);
+  assert.equal(pending.paymentAmount, 1500);
+  assert.equal(pending.remainingPayments, 5);
+  assert.equal(pending.totalPayments, 6);
+  assert.equal(pending.totalCommitment, 9000);
+  assert.equal(pending.paymentStructureStatus, "needs_confirmation");
+});
+
+test("user confirmation locks the installment as 1500 due now and 9000 total", () => {
+  const pending = applyLocalPurchaseFacts("Can I get a phone? It’s ₱1,500 per month for 6 months.", {});
+  const confirmed = applyLocalPurchaseFacts("Yes", pending);
+  assert.equal(hasConfirmedClaraPaymentStructure(confirmed), true);
+  assert.equal(confirmed.paymentStructureStatus, "confirmed");
+  assert.equal(claraPaymentAmountDueNow(confirmed), 1500);
+  assert.equal(claraTotalCommitment(confirmed), 9000);
+  assert.equal(claraFutureCommitmentAmount(confirmed), 7500);
+});
+
+test("an explicit installment with no fees can be confirmed directly", () => {
+  const evidence = applyLocalPurchaseFacts(
+    "The phone is ₱1,500 today, then ₱1,500 every month for 5 additional months, with no fees.",
+    {},
+  );
+  assert.equal(hasConfirmedClaraPaymentStructure(evidence), true);
+  assert.equal(evidence.purchaseType, "installment");
+  assert.equal(evidence.amountDueNow, 1500);
+  assert.equal(evidence.remainingPayments, 5);
+  assert.equal(evidence.totalCommitment, 9000);
+  assert.equal(evidence.fees, 0);
 });
