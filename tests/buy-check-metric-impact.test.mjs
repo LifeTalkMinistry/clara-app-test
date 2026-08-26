@@ -23,6 +23,9 @@ test("unplanned purchase uses the locked canonical required runway", () => {
   assert.equal(impact.scoreChange, -10);
   assert.equal(impact.incrementalImpact, 1000);
   assert.equal(impact.projectedRoomAfterPurchase, 4000);
+  const line = formatClaraMetricImpactLine(impact);
+  assert.equal(line, "That ₱1,000 would bring your Means Score from 150 down to 140.");
+  assert.doesNotMatch(line, /Means impact|New pressure|→|\(−/);
 });
 
 test("fully accounted purchase is metric-neutral", () => {
@@ -35,7 +38,7 @@ test("fully accounted purchase is metric-neutral", () => {
   assert.equal(impact.projectedScoreAfterPurchase, 150);
   assert.equal(impact.scoreChange, 0);
   assert.equal(impact.incrementalImpact, 0);
-  assert.match(formatClaraMetricImpactLine(impact), /already accounted for in Money Schedule/);
+  assert.match(formatClaraMetricImpactLine(impact), /already planned ₱1,000 for this in Money Schedule/);
 });
 
 test("only overspend above the planned amount creates new pressure", () => {
@@ -60,7 +63,7 @@ test("spending below plan creates room instead of another penalty", () => {
   assert.equal(impact.incrementalImpact, -200);
   assert.equal(impact.projectedScoreAfterPurchase, 152);
   assert.equal(impact.projectedRoomAfterPurchase, 5200);
-  assert.match(formatClaraMetricImpactLine(impact), /creates ₱200 extra room/);
+  assert.match(formatClaraMetricImpactLine(impact), /₱200 under plan/);
 });
 
 test("crossing 100 is detected from the projected canonical score", () => {

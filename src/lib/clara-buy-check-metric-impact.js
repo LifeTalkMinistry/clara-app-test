@@ -302,23 +302,33 @@ function formatClaraMetricImpactLine(impact = {}) {
   if (!impact?.purchaseSimulationApplied || impact?.projectedScoreAfterPurchase == null) return "";
   const before = Number.isFinite(Number(impact.currentScore)) ? Number(impact.currentScore) : null;
   const after = Number(impact.projectedScoreAfterPurchase);
-  const movement = before === null
-    ? `Means impact: ${after}`
-    : `Means impact: ${before} → ${after} (${signedPoints(impact.scoreChange)}).`;
+  const price = Math.max(0, Number(impact.purchasePrice) || 0);
   const accounted = Math.max(0, Number(impact.alreadyAccountedAmount) || 0);
   const incremental = Number(impact.incrementalImpact) || 0;
   const sourceLabel = impact.impactSource === "money_schedule_routine" || impact.impactSource === "money_schedule_event"
     ? "Money Schedule"
     : "your plan";
 
-  if (!(accounted > 0)) return `${movement} New pressure: ${peso(impact.purchasePrice)}.`;
+  const movement = before === null
+    ? `put your Means Score at ${after}`
+    : after < before
+      ? `bring your Means Score from ${before} down to ${after}`
+      : after > before
+        ? `move your Means Score from ${before} up to ${after}`
+        : `keep your Means Score at ${after}`;
+
+  // Financial math stays deterministic, but the user should hear it as
+  // normal CLARA conversation — never as telemetry or a diagnostic row.
+  if (!(accounted > 0)) {
+    return `That ${peso(price)} would ${movement}.`;
+  }
   if (Math.abs(incremental) < 0.005) {
-    return `${movement} ${peso(accounted)} is already accounted for in ${sourceLabel}.`;
+    return `You already planned ${peso(accounted)} for this in ${sourceLabel}, so buying it at ${peso(price)} would ${movement}.`;
   }
   if (incremental > 0) {
-    return `${movement} ${peso(accounted)} is already accounted for; new pressure: ${peso(incremental)}.`;
+    return `You planned ${peso(accounted)} for this, so only the extra ${peso(incremental)} is new spending. That would ${movement}.`;
   }
-  return `${movement} You planned ${peso(accounted)}; this creates ${peso(Math.abs(incremental))} extra room.`;
+  return `You planned ${peso(accounted)} for this, and at ${peso(price)} you're ${peso(Math.abs(incremental))} under plan. That would ${movement}.`;
 }
 
 export {

@@ -223,83 +223,14 @@ function buildConversationFinancialContext(assistantContext = {}, evidence = {})
     };
   }
 
-  let pkg = {};
-  try {
-    pkg = buildContextPackage(purchase, assistantContext);
-  } catch (error) {
-    console.warn("[CLARA Buy Check] Universal conversation context degraded safely.", error);
-  }
-
-  const wallet = safeRecord(pkg.wallet);
-  const income = safeRecord(pkg.incomeRunway);
-  const obligations = safeRecord(pkg.obligations);
-  const emergencyFund = safeRecord(pkg.emergencyFund);
-  const savingsGoals = safeRecord(pkg.savingsGoals);
-  const calendar = safeRecord(pkg.calendar);
-  const safety = safeRecord(pkg.safety);
-  const upcomingSchedule = safeList(calendar.upcomingEvents).slice(0, 4).map(compactScheduleEvent);
-  const dueObligations = safeList(obligations.dueBeforeNextIncome).slice(0, 6).map(compactObligation);
-  const goals = safeList(savingsGoals.records).slice(0, 6).map(compactGoal);
-  const spendable = toNumber(wallet.spendableTotal);
-
   return {
-    means,
-    purchaseAlreadyUnderstood: {
-      item: purchase.item,
-      price,
-      suggestedTransactionReason: purchase.reason,
-    },
-    income: {
-      latestRecordedAmount: toNumber(income.latestIncomeAmount),
-      sourceName: clean(income.sourceName),
-      nextExpectedDate: income.estimatedNextIncomeDate || null,
-      daysUntilNextIncome: Number.isFinite(Number(income.daysUntilNextIncome)) ? Number(income.daysUntilNextIncome) : null,
-      timingConfidence: clean(income.confidence || "none"),
-    },
-    wallets: {
-      spendableMoney: spendable,
-      protectedMoney: toNumber(wallet.protectedTotal),
-      reservedMoney: toNumber(wallet.reservedAmount),
-      spendableWalletCount: safeList(wallet.selectedEligibleWallets).length,
-      moneyAfterPurchase: price > 0 ? spendable - price : null,
-    },
-    budgets: compactBudgetSnapshot(assistantContext),
-    relevantPurchaseBudget: compactRelevantBudget(pkg),
-    emergencyFund: emergencyFund.configured ? {
-      savedAmount: toNumber(emergencyFund.savedAmount),
-      targetAmount: toNumber(emergencyFund.targetAmount),
-      stillRequiredThisCycle: toNumber(emergencyFund.stillRequiredThisCycle),
-      targetComplete: Boolean(emergencyFund.targetComplete),
-      wouldBeAffected: Boolean(emergencyFund.wouldBeAffected),
-      wouldRequireWithdrawal: Boolean(emergencyFund.wouldRequireWithdrawal),
-    } : null,
-    savingsGoals: {
-      activeGoalCount: goals.length,
-      stillRequiredThisCycle: toNumber(savingsGoals.stillRequiredThisCycle),
-      wouldBeAffected: Boolean(savingsGoals.wouldBeAffected),
-      wouldRequireWithdrawal: Boolean(savingsGoals.wouldRequireWithdrawal),
-      goals,
-    },
-    debtsAndObligations: {
-      totalDueBeforeNextIncome: toNumber(obligations.totalDueBeforeNextIncome),
-      conflictAfterPurchase: Boolean(obligations.conflictAfterPurchase),
-      nearestDue: dueObligations[0] || null,
-      dueBeforeNextIncome: dueObligations,
-    },
-    moneySchedule: compactMoneySchedule(pkg),
-    nearestUpcomingSchedule: upcomingSchedule[0] || null,
-    upcomingSchedule,
-    safety: {
-      commitmentsBeforeNextIncome: toNumber(safety.commitmentsBeforeNextIncome),
-      moneyScheduleIncludedInCommitments: toNumber(safety.moneyScheduleIncludedInCommitments),
-      safeToSpendBeforePurchase: toNumber(safety.safeToSpendBeforePurchase),
-      safeToSpendAfterPurchase: price > 0 && Number.isFinite(Number(safety.safeToSpendAfterPurchase))
-        ? Number(safety.safeToSpendAfterPurchase)
-        : null,
-      survivalReserve: toNumber(safety.survivalReserve),
-      dataConfidence: clean(safety.dataConfidence || "low"),
-    },
-  };
+  means: null,
+  purchaseAlreadyUnderstood: {
+    item: purchase.item,
+    price,
+    suggestedTransactionReason: purchase.reason,
+  },
+};
 }
 
 function buildPrompt({ message, history = [], evidence = {}, assistantContext = {} } = {}) {
@@ -326,9 +257,10 @@ Help the user protect a Means Score of 100 or higher while making their own spen
 - A negative means.incrementalImpact means the user is spending less than CLARA had already accounted for and is creating additional room.
 - Compare means.currentScore BEFORE the purchase with means.projectedScoreAfterPurchase AFTER the purchase.
 - Never describe means.currentScore as the score the user will keep after buying when means.projectedScoreAfterPurchase is available.
-- The application prepends the exact deterministic Means impact line to the visible reply. Do not invent, recalculate, or contradict it. Focus your own sentence on the practical recommendation or tradeoff.
-- Prefer stating the before → after movement when means.currentScore is also available (for example: 144 → 142), but at minimum the projected score must always be visible.
-- Do not replace the exact score with vague wording such as "comfortably above 100", "healthy", or "plenty of breathing room" without also stating the projected score.
+- The application owns the exact Means math and adds one short, natural consequence sentence to the visible reply. Never invent, recalculate, or contradict those values.
+- Do NOT repeat the score movement when the application has already stated it. Continue from it with the practical meaning, recommendation, or one useful question.
+- Never speak in telemetry labels such as "Means impact", "New pressure", arrows, parenthetical point deltas, or report-style headings. Speak like a financially smart human.
+- You may say the projected position naturally (for example, "You'd still be above 100") after the exact application sentence, but do not turn the reply into a metric report.
 - Also use means.currentRoomUntilPayday → means.projectedRoomAfterPurchase when that makes the consequence clearer.
 - If the purchase keeps the user comfortably above 100, you may support it while mentioning a meaningful tradeoff when useful.
 - If it brings the user close to 100, clearly warn that their breathing room is becoming thin.
@@ -405,9 +337,10 @@ VISIBLE RESPONSE STYLE — COMPACT
 - Aim for roughly 20–45 words. Treat about 60 words as a hard ceiling for an ordinary reply.
 - Sound like a financially smart friend, not a financial adviser giving a report, lecture, sermon, coaching session, or classroom explanation.
 - Mention only the ONE most important financial point for this turn. A second fact is allowed only when it is essential to understand the first.
-- The deterministic Means impact line is ALWAYS the primary visible financial point once a price is known.
-- Do not repeat the full metric line unless repetition is necessary for clarity; add the human recommendation after it.
-- Never contradict the before → after score, incremental pressure, or already-accounted amount supplied by the application.
+- Once a price is known, the deterministic Means consequence is the primary financial truth, but it must read as a normal sentence inside the conversation — not a dashboard readout.
+- The application will state the exact before/after consequence. Pick up naturally from that sentence instead of echoing it.
+- Never use labels like "Means impact:" or "New pressure:" in normal chat. Never expose raw arrows or parenthetical score deltas as if the user is reading telemetry.
+- Never contradict the before/after score, incremental spending, or already-planned amount supplied by the application.
 - Do not recite every balance, obligation, budget, Money Schedule amount, savings goal, tradeoff, or calculation you considered.
 - Do not prove that you analyzed the context by listing it back to the user.
 - Prefer plain conversational phrasing such as: "₱6k is pretty heavy for a casual want. I'd probably wait on this one. Still want to buy it?"
@@ -625,24 +558,27 @@ export async function runClaraBuyCheckExpertTurn({
 } = {}) {
   const previousEvidence = sanitizeEvidence(evidence);
   const fallback = fallbackTurn(message, previousEvidence, assistantContext);
+  // Reuse the local first-turn extraction so Gemini sees the purchase and
+  // canonical Means simulation immediately instead of one turn later.
+  const promptEvidence = mergeEvidence(previousEvidence, fallback?.evidence || {});
 
   try {
     const { json, model } = await requestGeminiJson({
       feature: "ask-before-you-spend",
-      prompt: buildPrompt({ message, history, evidence: previousEvidence, assistantContext }),
+      prompt: buildPrompt({ message, history, evidence: promptEvidence, assistantContext }),
       temperature: 0.3,
       maxOutputTokens: 320,
       label: "CLARA universal spending conversation",
       signal,
     });
 
-    const mergedEvidence = mergeEvidence(previousEvidence, json?.evidence);
+    const mergedEvidence = mergeEvidence(promptEvidence, json?.evidence);
     const requestedAction = clean(json?.action).toLowerCase();
     const action = ACTIONS.has(requestedAction) ? requestedAction : fallback.action;
     let reply = clean(json?.reply).slice(0, 720);
 
     // The application, not Gemini, owns the financial math. Always put the
-    // canonical metric impact first so the user sees the exact consequence.
+    // canonical consequence first so the user gets exact math in human language.
     const authoritativeMeans = buildCanonicalMeansContext(mergedEvidence.price, assistantContext, mergedEvidence);
     if (
       authoritativeMeans?.purchaseSimulationApplied &&
