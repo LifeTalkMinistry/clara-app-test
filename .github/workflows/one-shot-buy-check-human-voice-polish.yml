@@ -23,65 +23,58 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+
           path = Path('src/lib/clara-buy-check-expert-ai.js')
           text = path.read_text()
 
-          text = text.replace(
-            '- Also use means.currentRoomUntilPayday → means.projectedRoomAfterPurchase when that makes the consequence clearer.',
-            '- Use means.currentRoomUntilPayday and means.projectedRoomAfterPurchase only when the breathing-room consequence materially helps, and phrase it naturally without arrows or report notation.',
-            1,
-          )
-          text = text.replace(
-            '- When means.purchaseSimulationApplied is true and means.projectedScoreAfterPurchase is available, the visible response MUST include that exact projected score.\n- Never say a purchase "keeps" the current score unless means.currentScore and means.projectedScoreAfterPurchase are actually equal.\n- Never ignore a non-zero means.scoreChange or means.roomChange. Describe the before → after score movement accurately whenever both scores are available.',
-            '- When means.purchaseSimulationApplied is true and means.projectedScoreAfterPurchase is available, the FINAL ASSEMBLED response will include that exact projected score through the application-owned natural consequence sentence. Do not repeat it in your own reply.\n- Never say a purchase "keeps" the current score unless means.currentScore and means.projectedScoreAfterPurchase are actually equal.\n- Never ignore a non-zero means.scoreChange or means.roomChange in your reasoning. The application-owned sentence will state the exact movement; your own reply should interpret what it means for the user.',
-            1,
-          )
+          old = '- Also use means.currentRoomUntilPayday → means.projectedRoomAfterPurchase when that makes the consequence clearer.'
+          new = '- Use means.currentRoomUntilPayday and means.projectedRoomAfterPurchase only when the breathing-room consequence materially helps, and phrase it naturally without arrows or report notation.'
+          if old in text:
+              text = text.replace(old, new, 1)
 
-          old = '''    const before = Number.isFinite(Number(means.currentScore)) ? Number(means.currentScore) : null;
-            const after = Number(means.projectedScoreAfterPurchase);
-            const movement = before !== null
-              ? `from ${before} to ${after}`
-              : `to ${after}`;
-            const guidance = after >= 100
-              ? `still above your 100 protection line`
-              : `below your 100 protection line, so I'd wait or reduce the amount`;
+          old = '- When means.purchaseSimulationApplied is true and means.projectedScoreAfterPurchase is available, the visible response MUST include that exact projected score.\n- Never say a purchase "keeps" the current score unless means.currentScore and means.projectedScoreAfterPurchase are actually equal.\n- Never ignore a non-zero means.scoreChange or means.roomChange. Describe the before → after score movement accurately whenever both scores are available.'
+          new = '- When means.purchaseSimulationApplied is true and means.projectedScoreAfterPurchase is available, the FINAL ASSEMBLED response will include that exact projected score through the application-owned natural consequence sentence. Do not repeat it in your own reply.\n- Never say a purchase "keeps" the current score unless means.currentScore and means.projectedScoreAfterPurchase are actually equal.\n- Never ignore a non-zero means.scoreChange or means.roomChange in your reasoning. The application-owned sentence will state the exact movement; your own reply should interpret what it means for the user.'
+          if old in text:
+              text = text.replace(old, new, 1)
 
-            const metricLine = formatClaraMetricImpactLine(means);
-            return {
-              action: "ready",
-              reply: `${metricLine} ${guidance}. Will you still buy it?`.trim(),'''
-          new = '''    const after = Number(means.projectedScoreAfterPurchase);
-            const guidance = after >= 100
-              ? "You'd still be above your 100 protection line."
-              : "That would put you below your 100 protection line, so I'd wait or reduce the amount.";
+          start_marker = '    const before = Number.isFinite(Number(means.currentScore)) ? Number(means.currentScore) : null;'
+          end_marker = '      reply: `${metricLine} ${guidance}. Will you still buy it?`.trim(),'
+          start = text.find(start_marker)
+          end = text.find(end_marker, start)
+          if start == -1 or end == -1:
+              raise SystemExit('fallback block markers not found')
+          end += len(end_marker)
+          replacement = '''    const after = Number(means.projectedScoreAfterPurchase);
+    const guidance = after >= 100
+      ? "You'd still be above your 100 protection line."
+      : "That would put you below your 100 protection line, so I'd wait or reduce the amount.";
 
-            const metricLine = formatClaraMetricImpactLine(means);
-            return {
-              action: "ready",
-              reply: `${metricLine} ${guidance} Will you still buy it?`.trim(),'''
-          if old not in text:
-              raise SystemExit('fallback block not found')
-          text = text.replace(old, new, 1)
+    const metricLine = formatClaraMetricImpactLine(means);
+    return {
+      action: "ready",
+      reply: `${metricLine} ${guidance} Will you still buy it?`.trim(),'''
+          text = text[:start] + replacement + text[end:]
 
-          text = text.replace(
-            '''  return {
-            means: null,
-            purchaseAlreadyUnderstood: {
-              item: purchase.item,
-              price,
-              suggestedTransactionReason: purchase.reason,
-            },
-          };''',
-            '''  return {
-            means: null,
-            purchaseAlreadyUnderstood: {
-              item: purchase.item,
-              price,
-              suggestedTransactionReason: purchase.reason,
-            },
-          };'''.replace('  means:', '    means:').replace('  purchaseAlreadyUnderstood:', '    purchaseAlreadyUnderstood:').replace('    item:', '      item:').replace('    price,', '      price,').replace('    suggestedTransactionReason:', '      suggestedTransactionReason:').replace('  },\n};', '    },\n  };'),
-            1,
-          )
+          # Clean the no-Means return indentation left by the first surgical pass.
+          malformed = '''  return {
+  means: null,
+  purchaseAlreadyUnderstood: {
+    item: purchase.item,
+    price,
+    suggestedTransactionReason: purchase.reason,
+  },
+};'''
+          clean = '''  return {
+    means: null,
+    purchaseAlreadyUnderstood: {
+      item: purchase.item,
+      price,
+      suggestedTransactionReason: purchase.reason,
+    },
+  };'''
+          if malformed in text:
+              text = text.replace(malformed, clean, 1)
+
           path.write_text(text)
           PY
 
@@ -92,6 +85,7 @@ jobs:
           node --test tests/buy-check-metric-impact.test.mjs
           grep -q 'FINAL ASSEMBLED response will include' src/lib/clara-buy-check-expert-ai.js
           grep -q "You'd still be above your 100 protection line" src/lib/clara-buy-check-expert-ai.js
+          ! grep -q 'guidance}. Will you still buy it' src/lib/clara-buy-check-expert-ai.js
 
       - name: Commit and push polish
         shell: bash
