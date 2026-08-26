@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, PiggyBank, X } from "lucide-react";
+import { ArrowUp, PiggyBank } from "lucide-react";
+import ClaraChatHeader from "./ClaraChatHeader";
 import useFinancialData from "@/hooks/useFinancialData";
 
 const OTHER_OPTION = "__other__";
@@ -1049,20 +1050,11 @@ export default function ClaraSavingsGoalOverlay({
     >
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_5%_4%,rgba(23,105,255,.28),transparent_34%),radial-gradient(circle_at_96%_8%,rgba(43,225,216,.10),transparent_34%),linear-gradient(180deg,#06152e_0%,#040b1a_44%,#020714_100%)]" />
 
-      <header className="relative z-20 mx-1 min-h-16 shrink-0 overflow-hidden rounded-[24px] border border-blue-200/18 bg-[linear-gradient(115deg,rgba(5,26,62,.98),rgba(7,22,48,.98)_56%,rgba(7,31,38,.96))] px-14 shadow-[0_16px_38px_rgba(0,0,0,.28)]">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,#1769ff,#2be1d8)]" />
-        <h1 className="absolute inset-0 flex items-center justify-center px-16 text-center text-[17px] font-black tracking-[-.025em] text-white">
-          Savings Goal
-        </h1>
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full border border-blue-100/28 bg-[#07152d]/86 text-white/88 active:scale-95"
-          aria-label="Close Savings Goal"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </header>
+      <ClaraChatHeader
+        title="Savings Goal"
+        tagline="Set · Save · Reach your goal"
+        onClose={onClose}
+      />
 
       <main
         ref={viewportRef}

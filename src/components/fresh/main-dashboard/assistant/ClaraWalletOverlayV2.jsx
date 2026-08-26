@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUp, X } from "lucide-react";
+import { ArrowUp } from "lucide-react";
+import ClaraChatHeader from "./ClaraChatHeader";
 import {
   addMoney,
   addWallet,
@@ -566,23 +567,11 @@ export default function ClaraWalletOverlayV2({
     >
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_5%_4%,rgba(23,105,255,0.28),transparent_34%),radial-gradient(circle_at_96%_8%,rgba(43,225,216,0.12),transparent_34%),linear-gradient(180deg,#06152e_0%,#040b1a_44%,#020714_100%)]" />
 
-      <header className="relative z-20 mx-1 shrink-0 overflow-hidden rounded-[24px] border border-blue-200/18 bg-[linear-gradient(115deg,rgba(5,26,62,0.98),rgba(7,22,48,0.98)_56%,rgba(7,31,38,0.96))] px-14 py-4 shadow-[0_16px_38px_rgba(0,0,0,0.28)]">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,#1769ff,#2be1d8)]" />
-        <h1 className="text-center text-[17px] font-black tracking-[-0.025em] text-white">Wallet</h1>
-        {wallets.length ? (
-          <p className="mt-1 text-center text-[9.5px] font-bold uppercase tracking-[0.13em] text-blue-100/38">
-            Current · Protected · Spendable
-          </p>
-        ) : null}
-        <button
-          type="button"
-          onClick={closeWallet}
-          className="absolute right-3 top-1/2 z-30 grid h-9 w-9 -translate-y-1/2 touch-manipulation place-items-center rounded-full border border-blue-100/28 bg-[#07152d]/86 text-white/88 transition active:scale-95"
-          aria-label="Close Wallet"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </header>
+      <ClaraChatHeader
+        title="Wallet"
+        tagline="Current · Protected · Spendable"
+        onClose={closeWallet}
+      />
 
       <main className="relative z-10 min-h-0 flex-1 overflow-y-auto px-2 pb-5 pt-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex min-h-full flex-col gap-3">
