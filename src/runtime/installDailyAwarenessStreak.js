@@ -10,10 +10,6 @@ import {
   loadState,
   writeState,
 } from "@/components/fresh/main-dashboard/daily-tip/logic/dailyCheckInPersistence.js";
-import {
-  CLARA_PRODUCT_ACCESS_CHANGED_EVENT,
-  isClaraProductRuntimeLocked,
-} from "@/lib/clara-product-runtime-access";
 
 const INSTALLED_FLAG = "__CLARA_DAILY_AWARENESS_STREAK_INSTALLED__";
 const BANNER_ID = "clara-daily-awareness-streak-banner";
@@ -80,13 +76,7 @@ function removeBanner() {
 }
 
 function showPremiumBanner(state) {
-  if (
-    isClaraProductRuntimeLocked() ||
-    !document.body ||
-    document.getElementById(BANNER_ID)
-  ) {
-    return;
-  }
+  if (!document.body || document.getElementById(BANNER_ID)) return;
   ensureStyles();
 
   const completed = Math.max(
@@ -129,10 +119,6 @@ function showPremiumBanner(state) {
 }
 
 function activateDailyAwarenessStreak() {
-  if (isClaraProductRuntimeLocked()) {
-    removeBanner();
-    return;
-  }
   if (document.visibilityState === "hidden" || !shouldRunOnCurrentRoute()) return;
 
   const identity = getAuthenticatedIdentity();
@@ -163,21 +149,12 @@ function handleVisibilityChange() {
   if (document.visibilityState === "visible") activateDailyAwarenessStreak();
 }
 
-function handleProductAccessChange() {
-  if (isClaraProductRuntimeLocked()) {
-    removeBanner();
-    return;
-  }
-  activateDailyAwarenessStreak();
-}
-
 if (typeof window !== "undefined" && typeof document !== "undefined" && !window[INSTALLED_FLAG]) {
   window[INSTALLED_FLAG] = true;
 
   window.addEventListener("pageshow", activateDailyAwarenessStreak);
   window.addEventListener("focus", activateDailyAwarenessStreak);
   window.addEventListener("hashchange", activateDailyAwarenessStreak);
-  window.addEventListener(CLARA_PRODUCT_ACCESS_CHANGED_EVENT, handleProductAccessChange);
   document.addEventListener("visibilitychange", handleVisibilityChange);
 
   if (document.readyState === "loading") {

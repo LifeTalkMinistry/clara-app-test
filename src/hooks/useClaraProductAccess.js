@@ -5,7 +5,6 @@ import {
   getStoredBackendToken,
 } from "@/lib/clara-backend-client";
 import { redeemBetaTesterCode } from "@/lib/beta-tester-access-client";
-import { setClaraProductRuntimeAccess } from "@/lib/clara-product-runtime-access";
 
 function normalizeTrial(trial) {
   if (!trial || typeof trial !== "object") {
@@ -43,7 +42,6 @@ export default function useClaraProductAccess() {
     if (isAdmin || isPaid) {
       setChecking(false);
       setError("");
-      setClaraProductRuntimeAccess(true, isAdmin ? "admin" : "paid-plan");
       return null;
     }
 
@@ -51,28 +49,21 @@ export default function useClaraProductAccess() {
     if (!token) {
       setChecking(false);
       setError("Sign in again so CLARA can verify your access.");
-      setClaraProductRuntimeAccess(false, "missing-session");
       return null;
     }
 
     setChecking(true);
     setError("");
-    setClaraProductRuntimeAccess(false, "checking-access");
 
     try {
       const user = await backendRequest("/api/users/me", { token });
       const nextTrial = normalizeTrial(user?.trial);
       setTrial(nextTrial);
-      setClaraProductRuntimeAccess(
-        nextTrial.status === "active",
-        nextTrial.status === "active" ? "active-trial" : "trial-locked"
-      );
       return nextTrial;
     } catch (accessError) {
       setError(
         accessError?.message || "CLARA could not verify your access right now."
       );
-      setClaraProductRuntimeAccess(false, "access-check-failed");
       return null;
     } finally {
       setChecking(false);
@@ -88,10 +79,6 @@ export default function useClaraProductAccess() {
     const response = await redeemBetaTesterCode(code);
     const nextTrial = normalizeTrial(response?.user?.trial);
     setTrial(nextTrial);
-    setClaraProductRuntimeAccess(
-      nextTrial.status === "active",
-      nextTrial.status === "active" ? "trial-redeemed" : "trial-redemption-unconfirmed"
-    );
     return nextTrial;
   }, []);
 
@@ -99,14 +86,6 @@ export default function useClaraProductAccess() {
     () => isAdmin || isPaid || trial.status === "active",
     [isAdmin, isPaid, trial.status]
   );
-
-  useEffect(() => {
-    if (roleLoading || checking) return;
-    setClaraProductRuntimeAccess(
-      hasProductAccess,
-      hasProductAccess ? "react-access-active" : "react-access-locked"
-    );
-  }, [checking, hasProductAccess, roleLoading]);
 
   return {
     isAdmin,
