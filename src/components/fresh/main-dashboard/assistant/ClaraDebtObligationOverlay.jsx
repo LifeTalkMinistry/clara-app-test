@@ -89,7 +89,7 @@ function ChoiceButton({ children, onClick, disabled = false, secondary = false, 
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`relative z-20 min-h-12 w-full touch-manipulation rounded-[18px] border px-4 py-3 text-left text-[13px] font-black transition active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-45 ${tone}`}
+      className={`relative z-20 min-h-12 w-full touch-manipulation rounded-[18px] border px-4 text-[13px] font-black transition active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-45 ${tone}`}
     >
       {children}
     </button>
@@ -280,8 +280,9 @@ export default function ClaraDebtObligationOverlay({
     queueNextAssistantMessage(token, options.skipInitialDelay === true);
   };
 
-  const reload = async () => {
+  const reload = async (expectedToken = null) => {
     const next = await getDebtObligations(localUserId);
+    if (expectedToken !== null && expectedToken !== sequenceTokenRef.current) return null;
     const normalized = Array.isArray(next) ? next : [];
     setRecords(normalized);
     return normalized;
@@ -297,17 +298,20 @@ export default function ClaraDebtObligationOverlay({
 
   const startOpeningConversation = async () => {
     cancelConversationPacing();
+    const openingToken = sequenceTokenRef.current;
     resetDraft();
     setRecords([]);
     setMessages([]);
     setPhase("loading");
     try {
-      await reload();
+      const loaded = await reload(openingToken);
+      if (loaded === null || openingToken !== sequenceTokenRef.current) return;
       runAssistantSequence(
-        [`Hi ${firstName}! 👋`, "Debt / Obligations is open. What would you like to do?"],
+        [`Hi ${firstName}! 👋`, "Debt / Obligations is open.", "What would you like to do with your obligations?"],
         "home"
       );
     } catch (nextError) {
+      if (openingToken !== sequenceTokenRef.current) return;
       const message = clean(nextError?.message || "I couldn’t load your obligations right now.");
       setError(message);
       runAssistantSequence([message], "home");
@@ -366,6 +370,9 @@ export default function ClaraDebtObligationOverlay({
   const closeChat = () => {
     cancelConversationPacing();
     resetDraft();
+    setRecords([]);
+    setMessages([]);
+    setPhase("opening");
     onClose?.();
   };
 
@@ -522,19 +529,23 @@ export default function ClaraDebtObligationOverlay({
     };
 
     cancelConversationPacing();
+    const operationToken = sequenceTokenRef.current;
     setBusy(true);
     setError("");
     setPhase("saving");
     append(chatMessage("user", "Save obligation"));
     try {
       await upsertDebtObligation(localUserId, payload);
-      await reload();
+      if (operationToken !== sequenceTokenRef.current) return;
+      const loaded = await reload(operationToken);
+      if (loaded === null || operationToken !== sequenceTokenRef.current) return;
       setBusy(false);
       setDraft(freshDraft());
       setInput("");
       setSelectedId("");
       runAssistantSequence([`${payload.title} is saved. What would you like to do next?`], "home", { skipInitialDelay: true });
     } catch (nextError) {
+      if (operationToken !== sequenceTokenRef.current) return;
       const message = clean(nextError?.message || "Unable to save this obligation.");
       setBusy(false);
       setError(message);
@@ -555,17 +566,21 @@ export default function ClaraDebtObligationOverlay({
     if (!selectedRecord?.id || !controlsReady) return;
     const title = getDebtTitle(selectedRecord);
     cancelConversationPacing();
+    const operationToken = sequenceTokenRef.current;
     setBusy(true);
     setError("");
     setPhase("deleting");
     append(chatMessage("user", "Yes, delete it"));
     try {
       await deleteDebtObligation(localUserId, selectedRecord.id);
-      await reload();
+      if (operationToken !== sequenceTokenRef.current) return;
+      const loaded = await reload(operationToken);
+      if (loaded === null || operationToken !== sequenceTokenRef.current) return;
       setBusy(false);
       setSelectedId("");
       runAssistantSequence([`${title} was removed. What would you like to do next?`], "home", { skipInitialDelay: true });
     } catch (nextError) {
+      if (operationToken !== sequenceTokenRef.current) return;
       const message = clean(nextError?.message || "Unable to delete this obligation.");
       setBusy(false);
       setError(message);
@@ -646,8 +661,8 @@ export default function ClaraDebtObligationOverlay({
             <div className="mt-1 grid gap-2.5">
               {records.map((record) => (
                 <ChoiceButton key={record.id} onClick={() => selectManagedRecord(record)}>
-                  <span className="block">{getDebtTitle(record)}</span>
-                  <span className="mt-1 block text-[10px] font-semibold text-white/55">{summaryText(record)}</span>
+                  <span className="block text-left">{getDebtTitle(record)}</span>
+                  <span className="mt-1 block text-left text-[10px] font-semibold text-white/55">{summaryText(record)}</span>
                 </ChoiceButton>
               ))}
               <ChoiceButton secondary onClick={() => goHome("Back")}>Back</ChoiceButton>
