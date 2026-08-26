@@ -1,0 +1,63 @@
+name: Apply trial content preview
+
+on:
+  push:
+    branches:
+      - fix/trial-gate-content-preview
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/trial-gate-content-preview
+          fetch-depth: 0
+
+      - name: Layer trial gate over visible CLARA content
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          community = Path('src/pages/Community.jsx')
+          text = community.read_text()
+          old = '''      ) : gateCurrentView ? (\n        <ClaraTrialAccessGate\n          trial={trial}\n          checking={checkingProductAccess}\n          error={productAccessError}\n          onRedeem={redeemTrialCode}\n          onRetry={refreshAccess}\n        />\n      ) : adminOnlyForCurrentUser ? ('''
+          new = '''      ) : gateCurrentView ? (\n        <div\n          className="relative min-h-0 flex-1 overflow-hidden bg-[#010217]"\n          data-clara-trial-content-preview="true"\n        >\n          <div\n            className="absolute inset-0 z-0 select-none"\n            aria-hidden="true"\n            inert=""\n            data-clara-trial-preview-content="true"\n          >\n            <ClaraOrbPage onActivate={() => {}} />\n          </div>\n          <div className="absolute inset-0 z-20 flex min-h-0" data-clara-trial-gate-layer="true">\n            <ClaraTrialAccessGate\n              trial={trial}\n              checking={checkingProductAccess}\n              error={productAccessError}\n              onRedeem={redeemTrialCode}\n              onRetry={refreshAccess}\n            />\n          </div>\n        </div>\n      ) : adminOnlyForCurrentUser ? ('''
+          if old not in text:
+              raise SystemExit('Community trial gate branch not found')
+          community.write_text(text.replace(old, new, 1))
+
+          gate = Path('src/components/community/ClaraTrialAccessGate.jsx')
+          text = gate.read_text()
+          old_class = 'className="relative flex min-h-0 w-full flex-1 items-center justify-center overflow-y-auto bg-[radial-gradient(circle_at_50%_16%,rgba(52,91,255,0.15),transparent_34%),radial-gradient(circle_at_50%_76%,rgba(235,185,52,0.07),transparent_34%),#010217] px-5 py-8 text-white"'
+          new_class = 'className="relative flex min-h-0 w-full flex-1 items-center justify-center overflow-y-auto bg-[radial-gradient(circle_at_50%_16%,rgba(52,91,255,0.10),transparent_34%),radial-gradient(circle_at_50%_76%,rgba(235,185,52,0.045),transparent_34%),linear-gradient(180deg,rgba(1,2,23,0.30),rgba(1,2,23,0.54))] px-5 py-8 text-white"'
+          if old_class not in text:
+              raise SystemExit('Trial gate background class not found')
+          gate.write_text(text.replace(old_class, new_class, 1))
+
+          test_file = Path('tests/trial-gate-runtime-boundary.test.mjs')
+          tests = test_file.read_text()
+          marker = 'test("daily awareness cannot persist a check-in before product access is active"'
+          insert = '''test("trial gate overlays visible inert CLARA content instead of replacing it", async () => {\n  const community = await source("src/pages/Community.jsx");\n  const gate = await source("src/components/community/ClaraTrialAccessGate.jsx");\n\n  assert.match(community, /data-clara-trial-content-preview="true"/);\n  assert.match(community, /data-clara-trial-preview-content="true"/);\n  assert.match(community, /inert=""/);\n  assert.match(community, /<ClaraOrbPage onActivate=\\{\\(\\) => \\{\\}\\} \\/>/);\n  assert.match(community, /data-clara-trial-gate-layer="true"/);\n  assert.match(gate, /linear-gradient\\(180deg,rgba\\(1,2,23,0\\.30\\),rgba\\(1,2,23,0\\.54\\)\\)/);\n  assert.doesNotMatch(gate, /,#010217\\] px-5 py-8 text-white/);\n});\n\n'''
+          if 'trial gate overlays visible inert CLARA content instead of replacing it' not in tests:
+              index = tests.find(marker)
+              if index < 0:
+                  raise SystemExit('Trial runtime test insertion point not found')
+              tests = tests[:index] + insert + tests[index:]
+              test_file.write_text(tests)
+          PY
+
+      - name: Run focused regression
+        run: node --test tests/trial-gate-runtime-boundary.test.mjs
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Community.jsx src/components/community/ClaraTrialAccessGate.jsx tests/trial-gate-runtime-boundary.test.mjs
+          git commit -m "Show CLARA content behind trial gate"
+          git push origin HEAD:fix/trial-gate-content-preview
