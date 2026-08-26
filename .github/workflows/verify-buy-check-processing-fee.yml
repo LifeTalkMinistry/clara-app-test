@@ -1,0 +1,22 @@
+name: Verify Buy Check Processing Fee
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/lib/clara-buy-check-intelligence-router.js'
+      - 'src/lib/clara-buy-check-expert-ai.js'
+      - 'tests/buy-check-processing-fee-ambiguity.test.mjs'
+      - '.github/workflows/verify-buy-check-processing-fee.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node --test tests/buy-check-processing-fee-ambiguity.test.mjs tests/buy-check-progressive-router.test.mjs
+      - run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
+      - run: npm run build
