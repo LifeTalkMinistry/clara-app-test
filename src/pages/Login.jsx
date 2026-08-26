@@ -186,7 +186,7 @@ function FirstGlance({ onLogin, onSignup, onStartTrial }) {
           </div>
 
           <h1 className="mx-auto mt-9 max-w-[20rem] text-[2rem] font-bold leading-[1.12] tracking-[-0.035em] text-white sm:text-[2.2rem]">
-            Could ₱99 a month help you keep ₱3,000–₱5,000 more of your money?
+            Could ₱99 a month help you keep <span className="whitespace-nowrap">₱3,000–₱5,000</span> more of your money?
           </h1>
           <p className="mt-4 text-base font-medium text-white/62">
             Watch the video and see how.
