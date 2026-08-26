@@ -78,10 +78,15 @@
 
 /*
  * Canonical command order
- * Core destinations stay first, Profile remains the identity endpoint,
- * Learning/Coaching/Guide remain the utility group, and Settings is always
- * the final control in the shared top navigation.
+ * The primary product destinations follow their JSX order exactly:
+ * ORB, Home, Calendar, Settings. Secondary/community destinations follow,
+ * then Profile and the Learning/Coaching/Guide utility group.
  */
+.clara-community-root[data-community-view]
+  .clara-community-shell-nav > a[aria-label="Open Settings"] {
+  order: 0 !important;
+}
+
 .clara-community-root[data-community-view]
   .clara-community-shell-nav > a[aria-label="Open Community profile"] {
   order: 1 !important;
@@ -98,11 +103,6 @@
 .clara-community-root[data-community-view]
   .clara-community-shell-nav > [data-clara-topnav-tool="guide"] {
   order: 3 !important;
-}
-
-.clara-community-root[data-community-view]
-  .clara-community-shell-nav > a[aria-label="Open Settings"] {
-  order: 4 !important;
 }
 
 /*
