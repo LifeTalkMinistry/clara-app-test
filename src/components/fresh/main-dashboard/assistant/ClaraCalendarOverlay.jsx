@@ -146,7 +146,6 @@ function Composer({ value, onChange, onSubmit, placeholder, inputMode = "text" }
       className="flex items-center gap-2 rounded-[22px] border border-blue-200/14 bg-[#07142b]/96 p-2 shadow-[0_14px_34px_rgba(0,0,0,.28)]"
     >
       <input
-        autoFocus
         value={value}
         onChange={(event) => onChange?.(event.target.value)}
         placeholder={placeholder}
