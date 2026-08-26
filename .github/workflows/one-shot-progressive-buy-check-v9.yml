@@ -25,10 +25,10 @@ jobs:
           node --check src/lib/clara-buy-check-expert-ai.js
           node --test tests/buy-check-progressive-router.test.mjs tests/buy-check-metric-impact.test.mjs tests/buy-check-gemini-authority.test.mjs
 
-      - name: Install and build
+      - name: Install and compile app
         run: |
           npm install --no-audit --no-fund
-          npm run build
+          npx vite build
 
       - name: Commit verified repair
         run: |
