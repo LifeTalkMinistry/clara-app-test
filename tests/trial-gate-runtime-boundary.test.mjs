@@ -20,6 +20,17 @@ test("trial gate keeps Community navigation visible as an inert preview", async 
   assert.doesNotMatch(runtime, /> \.clara-community-shell-header \{\s*display: none !important/);
 });
 
+test("trial banner keeps the actual CLARA Orb visible underneath while locked", async () => {
+  const gate = await source("src/components/community/ClaraTrialAccessGate.jsx");
+
+  assert.match(gate, /import ClaraOrbPage from/);
+  assert.match(gate, /data-clara-trial-preview-content="true"/);
+  assert.match(gate, /inert=""/);
+  assert.match(gate, /<ClaraOrbPage onActivate=\{\(\) => \{\}\} \/>/);
+  assert.match(gate, /data-clara-trial-preview-scrim="true"/);
+  assert.match(gate, /relative z-20 w-full max-w-\[440px\]/);
+});
+
 test("daily awareness cannot persist a check-in before product access is active", async () => {
   const daily = await source("src/runtime/installDailyAwarenessStreak.js");
 
