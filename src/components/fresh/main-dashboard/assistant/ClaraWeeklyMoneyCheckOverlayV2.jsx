@@ -5,12 +5,10 @@ import {
   getWalletId,
   getWalletName,
   isActiveWalletForMoneySemantics,
+  isMoneyLentWallet,
 } from "@/lib/clara-wallet-money-semantics";
 import { getRecurringCashFlowOwnerId } from "@/lib/recurringCashFlowRepository";
-import {
-  readWeeklyMoneyCheckState,
-  WEEKLY_MONEY_CHECK_UPDATED_EVENT,
-} from "@/lib/weeklyMoneyCheckState";
+import { WEEKLY_MONEY_CHECK_UPDATED_EVENT } from "@/lib/weeklyMoneyCheckState";
 import {
   getClaraReadDelay,
   getClaraReplyDelay,
@@ -18,21 +16,11 @@ import {
 } from "@/lib/clara-conversation-pacing";
 
 const SESSION_STORAGE_PREFIX = "clara_weekly_money_check_v1";
-const FLOW_VERSION = "weekly-money-check-chat-v2-masterclass-pacing";
+const FLOW_VERSION = "weekly-money-check-chat-v5-confirm-first-money-lent";
 const DIFFERENCE_EPSILON = 0.009;
 const BELOW_MEANS_BADGE_ID = "below_your_means";
 
-function clean(value = "") {
-  return String(value || "").replace(/\s+/g, " ").trim();
-}
-
-function displayText(value = "") {
-  return String(value || "").trim();
-}
-
-function normalize(value = "") {
-  return clean(value).toLowerCase();
-}
+const clean = (value = "") => String(value || "").replace(/\s+/g, " ").trim();
 
 function parseMoney(value) {
   const parsed = Number(String(value ?? "").replace(/[₱,\s]/g, ""));
@@ -60,8 +48,7 @@ function getFirstName(user = {}) {
   );
   if (raw) return raw.split(" ")[0];
   const email = clean(user?.email);
-  if (email.includes("@")) return email.split("@")[0];
-  return "there";
+  return email.includes("@") ? email.split("@")[0] : "there";
 }
 
 function sessionStorageKey(user) {
@@ -83,39 +70,102 @@ function writeWeeklySession(user, nextSession) {
   return next;
 }
 
-function message(role, text, options = {}) {
+function chatMessage(role, text) {
   return {
     id: `weekly-check-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     role,
-    text,
-    animate: options.animate ?? role === "assistant",
+    text: String(text || "").trim(),
   };
 }
 
-function restoreMessages(messages = []) {
-  return (Array.isArray(messages) ? messages : []).map((entry) => ({
-    ...entry,
-    animate: false,
-  }));
+function Bubble({ role = "assistant", children, typing = false }) {
+  const assistant = role === "assistant";
+  return (
+    <div className={`flex ${assistant ? "justify-start" : "justify-end"}`}>
+      <div
+        className={`max-w-[86%] rounded-[20px] px-4 py-3 text-[13px] font-semibold leading-5 shadow-[0_12px_28px_rgba(0,0,0,0.20)] ${
+          assistant
+            ? "rounded-tl-[7px] border border-blue-200/12 bg-[#0a1933]/94 text-slate-100"
+            : "rounded-tr-[7px] border border-blue-300/22 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] text-white"
+        }`}
+      >
+        <span className="whitespace-pre-wrap">{children}</span>
+        {typing ? (
+          <span className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[2px] animate-pulse rounded-full bg-cyan-100/75" />
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
-function getMismatchIndexes(snapshots = []) {
-  return snapshots
-    .map((snapshot, index) => ({ snapshot, index }))
-    .filter(({ snapshot }) => Math.abs(Number(snapshot?.difference) || 0) > DIFFERENCE_EPSILON)
-    .map(({ index }) => index);
+function ChoiceButton({ children, onClick, disabled = false, secondary = false }) {
+  const tone = secondary
+    ? "border-white/10 bg-white/[0.035] text-white/88"
+    : "border-blue-300/25 bg-[linear-gradient(135deg,rgba(23,105,255,0.96),rgba(13,79,198,0.96))] text-white shadow-[0_12px_30px_rgba(23,105,255,0.22)]";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`relative z-20 min-h-12 w-full touch-manipulation rounded-[18px] border px-4 text-[13px] font-black transition active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-45 ${tone}`}
+    >
+      {children}
+    </button>
+  );
 }
 
-function nextQuestionCopy(snapshot) {
-  return `Next, let’s check your ${snapshot.walletName}. How much do you actually have there right now?`;
-}
-
-function openingWalletQuestion(snapshot) {
-  return `Great. Let’s start with your ${snapshot.walletName}. Can you check your actual ${snapshot.walletName} balance right now and tell me how much is there?`;
+function Composer({ value, onChange, onSubmit, placeholder, inputMode = "text", disabled = false }) {
+  return (
+    <form
+      data-clara-buy-check-react-form="true"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit?.();
+      }}
+      className="relative z-20 flex items-center gap-2 rounded-[22px] border border-blue-200/14 bg-[#07142b]/96 p-2 shadow-[0_14px_34px_rgba(0,0,0,0.28)]"
+    >
+      <input
+        value={value}
+        onChange={(event) => onChange?.(event.target.value)}
+        placeholder={placeholder}
+        inputMode={inputMode}
+        autoComplete="off"
+        disabled={disabled}
+        className="min-h-11 min-w-0 flex-1 bg-transparent px-3 text-[14px] font-semibold text-white outline-none placeholder:text-slate-400/62 disabled:opacity-50"
+      />
+      <button
+        type="submit"
+        disabled={disabled || !clean(value)}
+        className="grid h-11 w-11 shrink-0 touch-manipulation place-items-center rounded-full bg-[#1769ff] text-white shadow-[0_8px_22px_rgba(23,105,255,0.34)] transition active:scale-95 disabled:opacity-40"
+        aria-label="Send"
+      >
+        <ArrowUp className="h-4 w-4" />
+      </button>
+    </form>
+  );
 }
 
 function getDirectionChoices(snapshot) {
   const difference = Number(snapshot?.difference) || 0;
+
+  if (snapshot?.isMoneyLent) {
+    if (difference > 0) {
+      return [
+        { id: "lent_more", label: "They borrowed more" },
+        { id: "lent_adjustment", label: "The amount changed" },
+        { id: "other", label: "Something else" },
+        { id: "unknown", label: "I’m not sure" },
+      ];
+    }
+    return [
+      { id: "lent_repayment", label: "They paid me back" },
+      { id: "lent_adjustment", label: "The amount changed" },
+      { id: "other", label: "Something else" },
+      { id: "unknown", label: "I’m not sure" },
+    ];
+  }
+
   if (difference > 0) {
     return [
       { id: "money_in", label: "Money came in" },
@@ -135,11 +185,17 @@ function getDirectionChoices(snapshot) {
   ];
 }
 
+function getMismatchIndexes(snapshots = []) {
+  return snapshots
+    .map((snapshot, index) => ({ snapshot, index }))
+    .filter(({ snapshot }) => Math.abs(Number(snapshot?.difference) || 0) > DIFFERENCE_EPSILON)
+    .map(({ index }) => index);
+}
+
 function getWeeklyFlow(transactionHubSnapshot) {
   const records = Array.isArray(transactionHubSnapshot?.thisWeekTransactions)
     ? transactionHubSnapshot.thisWeekTransactions
     : [];
-
   let moneyIn = 0;
   let moneyOut = 0;
 
@@ -150,69 +206,36 @@ function getWeeklyFlow(transactionHubSnapshot) {
   });
 
   const canJudgeBelowMeans = moneyIn > DIFFERENCE_EPSILON;
-  const belowMeansAchieved = canJudgeBelowMeans && moneyOut <= moneyIn + DIFFERENCE_EPSILON;
-
   return {
     records,
     moneyIn,
     moneyOut,
     netFlow: moneyIn - moneyOut,
     canJudgeBelowMeans,
-    belowMeansAchieved,
+    belowMeansAchieved: canJudgeBelowMeans && moneyOut <= moneyIn + DIFFERENCE_EPSILON,
   };
 }
 
 function getWalletKnownActivity(records = [], walletName = "") {
-  const target = normalize(walletName);
-  const activity = {
-    incoming: 0,
-    outgoing: 0,
-    count: 0,
-    expenseCount: 0,
-    transferCount: 0,
-    incomeCount: 0,
-  };
-
+  const target = clean(walletName).toLowerCase();
+  const activity = { incoming: 0, outgoing: 0 };
   if (!target) return activity;
 
   records.forEach((record) => {
     const amount = Math.abs(Number(record?.amount) || 0);
     const group = clean(record?.group);
-    const wallet = normalize(record?.walletName);
-    const fromWallet = normalize(record?.fromWalletName);
-    const toWallet = normalize(record?.toWalletName);
+    const wallet = clean(record?.walletName).toLowerCase();
+    const fromWallet = clean(record?.fromWalletName).toLowerCase();
+    const toWallet = clean(record?.toWalletName).toLowerCase();
 
     if (group === "transfer") {
-      let touched = false;
-      if (fromWallet === target) {
-        activity.outgoing += amount;
-        touched = true;
-      }
-      if (toWallet === target) {
-        activity.incoming += amount;
-        touched = true;
-      }
-      if (touched) {
-        activity.count += 1;
-        activity.transferCount += 1;
-      }
+      if (fromWallet === target) activity.outgoing += amount;
+      if (toWallet === target) activity.incoming += amount;
       return;
     }
-
     if (wallet !== target) return;
-
-    if (group === "expense" || group === "savings") {
-      activity.outgoing += amount;
-      activity.count += 1;
-      activity.expenseCount += 1;
-      return;
-    }
-
-    if (group === "income") {
-      activity.incoming += amount;
-      activity.count += 1;
-      activity.incomeCount += 1;
-    }
+    if (group === "expense" || group === "savings") activity.outgoing += amount;
+    if (group === "income") activity.incoming += amount;
   });
 
   return activity;
@@ -226,336 +249,90 @@ function enrichSnapshotsWithKnownActivity(snapshots, weeklyRecords) {
 }
 
 function buildOverviewCopy(firstName, snapshots, weeklyFlow) {
-  const recordedTotal = snapshots.reduce(
-    (sum, snapshot) => sum + (Number(snapshot?.recordedBalance) || 0),
-    0
-  );
-  const actualTotal = snapshots.reduce(
-    (sum, snapshot) => sum + (Number(snapshot?.actualBalance) || 0),
-    0
-  );
-  const matchedCount = snapshots.filter(
-    (snapshot) => Math.abs(Number(snapshot?.difference) || 0) <= DIFFERENCE_EPSILON
-  ).length;
-
-  const totalLine = `Across all your wallets, you actually have ${money(actualTotal)} right now. CLARA currently has ${money(recordedTotal)} recorded.`;
-  const recordsLine = `${matchedCount} of ${snapshots.length} wallet${snapshots.length === 1 ? "" : "s"} already reconcile with the activity you logged, so I won’t ask you to explain those again.`;
+  const heldActualTotal = snapshots
+    .filter((snapshot) => !snapshot?.isMoneyLent)
+    .reduce((sum, snapshot) => sum + (Number(snapshot?.actualBalance) || 0), 0);
+  const moneyLentActualTotal = snapshots
+    .filter((snapshot) => snapshot?.isMoneyLent)
+    .reduce((sum, snapshot) => sum + (Number(snapshot?.actualBalance) || 0), 0);
+  const positionCopy = moneyLentActualTotal > DIFFERENCE_EPSILON
+    ? `Your confirmed money currently in your wallets is ${money(heldActualTotal)}. You also have ${money(moneyLentActualTotal)} still owed to you as Money Lent.`
+    : `Your confirmed money currently in your wallets is ${money(heldActualTotal)}.`;
 
   if (weeklyFlow.belowMeansAchieved) {
     const cushion = Math.max(0, weeklyFlow.moneyIn - weeklyFlow.moneyOut);
-    return `Great job, ${firstName}! 🎉\n\n${totalLine}\n\nFor this week’s recorded money flow, ${money(weeklyFlow.moneyIn)} came in and ${money(weeklyFlow.moneyOut)} went out. You stayed ${money(cushion)} below your means.\n\nGREAT JOB! You earned your “Below Your Means” badge for this week. 🏅\n\n${recordsLine}`;
+    return `I’ve finished comparing the wallets, ${firstName}. ${positionCopy} For this week, ${money(weeklyFlow.moneyIn)} came in and ${money(weeklyFlow.moneyOut)} went out, leaving ${money(cushion)} of room.`;
   }
 
   if (weeklyFlow.canJudgeBelowMeans) {
     const overBy = Math.max(0, weeklyFlow.moneyOut - weeklyFlow.moneyIn);
-    return `Great — I’ve finished the wallet check, ${firstName}.\n\n${totalLine}\n\nFor this week’s recorded money flow, ${money(weeklyFlow.moneyIn)} came in and ${money(weeklyFlow.moneyOut)} went out. That is ${money(overBy)} above this week’s recorded money-in. I’m not going to judge that number by itself — we’ll just make sure everything is explained correctly.\n\n${recordsLine}`;
+    return `I’ve finished comparing the wallets, ${firstName}. ${positionCopy} This week’s recorded money-out is ${money(overBy)} above recorded money-in, so I’ll focus on making the differences clear rather than judging the number by itself.`;
   }
 
-  return `Great — I’ve finished the wallet check, ${firstName}.\n\n${totalLine}\n\nI don’t have enough actual money-in recorded for this week to fairly decide a “Below Your Means” result, so I won’t invent one.\n\n${recordsLine}`;
+  return `I’ve finished comparing the wallets, ${firstName}. ${positionCopy} I don’t have enough money-in recorded this week to make a fair Below Your Means call, so I won’t invent one.`;
 }
 
 function buildConcernCopy(snapshot) {
   const difference = Number(snapshot?.difference) || 0;
   const amount = money(Math.abs(difference));
-  const activity = snapshot?.knownActivity || {};
-  const activityPieces = [];
 
+  if (snapshot?.isMoneyLent) {
+    if (difference < 0) {
+      return `${snapshot.walletName} now owes you ${amount} less than CLARA had recorded. What changed?`;
+    }
+    return `${snapshot.walletName} now owes you ${amount} more than CLARA had recorded. What changed?`;
+  }
+
+  const activity = snapshot?.knownActivity || {};
+  const pieces = [];
   if ((Number(activity.outgoing) || 0) > DIFFERENCE_EPSILON) {
-    activityPieces.push(`${money(activity.outgoing)} recorded going out`);
+    pieces.push(`${money(activity.outgoing)} already recorded going out`);
   }
   if ((Number(activity.incoming) || 0) > DIFFERENCE_EPSILON) {
-    activityPieces.push(`${money(activity.incoming)} recorded coming in`);
+    pieces.push(`${money(activity.incoming)} already recorded coming in`);
   }
-
-  const knownCopy = activityPieces.length
-    ? `I already accounted for ${activityPieces.join(" and ")} in this wallet this week.`
-    : `I checked the activity already logged for this wallet first.`;
+  const known = pieces.length
+    ? `I already accounted for ${pieces.join(" and ")}.`
+    : "I checked the activity already logged for this wallet first.";
 
   if (difference < 0) {
-    return `There is just one thing I want to cross-check. Your ${snapshot.walletName} is still ${amount} lower than CLARA can explain. ${knownCopy} After those records, this ${amount} is still not accounted for. What happened to it?`;
+    return `Your ${snapshot.walletName} is still ${amount} lower than CLARA can explain. ${known} What happened to the remaining ${amount}?`;
   }
-
-  return `There is just one thing I want to cross-check. Your ${snapshot.walletName} is still ${amount} higher than CLARA can explain. ${knownCopy} After those records, this ${amount} is still not accounted for. Where did it come from?`;
+  return `Your ${snapshot.walletName} is still ${amount} higher than CLARA can explain. ${known} Where did the remaining ${amount} come from?`;
 }
 
-function WeeklyHeader({ onClose }) {
-  return (
-    <header className="relative z-20 mx-1 shrink-0 overflow-hidden rounded-[24px] border border-blue-200/18 bg-[linear-gradient(115deg,rgba(5,26,62,0.98),rgba(7,22,48,0.98)_52%,rgba(35,10,28,0.96))] px-4 py-3.5 pr-14 shadow-[0_16px_38px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.05)]">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,#1769ff_0%,#1769ff_42%,#ffd84a_42%,#ffd84a_56%,#e53945_56%,#e53945_100%)]" />
-      <p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#ffd84a]/88">CLARA MONEY TOOLS</p>
-      <h1 className="mt-1 text-[17px] font-black tracking-[-0.025em] text-white">Weekly Money Check</h1>
-      <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-100/42">Check · Compare · Understand</p>
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute right-3 top-1/2 z-20 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full border border-blue-100/28 bg-[#07152d]/86 text-white/88 transition active:scale-95"
-        aria-label="Close Weekly Money Check"
-      >
-        <X className="h-4 w-4" />
-      </button>
-    </header>
-  );
-}
-
-function TypewriterText({ text, onComplete, className = "", delayBeforeTyping = true }) {
-  const fullText = displayText(text);
-  const [visible, setVisible] = useState("");
-  const completeRef = useRef(onComplete);
-
-  useEffect(() => {
-    completeRef.current = onComplete;
-  }, [onComplete]);
-
-  useEffect(() => {
-    const plan = getClaraTypingPlan(fullText);
-    let cancelled = false;
-    let index = 0;
-    let timerId = 0;
-    let startTimerId = 0;
-
-    setVisible("");
-
-    const start = () => {
-      if (cancelled) return;
-      if (!plan.source) {
-        completeRef.current?.();
-        return;
-      }
-      timerId = window.setInterval(() => {
-        if (cancelled) return;
-        index = Math.min(plan.source.length, index + plan.charsPerTick);
-        setVisible(plan.source.slice(0, index));
-        if (index >= plan.source.length) {
-          window.clearInterval(timerId);
-          timerId = 0;
-          completeRef.current?.();
-        }
-      }, plan.tickMs);
-    };
-
-    if (delayBeforeTyping) startTimerId = window.setTimeout(start, getClaraReplyDelay());
-    else start();
-
-    return () => {
-      cancelled = true;
-      if (startTimerId) window.clearTimeout(startTimerId);
-      if (timerId) window.clearInterval(timerId);
-    };
-  }, [delayBeforeTyping, fullText]);
-
-  return (
-    <span className={className}>
-      {visible}
-      <span className="ml-0.5 inline-block h-[1em] w-[1.5px] animate-pulse bg-white/55 align-[-0.12em]" />
-    </span>
-  );
-}
-
-function WeeklyEntryBoard({ firstName, onStart, onClose }) {
-  const [ready, setReady] = useState(false);
-  const readTimerRef = useRef(null);
-
-  useEffect(
-    () => () => {
-      if (readTimerRef.current) window.clearTimeout(readTimerRef.current);
-      readTimerRef.current = null;
-    },
-    []
-  );
-
-  const finishGreeting = () => {
-    if (readTimerRef.current) window.clearTimeout(readTimerRef.current);
-    readTimerRef.current = window.setTimeout(() => {
-      setReady(true);
-      readTimerRef.current = null;
-    }, getClaraReadDelay());
-  };
-
-  return (
-    <section
-      data-clara-pause-entry-board="true"
-      data-clara-buy-check-board="true"
-      className="relative overflow-hidden rounded-[30px] border border-blue-200/20 bg-[#061226]/78 px-6 pb-7 pt-7 text-center shadow-[0_26px_80px_rgba(0,0,0,0.40),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl"
-    >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,#1769ff_0%,#1769ff_42%,#ffd84a_42%,#ffd84a_56%,#e53945_56%,#e53945_100%)]" />
-      <p className="text-[9px] font-black uppercase tracking-[0.22em] text-blue-200/52">WEEKLY CHECK-IN</p>
-      <div className="mx-auto mt-4 flex min-h-[112px] max-w-[320px] items-center justify-center rounded-[22px] border border-blue-200/12 bg-black/20 px-5 py-4">
-        <p className="text-[16px] font-extrabold leading-[1.48] text-white/94">
-          <TypewriterText
-            text={`Hi ${firstName}! Great job — you remembered your scheduled Weekly Money Check.`}
-            onComplete={finishGreeting}
-          />
-        </p>
-      </div>
-      <div className={`mx-auto mt-5 max-w-[318px] text-center transition-opacity duration-300 ${ready ? "opacity-100" : "opacity-0"}`}>
-        <strong className="block text-[16px] font-black leading-[1.4] text-white/95">Are you ready to start?</strong>
-        <span className="mt-1.5 block text-[12px] font-semibold leading-[1.55] text-slate-300/72">
-          We’ll quickly check your real wallet balances one by one.
-        </span>
-      </div>
-      <div className={`mt-5 grid grid-cols-2 gap-2.5 transition-opacity duration-300 ${ready ? "opacity-100" : "pointer-events-none opacity-0"}`}>
-        <button type="button" onClick={onStart} className="min-h-11 rounded-full border border-blue-300/24 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] px-4 text-[12px] font-black text-white">
-          Yes, let’s start
-        </button>
-        <button type="button" onClick={onClose} className="min-h-11 rounded-full border border-white/10 bg-white/[0.035] px-4 text-[12px] font-black text-white/82">
-          Not right now
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function MessageRow({ entry, onTypingComplete }) {
-  const isUser = entry?.role === "user";
-  const bubbleRef = useRef(null);
-  const fullText = displayText(entry?.text);
-  const shouldAnimate = !isUser && entry?.animate !== false;
-  const [visibleText, setVisibleText] = useState(shouldAnimate ? "" : fullText);
-  const completeRef = useRef(onTypingComplete);
-
-  useEffect(() => {
-    completeRef.current = onTypingComplete;
-  }, [onTypingComplete]);
-
-  useEffect(() => {
-    if (!shouldAnimate) {
-      setVisibleText(fullText);
-      return undefined;
-    }
-
-    const plan = getClaraTypingPlan(fullText);
-    setVisibleText("");
-    let cancelled = false;
-    let index = 0;
-    let timerId = 0;
-    let startTimerId = 0;
-
-    const start = () => {
-      if (cancelled) return;
-      timerId = window.setInterval(() => {
-        if (cancelled) return;
-        index = Math.min(plan.source.length, index + plan.charsPerTick);
-        setVisibleText(plan.source.slice(0, index));
-        bubbleRef.current?.scrollIntoView?.({ block: "end", behavior: "smooth" });
-        if (index >= plan.source.length) {
-          window.clearInterval(timerId);
-          timerId = 0;
-          completeRef.current?.(entry.id);
-        }
-      }, plan.tickMs);
-    };
-
-    startTimerId = window.setTimeout(start, getClaraReplyDelay());
-    return () => {
-      cancelled = true;
-      if (startTimerId) window.clearTimeout(startTimerId);
-      if (timerId) window.clearInterval(timerId);
-    };
-  }, [entry?.id, fullText, shouldAnimate]);
-
-  return (
-    <div className={`flex min-w-0 w-full ${isUser ? "justify-end" : "justify-start"}`}>
-      <div
-        ref={bubbleRef}
-        className={`min-w-0 break-words [overflow-wrap:break-word] ${
-          isUser
-            ? "max-w-[86%] rounded-[24px] border border-blue-300/22 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] px-4 py-3 text-[13px] font-semibold leading-5 text-white shadow-[0_12px_28px_rgba(23,105,255,0.20)]"
-            : "w-[94%] max-w-[94%] rounded-[26px] border border-blue-200/14 border-l-2 border-l-[#ffd84a]/45 bg-[#07152d]/88 px-4 py-4 text-[13.5px] leading-6 text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-xl"
-        }`}
-      >
-        <span className="whitespace-pre-wrap">{visibleText}</span>
-        {shouldAnimate && visibleText.length < fullText.length ? (
-          <span className="ml-0.5 inline-block h-[1em] w-[1.5px] animate-pulse bg-white/55 align-[-0.12em]" />
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function Composer({ phase, onSubmit, submitLocked = false }) {
-  const [draft, setDraft] = useState("");
-  const inputRef = useRef(null);
-  const isMoney = phase === "wallet_entry";
-  const placeholder = isMoney ? "Enter actual balance" : "Tell CLARA what happened";
-
-  useEffect(() => {
-    setDraft("");
-    if (submitLocked) return undefined;
-    const frame = window.requestAnimationFrame(() => inputRef.current?.focus?.({ preventScroll: true }));
-    return () => window.cancelAnimationFrame(frame);
-  }, [phase, submitLocked]);
-
-  const submit = (event) => {
-    event.preventDefault();
-    const value = draft.trim();
-    if (!value || submitLocked) return;
-    const accepted = onSubmit?.(value);
-    if (accepted !== false) setDraft("");
-  };
-
-  return (
-    <form
-      data-clara-buy-check-react-form="true"
-      onSubmit={submit}
-      className="relative z-30 shrink-0 overflow-hidden rounded-[28px] border border-blue-200/16 bg-[#040b1a]/96 p-2.5"
-    >
-      <div className="flex items-center gap-2 rounded-[22px] border border-blue-200/14 bg-[#08142b]/94 px-3 py-2">
-        <input
-          ref={inputRef}
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          disabled={submitLocked}
-          className="min-w-0 flex-1 bg-transparent py-2 text-[14px] font-medium text-white outline-none placeholder:text-slate-400/72 disabled:opacity-45"
-          placeholder={placeholder}
-          inputMode={isMoney ? "decimal" : "text"}
-          aria-label={placeholder}
-        />
-        <button type="submit" disabled={!draft.trim() || submitLocked} className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-blue-300/24 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] text-white disabled:opacity-40">
-          <ArrowUp className="h-5 w-5" />
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function ChoiceBar({ phase, snapshot, onChoice, onClose, disabled = false }) {
-  const wrapperClass = disabled ? "pointer-events-none opacity-35" : "";
-
-  if (phase === "classify_difference") {
-    return (
-      <div className={`relative z-20 grid gap-2 px-1 pb-2 pt-1 ${wrapperClass}`}>
-        {getDirectionChoices(snapshot).map((choice) => (
-          <button key={choice.id} type="button" onClick={() => onChoice(choice.id, choice.label)} className="min-h-11 rounded-[18px] border border-blue-200/14 bg-[#07152d]/88 px-4 text-[12px] font-black text-white/90">
-            {choice.label}
-          </button>
-        ))}
-      </div>
-    );
+function walletConfirmationQuestion(snapshot) {
+  const recorded = money(snapshot?.recordedBalance);
+  if (snapshot?.isMoneyLent) {
+    return `CLARA has ${recorded} recorded as still owed to you by ${snapshot.walletName}. Is that still correct?`;
   }
-
-  if (phase === "completed" || phase === "no_wallets") {
-    return (
-      <div className={`relative z-20 px-1 pb-2 pt-1 ${wrapperClass}`}>
-        <button type="button" onClick={onClose} className="min-h-11 w-full rounded-full border border-blue-300/24 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] px-4 text-[12px] font-black text-white">
-          Done
-        </button>
-      </div>
-    );
-  }
-
-  return null;
+  return `CLARA has ${recorded} recorded in ${snapshot.walletName}. Is that still correct?`;
 }
 
-function mergeTrailingAssistant(messages, text) {
+function walletExactAmountQuestion(snapshot) {
+  if (snapshot?.isMoneyLent) {
+    return `Okay. How much does ${snapshot.walletName} still owe you right now?`;
+  }
+  return `Okay. What is the exact ${snapshot.walletName} balance right now?`;
+}
+
+function walletConfirmedCopy(snapshot, actualBalance) {
+  if (snapshot?.isMoneyLent) {
+    return `Got it — ${money(actualBalance)} is still owed to you by ${snapshot.walletName}.`;
+  }
+  return `Got it — ${snapshot.walletName} is ${money(actualBalance)}.`;
+}
+
+// Kept as a small transcript helper because the Weekly pacing regression also
+// verifies that consecutive CLARA thoughts can stay in one logical turn.
+function mergeTrailingAssistant(messages = [], text = "") {
   const list = Array.isArray(messages) ? messages : [];
   const last = list[list.length - 1];
-  if (last?.role === "assistant") {
-    return [
-      ...list.slice(0, -1),
-      message("assistant", `${displayText(last.text)}\n\n${displayText(text)}`),
-    ];
-  }
-  return [...list, message("assistant", text)];
+  if (last?.role !== "assistant") return [...list, chatMessage("assistant", text)];
+  return [
+    ...list.slice(0, -1),
+    { ...last, text: `${String(last.text || "").trim()}\n\n${String(text || "").trim()}` },
+  ];
 }
 
 export default function ClaraWeeklyMoneyCheckOverlayV2({
@@ -563,7 +340,7 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
   claraAssistantContext = {},
   onClose,
 }) {
-  const user = claraAssistantContext?.user || null;
+  const user = claraAssistantContext?.user || {};
   const firstName = getFirstName(user);
   const activeWallets = useMemo(
     () =>
@@ -573,6 +350,7 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
           walletId: getWalletId(wallet),
           walletName: getWalletName(wallet) || "wallet",
           recordedBalance: getWalletCurrentBalance(wallet),
+          isMoneyLent: isMoneyLentWallet(wallet),
         })),
     [claraAssistantContext?.wallets]
   );
@@ -581,48 +359,205 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
     [claraAssistantContext?.transactionHubSnapshot]
   );
 
-  const [phase, setPhase] = useState("ready");
+  const [phase, setPhase] = useState("opening");
   const [messages, setMessages] = useState([]);
+  const [pendingMessage, setPendingMessage] = useState(null);
+  const [typedText, setTypedText] = useState("");
+  const [interactionReady, setInteractionReady] = useState(false);
   const [snapshots, setSnapshots] = useState([]);
   const [currentWalletIndex, setCurrentWalletIndex] = useState(0);
   const [reviewWalletIndex, setReviewWalletIndex] = useState(-1);
-  const [typingMessageId, setTypingMessageId] = useState(null);
-  const [readLocked, setReadLocked] = useState(false);
-  const previousActiveRef = useRef(false);
-  const readTimerRef = useRef(null);
+  const [input, setInput] = useState("");
+  const [error, setError] = useState("");
+
+  const viewportRef = useRef(null);
+  const timerIdsRef = useRef(new Set());
+  const typingTimerRef = useRef(null);
+  const sequenceRef = useRef([]);
+  const sequencePhaseRef = useRef("wallet_confirm");
+  const sequenceTokenRef = useRef(0);
+  const sequenceCompleteRef = useRef(null);
   const pendingReviewRef = useRef(null);
+  const previousActiveRef = useRef(false);
 
+  const currentSnapshot = snapshots[currentWalletIndex] || null;
   const currentReviewSnapshot = reviewWalletIndex >= 0 ? snapshots[reviewWalletIndex] : null;
-  const showComposer = ["wallet_entry", "forgotten_spend_detail", "other_detail"].includes(phase);
-  const interactionLocked = Boolean(typingMessageId) || readLocked;
 
-  useEffect(() => {
-    const last = messages[messages.length - 1];
-    if (last?.role === "assistant" && last?.animate !== false) {
-      setTypingMessageId(last.id);
-      setReadLocked(false);
-      if (readTimerRef.current) window.clearTimeout(readTimerRef.current);
-      readTimerRef.current = null;
-    } else {
-      setTypingMessageId(null);
-    }
-  }, [messages]);
-
-  const persist = (next = {}) => {
-    const existing = readWeeklyMoneyCheckState(user)?.session || {};
-    return writeWeeklySession(user, {
-      ...existing,
-      conversationVersion: FLOW_VERSION,
-      phase: next.phase ?? phase,
-      conversationMessages: next.messages ?? messages,
-      walletSnapshots: next.snapshots ?? snapshots,
-      currentWalletIndex: next.currentWalletIndex ?? currentWalletIndex,
-      reviewWalletIndex: next.reviewWalletIndex ?? reviewWalletIndex,
-      ...(next.extra || {}),
+  const scrollToLatest = () => {
+    if (typeof window === "undefined") return;
+    window.requestAnimationFrame(() => {
+      const viewport = viewportRef.current;
+      if (viewport) viewport.scrollTop = viewport.scrollHeight;
     });
   };
 
-  const completeCheck = (nextSnapshots, nextMessages) => {
+  const append = (...nextMessages) => {
+    setMessages((current) => [...current, ...nextMessages]);
+    scrollToLatest();
+  };
+
+  const registerTimeout = (callback, delay) => {
+    const id = window.setTimeout(() => {
+      timerIdsRef.current.delete(id);
+      callback();
+    }, delay);
+    timerIdsRef.current.add(id);
+    return id;
+  };
+
+  const clearPacingTimers = () => {
+    if (typingTimerRef.current) window.clearInterval(typingTimerRef.current);
+    typingTimerRef.current = null;
+    timerIdsRef.current.forEach((id) => window.clearTimeout(id));
+    timerIdsRef.current.clear();
+  };
+
+  const cancelConversationPacing = () => {
+    sequenceTokenRef.current += 1;
+    clearPacingTimers();
+    sequenceRef.current = [];
+    sequenceCompleteRef.current = null;
+    pendingReviewRef.current = null;
+    setPendingMessage(null);
+    setTypedText("");
+    setInteractionReady(false);
+  };
+
+  const queueNextAssistantMessage = (token, skipDelay = false) => {
+    if (token !== sequenceTokenRef.current) return;
+    const nextText = sequenceRef.current.shift();
+    if (!nextText) {
+      setPendingMessage(null);
+      setTypedText("");
+      setPhase(sequencePhaseRef.current);
+      const completed = sequenceCompleteRef.current;
+      sequenceCompleteRef.current = null;
+      registerTimeout(() => {
+        if (token !== sequenceTokenRef.current) return;
+        if (completed) completed();
+        else setInteractionReady(true);
+      }, getClaraReadDelay());
+      return;
+    }
+
+    const show = () => {
+      if (token !== sequenceTokenRef.current) return;
+      setTypedText("");
+      setPendingMessage(chatMessage("assistant", nextText));
+      scrollToLatest();
+    };
+
+    if (skipDelay) show();
+    else registerTimeout(show, getClaraReplyDelay());
+  };
+
+  const runAssistantSequence = (replyTexts, nextPhase, options = {}) => {
+    cancelConversationPacing();
+    const replies = replyTexts.map((text) => String(text || "").trim()).filter(Boolean);
+    const token = sequenceTokenRef.current;
+    sequenceRef.current = replies;
+    sequencePhaseRef.current = nextPhase;
+    sequenceCompleteRef.current = typeof options.onComplete === "function" ? options.onComplete : null;
+    setPhase("responding");
+    setInteractionReady(false);
+    queueNextAssistantMessage(token, options.skipInitialDelay === true);
+  };
+
+  const buildSession = (next = {}) => ({
+    conversationVersion: FLOW_VERSION,
+    status: next.status || "in_progress",
+    startedAt: next.startedAt || new Date().toISOString(),
+    completedAt: next.completedAt ?? null,
+    phase: next.phase ?? phase,
+    conversationMessages: next.messages ?? messages,
+    walletSnapshots: next.snapshots ?? snapshots,
+    currentWalletIndex: next.currentWalletIndex ?? currentWalletIndex,
+    reviewWalletIndex: next.reviewWalletIndex ?? reviewWalletIndex,
+    checkedWallets: next.checkedWallets ?? snapshots.filter((snapshot) => snapshot.actualBalance !== null).length,
+    totalWallets: next.totalWallets ?? snapshots.length,
+    ...(next.extra || {}),
+  });
+
+  const persist = (next = {}) => writeWeeklySession(user, buildSession(next));
+
+  const resetLocalState = () => {
+    setPhase("opening");
+    setMessages([]);
+    setPendingMessage(null);
+    setTypedText("");
+    setInteractionReady(false);
+    setSnapshots([]);
+    setCurrentWalletIndex(0);
+    setReviewWalletIndex(-1);
+    setInput("");
+    setError("");
+  };
+
+  const startOpeningConversation = () => {
+    cancelConversationPacing();
+    resetLocalState();
+
+    if (!activeWallets.length) {
+      writeWeeklySession(user, {
+        conversationVersion: FLOW_VERSION,
+        status: "idle",
+        startedAt: null,
+        completedAt: null,
+        phase: "no_wallets",
+        conversationMessages: [],
+        walletSnapshots: [],
+        currentWalletIndex: 0,
+        reviewWalletIndex: -1,
+        checkedWallets: 0,
+        totalWallets: 0,
+      });
+      runAssistantSequence(
+        [
+          `Hi ${firstName}! 👋`,
+          "Weekly Cross-Check is open.",
+          "I can’t find an active wallet to check yet. Add a wallet first, then come back here.",
+        ],
+        "no_wallets"
+      );
+      return;
+    }
+
+    const nextSnapshots = activeWallets.map((wallet) => ({
+      ...wallet,
+      actualBalance: null,
+      difference: null,
+      explanation: null,
+      knownActivity: null,
+      checkedAt: null,
+    }));
+    const startedAt = new Date().toISOString();
+    setSnapshots(nextSnapshots);
+    setCurrentWalletIndex(0);
+    writeWeeklySession(user, {
+      conversationVersion: FLOW_VERSION,
+      status: "in_progress",
+      startedAt,
+      completedAt: null,
+      phase: "wallet_confirm",
+      conversationMessages: [],
+      walletSnapshots: nextSnapshots,
+      currentWalletIndex: 0,
+      reviewWalletIndex: -1,
+      checkedWallets: 0,
+      totalWallets: nextSnapshots.length,
+    });
+    runAssistantSequence(
+      [
+        `Hi ${firstName}! 👋`,
+        "Weekly Cross-Check is open.",
+        "I’ll show what CLARA currently has for each wallet. If it’s right, just tap Yes. If not, tell me the exact amount.",
+        walletConfirmationQuestion(nextSnapshots[0]),
+      ],
+      "wallet_confirm"
+    );
+  };
+
+  const markCompleted = (nextSnapshots, nextMessages = messages) => {
     const mismatchIndexes = getMismatchIndexes(nextSnapshots);
     const unexplainedAmount = mismatchIndexes.reduce((sum, index) => {
       const snapshot = nextSnapshots[index];
@@ -638,465 +573,493 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
       (sum, snapshot) => sum + (Number(snapshot?.actualBalance) || 0),
       0
     );
-    const finalCopy = unexplainedAmount > DIFFERENCE_EPSILON
-      ? `Done. I saved this Weekly Money Check. ${money(unexplainedAmount)} is still unexplained, and I left it that way instead of guessing. Nothing was deducted again during this check.`
-      : `Done. I saved this Weekly Money Check. Everything we needed to cross-check now has an explanation, and nothing was deducted again during this check.`;
-    const completedMessages = mergeTrailingAssistant(nextMessages, finalCopy);
     const badge = weeklyFlow.belowMeansAchieved
-      ? {
-          id: BELOW_MEANS_BADGE_ID,
-          label: "Below Your Means",
-          earnedAt: new Date().toISOString(),
-        }
+      ? { id: BELOW_MEANS_BADGE_ID, label: "Below Your Means", earnedAt: new Date().toISOString() }
       : null;
+    const completedAt = new Date().toISOString();
 
-    setMessages(completedMessages);
     setSnapshots(nextSnapshots);
-    setPhase("completed");
-    persist({
+    writeWeeklySession(user, {
+      conversationVersion: FLOW_VERSION,
+      status: "completed",
+      startedAt: buildSession().startedAt,
+      completedAt,
       phase: "completed",
-      messages: completedMessages,
-      snapshots: nextSnapshots,
-      extra: {
-        status: "completed",
-        checkedWallets: nextSnapshots.length,
-        totalWallets: nextSnapshots.length,
-        completedAt: new Date().toISOString(),
-        recordedWalletTotal,
-        actualWalletTotal,
-        unexplainedAmount,
-        mismatchedWallets: mismatchIndexes.length,
-        weeklyMoneyIn: weeklyFlow.moneyIn,
-        weeklyMoneyOut: weeklyFlow.moneyOut,
-        weeklyNetFlow: weeklyFlow.netFlow,
-        belowMeansAchieved: weeklyFlow.belowMeansAchieved,
-        weeklyBadge: badge,
-      },
+      conversationMessages: nextMessages,
+      walletSnapshots: nextSnapshots,
+      currentWalletIndex: nextSnapshots.length,
+      reviewWalletIndex: -1,
+      checkedWallets: nextSnapshots.length,
+      totalWallets: nextSnapshots.length,
+      recordedWalletTotal,
+      actualWalletTotal,
+      unexplainedAmount,
+      mismatchedWallets: mismatchIndexes.length,
+      weeklyMoneyIn: weeklyFlow.moneyIn,
+      weeklyMoneyOut: weeklyFlow.moneyOut,
+      weeklyNetFlow: weeklyFlow.netFlow,
+      belowMeansAchieved: weeklyFlow.belowMeansAchieved,
+      weeklyBadge: badge,
     });
+
+    const closingCopy = unexplainedAmount > DIFFERENCE_EPSILON
+      ? `Cross-check complete. ${money(unexplainedAmount)} is still unexplained, so I kept the reason honest instead of guessing. Your confirmed wallet balances will be aligned to the actual amounts you gave me.`
+      : "Cross-check complete. The differences are explained, and your confirmed wallet balances will be aligned to the actual amounts you gave me.";
+
+    runAssistantSequence([closingCopy], "completed");
   };
 
-  const beginReview = (rawSnapshots, priorMessages) => {
+  const moveToNextDifference = (nextSnapshots, fromIndex, nextMessages = messages) => {
+    const nextIndex = getMismatchIndexes(nextSnapshots).find((index) => index > fromIndex);
+    if (nextIndex === undefined) {
+      markCompleted(nextSnapshots, nextMessages);
+      return;
+    }
+
+    setSnapshots(nextSnapshots);
+    setReviewWalletIndex(nextIndex);
+    persist({
+      phase: "classify_difference",
+      snapshots: nextSnapshots,
+      reviewWalletIndex: nextIndex,
+      messages: nextMessages,
+    });
+    runAssistantSequence([buildConcernCopy(nextSnapshots[nextIndex])], "classify_difference");
+  };
+
+  const beginReview = (rawSnapshots, nextMessages = messages) => {
     const nextSnapshots = enrichSnapshotsWithKnownActivity(rawSnapshots, weeklyFlow.records);
     const mismatchIndexes = getMismatchIndexes(nextSnapshots);
     const overview = buildOverviewCopy(firstName, nextSnapshots, weeklyFlow);
+    setSnapshots(nextSnapshots);
 
     if (!mismatchIndexes.length) {
-      const allGoodCopy = `${overview}\n\nEverything lines up. The activity you already logged explains the wallets, so I’m not going to make you repeat any of it.`;
-      const allGoodMessages = [...priorMessages, message("assistant", allGoodCopy)];
-      setSnapshots(nextSnapshots);
-      setMessages(allGoodMessages);
-      setPhase("completed");
-
-      const recordedWalletTotal = nextSnapshots.reduce((sum, snapshot) => sum + (Number(snapshot?.recordedBalance) || 0), 0);
-      const actualWalletTotal = nextSnapshots.reduce((sum, snapshot) => sum + (Number(snapshot?.actualBalance) || 0), 0);
-      const badge = weeklyFlow.belowMeansAchieved
-        ? { id: BELOW_MEANS_BADGE_ID, label: "Below Your Means", earnedAt: new Date().toISOString() }
-        : null;
-
-      persist({
-        phase: "completed",
-        messages: allGoodMessages,
-        snapshots: nextSnapshots,
-        extra: {
-          status: "completed",
-          checkedWallets: nextSnapshots.length,
-          totalWallets: nextSnapshots.length,
-          completedAt: new Date().toISOString(),
-          recordedWalletTotal,
-          actualWalletTotal,
-          unexplainedAmount: 0,
-          mismatchedWallets: 0,
-          weeklyMoneyIn: weeklyFlow.moneyIn,
-          weeklyMoneyOut: weeklyFlow.moneyOut,
-          weeklyNetFlow: weeklyFlow.netFlow,
-          belowMeansAchieved: weeklyFlow.belowMeansAchieved,
-          weeklyBadge: badge,
-        },
-      });
+      persist({ phase: "reviewing", snapshots: nextSnapshots, messages: nextMessages });
+      runAssistantSequence(
+        [overview, "Everything lines up. The activity already recorded explains your wallets."],
+        "reviewing",
+        { onComplete: () => markCompleted(nextSnapshots, nextMessages) }
+      );
       return;
     }
 
     const firstIndex = mismatchIndexes[0];
-    const reviewCopy = `${overview}\n\n${buildConcernCopy(nextSnapshots[firstIndex])}`;
-    const reviewMessages = [...priorMessages, message("assistant", reviewCopy)];
-
-    setSnapshots(nextSnapshots);
-    setMessages(reviewMessages);
     setReviewWalletIndex(firstIndex);
-    setPhase("classify_difference");
     persist({
       phase: "classify_difference",
-      messages: reviewMessages,
       snapshots: nextSnapshots,
       reviewWalletIndex: firstIndex,
-      extra: {
-        checkedWallets: nextSnapshots.length,
-        totalWallets: nextSnapshots.length,
-        weeklyMoneyIn: weeklyFlow.moneyIn,
-        weeklyMoneyOut: weeklyFlow.moneyOut,
-        weeklyNetFlow: weeklyFlow.netFlow,
-        belowMeansAchieved: weeklyFlow.belowMeansAchieved,
-        weeklyBadge: weeklyFlow.belowMeansAchieved
-          ? { id: BELOW_MEANS_BADGE_ID, label: "Below Your Means", earnedAt: new Date().toISOString() }
-          : null,
-      },
+      messages: nextMessages,
     });
-  };
-
-  const moveToNextDifference = (nextSnapshots, nextMessages, fromIndex = reviewWalletIndex) => {
-    const nextIndex = getMismatchIndexes(nextSnapshots).find((index) => index > fromIndex);
-    if (nextIndex === undefined) {
-      completeCheck(nextSnapshots, nextMessages);
-      return;
-    }
-
-    const continuationMessages = mergeTrailingAssistant(
-      nextMessages,
-      buildConcernCopy(nextSnapshots[nextIndex])
-    );
-    setSnapshots(nextSnapshots);
-    setMessages(continuationMessages);
-    setReviewWalletIndex(nextIndex);
-    setPhase("classify_difference");
-    persist({
-      phase: "classify_difference",
-      messages: continuationMessages,
-      snapshots: nextSnapshots,
-      reviewWalletIndex: nextIndex,
-    });
+    runAssistantSequence([overview, buildConcernCopy(nextSnapshots[firstIndex])], "classify_difference");
   };
 
   useEffect(() => {
-    if (isActive && !previousActiveRef.current) {
-      const weeklyState = readWeeklyMoneyCheckState(user);
-      const session = weeklyState?.session || {};
-      const canResume =
-        session?.conversationVersion === FLOW_VERSION &&
-        Array.isArray(session?.walletSnapshots) &&
-        Array.isArray(session?.conversationMessages);
-
-      if (canResume && weeklyState?.key === "completed") {
-        setSnapshots(session.walletSnapshots);
-        setMessages(restoreMessages(session.conversationMessages));
-        setCurrentWalletIndex(Number(session.currentWalletIndex) || 0);
-        setReviewWalletIndex(Number.isInteger(session.reviewWalletIndex) ? session.reviewWalletIndex : -1);
-        setPhase("completed");
-      } else if (canResume && weeklyState?.key === "in_progress") {
-        setSnapshots(session.walletSnapshots);
-        setMessages(restoreMessages(session.conversationMessages));
-        setCurrentWalletIndex(Number(session.currentWalletIndex) || 0);
-        setReviewWalletIndex(Number.isInteger(session.reviewWalletIndex) ? session.reviewWalletIndex : -1);
-        const restoredPhase = clean(session.phase) || "wallet_entry";
-        setPhase(restoredPhase === "spending_recorded_check" ? "classify_difference" : restoredPhase);
-      } else {
-        setSnapshots([]);
-        setMessages([]);
-        setCurrentWalletIndex(0);
-        setReviewWalletIndex(-1);
-        setPhase("ready");
+    if (!pendingMessage) return undefined;
+    const token = sequenceTokenRef.current;
+    const plan = getClaraTypingPlan(pendingMessage.text);
+    let index = 0;
+    setTypedText("");
+    typingTimerRef.current = window.setInterval(() => {
+      if (token !== sequenceTokenRef.current) return;
+      index = Math.min(plan.source.length, index + plan.charsPerTick);
+      setTypedText(plan.source.slice(0, index));
+      scrollToLatest();
+      if (index >= plan.source.length) {
+        window.clearInterval(typingTimerRef.current);
+        typingTimerRef.current = null;
+        const completedMessage = pendingMessage;
+        setMessages((current) => [...current, completedMessage]);
+        setPendingMessage(null);
+        setTypedText("");
+        scrollToLatest();
+        queueNextAssistantMessage(token);
       }
-    }
-
-    if (!isActive && previousActiveRef.current) {
-      setPhase("ready");
-      setMessages([]);
-      setSnapshots([]);
-      setCurrentWalletIndex(0);
-      setReviewWalletIndex(-1);
-      setTypingMessageId(null);
-      setReadLocked(false);
-      pendingReviewRef.current = null;
-      if (readTimerRef.current) window.clearTimeout(readTimerRef.current);
-      readTimerRef.current = null;
-    }
-
-    previousActiveRef.current = isActive;
-  }, [isActive, user]);
+    }, plan.tickMs);
+    return () => {
+      if (typingTimerRef.current) window.clearInterval(typingTimerRef.current);
+      typingTimerRef.current = null;
+    };
+  }, [pendingMessage]);
 
   useEffect(() => {
-    if (!isActive) return undefined;
-    const handleEscape = (event) => {
-      if (event.key === "Escape") onClose?.();
-    };
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, [isActive, onClose]);
+    if (isActive && !previousActiveRef.current) startOpeningConversation();
+    if (!isActive && previousActiveRef.current) {
+      cancelConversationPacing();
+      resetLocalState();
+    }
+    previousActiveRef.current = isActive;
+  }, [isActive, firstName, activeWallets]);
 
-  useEffect(
-    () => () => {
-      if (readTimerRef.current) window.clearTimeout(readTimerRef.current);
-      readTimerRef.current = null;
-      pendingReviewRef.current = null;
-    },
-    []
-  );
+  useEffect(() => () => {
+    sequenceTokenRef.current += 1;
+    clearPacingTimers();
+  }, []);
 
   if (!isActive) return null;
 
-  const startCheck = () => {
-    if (!activeWallets.length) {
-      const noWalletMessages = [
-        message("user", "Yes, let’s start", { animate: false }),
-        message("assistant", "I can’t find an active wallet to check yet. Add a wallet first, then we can do your Weekly Money Check."),
-      ];
-      setMessages(noWalletMessages);
-      setPhase("no_wallets");
-      persist({
-        phase: "no_wallets",
-        messages: noWalletMessages,
-        snapshots: [],
-        extra: {
-          status: "in_progress",
-          startedAt: new Date().toISOString(),
-          checkedWallets: 0,
-          totalWallets: 0,
-          completedAt: null,
-        },
+  const controlsReady = interactionReady && !pendingMessage && phase !== "responding";
+  const typingMessageId = pendingMessage?.id || null;
+  const readLocked = phase === "responding" && !pendingMessage && !interactionReady;
+  const interactionLocked = Boolean(typingMessageId) || readLocked || !controlsReady;
+
+  const closeChat = () => {
+    const shouldCancelSession = phase !== "completed" && phase !== "no_wallets";
+    cancelConversationPacing();
+    if (shouldCancelSession) {
+      writeWeeklySession(user, {
+        conversationVersion: FLOW_VERSION,
+        status: "idle",
+        startedAt: null,
+        completedAt: null,
+        phase: "idle",
+        conversationMessages: [],
+        walletSnapshots: [],
+        currentWalletIndex: 0,
+        reviewWalletIndex: -1,
+        checkedWallets: 0,
+        totalWallets: activeWallets.length,
       });
-      return;
     }
-
-    const nextSnapshots = activeWallets.map((wallet) => ({
-      ...wallet,
-      actualBalance: null,
-      difference: null,
-      explanation: null,
-      knownActivity: null,
-      checkedAt: null,
-    }));
-    const startMessages = [
-      message("user", "Yes, let’s start", { animate: false }),
-      message("assistant", openingWalletQuestion(nextSnapshots[0])),
-    ];
-
-    setSnapshots(nextSnapshots);
-    setMessages(startMessages);
-    setCurrentWalletIndex(0);
-    setReviewWalletIndex(-1);
-    setPhase("wallet_entry");
-    writeWeeklySession(user, {
-      conversationVersion: FLOW_VERSION,
-      status: "in_progress",
-      startedAt: new Date().toISOString(),
-      completedAt: null,
-      phase: "wallet_entry",
-      conversationMessages: startMessages,
-      walletSnapshots: nextSnapshots,
-      currentWalletIndex: 0,
-      reviewWalletIndex: -1,
-      checkedWallets: 0,
-      totalWallets: nextSnapshots.length,
-    });
+    resetLocalState();
+    onClose?.();
   };
 
-  const submitComposer = (value) => {
-    if (interactionLocked) return false;
-
-    if (phase === "wallet_entry") {
-      const actualBalance = parseMoney(value);
-      if (actualBalance === null || actualBalance < 0) {
-        const errorMessages = [...messages, message("assistant", "Please enter the balance as a number, for example 1280.28.")];
-        setMessages(errorMessages);
-        persist({ messages: errorMessages });
-        return false;
-      }
-
-      const current = snapshots[currentWalletIndex];
-      if (!current) return false;
-      const nextSnapshots = snapshots.map((snapshot, index) =>
-        index === currentWalletIndex
-          ? {
-              ...snapshot,
-              actualBalance,
-              difference: actualBalance - (Number(snapshot.recordedBalance) || 0),
-              checkedAt: new Date().toISOString(),
-            }
-          : snapshot
-      );
-      const nextIndex = currentWalletIndex + 1;
-      const responseCopy = nextIndex < nextSnapshots.length
-        ? `Got it — your actual ${current.walletName} balance is ${money(actualBalance)}.\n\n${nextQuestionCopy(nextSnapshots[nextIndex])}`
-        : `Got it — your actual ${current.walletName} balance is ${money(actualBalance)}. I’ve now checked all your wallets. Give me a second to compare the whole picture.`;
-      const responseMessage = message("assistant", responseCopy);
-      const answeredMessages = [
-        ...messages,
-        message("user", money(actualBalance), { animate: false }),
-        responseMessage,
-      ];
-
-      setSnapshots(nextSnapshots);
-      setMessages(answeredMessages);
-
-      if (nextIndex < nextSnapshots.length) {
-        setCurrentWalletIndex(nextIndex);
-        persist({
-          phase: "wallet_entry",
-          messages: answeredMessages,
-          snapshots: nextSnapshots,
-          currentWalletIndex: nextIndex,
-          extra: { checkedWallets: nextIndex, totalWallets: nextSnapshots.length },
-        });
-      } else {
-        pendingReviewRef.current = {
-          messageId: responseMessage.id,
-          snapshots: nextSnapshots,
-          messages: answeredMessages,
-        };
-        persist({
-          phase: "wallet_entry",
-          messages: answeredMessages,
-          snapshots: nextSnapshots,
-          currentWalletIndex: nextIndex,
-          extra: { checkedWallets: nextIndex, totalWallets: nextSnapshots.length },
-        });
-      }
-      return true;
-    }
-
-    if (phase === "forgotten_spend_detail" || phase === "other_detail") {
-      const current = snapshots[reviewWalletIndex];
-      if (!current) return false;
-      const kind = phase === "forgotten_spend_detail" ? "unrecorded_spending" : "other";
-      const nextSnapshots = snapshots.map((snapshot, index) =>
-        index === reviewWalletIndex
-          ? {
-              ...snapshot,
-              explanation: {
-                kind,
-                note: clean(value),
-                capturedAt: new Date().toISOString(),
-              },
-            }
-          : snapshot
-      );
-      const nextMessages = [
-        ...messages,
-        message("user", clean(value), { animate: false }),
-        message(
-          "assistant",
-          phase === "forgotten_spend_detail"
-            ? "Got it. I’ll keep that as an explanation for this Weekly Money Check. I will not deduct it again from your wallet."
-            : "Got it. I’ve kept that explanation with this week’s check."
-        ),
-      ];
-      moveToNextDifference(nextSnapshots, nextMessages);
-      return true;
-    }
-
-    return false;
-  };
-
-  const handleChoice = (choiceId, label) => {
-    if (interactionLocked) return;
-    const current = snapshots[reviewWalletIndex];
+  const confirmCurrentWallet = (stillCorrect) => {
+    if (!controlsReady || phase !== "wallet_confirm") return;
+    const current = snapshots[currentWalletIndex];
     if (!current) return;
-    const userMessages = [...messages, message("user", label, { animate: false })];
 
-    if (choiceId === "spent") {
-      const nextMessages = [
-        ...userMessages,
-        message("assistant", `Okay. I already checked CLARA’s logged activity for ${current.walletName}, and this remaining amount is not in those records. What did you spend it on?`),
-      ];
-      setMessages(nextMessages);
-      setPhase("forgotten_spend_detail");
-      persist({ phase: "forgotten_spend_detail", messages: nextMessages });
+    if (!stillCorrect) {
+      const userMessage = chatMessage("user", "No, it changed");
+      append(userMessage);
+      setInput("");
+      setError("");
+      persist({
+        phase: "wallet_entry",
+        currentWalletIndex,
+        messages: [...messages, userMessage],
+      });
+      runAssistantSequence([walletExactAmountQuestion(current)], "wallet_entry");
       return;
     }
 
-    if (choiceId === "other") {
-      const nextMessages = [
-        ...userMessages,
-        message("assistant", "Okay. Tell me briefly what happened to that remaining difference."),
-      ];
-      setMessages(nextMessages);
-      setPhase("other_detail");
-      persist({ phase: "other_detail", messages: nextMessages });
+    const actualBalance = Math.max(Number(current.recordedBalance) || 0, 0);
+    const nextSnapshots = snapshots.map((snapshot, index) =>
+      index === currentWalletIndex
+        ? {
+            ...snapshot,
+            actualBalance,
+            difference: 0,
+            explanation: null,
+            checkedAt: new Date().toISOString(),
+          }
+        : snapshot
+    );
+    const nextIndex = currentWalletIndex + 1;
+    const userLabel = current.isMoneyLent
+      ? `Yes, still ${money(actualBalance)} owed`
+      : `Yes, still ${money(actualBalance)}`;
+    const userMessage = chatMessage("user", userLabel);
+    append(userMessage);
+    setSnapshots(nextSnapshots);
+    setError("");
+
+    if (nextIndex < nextSnapshots.length) {
+      setCurrentWalletIndex(nextIndex);
+      persist({
+        phase: "wallet_confirm",
+        snapshots: nextSnapshots,
+        currentWalletIndex: nextIndex,
+        checkedWallets: nextIndex,
+        messages: [...messages, userMessage],
+      });
+      runAssistantSequence(
+        [walletConfirmedCopy(current, actualBalance), walletConfirmationQuestion(nextSnapshots[nextIndex])],
+        "wallet_confirm"
+      );
       return;
     }
 
-    const explanationKind = choiceId === "unknown" ? "unknown" : choiceId;
+    setCurrentWalletIndex(nextIndex);
+    persist({
+      phase: "reviewing",
+      snapshots: nextSnapshots,
+      currentWalletIndex: nextIndex,
+      checkedWallets: nextIndex,
+      messages: [...messages, userMessage],
+    });
+    runAssistantSequence(
+      [walletConfirmedCopy(current, actualBalance), "I’ve checked all your wallets. I’m comparing them with CLARA’s records now."],
+      "reviewing",
+      { onComplete: () => beginReview(nextSnapshots, [...messages, userMessage]) }
+    );
+  };
+
+  const submitWalletBalance = () => {
+    if (!controlsReady || phase !== "wallet_entry") return;
+    const actualBalance = parseMoney(input);
+    if (actualBalance === null || actualBalance < 0) {
+      setError("Enter the exact amount as a number.");
+      return;
+    }
+    const current = snapshots[currentWalletIndex];
+    if (!current) return;
+
+    const nextSnapshots = snapshots.map((snapshot, index) =>
+      index === currentWalletIndex
+        ? {
+            ...snapshot,
+            actualBalance,
+            difference: actualBalance - (Number(snapshot.recordedBalance) || 0),
+            explanation: null,
+            checkedAt: new Date().toISOString(),
+          }
+        : snapshot
+    );
+    const nextIndex = currentWalletIndex + 1;
+    const userMessage = chatMessage("user", money(actualBalance));
+    append(userMessage);
+    setInput("");
+    setError("");
+    setSnapshots(nextSnapshots);
+
+    if (nextIndex < nextSnapshots.length) {
+      setCurrentWalletIndex(nextIndex);
+      persist({
+        phase: "wallet_confirm",
+        snapshots: nextSnapshots,
+        currentWalletIndex: nextIndex,
+        checkedWallets: nextIndex,
+        messages: [...messages, userMessage],
+      });
+      runAssistantSequence(
+        [walletConfirmedCopy(current, actualBalance), walletConfirmationQuestion(nextSnapshots[nextIndex])],
+        "wallet_confirm"
+      );
+      return;
+    }
+
+    setCurrentWalletIndex(nextIndex);
+    persist({
+      phase: "reviewing",
+      snapshots: nextSnapshots,
+      currentWalletIndex: nextIndex,
+      checkedWallets: nextIndex,
+      messages: [...messages, userMessage],
+    });
+    runAssistantSequence(
+      [walletConfirmedCopy(current, actualBalance), "I’ve checked all your wallets. I’m comparing them with CLARA’s records now."],
+      "reviewing",
+      { onComplete: () => beginReview(nextSnapshots, [...messages, userMessage]) }
+    );
+  };
+
+  const backWallet = () => {
+    if (!controlsReady || phase !== "wallet_entry") return;
+    const current = snapshots[currentWalletIndex];
+    if (!current) return;
+    setInput("");
+    setError("");
+    append(chatMessage("user", "Back"));
+    persist({ phase: "wallet_confirm", currentWalletIndex });
+    runAssistantSequence([walletConfirmationQuestion(current)], "wallet_confirm");
+  };
+
+  const handleChoice = (choice) => {
+    if (!controlsReady || phase !== "classify_difference" || !currentReviewSnapshot) return;
+    const userMessage = chatMessage("user", choice.label);
+    append(userMessage);
+
+    if (choice.id === "spent" || choice.id === "other") {
+      const nextPhase = choice.id === "spent" ? "forgotten_spend_detail" : "other_detail";
+      setError("");
+      persist({ phase: nextPhase, messages: [...messages, userMessage] });
+      runAssistantSequence(
+        [
+          choice.id === "spent"
+            ? `Okay. What did you spend the remaining ${money(Math.abs(Number(currentReviewSnapshot.difference) || 0))} on?`
+            : "Okay. Tell me briefly what happened to that remaining difference.",
+        ],
+        nextPhase
+      );
+      return;
+    }
+
     const nextSnapshots = snapshots.map((snapshot, index) =>
       index === reviewWalletIndex
         ? {
             ...snapshot,
             explanation: {
-              kind: explanationKind,
+              kind: choice.id,
               capturedAt: new Date().toISOString(),
             },
           }
         : snapshot
     );
-    const assistantCopy = choiceId === "unknown"
-      ? "That’s okay. I’ll leave this amount unexplained instead of inventing a transaction."
-      : choiceId.includes("transfer")
-        ? "Got it. I’ll keep that as a transfer explanation — not as spending, and I won’t deduct anything again."
-        : "Got it. I’ve captured that explanation for this week’s check without changing your wallet balance.";
-    moveToNextDifference(nextSnapshots, [...userMessages, message("assistant", assistantCopy)]);
+    const reply = choice.id === "unknown"
+      ? "That’s okay. I’ll keep the reason unexplained instead of inventing one."
+      : choice.id.includes("transfer")
+        ? "Got it. I’ll keep that as a transfer explanation, not as spending."
+        : "Got it. I’ve captured that explanation for this cross-check.";
+    persist({ snapshots: nextSnapshots, messages: [...messages, userMessage] });
+    runAssistantSequence([reply], "reviewing", {
+      onComplete: () => moveToNextDifference(nextSnapshots, reviewWalletIndex, [...messages, userMessage]),
+    });
   };
 
-  const handleTypingComplete = (messageId) => {
-    if (messageId !== typingMessageId) return;
-    setTypingMessageId(null);
-    setReadLocked(true);
-    if (readTimerRef.current) window.clearTimeout(readTimerRef.current);
-    const pendingReview = pendingReviewRef.current;
-    readTimerRef.current = window.setTimeout(() => {
-      setReadLocked(false);
-      readTimerRef.current = null;
-      if (pendingReview?.messageId === messageId) {
-        pendingReviewRef.current = null;
-        beginReview(pendingReview.snapshots, pendingReview.messages);
-      }
-    }, getClaraReadDelay());
+  const submitDetail = () => {
+    if (!controlsReady || !["forgotten_spend_detail", "other_detail"].includes(phase)) return;
+    const note = clean(input);
+    if (!note) return;
+    const currentIndex = reviewWalletIndex;
+    const kind = phase === "forgotten_spend_detail" ? "unrecorded_spending" : "other";
+    const userMessage = chatMessage("user", note);
+    const nextSnapshots = snapshots.map((snapshot, index) =>
+      index === currentIndex
+        ? {
+            ...snapshot,
+            explanation: { kind, note, capturedAt: new Date().toISOString() },
+          }
+        : snapshot
+    );
+    append(userMessage);
+    setInput("");
+    setError("");
+    persist({ snapshots: nextSnapshots, messages: [...messages, userMessage] });
+    runAssistantSequence(
+      [kind === "unrecorded_spending" ? "Got it. I’ll keep that as the explanation for this difference." : "Got it. I’ve kept that explanation with this week’s cross-check."],
+      "reviewing",
+      { onComplete: () => moveToNextDifference(nextSnapshots, currentIndex, [...messages, userMessage]) }
+    );
   };
+
+  const backDetail = () => {
+    if (!controlsReady || !["forgotten_spend_detail", "other_detail"].includes(phase)) return;
+    setInput("");
+    setError("");
+    append(chatMessage("user", "Back"));
+    runAssistantSequence([buildConcernCopy(currentReviewSnapshot)], "classify_difference");
+  };
+
+  const recheckReviewWallet = () => {
+    if (!controlsReady || phase !== "classify_difference" || reviewWalletIndex < 0) return;
+    const target = snapshots[reviewWalletIndex];
+    const nextSnapshots = snapshots.map((snapshot, index) =>
+      index >= reviewWalletIndex
+        ? { ...snapshot, actualBalance: null, difference: null, explanation: null, checkedAt: null }
+        : snapshot
+    );
+    setSnapshots(nextSnapshots);
+    setCurrentWalletIndex(reviewWalletIndex);
+    setReviewWalletIndex(-1);
+    setInput("");
+    setError("");
+    append(chatMessage("user", "Back"));
+    persist({
+      phase: "wallet_confirm",
+      snapshots: nextSnapshots,
+      currentWalletIndex: reviewWalletIndex,
+      reviewWalletIndex: -1,
+      checkedWallets: reviewWalletIndex,
+    });
+    runAssistantSequence([walletConfirmationQuestion(target)], "wallet_confirm");
+  };
+
+  const showComposer = controlsReady && ["wallet_entry", "forgotten_spend_detail", "other_detail"].includes(phase);
 
   return (
     <div
       className="fixed inset-0 z-[250] mx-auto flex w-full max-w-[430px] flex-col overflow-hidden bg-[#020714]/96 px-2 pb-[max(env(safe-area-inset-bottom),14px)] pt-[max(env(safe-area-inset-top),10px)] text-white"
-      data-clara-ai-brain-version="weekly-money-check-chat-v3-masterclass-pacing"
-      data-clara-ai-layout-variant="weekly-money-check"
-      data-clara-pause-overlay="true"
-      data-clara-buy-check-react-owner="true"
       data-clara-weekly-money-check="true"
+      data-clara-weekly-cross-check-chat="true"
       data-clara-conversation-pacing="masterclass"
     >
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_5%_4%,rgba(23,105,255,0.30),transparent_34%),radial-gradient(circle_at_52%_-8%,rgba(255,216,74,0.07),transparent_24%),radial-gradient(circle_at_96%_8%,rgba(229,57,69,0.18),transparent_34%),linear-gradient(180deg,#06152e_0%,#040b1a_44%,#020714_100%)]" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_5%_4%,rgba(23,105,255,0.28),transparent_34%),radial-gradient(circle_at_96%_8%,rgba(43,225,216,0.12),transparent_34%),linear-gradient(180deg,#06152e_0%,#040b1a_44%,#020714_100%)]" />
 
-      <WeeklyHeader onClose={onClose} />
+      <header className="relative z-20 mx-1 shrink-0 overflow-hidden rounded-[24px] border border-blue-200/18 bg-[linear-gradient(115deg,rgba(5,26,62,0.98),rgba(7,22,48,0.98)_56%,rgba(7,31,38,0.96))] px-4 py-3.5 pr-14 shadow-[0_16px_38px_rgba(0,0,0,0.28)]">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,#1769ff,#2be1d8)]" />
+        <p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#8ffff8]/78">CLARA CHAT</p>
+        <h1 className="mt-1 text-[17px] font-black tracking-[-0.025em] text-white">Weekly Cross-Check</h1>
+        <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-100/42">Verify · Reconcile · Stay accountable</p>
+        <button
+          type="button"
+          onClick={closeChat}
+          className="absolute inset-y-0 right-4 z-30 my-auto grid h-9 w-9 touch-manipulation place-items-center rounded-full border border-blue-100/28 bg-[#07152d]/86 text-white/88 transition active:scale-95"
+          aria-label="Close Weekly Cross-Check"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </header>
 
       <main
+        ref={viewportRef}
         data-clara-ai-message-viewport="true"
-        className="relative z-10 min-h-0 flex-1 overflow-y-auto px-0 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="relative z-10 min-h-0 flex-1 overflow-y-auto px-2 pb-5 pt-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        {phase === "ready" ? (
-          <div className="flex min-h-full flex-col justify-center px-1 pb-24 pt-3">
-            <WeeklyEntryBoard firstName={firstName} onStart={startCheck} onClose={onClose} />
-          </div>
-        ) : (
-          <div
-            data-clara-ai-message-stack="true"
-            className={`flex min-h-full min-w-0 flex-col justify-start gap-3 px-2 pt-1 ${showComposer ? "pb-28" : "pb-5"}`}
-          >
-            {messages.map((entry, index) => (
-              <MessageRow
-                key={entry.id || `${entry.role}-${index}`}
-                entry={entry}
-                onTypingComplete={handleTypingComplete}
+        <div className="flex min-h-full flex-col gap-3" data-clara-ai-message-stack="true">
+          {messages.map((entry) => (
+            <Bubble key={entry.id} role={entry.role}>{entry.text}</Bubble>
+          ))}
+          {pendingMessage ? <Bubble role="assistant" typing>{typedText}</Bubble> : null}
+
+          {phase === "wallet_confirm" && currentSnapshot && controlsReady ? (
+            <div className="relative z-20 mt-1 grid gap-2.5">
+              <ChoiceButton onClick={() => confirmCurrentWallet(true)}>
+                {currentSnapshot.isMoneyLent
+                  ? `Yes, still ${money(currentSnapshot.recordedBalance)} owed`
+                  : `Yes, still ${money(currentSnapshot.recordedBalance)}`}
+              </ChoiceButton>
+              <ChoiceButton secondary onClick={() => confirmCurrentWallet(false)}>No, it changed</ChoiceButton>
+            </div>
+          ) : null}
+
+          {phase === "classify_difference" && currentReviewSnapshot && controlsReady ? (
+            <div className="relative z-20 mt-1 grid gap-2.5">
+              {getDirectionChoices(currentReviewSnapshot).map((choice) => (
+                <ChoiceButton key={choice.id} onClick={() => handleChoice(choice)}>{choice.label}</ChoiceButton>
+              ))}
+              <ChoiceButton secondary onClick={recheckReviewWallet}>Back</ChoiceButton>
+            </div>
+          ) : null}
+
+          {phase === "completed" && controlsReady ? (
+            <div className="relative z-20 mt-1 grid gap-2.5">
+              <ChoiceButton onClick={closeChat}>Done</ChoiceButton>
+            </div>
+          ) : null}
+
+          {phase === "no_wallets" && controlsReady ? (
+            <div className="relative z-20 mt-1 grid gap-2.5">
+              <ChoiceButton secondary onClick={closeChat}>Done</ChoiceButton>
+            </div>
+          ) : null}
+
+          {showComposer ? (
+            <div className="mt-auto grid gap-2.5 pt-3">
+              <Composer
+                value={input}
+                onChange={(value) => { setInput(value); setError(""); }}
+                onSubmit={phase === "wallet_entry" ? submitWalletBalance : submitDetail}
+                placeholder={phase === "wallet_entry" ? (currentSnapshot?.isMoneyLent ? "Amount still owed" : "Exact wallet balance") : "Tell CLARA what happened"}
+                inputMode={phase === "wallet_entry" ? "decimal" : "text"}
+                disabled={interactionLocked}
               />
-            ))}
-          </div>
-        )}
+              {phase === "wallet_entry" ? (
+                <ChoiceButton secondary onClick={backWallet}>Back</ChoiceButton>
+              ) : (
+                <ChoiceButton secondary onClick={backDetail}>Back</ChoiceButton>
+              )}
+            </div>
+          ) : null}
+
+          {error ? (
+            <div className="rounded-[18px] border border-rose-300/14 bg-rose-500/[0.07] px-3 py-2.5 text-[11px] font-bold text-rose-100/82">
+              {error}
+            </div>
+          ) : null}
+        </div>
       </main>
-
-      <ChoiceBar
-        phase={phase}
-        snapshot={currentReviewSnapshot}
-        onChoice={handleChoice}
-        onClose={onClose}
-        disabled={interactionLocked}
-      />
-
-      {showComposer ? <Composer phase={phase} onSubmit={submitComposer} submitLocked={interactionLocked} /> : null}
     </div>
   );
 }
