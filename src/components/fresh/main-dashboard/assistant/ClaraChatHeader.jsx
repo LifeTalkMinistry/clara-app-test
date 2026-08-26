@@ -21,6 +21,7 @@ export default function ClaraChatHeader({
         disabled={closeDisabled}
         className="absolute inset-y-0 right-4 z-30 my-auto grid h-9 w-9 touch-manipulation place-items-center rounded-full border border-blue-100/28 bg-[#07152d]/86 text-white/88 transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-45"
         aria-label={`Close ${title}`}
+        data-clara-chat-close="true"
       >
         <X className="h-4 w-4" />
       </button>
