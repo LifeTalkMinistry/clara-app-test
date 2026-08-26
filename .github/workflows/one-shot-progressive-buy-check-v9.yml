@@ -1,0 +1,40 @@
+name: One-shot progressive Buy Check v9
+
+on:
+  push:
+    paths:
+      - '.github/workflows/one-shot-progressive-buy-check-v9.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  progressive-buy-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply compact UI cleanup
+        run: python .github/scripts/simplify_buy_check_progressive_ui.py
+
+      - name: Verify progressive intelligence
+        run: |
+          node --check src/lib/clara-buy-check-intelligence-router.js
+          node --check src/lib/clara-buy-check-expert-ai.js
+          node --test tests/buy-check-progressive-router.test.mjs tests/buy-check-metric-impact.test.mjs tests/buy-check-gemini-authority.test.mjs
+
+      - name: Install and build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Commit verified repair
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/one-shot-progressive-buy-check-v9.yml .github/scripts/simplify_buy_check_progressive_ui.py
+          git add src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx src/components/fresh/main-dashboard/assistant/useClaraBuyCheckFlowV5.js tests/buy-check-gemini-authority.test.mjs
+          git commit -m "Simplify Buy Check into progressive intelligence"
+          git push origin HEAD:main
