@@ -350,11 +350,24 @@ function paymentConfirmationQuestion(evidence = {}) {
     const payment = Number(source.paymentAmount || 0);
     const remaining = Number(source.remainingPayments);
     const total = Number(source.totalCommitment || 0);
+    const fees = Number(source.fees || 0);
+
+    if (fees > 0 && source.feeTreatment === "unresolved") {
+      return `How is the ${peso(fees)} processing fee paid—upfront, added to the installments, or separately later?`;
+    }
+
+    if (fees > 0 && source.feeTreatment === "installments_unspecified") {
+      return `Is the ${peso(fees)} fee split evenly across the installments, or added to a specific payment?`;
+    }
+
     if (dueNow > 0 && payment > 0 && Number.isInteger(remaining) && remaining >= 0 && total > 0) {
       const future = remaining
         ? `, then ${remaining} more ${source.frequency || "monthly"} payment${remaining === 1 ? "" : "s"} of ${peso(payment)}`
         : "";
-      return `Just to confirm: ${peso(dueNow)} is due now${future}, for ${peso(total)} total, right?`;
+      const separateFee = fees > 0 && source.feeTreatment === "separate_later"
+        ? `, plus the ${peso(fees)} fee separately later`
+        : "";
+      return `Just to confirm: ${peso(dueNow)} is due now${future}${separateFee}, for ${peso(total)} total, right?`;
     }
     return "What’s the exact installment structure, including what’s due now and the remaining payments?";
   }
