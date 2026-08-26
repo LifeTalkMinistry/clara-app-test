@@ -1,0 +1,33 @@
+name: One-shot Debt Wallet visual parity
+
+on:
+  push:
+    paths:
+      - 'scripts/debt_wallet_visual_parity.py'
+      - '.github/workflows/one-shot-debt-wallet-visual-parity.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: python scripts/debt_wallet_visual_parity.py
+      - run: |
+          if git diff --quiet; then
+            echo 'No changes required.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/components/fresh/main-dashboard/assistant/ClaraDebtObligationOverlay.jsx
+          git commit -m 'Match Debt Obligations to Wallet chat visuals'
+          git push origin main
