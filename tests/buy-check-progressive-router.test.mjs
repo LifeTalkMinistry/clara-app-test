@@ -9,6 +9,7 @@ import {
   hasConfirmedClaraPaymentStructure,
   hasConfirmedClaraPurchasePrice,
   isClaraPurchaseContextMature,
+  mergeClaraPurchaseEvidence,
   routeClaraBuyCheckPhase,
 } from "../src/lib/clara-buy-check-intelligence-router.js";
 
@@ -57,6 +58,24 @@ test("voucher math remains a candidate until the user confirms it", () => {
   assert.equal(confirmed.priceSource, "user_confirmation");
 });
 
+test("app-derived voucher candidate cannot be overwritten by Gemini", () => {
+  const pending = applyLocalPurchaseFacts(
+    "Can I buy these shoes? They cost ₱2,500 but I have a ₱500 voucher.",
+    {},
+  );
+  const merged = mergeClaraPurchaseEvidence(pending, {
+    item: "shoes",
+    purchaseType: "one_time",
+    priceCandidate: 2500,
+    priceStatus: "needs_confirmation",
+    purpose: "buying shoes",
+  });
+
+  assert.equal(merged.priceCandidate, 2000);
+  assert.equal(merged.priceStatus, "needs_confirmation");
+  assert.equal(merged.purpose, "buying shoes");
+});
+
 test("installment shorthand never collapses into a one-time price", () => {
   const pending = applyLocalPurchaseFacts("Can I get a phone? It’s ₱1,500 per month for 6 months.", {});
   assert.equal(pending.purchaseType, "installment");
@@ -68,6 +87,26 @@ test("installment shorthand never collapses into a one-time price", () => {
   assert.equal(pending.totalPayments, 6);
   assert.equal(pending.totalCommitment, 9000);
   assert.equal(pending.paymentStructureStatus, "needs_confirmation");
+});
+
+test("app-derived pending installment cannot be collapsed by Gemini", () => {
+  const pending = applyLocalPurchaseFacts("Can I get a phone? It’s ₱1,500 per month for 6 months.", {});
+  const merged = mergeClaraPurchaseEvidence(pending, {
+    purchaseType: "installment",
+    amountDueNow: 1500,
+    paymentAmount: 1500,
+    remainingPayments: 0,
+    totalPayments: 1,
+    totalCommitment: 1500,
+    frequency: "monthly",
+    paymentStructureStatus: "needs_confirmation",
+  });
+
+  assert.equal(merged.amountDueNow, 1500);
+  assert.equal(merged.paymentAmount, 1500);
+  assert.equal(merged.remainingPayments, 5);
+  assert.equal(merged.totalPayments, 6);
+  assert.equal(merged.totalCommitment, 9000);
 });
 
 test("user confirmation locks the installment as 1500 due now and 9000 total", () => {
