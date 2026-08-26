@@ -1,0 +1,45 @@
+name: One-shot Buy Check discovery gate retraining v3
+
+on:
+  push:
+    paths:
+      - '.github/workflows/one-shot-buy-check-discovery-gate-v3.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply retraining
+        run: python scripts/retrain-buy-check-discovery-gate.py
+
+      - name: Verify retraining
+        shell: bash
+        run: |
+          node --check src/lib/clara-buy-check-conversation-gate.js
+          node --check src/lib/clara-buy-check-expert-ai.js
+          node --test tests/buy-check-conversation-gate.test.mjs
+          node --test tests/buy-check-metric-impact.test.mjs
+          grep -q 'DISCOVERY BEFORE VERDICT' src/lib/clara-buy-check-expert-ai.js
+          grep -q 'shouldRevealClaraBuyCheckMeans(action, mergedEvidence)' src/lib/clara-buy-check-expert-ai.js
+          grep -q 'source: "conversation-gate"' src/lib/clara-buy-check-expert-ai.js
+          grep -q 'source: "discovery-gate-fallback"' src/lib/clara-buy-check-expert-ai.js
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/one-shot-buy-check-discovery-gate.yml
+          git rm .github/workflows/one-shot-buy-check-discovery-gate-v2.yml
+          git rm .github/workflows/one-shot-buy-check-discovery-gate-v3.yml
+          git rm scripts/retrain-buy-check-discovery-gate.py
+          git add src/lib/clara-buy-check-conversation-gate.js src/lib/clara-buy-check-expert-ai.js tests/buy-check-conversation-gate.test.mjs
+          git commit -m 'Retrain Buy Check to clarify before Means verdict'
+          git push origin HEAD:main
