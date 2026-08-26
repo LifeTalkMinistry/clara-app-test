@@ -1,0 +1,106 @@
+name: One-shot Profile under-construction modal
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-shot-profile-under-construction-modal.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Replace Profile navigation with premium modal
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/pages/Community.jsx')
+          text = path.read_text()
+
+          text = text.replace('import CommunityProfile from "./CommunityProfile";\n', '', 1)
+
+          old_header = 'function CommunityShellHeader({ activeView, unreadCount }) {'
+          new_header = 'function CommunityShellHeader({ activeView, unreadCount, onOpenProfile }) {'
+          if old_header not in text:
+              raise SystemExit('CommunityShellHeader signature not found')
+          text = text.replace(old_header, new_header, 1)
+
+          old_profile = '''        <Link\n          to="/community?view=profile"\n          className={`clara-community-nav-item relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-[10px] font-black tracking-[-0.01em] transition-all duration-200 max-[420px]:h-9 max-[420px]:w-9 max-[420px]:text-[9px] sm:h-12 sm:w-12 sm:text-[11px] ${\n            activeView === "profile"\n              ? "border-[#8ffff8]/45 bg-[linear-gradient(135deg,#25bfd4,#6356e8)] text-white shadow-[0_0_24px_rgba(74,110,255,0.28)]"\n              : "border-[#6f83b4]/22 bg-[linear-gradient(135deg,rgba(35,170,190,0.78),rgba(88,70,214,0.82))] text-white/95 shadow-[0_8px_22px_rgba(65,76,180,0.16)]"\n          }`}\n          aria-label="Open Community profile"\n          title="ME"\n          aria-current={activeView === "profile" ? "page" : undefined}\n        >\n          ME\n          <ActiveMarker active={activeView === "profile"} />\n        </Link>'''
+          new_profile = '''        <button\n          type="button"\n          onClick={onOpenProfile}\n          className="clara-community-nav-item relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#6f83b4]/22 bg-[linear-gradient(135deg,rgba(35,170,190,0.78),rgba(88,70,214,0.82))] text-[10px] font-black tracking-[-0.01em] text-white/95 shadow-[0_8px_22px_rgba(65,76,180,0.16)] transition-all duration-200 hover:border-white/20 max-[420px]:h-9 max-[420px]:w-9 max-[420px]:text-[9px] sm:h-12 sm:w-12 sm:text-[11px]"\n          aria-label="Open CLARA Profile preview"\n          title="ME"\n        >\n          ME\n        </button>'''
+          if old_profile not in text:
+              raise SystemExit('Profile nav block not found')
+          text = text.replace(old_profile, new_profile, 1)
+
+          anchor = '''function UnderConstructionView() {\n  return ('''
+          modal = '''function ProfileUnderConstructionModal({ onClose }) {\n  return (\n    <div\n      className="fixed inset-0 z-[220] grid place-items-center bg-[#020817]/72 px-5 backdrop-blur-md"\n      role="dialog"\n      aria-modal="true"\n      aria-labelledby="clara-profile-construction-title"\n      onClick={onClose}\n    >\n      <section\n        className="relative w-full max-w-sm overflow-hidden rounded-[30px] border border-[#71f4ea]/18 bg-[radial-gradient(circle_at_50%_0%,rgba(43,225,216,0.12),transparent_34%),linear-gradient(180deg,#0a1830_0%,#071225_100%)] px-6 pb-7 pt-8 text-center shadow-[0_28px_90px_rgba(0,0,0,0.58),0_0_40px_rgba(43,225,216,0.08)]"\n        onClick={(event) => event.stopPropagation()}\n      >\n        <button\n          type="button"\n          onClick={onClose}\n          className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-lg font-light text-white/55 transition hover:bg-white/[0.08] hover:text-white"\n          aria-label="Close Profile notice"\n        >\n          ×\n        </button>\n\n        <div className="mx-auto grid h-16 w-16 place-items-center rounded-[22px] border border-[#5eead4]/18 bg-[#0b2034] shadow-[0_0_32px_rgba(43,225,216,0.12)]">\n          <Wrench className="h-7 w-7 text-[#8ffff8]/80" aria-hidden="true" />\n        </div>\n        <p className="mt-5 text-[10px] font-black uppercase tracking-[0.24em] text-[#8ffff8]/48">\n          CLARA PROFILE\n        </p>\n        <h2 id="clara-profile-construction-title" className="mt-2 text-[26px] font-black tracking-[-0.04em] text-white">\n          Under Construction\n        </h2>\n        <p className="mx-auto mt-3 max-w-[17rem] text-[13px] font-semibold leading-6 text-white/48">\n          We’re rebuilding Profile for a more personal CLARA experience. It isn’t part of the current release yet.\n        </p>\n        <div className="mt-6 rounded-2xl border border-[#5eead4]/10 bg-[#5eead4]/[0.045] px-4 py-3">\n          <p className="text-[10px] font-black uppercase tracking-[0.17em] text-[#8ffff8]/58">Coming in a future CLARA update</p>\n        </div>\n        <button\n          type="button"\n          onClick={onClose}\n          className="mt-5 h-12 w-full rounded-2xl border border-[#69f0e7]/20 bg-[linear-gradient(135deg,rgba(37,191,212,0.28),rgba(99,86,232,0.28))] text-sm font-black text-white shadow-[0_10px_28px_rgba(42,104,180,0.16)] transition hover:border-[#69f0e7]/35"\n        >\n          Got it\n        </button>\n      </section>\n    </div>\n  );\n}\n\nfunction UnderConstructionView() {\n  return ('''
+          if anchor not in text:
+              raise SystemExit('UnderConstructionView anchor not found')
+          text = text.replace(anchor, modal, 1)
+
+          old_state = '  const [notifications, setNotifications] = useState([]);\n'
+          new_state = '  const [notifications, setNotifications] = useState([]);\n  const [profileModalOpen, setProfileModalOpen] = useState(false);\n'
+          if old_state not in text:
+              raise SystemExit('Notifications state anchor not found')
+          text = text.replace(old_state, new_state, 1)
+
+          old_header_render = '      <CommunityShellHeader activeView={activeView} unreadCount={unreadCount} />'
+          new_header_render = '''      <CommunityShellHeader\n        activeView={activeView}\n        unreadCount={unreadCount}\n        onOpenProfile={() => setProfileModalOpen(true)}\n      />'''
+          if old_header_render not in text:
+              raise SystemExit('CommunityShellHeader render not found')
+          text = text.replace(old_header_render, new_header_render, 1)
+
+          style_close = '      </style>\n\n      {activeView === "settings" ? ('
+          modal_render = '''      </style>\n\n      {profileModalOpen ? (\n        <ProfileUnderConstructionModal onClose={() => setProfileModalOpen(false)} />\n      ) : null}\n\n      {activeView === "settings" ? ('''
+          if style_close not in text:
+              raise SystemExit('Style close/render anchor not found')
+          text = text.replace(style_close, modal_render, 1)
+
+          old_profile_branch = '''      ) : activeView === "profile" ? (\n        <div className="clara-community-profile-view min-h-0 flex-1 overflow-y-auto">\n          <CommunityProfile />\n        </div>\n      ) : ('''
+          new_profile_branch = '''      ) : activeView === "profile" ? (\n        <UnderConstructionView />\n      ) : ('''
+          if old_profile_branch not in text:
+              raise SystemExit('Profile route branch not found')
+          text = text.replace(old_profile_branch, new_profile_branch, 1)
+
+          path.write_text(text)
+          PY
+
+      - name: Verify Profile is modal-only
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const source = fs.readFileSync('src/pages/Community.jsx', 'utf8');
+          const required = [
+            'ProfileUnderConstructionModal',
+            'onOpenProfile={() => setProfileModalOpen(true)}',
+            'onClick={onOpenProfile}',
+            'activeView === "profile" ? (\\n        <UnderConstructionView />',
+          ];
+          for (const token of required) {
+            if (!source.includes(token)) throw new Error(`Missing Profile lock token: ${token}`);
+          }
+          if (source.includes('import CommunityProfile from "./CommunityProfile"')) {
+            throw new Error('Legacy CommunityProfile import still active');
+          }
+          if (source.includes('to="/community?view=profile"')) {
+            throw new Error('Profile navigation still routes into the page');
+          }
+          console.log('Profile modal boundary verified.');
+          NODE
+
+      - name: Commit Profile modal
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/one-shot-profile-under-construction-modal.yml
+          git add src/pages/Community.jsx
+          git commit -m "Show under-construction modal for Profile"
+          git push origin HEAD:main
