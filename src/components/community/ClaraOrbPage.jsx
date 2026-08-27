@@ -462,7 +462,10 @@ export default function ClaraOrbPage({ onActivate, activationDelayMs = 0 }) {
     return { centerX, centerY, deadZonePx };
   };
 
-  useEffect(() => installDailyAwarenessStreak(), []);
+  useEffect(() => {
+    if (!isCommandModeEnabled) return undefined;
+    return installDailyAwarenessStreak();
+  }, [isCommandModeEnabled]);
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
