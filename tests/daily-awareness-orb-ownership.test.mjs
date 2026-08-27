@@ -32,17 +32,36 @@ test("importing the Daily Awareness module alone cannot install its runtime", as
   assert.doesNotMatch(source, /shouldRunOnCurrentRoute|hashchange|location\.hash|view=orb/);
 });
 
-test("the real ClaraOrbPage explicitly owns Daily Awareness mount and cleanup", async () => {
+test("the production ClaraOrbPage explicitly owns Daily Awareness mount and cleanup", async () => {
   const orbSource = await readSource("src/components/community/ClaraOrbPage.jsx");
 
   assert.match(
     orbSource,
     /import \{ installDailyAwarenessStreak \} from "@\/runtime\/installDailyAwarenessStreak";/,
   );
+  assert.match(orbSource, /const isCommandModeEnabled = typeof onActivate !== "function";/);
   assert.match(
     orbSource,
-    /useEffect\(\(\) => installDailyAwarenessStreak\(\), \[\]\);/,
+    /useEffect\(\(\) => \{\s*if \(!isCommandModeEnabled\) return undefined;\s*return installDailyAwarenessStreak\(\);\s*\}, \[isCommandModeEnabled\]\);/,
   );
+});
+
+test("onboarding tutorial reuses the Orb surface without owning Daily Awareness", async () => {
+  const tutorialSource = await readSource("src/pages/onboarding/ClaraTutorialOrbIntro.jsx");
+  const orbSource = await readSource("src/components/community/ClaraOrbPage.jsx");
+
+  assert.match(tutorialSource, /<ClaraOrbPage\s+onActivate=\{\(\) => setStarted\(true\)\}/);
+  assert.match(orbSource, /if \(!isCommandModeEnabled\) return undefined;/);
+});
+
+test("Community access gate renders before the production ORB branch", async () => {
+  const communitySource = await readSource("src/pages/Community.jsx");
+  const gateBranch = communitySource.indexOf(") : gateCurrentView ? (");
+  const orbBranch = communitySource.indexOf(") : activeView === \"orb\" ? (");
+
+  assert.ok(gateBranch > 0, "trial/access gate branch must exist");
+  assert.ok(orbBranch > gateBranch, "the access gate must win before ClaraOrbPage can mount");
+  assert.match(communitySource.slice(orbBranch, orbBranch + 160), /<ClaraOrbPage \/>/);
 });
 
 test("Daily Awareness cleanup removes ORB-scoped listeners, timers, banner, and install ownership", async () => {
