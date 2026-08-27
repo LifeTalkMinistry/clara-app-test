@@ -21,16 +21,21 @@ export function stableMeansPlanFingerprint(value) {
   return JSON.stringify(canonicalize(value));
 }
 
-// Means Score 100 is the user's remaining required financial runway from now
-// until the next relevant income point. Past income/spending does not stay in
-// the denominator after it has already been realized.
-export function calculateCycleRequiredRunway({ upcoming = 0 } = {}) {
-  return finiteNonNegative(upcoming);
+// The user's personal 100 is a fixed full-cycle Means anchor.
+// It is calculated from the cycle's predicted/declared financial requirement,
+// then locked for that cycle so the passage of time cannot manufacture points.
+export function calculateCycleRequiredRunway({
+  income = 0,
+  availableNow = 0,
+  upcoming = 0,
+} = {}) {
+  const normalizedIncome = finiteNonNegative(income);
+  const normalizedAvailable = finiteNonNegative(availableNow);
+  const normalizedUpcoming = finiteNonNegative(upcoming);
+  const projectedRoom = normalizedAvailable - normalizedUpcoming;
+  return Math.max(0, normalizedIncome - projectedRoom);
 }
 
-// Kept for compatibility with existing stored cycle data. The live Means Score
-// no longer uses a locked historical baseline as its measuring stick; it uses
-// the current remaining required runway instead.
 export function resolveMeansCycleBaselineState({
   stored = null,
   cycleStart = "",
@@ -66,7 +71,7 @@ export function resolveMeansCycleBaselineState({
     };
   }
 
-  const sameV2Cycle = Boolean(
+  const sameV3Cycle = Boolean(
     stored &&
       Number(stored.version) === BASELINE_VERSION &&
       stored.cycleStart === cycleStart &&
@@ -83,29 +88,32 @@ export function resolveMeansCycleBaselineState({
       planFingerprint,
     },
     shouldPersist: true,
-    reason: sameV2Cycle ? "plan_changed" : "new_cycle_or_stale_baseline",
+    reason: sameV3Cycle ? "plan_changed" : "new_cycle_or_stale_baseline",
   };
 }
 
+// Means Score is intentionally simple once the cycle anchor exists:
+// current financial capacity / fixed full-cycle Means × 100.
+// Upcoming commitments and elapsed days are context, not a moving denominator.
 export function calculateMeansScoreState({
   financialRunway = 0,
-  upcoming = 0,
+  requiredRunway = 0,
 } = {}) {
   const normalizedFinancialRunway = finiteNonNegative(financialRunway);
-  const currentRequiredRunway = finiteNonNegative(upcoming);
-  const fullyCovered = currentRequiredRunway === 0;
-  const scoreRoom = normalizedFinancialRunway - currentRequiredRunway;
-  const score = fullyCovered
-    ? null
-    : Math.round((normalizedFinancialRunway / currentRequiredRunway) * 100);
+  const normalizedRequired = finiteNonNegative(requiredRunway);
+  const scoreRoom = normalizedFinancialRunway - normalizedRequired;
+  const score =
+    normalizedRequired > 0
+      ? Math.round((normalizedFinancialRunway / normalizedRequired) * 100)
+      : normalizedFinancialRunway > 0
+        ? 100
+        : 0;
 
   return {
     score,
-    fullyCovered,
-    coverageState: fullyCovered ? "fully_covered" : "scored",
+    fullyCovered: false,
+    coverageState: "scored",
     scoreRoom,
-    // Retained in the return shape so older callers do not break. Assumed spend
-    // is informational now; it is not deducted a second time from live runway.
     plannedAssumedSinceLock: 0,
   };
 }

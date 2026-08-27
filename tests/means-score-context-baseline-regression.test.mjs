@@ -29,130 +29,84 @@ function freshBaseline({ amount, cycleStart = "2026-08-25", cycleEnd = "2026-09-
   }).baseline;
 }
 
-function score({ financialRunway, upcoming, baseline }) {
+function score({ financialRunway, baseline }) {
   return calculateMeansScoreState({
     financialRunway,
-    upcoming,
     requiredRunway: baseline?.requiredRunway,
-    assumedSpent: 0,
-    assumedSpentAtLock: baseline?.assumedSpentAtLock,
   }).score;
 }
 
-test("remaining required runway is the live 100 line", () => {
+test("full-cycle Means requirement is the fixed 100 anchor", () => {
   const requiredRunway = calculateCycleRequiredRunway({
     income: 15100,
-    availableNow: 7388,
-    upcoming: 3191,
+    availableNow: 9388,
+    upcoming: 4691,
   });
-
-  assert.equal(requiredRunway, 3191);
-  assert.equal(
-    calculateMeansScoreState({ financialRunway: 3191, upcoming: 3191 }).score,
-    100
-  );
-
-  const state = calculateMeansScoreState({
-    financialRunway: 7388,
-    upcoming: 3191,
-  });
-
-  assert.equal(state.scoreRoom, 4197);
-  assert.equal(state.score, 232);
+  assert.equal(requiredRunway, 10403);
+  assert.equal(calculateMeansScoreState({ financialRunway: 10403, requiredRunway }).score, 100);
+  assert.equal(calculateMeansScoreState({ financialRunway: 15605, requiredRunway }).score, 150);
+  assert.equal(calculateMeansScoreState({ financialRunway: 20806, requiredRunway }).score, 200);
 });
 
-test("a legacy locked baseline cannot override the current remaining requirement", () => {
-  const baseline = freshBaseline({ amount: 10903 });
-  assert.equal(score({ financialRunway: 7388, upcoming: 3191, baseline }), 232);
+test("time and shrinking upcoming commitments cannot increase the score", () => {
+  const baseline = freshBaseline({ amount: 10000 });
+  const before = calculateMeansScoreState({
+    financialRunway: 20000,
+    upcoming: 8000,
+    requiredRunway: baseline.requiredRunway,
+  });
+  const later = calculateMeansScoreState({
+    financialRunway: 20000,
+    upcoming: 2000,
+    requiredRunway: baseline.requiredRunway,
+  });
+  assert.equal(before.score, 200);
+  assert.equal(later.score, 200);
 });
 
-test("adding more authoritative remaining context lowers the score immediately", () => {
-  const baseline8000 = freshBaseline({ amount: 8000 });
-  assert.equal(score({ financialRunway: 12000, upcoming: 8000, baseline: baseline8000 }), 150);
+test("actual money leaving financial capacity lowers the score against the same anchor", () => {
+  const baseline = freshBaseline({ amount: 10000 });
+  assert.equal(score({ financialRunway: 20000, baseline }), 200);
+  assert.equal(score({ financialRunway: 18000, baseline }), 180);
+  assert.equal(score({ financialRunway: 13000, baseline }), 130);
+  assert.equal(score({ financialRunway: 9000, baseline }), 90);
+});
 
-  const fingerprint9000 = plan(9000);
+test("actual money added increases the score against the same anchor", () => {
+  const baseline = freshBaseline({ amount: 10000 });
+  assert.equal(score({ financialRunway: 10000, baseline }), 100);
+  assert.equal(score({ financialRunway: 12000, baseline }), 120);
+});
+
+test("unchanged cycle plan preserves the locked Means anchor", () => {
+  const baseline = freshBaseline({ amount: 10000 });
+  const preserved = resolveMeansCycleBaselineState({
+    stored: baseline,
+    cycleStart: baseline.cycleStart,
+    cycleEnd: baseline.cycleEnd,
+    planFingerprint: baseline.planFingerprint,
+    requiredRunway: 2000,
+    assumedSpent: 5000,
+  });
+  assert.equal(preserved.shouldPersist, false);
+  assert.equal(preserved.baseline.requiredRunway, 10000);
+});
+
+test("an explicit plan change may establish a new cycle Means anchor", () => {
+  const baseline = freshBaseline({ amount: 10000 });
   const refreshed = resolveMeansCycleBaselineState({
-    stored: baseline8000,
-    cycleStart: baseline8000.cycleStart,
-    cycleEnd: baseline8000.cycleEnd,
-    planFingerprint: fingerprint9000,
-    requiredRunway: 9000,
+    stored: baseline,
+    cycleStart: baseline.cycleStart,
+    cycleEnd: baseline.cycleEnd,
+    planFingerprint: plan(12000, "changed"),
+    requiredRunway: 12000,
     assumedSpent: 0,
   });
-
-  assert.equal(refreshed.baseline.requiredRunway, 9000);
-  assert.equal(score({ financialRunway: 12000, upcoming: 9000, baseline: refreshed.baseline }), 133);
+  assert.equal(refreshed.reason, "plan_changed");
+  assert.equal(refreshed.baseline.requiredRunway, 12000);
 });
 
-test("removing future requirements raises the score", () => {
-  const baseline = freshBaseline({ amount: 9000 });
-  assert.equal(score({ financialRunway: 12000, upcoming: 9000, baseline }), 133);
-  assert.equal(score({ financialRunway: 12000, upcoming: 8000, baseline }), 150);
-});
-
-test("realizing a planned payment recalculates against what is still required", () => {
-  const baseline = freshBaseline({ amount: 8000 });
-  const before = score({ financialRunway: 12000, upcoming: 8000, baseline });
-  const after = score({ financialRunway: 11000, upcoming: 7000, baseline });
-
-  assert.equal(before, 150);
-  assert.equal(after, 157);
-  assert.ok(after > before);
-});
-
-test("an unplanned expense lowers Means Score when required runway is unchanged", () => {
-  const baseline = freshBaseline({ amount: 8000 });
-  const before = score({ financialRunway: 12000, upcoming: 8000, baseline });
-  const after = score({ financialRunway: 10000, upcoming: 8000, baseline });
-  assert.equal(before, 150);
-  assert.equal(after, 125);
-  assert.ok(after < before);
-});
-
-test("zero remaining requirement becomes Fully Covered instead of a fabricated score", () => {
-  const withMoney = calculateMeansScoreState({ financialRunway: 12000, upcoming: 0 });
-  assert.equal(withMoney.score, null);
-  assert.equal(withMoney.fullyCovered, true);
-  assert.equal(withMoney.coverageState, "fully_covered");
-  assert.equal(withMoney.scoreRoom, 12000);
-
-  const noMoney = calculateMeansScoreState({ financialRunway: 0, upcoming: 0 });
-  assert.equal(noMoney.score, null);
-  assert.equal(noMoney.fullyCovered, true);
-});
-
-test("positive remaining requirements remain mathematically uncapped", () => {
-  const state = calculateMeansScoreState({ financialRunway: 5000, upcoming: 1 });
-  assert.equal(state.score, 500000);
-  assert.equal(state.fullyCovered, false);
-});
-
-test("stored baseline compatibility remains intact while no longer controlling the live score", () => {
-  const oldV2 = {
-    version: 2,
-    cycleStart: "2026-08-10",
-    cycleEnd: "2026-08-25",
-    requiredRunway: 3000,
-    assumedSpentAtLock: 0,
-    planFingerprint: plan(3000),
-  };
-  const nextFingerprint = plan(6000, "next-cycle");
-  const next = resolveMeansCycleBaselineState({
-    stored: oldV2,
-    cycleStart: "2026-08-25",
-    cycleEnd: "2026-09-10",
-    planFingerprint: nextFingerprint,
-    requiredRunway: 6000,
-    assumedSpent: 0,
-  });
-
-  assert.equal(next.reason, "new_cycle_or_stale_baseline");
-  assert.equal(next.baseline.requiredRunway, 6000);
-  assert.equal(next.baseline.version, 3);
-  assert.equal(score({ financialRunway: 12000, upcoming: 6000, baseline: next.baseline }), 200);
-});
-
-test("runtime/store wiring refreshes Means for all financial context sources", async () => {
+test("runtime/store wiring remains intact for financial context updates", async () => {
   const runtime = await readFile(new URL("../src/runtime/installClaraOrbGreeting.js", import.meta.url), "utf8");
   const scheduleRepository = await readFile(new URL("../src/lib/clara-money-schedule-repository.js", import.meta.url), "utf8");
   const schedulePanel = await readFile(
@@ -167,7 +121,6 @@ test("runtime/store wiring refreshes Means for all financial context sources", a
   assert.match(runtime, /CLARA_MONEY_ROUTINE_UPDATED_EVENT/);
   assert.match(runtime, /CLARA_MONEY_SCHEDULE_UPDATED_EVENT/);
   assert.match(runtime, /"clara:schedule:create-event"/);
-  assert.match(runtime, /Fully Covered/);
   assert.match(scheduleRepository, /CLARA_MONEY_SCHEDULE_UPDATED_EVENT/);
   assert.match(schedulePanel, /CLARA_MONEY_SCHEDULE_UPDATED_EVENT/);
 });

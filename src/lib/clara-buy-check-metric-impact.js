@@ -202,41 +202,30 @@ function simulateMeansPurchaseImpact({
   const price = Math.max(0, toNumber(purchasePrice));
   if (!(price > 0) || !snapshot || typeof snapshot !== "object") return null;
 
+  const currentScore = Number(snapshot.score);
+  const requiredRunway = Math.max(0, toNumber(snapshot.requiredRunway));
   const availableNow = Math.max(0, toNumber(snapshot.availableNow));
   const upcomingCommitments = Math.max(0, toNumber(snapshot.upcoming));
-  const emergencyProtected = Math.max(0, toNumber(snapshot.emergencyProtected));
-  const suppliedFinancialRunway = Number(snapshot.financialRunway);
-  const financialRunway = Number.isFinite(suppliedFinancialRunway)
-    ? Math.max(0, suppliedFinancialRunway)
-    : availableNow + emergencyProtected;
-  const currentFullyCovered = snapshot.fullyCovered === true || upcomingCommitments === 0;
-  const rawCurrentScore = snapshot.score;
-  const currentScore =
-    !currentFullyCovered && rawCurrentScore != null && Number.isFinite(Number(rawCurrentScore))
-      ? Number(rawCurrentScore)
-      : null;
-
-  // The current remaining commitments are the live 100 line. A historical
-  // locked baseline must not influence Ask Before You Spend projections.
-  const requiredRunway = upcomingCommitments;
-  const currentScoreRoom = financialRunway - requiredRunway;
-  const currentRoomUntilPayday = availableNow - upcomingCommitments;
+  const currentRoomUntilPayday = Number.isFinite(Number(snapshot.projectedRoom))
+    ? Number(snapshot.projectedRoom)
+    : availableNow - upcomingCommitments;
+  const currentScoreRoom = Number.isFinite(Number(snapshot.scoreRoom))
+    ? Number(snapshot.scoreRoom)
+    : requiredRunway > 0 && Number.isFinite(currentScore)
+      ? ((currentScore / 100) * requiredRunway) - requiredRunway
+      : currentRoomUntilPayday;
 
   const accounted = Math.max(0, toNumber(alreadyAccountedAmount));
-  const accountedAgainstRunway = Math.min(accounted, upcomingCommitments);
   const incrementalImpact = price - accounted;
-  const upcomingCommitmentsAfterPurchase = Math.max(
-    0,
-    upcomingCommitments - accountedAgainstRunway
-  );
-  const projectedFinancialRunway = Math.max(0, financialRunway - price);
-  const projectedScoreRoom = projectedFinancialRunway - upcomingCommitmentsAfterPurchase;
-  const projectedRoomAfterPurchase =
-    (availableNow - price) - upcomingCommitmentsAfterPurchase;
-  const projectedFullyCovered = upcomingCommitmentsAfterPurchase === 0;
-  const projectedScoreAfterPurchase = projectedFullyCovered
-    ? null
-    : Math.round((projectedFinancialRunway / upcomingCommitmentsAfterPurchase) * 100);
+  const projectedScoreRoom = currentScoreRoom - incrementalImpact;
+  const projectedRoomAfterPurchase = currentRoomUntilPayday - incrementalImpact;
+  const projectedScoreAfterPurchase = requiredRunway > 0
+    ? Math.round(((requiredRunway + projectedScoreRoom) / requiredRunway) * 100)
+    : Number.isFinite(currentScore)
+      ? currentScore
+      : availableNow > 0
+        ? 100
+        : 0;
 
   return {
     protectionLine: 100,
@@ -248,22 +237,11 @@ function simulateMeansPurchaseImpact({
     impactKey,
     targetDate,
     offsetUntil,
-    currentScore,
-    fullyCovered: currentFullyCovered,
+    currentScore: Number.isFinite(currentScore) ? currentScore : null,
     projectedScoreAfterPurchase,
-    projectedFullyCovered,
-    scoreChange:
-      currentScore != null && projectedScoreAfterPurchase != null
-        ? projectedScoreAfterPurchase - currentScore
-        : null,
-    currentStatus: currentFullyCovered
-      ? "Fully Covered"
-      : currentScore != null
-        ? statusForScore(currentScore)
-        : null,
-    projectedStatus: projectedFullyCovered
-      ? "Fully Covered"
-      : statusForScore(projectedScoreAfterPurchase),
+    scoreChange: Number.isFinite(currentScore) ? projectedScoreAfterPurchase - currentScore : null,
+    currentStatus: Number.isFinite(currentScore) ? statusForScore(currentScore) : null,
+    projectedStatus: statusForScore(projectedScoreAfterPurchase),
     requiredRunway,
     currentScoreRoom,
     projectedScoreRoom,
@@ -272,16 +250,13 @@ function simulateMeansPurchaseImpact({
     roomChange: projectedRoomAfterPurchase - currentRoomUntilPayday,
     purchaseSimulationApplied: true,
     crossesProtectionLine:
-      currentScore != null &&
-      projectedScoreAfterPurchase != null &&
-      currentScore >= 100 &&
-      projectedScoreAfterPurchase < 100,
+      Number.isFinite(currentScore) && currentScore >= 100 && projectedScoreAfterPurchase < 100,
     cycleStartDate: snapshot.cycleStartDate || null,
     nextPayday: snapshot.cycleEndDate || snapshot.horizonDate || null,
     spendableMoney: availableNow,
     availableAfterPurchase: availableNow - price,
     upcomingCommitments,
-    upcomingCommitmentsAfterPurchase,
+    upcomingCommitmentsAfterPurchase: Math.max(0, upcomingCommitments - accounted),
     breakdown: {
       debtAndObligations: Math.max(0, toNumber(snapshot.debtUpcoming)),
       savingsGoals: Math.max(0, toNumber(snapshot.savingsGoalUpcoming)),
@@ -290,7 +265,7 @@ function simulateMeansPurchaseImpact({
     },
     moneyLentUnavailable: Math.max(0, toNumber(snapshot.moneyLentUnavailable)),
     savingsProtected: Math.max(0, toNumber(snapshot.savingsProtected)),
-    emergencyProtected,
+    emergencyProtected: Math.max(0, toNumber(snapshot.emergencyProtected)),
     dataSource: "canonical-orb-means-snapshot",
   };
 }
@@ -324,7 +299,9 @@ function signedPoints(value = 0) {
 }
 
 function formatClaraMetricImpactLine(impact = {}) {
-  if (!impact?.purchaseSimulationApplied) return "";
+  if (!impact?.purchaseSimulationApplied || impact?.projectedScoreAfterPurchase == null) return "";
+  const before = Number.isFinite(Number(impact.currentScore)) ? Number(impact.currentScore) : null;
+  const after = Number(impact.projectedScoreAfterPurchase);
   const price = Math.max(0, Number(impact.purchasePrice) || 0);
   const accounted = Math.max(0, Number(impact.alreadyAccountedAmount) || 0);
   const incremental = Number(impact.incrementalImpact) || 0;
@@ -332,24 +309,6 @@ function formatClaraMetricImpactLine(impact = {}) {
     ? "Money Schedule"
     : "your plan";
 
-  if (impact.projectedFullyCovered) {
-    if (!(accounted > 0)) {
-      return `That ${peso(price)} would leave your remaining commitments fully covered.`;
-    }
-    if (Math.abs(incremental) < 0.005) {
-      return `You already planned ${peso(accounted)} for this in ${sourceLabel}. After buying it at ${peso(price)}, your remaining commitments would be fully covered.`;
-    }
-    if (incremental > 0) {
-      return `You planned ${peso(accounted)} for this, so only the extra ${peso(incremental)} is new spending. Your remaining commitments would still be fully covered.`;
-    }
-    return `You planned ${peso(accounted)} for this, and at ${peso(price)} you're ${peso(Math.abs(incremental))} under plan. Your remaining commitments would be fully covered.`;
-  }
-
-  if (impact?.projectedScoreAfterPurchase == null) return "";
-  const before = impact.currentScore != null && Number.isFinite(Number(impact.currentScore))
-    ? Number(impact.currentScore)
-    : null;
-  const after = Number(impact.projectedScoreAfterPurchase);
   const movement = before === null
     ? `put your Means Score at ${after}`
     : after < before
