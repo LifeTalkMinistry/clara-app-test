@@ -46,17 +46,20 @@ export function resolveMeansCycleBaselineState({
 } = {}) {
   const normalizedRequired = finiteNonNegative(requiredRunway);
   const normalizedAssumed = finiteNonNegative(assumedSpent);
-  const validStored = Boolean(
+
+  // Once a cycle has established its personal 100, that measuring stick is immutable
+  // until the next pay cycle. Realized spending, paid commitments, schedule progression,
+  // or other same-cycle context changes may alter the fingerprint, but must never move 100.
+  const validSameCycleBaseline = Boolean(
     stored &&
       Number(stored.version) === BASELINE_VERSION &&
       stored.cycleStart === cycleStart &&
       stored.cycleEnd === cycleEnd &&
-      stored.planFingerprint === planFingerprint &&
       Number.isFinite(Number(stored.requiredRunway)) &&
       Number(stored.requiredRunway) >= 0
   );
 
-  if (validStored) {
+  if (validSameCycleBaseline) {
     return {
       baseline: {
         version: BASELINE_VERSION,
@@ -64,19 +67,13 @@ export function resolveMeansCycleBaselineState({
         assumedSpentAtLock: finiteNonNegative(stored.assumedSpentAtLock),
         cycleStart,
         cycleEnd,
-        planFingerprint,
+        // Preserve the original fingerprint as audit context for the locked anchor.
+        planFingerprint: stored.planFingerprint || planFingerprint,
       },
       shouldPersist: false,
-      reason: "plan_unchanged",
+      reason: "cycle_anchor_locked",
     };
   }
-
-  const sameV3Cycle = Boolean(
-    stored &&
-      Number(stored.version) === BASELINE_VERSION &&
-      stored.cycleStart === cycleStart &&
-      stored.cycleEnd === cycleEnd
-  );
 
   return {
     baseline: {
@@ -88,7 +85,7 @@ export function resolveMeansCycleBaselineState({
       planFingerprint,
     },
     shouldPersist: true,
-    reason: sameV3Cycle ? "plan_changed" : "new_cycle_or_stale_baseline",
+    reason: "new_cycle_or_stale_baseline",
   };
 }
 
