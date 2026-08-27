@@ -108,6 +108,8 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
         return;
       }
       try {
+        // The backend route keeps its historical support name for compatibility;
+        // the selected key now represents a CLARA membership tier.
         const tierKey = encodeURIComponent(String(tier?.key || "supporter"));
         const result = await backendRequest(`/api/support/payment-methods?tier=${tierKey}`, { token });
         if (cancelled) return;
@@ -155,6 +157,8 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
 
     try {
       setSubmitting(true);
+      // Existing endpoint is intentionally reused. Admin verification continues
+      // to activate the same backend plan key after payment review.
       await backendRequest("/api/support/payments", {
         method: "POST",
         token,
@@ -167,7 +171,7 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
         },
       });
       setSubmitted(true);
-      toast.success("Payment submitted for review. Thank you for supporting CLARA 💙");
+      toast.success("Payment submitted for verification. Your CLARA membership will activate after confirmation.");
     } catch (submitError) {
       toast.error(submitError?.message || "Unable to submit payment verification.");
     } finally {
@@ -187,7 +191,7 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
         </button>
         <button
           type="button"
-          aria-label="Close Support CLARA"
+          aria-label="Close CLARA membership payment"
           onClick={onClose}
           className="grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/[0.035] text-white/60 transition hover:bg-white/[0.06] hover:text-white"
         >
@@ -205,7 +209,7 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
         />
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-[9px] font-black tracking-[0.18em] text-blue-200/55">SUPPORT CLARA</p>
+            <p className="text-[9px] font-black tracking-[0.18em] text-blue-200/55">CLARA MEMBERSHIP</p>
             <p className="mt-1 truncate text-[15px] font-bold text-white">{tier.name}</p>
           </div>
           <p className="shrink-0 text-[22px] font-black tracking-tight text-white">
@@ -215,8 +219,8 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
       </div>
 
       <div className="mt-5 flex items-center justify-between gap-3">
-        <p className="text-sm font-bold text-white">Pay with</p>
-        <p className="text-[10px] font-medium text-white/30">Choose one</p>
+        <p className="text-sm font-bold text-white">Choose payment method</p>
+        <p className="text-[10px] font-medium text-white/30">GCash · Maya · Bank</p>
       </div>
 
       {loading ? (
@@ -306,7 +310,7 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
           <div className="mt-4 border-t border-white/[0.08] pt-4">
             {submitted ? (
               <div className="rounded-xl border border-emerald-300/15 bg-emerald-300/[0.05] p-3 text-xs leading-5 text-emerald-100/75">
-                Submitted for review. Your supporter badge activates after verification.
+                Payment submitted for verification. Your {tier.name} membership will activate after confirmation.
               </div>
             ) : (
               <>
@@ -316,7 +320,7 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
                 </div>
 
                 <input
-                  id={`support-payment-proof-${tier.key}-${selected.key}`}
+                  id={`membership-payment-proof-${tier.key}-${selected.key}`}
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
                   className="hidden"
@@ -328,7 +332,7 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
                   }}
                 />
                 <label
-                  htmlFor={`support-payment-proof-${tier.key}-${selected.key}`}
+                  htmlFor={`membership-payment-proof-${tier.key}-${selected.key}`}
                   className="mt-3 flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-blue-400/20 bg-blue-500/[0.07] text-xs font-bold text-blue-100 transition hover:bg-blue-500/[0.11]"
                 >
                   {proofBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
@@ -370,7 +374,7 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
       )}
 
       <p className="mt-4 text-center text-[9px] leading-4 text-white/28">
-        Voluntary support · Core CLARA stays free.
+        Membership activates after payment verification.
       </p>
     </div>
   );
