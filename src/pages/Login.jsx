@@ -304,11 +304,13 @@ export default function Login() {
   const { user, signIn, signUp, loading: authLoading } = useAuth();
   const requestedMode = new URLSearchParams(location.search).get("mode");
   const initialMode =
-    requestedMode === "signup"
-      ? "signup"
-      : requestedMode === "login" || location.state?.from
-        ? "login"
-        : "landing";
+    requestedMode === "landing"
+      ? "landing"
+      : requestedMode === "signup"
+        ? "signup"
+        : requestedMode === "login" || location.state?.from
+          ? "login"
+          : "landing";
 
   const [mode, setMode] = useState(initialMode);
   const [trialModalOpen, setTrialModalOpen] = useState(false);

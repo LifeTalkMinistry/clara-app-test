@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Bell,
   CalendarDays,
+  Globe2,
   House,
   MessageCircle,
   Newspaper,
@@ -455,7 +456,22 @@ export default function Community() {
       ) : adminOnlyForCurrentUser ? (
         <UnderConstructionView />
       ) : activeView === "orb" ? (
-        <ClaraOrbPage />
+        <>
+          <ClaraOrbPage />
+          {isAdmin ? (
+            <button
+              type="button"
+              onClick={() => navigate("/login?mode=landing")}
+              className="fixed right-4 top-[calc(env(safe-area-inset-top)+78px)] z-[96] inline-flex h-9 items-center gap-2 rounded-full border border-cyan-200/15 bg-[#071329]/80 px-3 text-[11px] font-bold text-cyan-50/75 shadow-[0_10px_32px_rgba(0,0,0,0.28)] backdrop-blur-xl transition hover:border-cyan-200/30 hover:bg-[#0a1b38]/90 hover:text-white active:scale-[0.98]"
+              aria-label="Open CLARA public landing page"
+              title="View the public CLARA page"
+              data-clara-admin-public-page-shortcut
+            >
+              <Globe2 className="h-3.5 w-3.5 text-cyan-200/70" aria-hidden="true" />
+              <span>Public Page</span>
+            </button>
+          ) : null}
+        </>
       ) : activeView === "home" ? (
         <main
           className="clara-community-home-view min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(circle_at_88%_8%,rgba(79,70,229,0.12),transparent_30%),radial-gradient(circle_at_12%_22%,rgba(20,184,166,0.07),transparent_30%),#06111f] pb-[calc(env(safe-area-inset-bottom)+30px)] pt-4 sm:pt-6"
