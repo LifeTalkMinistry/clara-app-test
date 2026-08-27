@@ -16,6 +16,80 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  means-baseline-migration:
+    if: github.actor != 'github-actions[bot]'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply plan-aware Means baseline v2
+        run: python scripts/fix_means_context_baseline_v2.py
+
+      - name: Verify Means lifecycle invariants
+        shell: python
+        run: |
+          from pathlib import Path
+
+          runtime = Path("src/runtime/installClaraOrbGreeting.js").read_text()
+          module = Path("src/lib/clara-means-cycle-baseline.js").read_text()
+          repository = Path("src/lib/clara-money-schedule-repository.js").read_text()
+          panel = Path("src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardSchedulePanel.jsx").read_text()
+
+          assert 'clara:means-cycle-baseline:v2' in runtime
+          assert 'from "@/lib/clara-means-cycle-baseline"' in runtime
+          assert 'buildMeansPlanFingerprint' in runtime
+          assert 'resolveMeansCycleBaselineState' in runtime
+          assert 'calculateMeansScoreState' in runtime
+          assert 'plannedDebtPaidInsideCycle' in runtime
+          assert 'realizedBuyCheckMeansOffset' in runtime
+          assert 'CLARA_MONEY_SCHEDULE_UPDATED_EVENT' in runtime
+          assert 'CLARA_MONEY_SCHEDULE_UPDATED_EVENT' in repository
+          assert 'CLARA_MONEY_SCHEDULE_UPDATED_EVENT' in panel
+          assert 'BASELINE_VERSION = 2' in module
+
+      - name: Syntax check Means sources
+        run: |
+          node --check src/runtime/installClaraOrbGreeting.js
+          node --check src/lib/clara-means-cycle-baseline.js
+          node --check src/lib/clara-money-schedule-repository.js
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Means regression coverage
+        run: node --test tests/means-score-context-baseline-regression.test.mjs
+
+      - name: Run application tests
+        run: npm test
+
+      - name: Build application
+        run: npm run build
+
+      - name: Commit verified fix to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/runtime/installClaraOrbGreeting.js \
+            src/lib/clara-means-cycle-baseline.js \
+            src/lib/clara-money-schedule-repository.js \
+            src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardSchedulePanel.jsx \
+            tests/means-score-context-baseline-regression.test.mjs \
+            package.json
+          if git diff --cached --quiet; then
+            echo "No source change needed."
+            exit 0
+          fi
+          git commit -m "Refresh Means baseline on financial context changes"
+          git push origin HEAD:main
+
   build:
     runs-on: ubuntu-latest
 
