@@ -291,6 +291,40 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
     taskReminderSettings.settings.reminders_enabled,
   ]);
 
+  useEffect(() => {
+    const patch = {};
+
+    // These legacy families are no longer part of the V1 notification surface.
+    // Retire their stored switches so hidden reminder runtimes cannot keep firing.
+    if (preferences.expenseLogging !== false) patch.expenseLogging = false;
+    if (preferences.moneyAlerts !== false) patch.moneyAlerts = false;
+    if (preferences.billsAndObligations !== false) patch.billsAndObligations = false;
+    if (preferences.messageNotifications !== false) patch.messageNotifications = false;
+    if (preferences.communityAndAccountability !== false) {
+      patch.communityAndAccountability = false;
+    }
+
+    // Daily Awareness now owns streak reminder preference instead of exposing
+    // a second competing Streaks & Challenge notification family.
+    const awarenessEnabled = preferences.dailyCheckIn !== false;
+    if (preferences.streaksAndChallenge !== awarenessEnabled) {
+      patch.streaksAndChallenge = awarenessEnabled;
+    }
+
+    if (Object.keys(patch).length > 0) {
+      setPreferences((current) => ({ ...current, ...patch }));
+    }
+  }, [
+    preferences.billsAndObligations,
+    preferences.communityAndAccountability,
+    preferences.dailyCheckIn,
+    preferences.expenseLogging,
+    preferences.messageNotifications,
+    preferences.moneyAlerts,
+    preferences.streaksAndChallenge,
+    setPreferences,
+  ]);
+
   const syncTaskSettings = useCallback(
     async (nextPreferences, patch = {}) => {
       if (!notificationOwnerId) return;
@@ -451,7 +485,12 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
             title="Daily Awareness"
             description="Remind me if I have not checked in with my financial position in CLARA today."
             enabled={preferences.dailyCheckIn}
-            onToggle={(checked) => changePreference("dailyCheckIn", checked)}
+            onToggle={(checked) =>
+              changePreferences({
+                dailyCheckIn: checked,
+                streaksAndChallenge: checked,
+              })
+            }
             statusText={
               preferences.dailyCheckIn
                 ? `Reminder • ${formatTimeLabel(preferences.preferredTime || "09:00")}`
