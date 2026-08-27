@@ -4,8 +4,8 @@ export const BUILDER_PLAN_KEY = "builder";
 export const CHAMPION_PLAN_KEY = "champion";
 
 // The backend still stores the historical supporter/builder/champion keys.
-// Product-facing CLARA now treats the highest historical key as the
-// "Don't Do It Alone" tier, which is the only tier that includes Monthly Coaching.
+// Product-facing CLARA maps those compatibility keys to the three membership
+// tiers shown in the access gate.
 export const MONTHLY_COACHING_PLAN_KEY = CHAMPION_PLAN_KEY;
 
 // Retained only for compatibility with older imports. The Committed plan is no
@@ -39,17 +39,17 @@ export const ACTIVE_MEMBERSHIP_STATUSES = new Set(["active"]);
 export const PENDING_MEMBERSHIP_STATUSES = new Set(["pending", "inactive"]);
 
 const PLAN_LABELS = Object.freeze({
-  free: "Free Version",
-  supporter: "CLARA Supporter",
-  builder: "CLARA Builder",
-  champion: "CLARA Champion",
+  free: "15-Day Trial / No Active Membership",
+  supporter: "Take Control",
+  builder: "Stay Consistent",
+  champion: "Don't Do It Alone",
 });
 
 const PLAN_PRICE_LABELS = Object.freeze({
   free: "₱0",
   supporter: "₱99/month",
-  builder: "₱249/month",
-  champion: "₱499/month",
+  builder: "₱149/month",
+  champion: "₱299/month",
 });
 
 export function normalizeMembershipToken(value) {
@@ -141,7 +141,7 @@ export function resolveMembership({
     accessLevel: isActiveSupporter
       ? COMMITTED_ACCESS_LEVEL
       : FREE_ACCESS_LEVEL,
-    membershipType: isSupporterPlan ? "supporter" : "free",
+    membershipType: isSupporterPlan ? "membership" : "free",
     membershipStatus,
     accountStatus,
     isSupporterPlan,
@@ -150,7 +150,7 @@ export function resolveMembership({
     hasMonthlyCoachingAccess,
 
     // Legacy aliases remain so older components continue to operate while the
-    // product vocabulary migrates away from Committed.
+    // product vocabulary migrates away from Committed/Supporter.
     isCommittedPlan: isSupporterPlan,
     isPendingActivation: membershipStatus === "pending",
     isActiveCommitted: isActiveSupporter,
@@ -173,7 +173,7 @@ export function resolveMembership({
             ? "PENDING ACTIVATION"
             : membershipStatus === "inactive"
               ? "INACTIVE"
-              : "FREE",
+              : "NO ACTIVE MEMBERSHIP",
     description:
       membershipStatus === "loading"
         ? "Syncing your CLARA account tier."
@@ -183,12 +183,12 @@ export function resolveMembership({
             ? `${PLAN_LABELS[planKey]} is pending activation.`
             : membershipStatus === "inactive"
               ? `${PLAN_LABELS[planKey]} is inactive.`
-              : "You are using CLARA's free core app.",
+              : "No paid CLARA membership is active on this account.",
     featureDescription:
       isActiveSupporter
         ? `${PLAN_LABELS[planKey]} benefits are active.`
         : isSupporterPlan
-          ? `${PLAN_LABELS[planKey]} benefits remain inactive until the backend account is active.`
-          : "CLARA's core financial accountability features remain free.",
+          ? `${PLAN_LABELS[planKey]} benefits remain inactive until payment is verified and the backend account is active.`
+          : "Choose a CLARA membership when you are ready to continue after the trial.",
   };
 }
