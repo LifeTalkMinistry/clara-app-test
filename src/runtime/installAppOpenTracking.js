@@ -15,6 +15,9 @@ const LIFECYCLE_KEY = "clara:app-lifecycle:v1";
 const INSTALLATION_KEY = "clara:competition-install-id:v1";
 const DAILY_CHECK_IN_STORAGE_PREFIX = "clara_daily_check_in_v3:";
 const DAILY_CHECK_IN_UPDATE_EVENT = "clara:daily-check-in-updated";
+const LAST_DEVICE_TRANSFER_KEY = "clara_last_device_transfer_v1";
+const MEANS_BASELINE_PREFIX = "clara:means-cycle-baseline:";
+const MEANS_TRANSFER_REBUILD_MARKER_PREFIX = "clara:means-transfer-baseline-rebuilt:v1:";
 const MAX_QUEUED_EVENTS = 20;
 const MAX_COMPETITION_CHECK_INS = 45;
 let flushPromise = null;
@@ -43,6 +46,41 @@ function writeJson(storage, key, value) {
     storage?.setItem(key, JSON.stringify(value));
   } catch {
     // Tracking must never interrupt the user experience.
+  }
+}
+
+function clearTransferredMeansBaselineOnce() {
+  const storage = safeStorage();
+  if (!storage) return;
+
+  const transfer = readJson(storage, LAST_DEVICE_TRANSFER_KEY, null);
+  const recoveryId = String(transfer?.recoveryId || "").trim();
+  if (!recoveryId) return;
+
+  const markerKey = `${MEANS_TRANSFER_REBUILD_MARKER_PREFIX}${recoveryId}`;
+  try {
+    if (storage.getItem(markerKey)) return;
+  } catch {
+    return;
+  }
+
+  const staleKeys = [];
+  try {
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+      if (key?.startsWith(MEANS_BASELINE_PREFIX)) staleKeys.push(key);
+    }
+    staleKeys.forEach((key) => storage.removeItem(key));
+    storage.setItem(
+      markerKey,
+      JSON.stringify({
+        recoveryId,
+        rebuiltAt: new Date().toISOString(),
+        removedBaselineKeys: staleKeys.length,
+      })
+    );
+  } catch {
+    // If storage is temporarily unavailable, a later heartbeat retries safely.
   }
 }
 
@@ -284,6 +322,10 @@ function markHidden() {
 
 function registerVisibleOpen() {
   if (document.visibilityState === "hidden") return;
+
+  // Device-transfer finance records are authoritative; any transferred Means baseline
+  // is only derived cache and must be rebuilt once on the receiving device.
+  clearTransferredMeansBaselineOnce();
 
   const identity = getAuthenticatedIdentity();
   if (!identity) return;
