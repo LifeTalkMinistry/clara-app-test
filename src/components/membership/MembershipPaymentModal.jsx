@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AlertTriangle,
+  ArrowRight,
   CheckCircle2,
   Clock3,
   RefreshCw,
@@ -38,6 +39,7 @@ function paymentStatusView(payment, membership) {
       badge: "PENDING",
       message: `${amountLabel} payment for ${name} is now being verified. Your membership will activate once it is confirmed.`,
       note: "No need to send another payment while this is pending.",
+      active: false,
       icon: Clock3,
       shell: "border-amber-300/25 bg-[linear-gradient(145deg,rgba(86,62,10,.94),rgba(16,19,42,.98)_72%)] shadow-[0_18px_50px_rgba(0,0,0,.38),0_0_28px_rgba(250,204,21,.08)]",
       iconShell: "border-amber-300/25 bg-amber-300/10 text-amber-200",
@@ -52,6 +54,7 @@ function paymentStatusView(payment, membership) {
       badge: "NEEDS INFO",
       message: payment.reviewNote || `We need a little more information to verify your ${name} payment.`,
       note: "Open the same membership tier to submit updated payment proof or reference details.",
+      active: false,
       icon: AlertTriangle,
       shell: "border-orange-300/25 bg-[linear-gradient(145deg,rgba(91,45,11,.94),rgba(16,18,42,.98)_72%)] shadow-[0_18px_50px_rgba(0,0,0,.38),0_0_28px_rgba(251,146,60,.08)]",
       iconShell: "border-orange-300/25 bg-orange-300/10 text-orange-200",
@@ -66,6 +69,7 @@ function paymentStatusView(payment, membership) {
       badge: "REVIEWING",
       message: payment.reviewNote || `Your ${name} payment is being reviewed again.`,
       note: "Your membership status will update automatically when the review is resolved.",
+      active: false,
       icon: ShieldCheck,
       shell: "border-blue-300/25 bg-[linear-gradient(145deg,rgba(18,54,100,.94),rgba(12,17,43,.98)_72%)] shadow-[0_18px_50px_rgba(0,0,0,.38),0_0_28px_rgba(77,140,255,.08)]",
       iconShell: "border-blue-300/25 bg-blue-300/10 text-blue-100",
@@ -75,15 +79,16 @@ function paymentStatusView(payment, membership) {
 
   if (status === "approved" || membership?.active) {
     return {
-      eyebrow: "CLARA MEMBERSHIP",
+      eyebrow: "CLARA MEMBERSHIP CONFIRMED",
       title: `${name} is active`,
       badge: "ACTIVE",
-      message: "Your payment has been confirmed and your membership access is active.",
-      note: "CLARA will use your active membership automatically.",
+      message: "Your payment has been confirmed and your CLARA membership is now active.",
+      note: "You're ready. Continue directly to CLARA ORB.",
+      active: true,
       icon: CheckCircle2,
-      shell: "border-emerald-300/25 bg-[linear-gradient(145deg,rgba(9,70,55,.94),rgba(12,18,40,.98)_72%)] shadow-[0_18px_50px_rgba(0,0,0,.38),0_0_28px_rgba(52,211,153,.08)]",
-      iconShell: "border-emerald-300/25 bg-emerald-300/10 text-emerald-100",
-      badgeClass: "border-emerald-300/25 bg-emerald-300/10 text-emerald-100",
+      shell: "border-emerald-300/30 bg-[linear-gradient(145deg,rgba(9,70,55,.96),rgba(12,18,40,.99)_72%)] shadow-[0_18px_50px_rgba(0,0,0,.38),0_0_30px_rgba(52,211,153,.11)]",
+      iconShell: "border-emerald-300/30 bg-emerald-300/12 text-emerald-100",
+      badgeClass: "border-emerald-300/30 bg-emerald-300/12 text-emerald-100",
     };
   }
 
@@ -94,6 +99,7 @@ function paymentStatusView(payment, membership) {
       badge: "NOT VERIFIED",
       message: payment.reviewNote || `We could not verify the submitted payment for ${name}.`,
       note: "You can reopen the membership tier and submit a new payment proof when ready.",
+      active: false,
       icon: AlertTriangle,
       shell: "border-rose-300/25 bg-[linear-gradient(145deg,rgba(83,18,40,.94),rgba(17,16,39,.98)_72%)] shadow-[0_18px_50px_rgba(0,0,0,.38),0_0_28px_rgba(251,113,133,.08)]",
       iconShell: "border-rose-300/25 bg-rose-300/10 text-rose-100",
@@ -104,7 +110,7 @@ function paymentStatusView(payment, membership) {
   return null;
 }
 
-function PaymentStatusNotice({ payment, membership, refreshing, onRefresh }) {
+function PaymentStatusNotice({ payment, membership, refreshing, onRefresh, onProceed }) {
   const view = paymentStatusView(payment, membership);
   if (!view) return null;
 
@@ -133,17 +139,28 @@ function PaymentStatusNotice({ payment, membership, refreshing, onRefresh }) {
             <p className="mt-1 text-[9.5px] font-semibold leading-4 text-white/72">{view.message}</p>
             <p className="mt-1 text-[8px] font-medium leading-3.5 text-white/40">{view.note}</p>
           </div>
+        </div>
 
+        {view.active ? (
+          <button
+            type="button"
+            onClick={onProceed}
+            className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-emerald-200/25 bg-[linear-gradient(135deg,rgba(16,185,129,.96),rgba(5,150,105,.96))] px-4 text-[9px] font-black text-white shadow-[0_10px_26px_rgba(16,185,129,.17)] transition hover:brightness-110 active:scale-[0.99]"
+          >
+            Proceed to CLARA ORB
+            <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.5} />
+          </button>
+        ) : (
           <button
             type="button"
             onClick={onRefresh}
             disabled={refreshing}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-white/55 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-40"
-            aria-label="Refresh payment status"
+            className="mt-3 inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.045] px-3 text-[8px] font-black uppercase tracking-[.08em] text-white/62 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-40"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Checking status…" : "Check payment status"}
           </button>
-        </div>
+        )}
       </section>
     </div>
   );
@@ -159,7 +176,7 @@ export default function MembershipPaymentModal({ tierKey, onClose }) {
     if (!token) {
       setLatestPayment(null);
       setMembership(null);
-      return;
+      return null;
     }
 
     if (visible) setRefreshing(true);
@@ -169,11 +186,15 @@ export default function MembershipPaymentModal({ tierKey, onClose }) {
         backendRequest("/api/support/status", { token }),
       ]);
       const payments = Array.isArray(paymentResult?.payments) ? paymentResult.payments : [];
-      setLatestPayment(payments[0] || null);
-      setMembership(statusResult?.membership || null);
+      const nextPayment = payments[0] || null;
+      const nextMembership = statusResult?.membership || null;
+      setLatestPayment(nextPayment);
+      setMembership(nextMembership);
+      return { payment: nextPayment, membership: nextMembership };
     } catch {
       // Payment status is supplemental UI. Keep the last confirmed state when
       // the backend is temporarily unreachable instead of flashing an error.
+      return null;
     } finally {
       if (visible) setRefreshing(false);
     }
@@ -183,7 +204,7 @@ export default function MembershipPaymentModal({ tierKey, onClose }) {
     if (!token) return undefined;
 
     refreshStatus();
-    const intervalId = window.setInterval(() => refreshStatus(), 20_000);
+    const intervalId = window.setInterval(() => refreshStatus(), 10_000);
     const handleFocus = () => refreshStatus();
     const handleVisibility = () => {
       if (document.visibilityState === "visible") refreshStatus();
@@ -215,6 +236,20 @@ export default function MembershipPaymentModal({ tierKey, onClose }) {
     onClose?.();
   }, [onClose, refreshStatus]);
 
+  const handleProceedToOrb = useCallback(() => {
+    if (typeof window === "undefined") return;
+
+    // A confirmed membership must rehydrate the backend-authoritative account
+    // before the access gate is evaluated again. Reloading at the ORB route
+    // gives AuthContext a clean active-membership snapshot and takes the member
+    // straight into CLARA instead of leaving them on the pricing gate.
+    const targetHash = "#/community?view=orb";
+    if (window.location.hash !== targetHash) {
+      window.location.hash = targetHash;
+    }
+    window.location.reload();
+  }, []);
+
   if (typeof document === "undefined") return null;
 
   const statusNotice = !tierKey && latestPayment
@@ -224,6 +259,7 @@ export default function MembershipPaymentModal({ tierKey, onClose }) {
           membership={membership}
           refreshing={refreshing}
           onRefresh={() => refreshStatus({ visible: true })}
+          onProceed={handleProceedToOrb}
         />,
         document.body
       )
