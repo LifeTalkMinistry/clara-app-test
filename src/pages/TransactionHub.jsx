@@ -644,7 +644,21 @@ export default function TransactionHub() {
         .filter((item) => !isLinkedExpenseWalletTransaction(item))
         .filter((item) => {
           const group = getGroup(item);
-          return group === "income" || group === "savings" || group === "wallet";
+          const isDebtPayment = Boolean(
+            item?.debt_payment_id ||
+              item?.debtPaymentId ||
+              item?.debt_obligation_id ||
+              item?.debtObligationId ||
+              normalizeText(item?.type) === "debt payment" ||
+              normalizeText(item?.source_type || item?.sourceType).includes("debt payment")
+          );
+
+          return (
+            group === "income" ||
+            group === "savings" ||
+            group === "wallet" ||
+            (group === "expense" && isDebtPayment)
+          );
         })
         .map((item) => ({
           ...item,
