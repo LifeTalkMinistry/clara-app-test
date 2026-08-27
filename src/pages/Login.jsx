@@ -95,14 +95,14 @@ function FieldShell({ label, hint, children }) {
 function TrialRequestModal({ onClose }) {
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/72 px-4 pb-4 pt-12 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-[100] flex items-end justify-center overflow-y-auto bg-black/72 px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-[max(48px,env(safe-area-inset-top))] backdrop-blur-sm sm:items-center"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
       <section
-        className="relative w-full max-w-sm overflow-hidden rounded-[28px] border border-white/12 bg-[#090d20] p-5 text-white shadow-[0_28px_90px_rgba(0,0,0,0.68)]"
+        className="relative max-h-[calc(100dvh-32px)] w-full max-w-sm overflow-y-auto rounded-[28px] border border-white/12 bg-[#090d20] p-5 text-white shadow-[0_28px_90px_rgba(0,0,0,0.68)]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="clara-trial-title"
@@ -166,14 +166,17 @@ function FirstGlance({
     : null;
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[#050716] text-white">
+    <div
+      className="clara-public-landing-page relative h-[100dvh] min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[#050716] text-white [-webkit-overflow-scrolling:touch]"
+      data-clara-public-landing
+    >
       <div className="pointer-events-none fixed inset-0">
         <div className="absolute inset-0 bg-[linear-gradient(180deg,#050716_0%,#070a1f_52%,#02030b_100%)]" />
         <div className="absolute left-1/2 top-[-8rem] h-[22rem] w-[22rem] -translate-x-1/2 rounded-full bg-blue-500/10 blur-[90px]" />
         <div className="absolute bottom-[-10rem] right-[-8rem] h-[22rem] w-[22rem] rounded-full bg-violet-500/10 blur-[100px]" />
       </div>
 
-      <main className="relative mx-auto flex min-h-screen w-full max-w-md flex-col px-5 pb-8 pt-[max(18px,env(safe-area-inset-top))] sm:px-6">
+      <main className="clara-public-landing-main relative mx-auto flex w-full max-w-md flex-col px-5 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-[max(18px,env(safe-area-inset-top))] sm:px-6">
         <header className="flex items-center justify-between gap-4 py-2">
           <button
             type="button"
@@ -191,11 +194,11 @@ function FirstGlance({
           </button>
         </header>
 
-        <section className="flex flex-1 flex-col justify-center py-8 text-center">
+        <section className="flex flex-col py-6 text-center sm:py-8">
           <div className="mx-auto flex flex-col items-center justify-center">
-            <ClaraLogo variant="icon" theme="dark" className="scale-[0.9]" />
+            <ClaraLogo variant="icon" theme="dark" className="scale-[0.82] sm:scale-[0.9]" />
             <p
-              className="-mt-2 font-heading text-2xl font-bold leading-none tracking-[0.16em]"
+              className="-mt-3 font-heading text-2xl font-bold leading-none tracking-[0.16em] sm:-mt-2"
               aria-label="CLARA"
             >
               <span className="text-[#4d8cff]">CL</span>
@@ -207,15 +210,15 @@ function FirstGlance({
             </p>
           </div>
 
-          <h1 className="mx-auto mt-9 max-w-[20rem] text-[2rem] font-bold leading-[1.12] tracking-[-0.035em] text-white sm:text-[2.2rem]">
+          <h1 className="mx-auto mt-6 max-w-[20rem] text-[1.82rem] font-bold leading-[1.1] tracking-[-0.035em] text-white sm:mt-9 sm:text-[2.2rem]">
             Could ₱99 a month help you keep <span className="whitespace-nowrap">₱3,000–₱5,000</span> more of your money?
           </h1>
-          <p className="mt-4 text-base font-medium text-white/62">
+          <p className="mt-3 text-[15px] font-medium text-white/62 sm:mt-4 sm:text-base">
             Watch the video and see how.
           </p>
 
           <div
-            className="relative mt-8 overflow-hidden rounded-[26px] border border-white/10 bg-[linear-gradient(145deg,rgba(12,18,38,0.78),rgba(5,8,22,0.92))] shadow-[0_24px_70px_rgba(0,0,0,0.42)]"
+            className="relative mt-6 overflow-hidden rounded-[26px] border border-white/10 bg-[linear-gradient(145deg,rgba(12,18,38,0.78),rgba(5,8,22,0.92))] shadow-[0_24px_70px_rgba(0,0,0,0.42)] sm:mt-8"
             data-clara-demo-video
           >
             {videoSrc ? (
@@ -280,7 +283,7 @@ function FirstGlance({
           <button
             type="button"
             onClick={onStartTrial}
-            className="group mt-8 inline-flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 px-5 text-[15px] font-bold text-[#020617] shadow-[0_18px_48px_rgba(59,130,246,0.3)] transition active:scale-[0.985]"
+            className="group mt-6 inline-flex min-h-14 w-full shrink-0 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 px-5 py-3.5 text-[15px] font-bold text-[#020617] shadow-[0_18px_48px_rgba(59,130,246,0.3)] transition active:scale-[0.985] sm:mt-8"
           >
             Start your 15-Day Trial
             <ArrowRight className="h-[18px] w-[18px] transition group-hover:translate-x-0.5" />
@@ -290,7 +293,7 @@ function FirstGlance({
           </p>
         </section>
 
-        <p className="pb-[max(0px,env(safe-area-inset-bottom))] text-center text-[11px] font-semibold uppercase tracking-[0.22em] text-white/28">
+        <p className="text-center text-[11px] font-semibold uppercase tracking-[0.22em] text-white/28">
           Ask before you spend.
         </p>
       </main>
