@@ -254,15 +254,34 @@ export function BiggerVisionScreen() {
   return (
     <ScreenFrame>
       <Eyebrow tone="gold">The bigger vision</Eyebrow>
-      <h1 className="clara-onboarding-title clara-onboarding-title--mission">
-        When you join <ClaraBrandName />, you&apos;re not only helping yourself.
+      <h1
+        className="clara-onboarding-title clara-onboarding-title--mission"
+        style={{ maxWidth: 350, marginTop: 28 }}
+      >
+        <span style={{ display: "block" }}>
+          When you join <span style={{ whiteSpace: "nowrap" }}><ClaraBrandName />,</span>
+        </span>
+        <span style={{ display: "block", marginTop: 4 }}>you&apos;re not only helping yourself.</span>
       </h1>
-      <p className="clara-onboarding-body clara-onboarding-body--lead">
+      <p
+        className="clara-onboarding-body clara-onboarding-body--lead"
+        style={{ maxWidth: 330, marginTop: 24 }}
+      >
         You become part of a growing movement of Filipinos choosing to live within their means, build financial stability, and make better money decisions.
       </p>
       <AccentRule />
-      <p className="clara-onboarding-kicker clara-onboarding-kicker--blue">The goal is bigger than one person.</p>
-      <p className="clara-onboarding-tagline">Normalize healthy money habits in the Philippines.</p>
+      <p
+        className="clara-onboarding-kicker clara-onboarding-kicker--blue"
+        style={{ marginTop: 26 }}
+      >
+        The goal is bigger than one person.
+      </p>
+      <p
+        className="clara-onboarding-tagline"
+        style={{ maxWidth: 315, marginTop: 18, lineHeight: 1.3 }}
+      >
+        Normalize healthy money habits in the Philippines.
+      </p>
     </ScreenFrame>
   );
 }
