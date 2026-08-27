@@ -109,9 +109,22 @@ test("an unplanned expense lowers Means Score when required runway is unchanged"
   assert.ok(after < before);
 });
 
-test("zero remaining requirement has a safe finite fallback", () => {
-  assert.equal(calculateMeansScoreState({ financialRunway: 12000, upcoming: 0 }).score, 100);
-  assert.equal(calculateMeansScoreState({ financialRunway: 0, upcoming: 0 }).score, 0);
+test("zero remaining requirement becomes Fully Covered instead of a fabricated score", () => {
+  const withMoney = calculateMeansScoreState({ financialRunway: 12000, upcoming: 0 });
+  assert.equal(withMoney.score, null);
+  assert.equal(withMoney.fullyCovered, true);
+  assert.equal(withMoney.coverageState, "fully_covered");
+  assert.equal(withMoney.scoreRoom, 12000);
+
+  const noMoney = calculateMeansScoreState({ financialRunway: 0, upcoming: 0 });
+  assert.equal(noMoney.score, null);
+  assert.equal(noMoney.fullyCovered, true);
+});
+
+test("positive remaining requirements remain mathematically uncapped", () => {
+  const state = calculateMeansScoreState({ financialRunway: 5000, upcoming: 1 });
+  assert.equal(state.score, 500000);
+  assert.equal(state.fullyCovered, false);
 });
 
 test("stored baseline compatibility remains intact while no longer controlling the live score", () => {
@@ -154,6 +167,7 @@ test("runtime/store wiring refreshes Means for all financial context sources", a
   assert.match(runtime, /CLARA_MONEY_ROUTINE_UPDATED_EVENT/);
   assert.match(runtime, /CLARA_MONEY_SCHEDULE_UPDATED_EVENT/);
   assert.match(runtime, /"clara:schedule:create-event"/);
+  assert.match(runtime, /Fully Covered/);
   assert.match(scheduleRepository, /CLARA_MONEY_SCHEDULE_UPDATED_EVENT/);
   assert.match(schedulePanel, /CLARA_MONEY_SCHEDULE_UPDATED_EVENT/);
 });

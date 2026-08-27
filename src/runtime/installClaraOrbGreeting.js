@@ -880,7 +880,7 @@ async function buildMeansSnapshot(profile = {}) {
     planFingerprint,
   });
   const requiredRunway = Math.max(0, Number(cycleBaseline.requiredRunway || 0));
-  const { score, scoreRoom, plannedAssumedSinceLock } = calculateMeansScoreState({
+  const { score, scoreRoom, plannedAssumedSinceLock, fullyCovered } = calculateMeansScoreState({
     financialRunway,
     upcoming,
     requiredRunway,
@@ -892,6 +892,7 @@ async function buildMeansSnapshot(profile = {}) {
   return {
     hasIncomePayCycle: true,
     score,
+    fullyCovered,
     income,
     spent,
     assumedSpent,
@@ -998,6 +999,7 @@ function ensureMeansMetric(label, snapshot, onToggle) {
   const renderSignature = snapshot
     ? [
         "ready",
+        snapshot.fullyCovered ? "fully-covered" : "scored",
         snapshot.score,
         Math.round(snapshot.income),
         Math.round(snapshot.spent),
@@ -1052,17 +1054,22 @@ function ensureMeansMetric(label, snapshot, onToggle) {
     return root;
   }
 
-  const tone = metricTone(snapshot.score);
+  const fullyCovered = snapshot.fullyCovered === true;
+  const tone = fullyCovered ? "#67e8c8" : metricTone(snapshot.score);
+  const scoreDisplay = fullyCovered ? "✓" : snapshot.score;
+  const statusLabel = fullyCovered ? "Fully Covered" : statusForScore(snapshot.score);
   root.setAttribute(
     "aria-label",
-    `Means Score ${snapshot.score}. ${statusForScore(snapshot.score)}. ${expanded ? "Tap to collapse details." : "Tap for details."}`
+    fullyCovered
+      ? `Means Score Fully Covered. No remaining required runway before the next income point. ${expanded ? "Tap to collapse details." : "Tap for details."}`
+      : `Means Score ${snapshot.score}. ${statusLabel}. ${expanded ? "Tap to collapse details." : "Tap for details."}`
   );
   root.innerHTML = `
     <span style="display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:31px;padding:4px 10px 4px 5px;border:1px solid rgba(103,157,255,.14);border-radius:999px;background:linear-gradient(180deg,rgba(13,28,62,.68),rgba(4,10,31,.74));box-shadow:0 10px 28px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.035),0 0 20px rgba(46,110,255,.055);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)">
-      <strong style="display:inline-grid;place-items:center;min-width:29px;height:23px;padding:0 6px;border:1px solid ${tone}33;border-radius:999px;background:${tone}0d;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 0 14px ${tone}12;font-size:11px;font-weight:900;line-height:1;color:${tone}">${snapshot.score}</strong>
+      <strong style="display:inline-grid;place-items:center;min-width:29px;height:23px;padding:0 6px;border:1px solid ${tone}33;border-radius:999px;background:${tone}0d;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 0 14px ${tone}12;font-size:11px;font-weight:900;line-height:1;color:${tone}">${scoreDisplay}</strong>
       <span style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;line-height:1">
         <span style="font-size:7px;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.26)">Means score</span>
-        <span style="font-size:9px;font-weight:800;letter-spacing:-.01em;color:rgba(255,255,255,.62)">${statusForScore(snapshot.score)}</span>
+        <span style="font-size:9px;font-weight:800;letter-spacing:-.01em;color:rgba(255,255,255,.62)">${statusLabel}</span>
       </span>
       <span style="margin-left:1px;font-size:9px;line-height:1;color:rgba(255,255,255,.25);transform:${expanded ? "rotate(180deg)" : "none"};transition:transform 160ms ease">⌄</span>
     </span>
@@ -1084,10 +1091,10 @@ function ensureMeansMetric(label, snapshot, onToggle) {
       ${snapshot.moneyLentUnavailable > 0 ? `<span style="display:flex;justify-content:space-between;gap:16px;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.05);font-size:9.5px;color:rgba(255,255,255,.30)"><span>Money lent · not available</span><strong style="color:rgba(255,255,255,.50)">${money(snapshot.moneyLentUnavailable)}</strong></span>` : ""}
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.07);font-size:10px;color:rgba(255,255,255,.48)"><span>Room until ${formatHorizonDate(snapshot.cycleEndDate)}</span><strong style="color:${snapshot.projectedRoom >= 0 ? "#67e8c8" : "#ff7f8d"}">${snapshot.projectedRoom >= 0 ? "" : "−"}${money(Math.abs(snapshot.projectedRoom))}</strong></span>
       <span style="display:flex;align-items:center;justify-content:center;gap:5px;margin-top:7px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">
-        <span>100 = living within your means</span>
+        <span>${fullyCovered ? "No remaining required runway before next income" : "100 = living within your means"}</span>
         <button type="button" data-clara-means-info-toggle="true" aria-label="How the Means Score is calculated" aria-expanded="false" style="display:inline-grid;place-items:center;width:15px;height:15px;padding:0;border:1px solid rgba(255,255,255,.13);border-radius:999px;background:rgba(255,255,255,.025);color:rgba(255,255,255,.36);font-size:9px;font-weight:800;line-height:1;cursor:pointer;-webkit-tap-highlight-color:transparent">i</button>
       </span>
-      <span data-clara-means-info-copy="true" style="display:none;margin-top:7px;padding:7px 8px;border:1px solid rgba(255,255,255,.05);border-radius:9px;background:rgba(255,255,255,.018);font-size:8.5px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30);text-align:center">This score uses one Income Hub pay-cycle window: ${formatHorizonDate(snapshot.cycleStartDate)} through ${formatHorizonDate(snapshot.cycleEndDate)}. Actual spent is based on recorded expenses. Assumed spent is the Money Schedule amount whose scheduled days have already begun in the current pay cycle. Upcoming commitments contain only the remaining future Money Schedule plus unresolved Debt / Obligations, Savings Goals, and other scheduled events before the next payday. Protected or lent money is already excluded from money in hand and is not subtracted twice.</span>
+      <span data-clara-means-info-copy="true" style="display:none;margin-top:7px;padding:7px 8px;border:1px solid rgba(255,255,255,.05);border-radius:9px;background:rgba(255,255,255,.018);font-size:8.5px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30);text-align:center">This score uses one Income Hub pay-cycle window: ${formatHorizonDate(snapshot.cycleStartDate)} through ${formatHorizonDate(snapshot.cycleEndDate)}. Actual spent is based on recorded expenses. Assumed spent is the Money Schedule amount whose scheduled days have already begun in the current pay cycle. Upcoming commitments contain only the remaining future Money Schedule plus unresolved Debt / Obligations, Savings Goals, and other scheduled events before the next payday. Protected or lent money is already excluded from money in hand and is not subtracted twice.${fullyCovered ? " All remaining required runway is ₱0, so CLARA shows Fully Covered instead of forcing a numeric score." : ""}</span>
     </span>
   `;
 

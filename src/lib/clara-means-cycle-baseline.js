@@ -93,16 +93,16 @@ export function calculateMeansScoreState({
 } = {}) {
   const normalizedFinancialRunway = finiteNonNegative(financialRunway);
   const currentRequiredRunway = finiteNonNegative(upcoming);
+  const fullyCovered = currentRequiredRunway === 0;
   const scoreRoom = normalizedFinancialRunway - currentRequiredRunway;
-  const score =
-    currentRequiredRunway > 0
-      ? Math.round((normalizedFinancialRunway / currentRequiredRunway) * 100)
-      : normalizedFinancialRunway > 0
-        ? 100
-        : 0;
+  const score = fullyCovered
+    ? null
+    : Math.round((normalizedFinancialRunway / currentRequiredRunway) * 100);
 
   return {
     score,
+    fullyCovered,
+    coverageState: fullyCovered ? "fully_covered" : "scored",
     scoreRoom,
     // Retained in the return shape so older callers do not break. Assumed spend
     // is informational now; it is not deducted a second time from live runway.

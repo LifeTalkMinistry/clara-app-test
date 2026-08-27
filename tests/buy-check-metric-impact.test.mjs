@@ -84,3 +84,22 @@ test("crossing 100 is detected from the live runway projection", () => {
   assert.equal(impact.projectedScoreAfterPurchase, 98);
   assert.equal(impact.crossesProtectionLine, true);
 });
+
+
+test("zero remaining runway stays Fully Covered without inventing a numeric score", () => {
+  const covered = {
+    ...snapshot,
+    score: null,
+    fullyCovered: true,
+    availableNow: 5000,
+    financialRunway: 5000,
+    upcoming: 0,
+  };
+  const impact = simulateMeansPurchaseImpact({ snapshot: covered, purchasePrice: 1000 });
+  assert.equal(impact.currentScore, null);
+  assert.equal(impact.currentStatus, "Fully Covered");
+  assert.equal(impact.projectedScoreAfterPurchase, null);
+  assert.equal(impact.projectedFullyCovered, true);
+  assert.equal(impact.projectedStatus, "Fully Covered");
+  assert.match(formatClaraMetricImpactLine(impact), /fully covered/i);
+});
