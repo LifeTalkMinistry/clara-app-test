@@ -1,0 +1,49 @@
+name: One-shot debt payment Transaction Hub visibility
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/one-shot-debt-payment-transaction-hub.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Surface debt payments in Transaction Hub
+        run: python scripts/fix_debt_payment_transaction_hub.py
+
+      - name: Verify debt payment transaction contract
+        shell: python
+        run: |
+          from pathlib import Path
+
+          hub = Path('src/pages/TransactionHub.jsx').read_text(encoding='utf-8')
+          repo = Path('src/lib/debtPaymentRepository.js').read_text(encoding='utf-8')
+          card = Path('src/components/fresh/transaction-hub/ui/TransactionCard.jsx').read_text(encoding='utf-8')
+
+          assert '(group === "expense" && isDebtPayment)' in hub
+          assert 'type: "debt_payment"' in repo
+          assert 'source_type: "expense_debt_payment"' in repo
+          assert 'await tx.putRaw(WALLET_TRANSACTION_STORE, transactionRecord);' in repo
+          assert 'const isNonEditable = Boolean(raw.non_editable || raw.nonEditable || isDebtPayment);' in card
+          assert 'Debt Payment' in card
+
+      - name: Commit fix to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/TransactionHub.jsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Show debt payments in Transaction Hub"
+          git push origin HEAD:main
