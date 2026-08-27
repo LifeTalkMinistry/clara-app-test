@@ -16,7 +16,7 @@ const BANNER_ID = "clara-daily-awareness-streak-banner";
 const STYLE_ID = "clara-daily-awareness-streak-styles";
 const AUTO_HIDE_MS = 6500;
 const TOTAL_DAYS = 30;
-let hideTimer = null;
+const STARTUP_RETRY_DELAYS_MS = [750, 2500, 7000];
 
 function getAuthenticatedIdentity() {
   const token = getStoredBackendToken();
@@ -30,12 +30,6 @@ function getAuthenticatedIdentity() {
   }
 
   return { userId: String(userId) };
-}
-
-function shouldRunOnCurrentRoute() {
-  const hash = String(window.location.hash || "").toLowerCase();
-  if (!hash) return true;
-  return !/(login|sign-in|signin|register|signup|onboarding|reset-password)/.test(hash);
 }
 
 function ensureStyles() {
@@ -67,103 +61,157 @@ function ensureStyles() {
   document.head.appendChild(style);
 }
 
-function removeBanner() {
-  if (hideTimer) {
-    window.clearTimeout(hideTimer);
-    hideTimer = null;
-  }
-  document.getElementById(BANNER_ID)?.remove();
-}
+function createRuntime() {
+  const retryTimerIds = new Set();
+  let hideTimerId = null;
+  let disposed = false;
+  let ownerCount = 0;
 
-function showPremiumBanner(state) {
-  if (!document.body || document.getElementById(BANNER_ID)) return;
-  ensureStyles();
+  const removeBanner = () => {
+    if (hideTimerId !== null) {
+      window.clearTimeout(hideTimerId);
+      hideTimerId = null;
+    }
+    document.getElementById(BANNER_ID)?.remove();
+  };
 
-  const completed = Math.max(
-    1,
-    Math.min(TOTAL_DAYS, Number(state?.completedCheckInDays || state?.currentStreak || 1)),
-  );
-  const lights = Array.from({ length: TOTAL_DAYS }, (_, index) => {
-    const day = index + 1;
-    const className = day <= completed
-      ? day === completed
-        ? "das-light is-on is-current"
-        : "das-light is-on"
-      : "das-light";
-    return `<span class="${className}" aria-hidden="true"></span>`;
-  }).join("");
+  const showPremiumBanner = (state) => {
+    if (disposed || !document.body || document.getElementById(BANNER_ID)) return;
+    ensureStyles();
 
-  const root = document.createElement("div");
-  root.id = BANNER_ID;
-  root.innerHTML = `
-    <div class="das-card" role="status" aria-live="polite">
-      <div class="das-top">
-        <span class="das-orb" aria-hidden="true"></span>
-        <div class="das-copy">
-          <div class="das-kicker">Daily Awareness Streak</div>
-          <div class="das-title">Day ${completed} of ${TOTAL_DAYS} is active</div>
-          <div class="das-body">You opened CLARA and checked in with your financial position today.</div>
+    const completed = Math.max(
+      1,
+      Math.min(TOTAL_DAYS, Number(state?.completedCheckInDays || state?.currentStreak || 1)),
+    );
+    const lights = Array.from({ length: TOTAL_DAYS }, (_, index) => {
+      const day = index + 1;
+      const className = day <= completed
+        ? day === completed
+          ? "das-light is-on is-current"
+          : "das-light is-on"
+        : "das-light";
+      return `<span class="${className}" aria-hidden="true"></span>`;
+    }).join("");
+
+    const root = document.createElement("div");
+    root.id = BANNER_ID;
+    root.innerHTML = `
+      <div class="das-card" role="status" aria-live="polite">
+        <div class="das-top">
+          <span class="das-orb" aria-hidden="true"></span>
+          <div class="das-copy">
+            <div class="das-kicker">Daily Awareness Streak</div>
+            <div class="das-title">Day ${completed} of ${TOTAL_DAYS} is active</div>
+            <div class="das-body">You opened CLARA and checked in with your financial position today.</div>
+          </div>
+          <button class="das-close" type="button" aria-label="Close daily streak banner">×</button>
         </div>
-        <button class="das-close" type="button" aria-label="Close daily streak banner">×</button>
+        <div class="das-progress" aria-label="${completed} of ${TOTAL_DAYS} daily awareness days completed">
+          <div class="das-progress-head"><span>Awareness progress</span><strong>${completed}/${TOTAL_DAYS}</strong></div>
+          <div class="das-lights">${lights}</div>
+        </div>
       </div>
-      <div class="das-progress" aria-label="${completed} of ${TOTAL_DAYS} daily awareness days completed">
-        <div class="das-progress-head"><span>Awareness progress</span><strong>${completed}/${TOTAL_DAYS}</strong></div>
-        <div class="das-lights">${lights}</div>
-      </div>
-    </div>
-  `;
+    `;
 
-  root.querySelector(".das-close")?.addEventListener("click", removeBanner);
-  document.body.appendChild(root);
-  hideTimer = window.setTimeout(removeBanner, AUTO_HIDE_MS);
-}
+    root.querySelector(".das-close")?.addEventListener("click", removeBanner);
+    document.body.appendChild(root);
+    hideTimerId = window.setTimeout(removeBanner, AUTO_HIDE_MS);
+  };
 
-function activateDailyAwarenessStreak() {
-  if (document.visibilityState === "hidden" || !shouldRunOnCurrentRoute()) return;
+  const activateDailyAwarenessStreak = () => {
+    if (disposed || document.visibilityState === "hidden") return;
 
-  const identity = getAuthenticatedIdentity();
-  if (!identity) return;
+    const identity = getAuthenticatedIdentity();
+    if (!identity) return;
 
-  const todayKey = getEligibleDayKey();
-  const currentState = loadState(identity.userId, todayKey);
-  const result = performDailyCheckIn({
-    value: currentState,
-    userId: identity.userId,
-    todayKey,
-    persist: (nextState, expectedEvent) =>
-      writeState(
-        identity.userId,
-        nextState,
-        "daily_awareness_open",
-        todayKey,
-        expectedEvent,
-      ),
-  });
+    const todayKey = getEligibleDayKey();
+    const currentState = loadState(identity.userId, todayKey);
+    const result = performDailyCheckIn({
+      value: currentState,
+      userId: identity.userId,
+      todayKey,
+      persist: (nextState, expectedEvent) =>
+        writeState(
+          identity.userId,
+          nextState,
+          "daily_awareness_open",
+          todayKey,
+          expectedEvent,
+        ),
+    });
 
-  if (result.status === "completed") {
-    showPremiumBanner(result.state);
-  }
-}
+    if (!disposed && result.status === "completed") {
+      showPremiumBanner(result.state);
+    }
+  };
 
-function handleVisibilityChange() {
-  if (document.visibilityState === "visible") activateDailyAwarenessStreak();
-}
+  const handleVisibilityChange = () => {
+    if (!disposed && document.visibilityState === "visible") {
+      activateDailyAwarenessStreak();
+    }
+  };
 
-if (typeof window !== "undefined" && typeof document !== "undefined" && !window[INSTALLED_FLAG]) {
-  window[INSTALLED_FLAG] = true;
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+
+    window.removeEventListener("pageshow", activateDailyAwarenessStreak);
+    window.removeEventListener("focus", activateDailyAwarenessStreak);
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
+
+    retryTimerIds.forEach((timerId) => window.clearTimeout(timerId));
+    retryTimerIds.clear();
+    removeBanner();
+  };
 
   window.addEventListener("pageshow", activateDailyAwarenessStreak);
   window.addEventListener("focus", activateDailyAwarenessStreak);
-  window.addEventListener("hashchange", activateDailyAwarenessStreak);
   document.addEventListener("visibilitychange", handleVisibilityChange);
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", activateDailyAwarenessStreak, { once: true });
-  } else {
-    activateDailyAwarenessStreak();
+  activateDailyAwarenessStreak();
+  STARTUP_RETRY_DELAYS_MS.forEach((delay) => {
+    const timerId = window.setTimeout(() => {
+      retryTimerIds.delete(timerId);
+      activateDailyAwarenessStreak();
+    }, delay);
+    retryTimerIds.add(timerId);
+  });
+
+  return {
+    addOwner() {
+      ownerCount += 1;
+    },
+    releaseOwner() {
+      if (ownerCount > 0) ownerCount -= 1;
+      if (ownerCount > 0) return;
+      dispose();
+    },
+    isDisposed() {
+      return disposed;
+    },
+  };
+}
+
+export function installDailyAwarenessStreak() {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return () => {};
   }
 
-  [750, 2500, 7000].forEach((delay) => {
-    window.setTimeout(activateDailyAwarenessStreak, delay);
-  });
+  let runtime = window[INSTALLED_FLAG];
+  if (!runtime || typeof runtime.addOwner !== "function" || runtime.isDisposed?.()) {
+    runtime = createRuntime();
+    window[INSTALLED_FLAG] = runtime;
+  }
+
+  runtime.addOwner();
+  let released = false;
+
+  return () => {
+    if (released) return;
+    released = true;
+    runtime.releaseOwner();
+    if (window[INSTALLED_FLAG] === runtime && runtime.isDisposed()) {
+      delete window[INSTALLED_FLAG];
+    }
+  };
 }
