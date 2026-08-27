@@ -1,0 +1,62 @@
+/*
+ * Public CLARA landing: one viewport, one scroll owner.
+ *
+ * The React landing root owns vertical scrolling. The inner <main> must remain
+ * normal document flow so Android browser chrome / WebView viewport changes
+ * cannot trap the trial CTA below a nested 100dvh scroller.
+ */
+.clara-public-landing-page {
+  width: 100% !important;
+  height: 100svh !important;
+  min-height: 0 !important;
+  max-height: 100svh !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain !important;
+  touch-action: pan-y !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+@supports (height: 100dvh) {
+  .clara-public-landing-page {
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+  }
+}
+
+.clara-public-landing-main {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  overscroll-behavior: auto !important;
+  touch-action: auto !important;
+  padding-bottom: calc(7rem + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+@media (max-width: 430px) and (max-height: 760px) {
+  .clara-public-landing-main {
+    padding-bottom: calc(8rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .clara-public-landing-main > section {
+    padding-top: 1rem !important;
+    padding-bottom: 1.125rem !important;
+  }
+
+  .clara-public-landing-main > section > h1 {
+    margin-top: 1.25rem !important;
+    font-size: clamp(1.62rem, 7.5vw, 1.86rem) !important;
+    line-height: 1.08 !important;
+  }
+
+  .clara-public-landing-main [data-clara-demo-video] {
+    margin-top: 1.125rem !important;
+  }
+
+  .clara-public-landing-main > section > button:last-of-type {
+    margin-top: 1.125rem !important;
+  }
+}
