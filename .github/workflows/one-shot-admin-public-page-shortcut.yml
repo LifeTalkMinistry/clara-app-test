@@ -1,0 +1,40 @@
+name: One-shot admin Public Page shortcut
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/add_admin_public_page_shortcut.py'
+      - '.github/workflows/one-shot-admin-public-page-shortcut.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Add admin-only Public Page shortcut
+        run: python scripts/add_admin_public_page_shortcut.py
+      - name: Verify surgical scope
+        run: |
+          grep -q 'data-clara-admin-public-page-shortcut' src/pages/Community.jsx
+          grep -q 'requestedMode === "landing"' src/pages/Login.jsx
+      - name: Commit repair
+        run: |
+          if git diff --quiet; then
+            echo 'No repair needed.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/Community.jsx src/pages/Login.jsx
+          git commit -m 'Add admin Public Page shortcut to CLARA Orb'
+          git push origin main
