@@ -132,9 +132,9 @@ export function MeasurementScreen() {
   return (
     <ScreenFrame>
       <Eyebrow tone="gold">The power of measurement</Eyebrow>
-      <h1 className="clara-onboarding-title">What you can see, you can manage.</h1>
+      <h1 className="clara-onboarding-title">You can&apos;t manage what you don&apos;t measure.</h1>
       <p className="clara-onboarding-body clara-onboarding-body--lead">
-        Progress becomes easier to understand when it is visible and measurable.
+        Almost everything we want to improve gives us a way to know where we stand.
       </p>
       <div className="clara-onboarding-personal-list">
         <div className="clara-onboarding-personal-line">
@@ -144,7 +144,7 @@ export function MeasurementScreen() {
           <span>Running has distance and pace.</span>
         </div>
         <div className="clara-onboarding-personal-line clara-onboarding-personal-line--gold">
-          <span>Your financial position needs a signal too.</span>
+          <span>So how do you measure your financial position?</span>
         </div>
       </div>
     </ScreenFrame>
