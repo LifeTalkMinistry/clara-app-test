@@ -138,12 +138,8 @@ export function MeasurementScreen() {
         Almost everything we want to improve gives us a way to know where we stand.
       </p>
       <div className="clara-onboarding-personal-list">
-        <div className="clara-onboarding-personal-line">
-          <span>Weight has kilograms.</span>
-        </div>
-        <div className="clara-onboarding-personal-line">
-          <span>Running has distance and pace.</span>
-        </div>
+        <div className="clara-onboarding-personal-line"><span>Weight has kilograms.</span></div>
+        <div className="clara-onboarding-personal-line"><span>Running has distance and pace.</span></div>
         <div className="clara-onboarding-personal-line clara-onboarding-personal-line--gold">
           <span>So how do you measure your financial position?</span>
         </div>
@@ -179,15 +175,9 @@ export function ScoreMeaningScreen() {
         Below it means financial pressure. Above it means more financial room.
       </p>
       <div className="clara-onboarding-personal-list">
-        <div className="clara-onboarding-personal-line">
-          <span>87 — Financial pressure</span>
-        </div>
-        <div className="clara-onboarding-personal-line clara-onboarding-personal-line--gold">
-          <span>100 — Exactly covered</span>
-        </div>
-        <div className="clara-onboarding-personal-line">
-          <span>126 — More financial room</span>
-        </div>
+        <div className="clara-onboarding-personal-line"><span>87 — Financial pressure</span></div>
+        <div className="clara-onboarding-personal-line clara-onboarding-personal-line--gold"><span>100 — Exactly covered</span></div>
+        <div className="clara-onboarding-personal-line"><span>126 — More financial room</span></div>
       </div>
     </ScreenFrame>
   );
@@ -228,15 +218,9 @@ export function ClaraRevealScreen({ reduceMotion }) {
         className="clara-onboarding-logo-stage"
       >
         <span className="clara-onboarding-logo-halo" aria-hidden="true" />
-        <div className="clara-onboarding-logo-mark">
-          <ClaraLogo variant="icon" theme="dark" />
-        </div>
+        <div className="clara-onboarding-logo-mark"><ClaraLogo variant="icon" theme="dark" /></div>
       </motion.div>
-      <ClaraWordmark
-        className="clara-onboarding-wordmark--hero"
-        animateLetters
-        reduceMotion={reduceMotion}
-      />
+      <ClaraWordmark className="clara-onboarding-wordmark--hero" animateLetters reduceMotion={reduceMotion} />
       <p className="clara-onboarding-tagline">Your financial accountability companion.</p>
       <AccentRule />
       <p className="clara-onboarding-body clara-onboarding-body--narrow">
@@ -249,20 +233,23 @@ export function ClaraRevealScreen({ reduceMotion }) {
 export function MissionRuleScreen() {
   return (
     <ScreenFrame>
-      <Eyebrow tone="gold">The bigger mission</Eyebrow>
-      <div className="clara-onboarding-final-mark">
-        <span className="clara-onboarding-final-halo" aria-hidden="true" />
-        <ClaraLogo variant="icon" theme="dark" />
-      </div>
+      <Eyebrow>How <ClaraBrandName /> works</Eyebrow>
       <h1 className="clara-onboarding-title clara-onboarding-title--mission">
-        Better financial awareness should become normal in the Philippines.
+        <ClaraBrandName /> understands your financial position.
       </h1>
       <p className="clara-onboarding-body clara-onboarding-body--narrow">
-        <ClaraBrandName /> exists to help build a generation of Filipinos who can see their financial position and make wiser decisions with it.
+        Your Means Score shows where you currently stand.
+      </p>
+      <p className="clara-onboarding-tagline">Before you spend, ask <ClaraBrandName />.</p>
+      <p className="clara-onboarding-body clara-onboarding-body--narrow">
+        <ClaraBrandName /> checks the decision against your financial status and helps you protect your Means Score — so you can stay within your means and build more financial room over time.
       </p>
       <AccentRule />
-      <p className="clara-onboarding-tagline">Before you spend, ask <ClaraBrandName />.</p>
-      <p className="clara-onboarding-mantra">See <i /> Ask <i /> Decide</p>
+      <p className="clara-onboarding-kicker clara-onboarding-kicker--blue">The bigger vision</p>
+      <p className="clara-onboarding-body clara-onboarding-body--narrow">
+        When you join <ClaraBrandName />, you&apos;re not only helping yourself. You become part of a growing movement of Filipinos choosing financial stability and better money habits.
+      </p>
+      <p className="clara-onboarding-tagline">Normalize healthy money habits in the Philippines.</p>
     </ScreenFrame>
   );
 }
