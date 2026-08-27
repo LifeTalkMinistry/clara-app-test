@@ -49,8 +49,8 @@ export async function evaluateDailyCheckInNotification({
 } = {}) {
   if (!userId) return [];
 
-  // The Daily Money Tip / streak engine owns what counts as today's check-in.
-  // Its eligible-day key includes the existing challenge day-boundary policy.
+  // Daily Awareness and the streak engine share the same authoritative eligible-day state.
+  // If the user already entered the qualifying CLARA experience today, no reminder is needed.
   const eligibleDay = getEligibleDayKey(now);
   const dedupeKey = `${DAILY_CHECK_IN_EVENT_TYPE}:${eligibleDay}`;
 
@@ -67,9 +67,8 @@ export async function evaluateDailyCheckInNotification({
     return [];
   }
 
-  // Do not create a reminder while quiet hours are active. Re-evaluation after
-  // quiet hours re-checks the authoritative check-in state before any reminder
-  // can be created or delivered.
+  // Re-evaluation after quiet hours checks the authoritative awareness state again
+  // before creating or delivering a reminder.
   if (isInsideQuietHours(preferences, now)) return [];
 
   const zoned = getZonedDateParts(preferences.timezone, now);
@@ -78,14 +77,14 @@ export async function evaluateDailyCheckInNotification({
   const notification = buildNotificationContract({
     eventType: DAILY_CHECK_IN_EVENT_TYPE,
     dedupeKey,
-    title: "Today’s CLARA check-in is waiting",
-    body: "Tap today’s Daily Money Tip to complete your check-in and keep your progress moving.",
+    title: "Your Daily Awareness is waiting",
+    body: "Open CLARA and check your financial position today to keep your awareness streak active.",
     userId,
     destination: "/dashboard",
     metadata: {
       dateKey: eligibleDay,
       eligibleDay,
-      reminderKind: "daily_check_in",
+      reminderKind: "daily_awareness",
     },
   });
 
