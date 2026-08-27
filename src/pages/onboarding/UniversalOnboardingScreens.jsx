@@ -10,6 +10,7 @@ export const SCREEN_IDS = [
   "decision-impact",
   "clara-reveal",
   "mission-rule",
+  "bigger-vision",
 ];
 
 const CLARA_WORDMARK_LETTERS = [
@@ -244,11 +245,23 @@ export function MissionRuleScreen() {
       <p className="clara-onboarding-body clara-onboarding-body--narrow">
         <ClaraBrandName /> checks the decision against your financial status and helps you protect your Means Score — so you can stay within your means and build more financial room over time.
       </p>
-      <AccentRule />
-      <p className="clara-onboarding-kicker clara-onboarding-kicker--blue">The bigger vision</p>
-      <p className="clara-onboarding-body clara-onboarding-body--narrow">
-        When you join <ClaraBrandName />, you&apos;re not only helping yourself. You become part of a growing movement of Filipinos choosing financial stability and better money habits.
+      <p className="clara-onboarding-mantra">Ask <i /> See the impact <i /> Decide</p>
+    </ScreenFrame>
+  );
+}
+
+export function BiggerVisionScreen() {
+  return (
+    <ScreenFrame>
+      <Eyebrow tone="gold">The bigger vision</Eyebrow>
+      <h1 className="clara-onboarding-title clara-onboarding-title--mission">
+        When you join <ClaraBrandName />, you&apos;re not only helping yourself.
+      </h1>
+      <p className="clara-onboarding-body clara-onboarding-body--lead">
+        You become part of a growing movement of Filipinos choosing to live within their means, build financial stability, and make better money decisions.
       </p>
+      <AccentRule />
+      <p className="clara-onboarding-kicker clara-onboarding-kicker--blue">The goal is bigger than one person.</p>
       <p className="clara-onboarding-tagline">Normalize healthy money habits in the Philippines.</p>
     </ScreenFrame>
   );
