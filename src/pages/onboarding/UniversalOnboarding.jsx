@@ -1,26 +1,20 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, ChevronLeft, Compass, Sparkles } from "lucide-react";
-import ClaraBrandName from "@/components/ClaraBrandName";
 import { useAuth } from "@/context/AuthContext";
 import ClaraCoreTutorial from "./ClaraCoreTutorial";
-import FinancialSuccessScreen from "./FinancialSuccessScreen";
-import MoneySituationScreen from "./MoneySituationScreen";
 import { getUniversalOnboardingStyles } from "./UniversalOnboardingStyles";
 import {
   AmbientField,
-  BeforeScreen,
-  ClaraRevealScreen,
+  AwarenessScreen,
   ClaraWordmark,
   CountryScreen,
-  MissionScreen,
-  PersonalScreen,
-  QuietSpendingScreen,
-  RuleScreen,
+  DecisionImpactScreen,
+  MeasurementScreen,
+  MeansScoreScreen,
+  MissionRuleScreen,
   SCREEN_IDS,
-  SpendingImpactScreen,
-  firstNameFrom,
 } from "./UniversalOnboardingScreens";
 
 const CLARA_ORB_PATH = "/community?view=orb";
@@ -29,13 +23,7 @@ const CORE_TUTORIAL_STATUS_PREFIX = "clara_core_tutorial_status_v1";
 // Keep the tutorial implementation intact while temporarily removing it from onboarding.
 // Flip this back on when the guided walkthrough is ready to return.
 const CORE_TUTORIAL_ENABLED = false;
-const ONBOARDING_SCREEN_IDS = SCREEN_IDS.flatMap((screenId) => {
-  // The old supporter solicitation no longer belongs in onboarding. CLARA now
-  // uses the normal Free / Core / Personal / Serious subscription ladder.
-  if (screenId === "support") return [];
-  if (screenId === "money-situation") return [screenId, "financial-success"];
-  return [screenId];
-});
+const ONBOARDING_SCREEN_IDS = SCREEN_IDS;
 
 function completionKey(user) {
   const identity = user?.id || user?.email || "local";
@@ -71,10 +59,9 @@ function rememberTutorialStatus(user, status) {
 export default function UniversalOnboarding() {
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const [screenIndex, setScreenIndex] = useState(0);
   const [tutorialActive, setTutorialActive] = useState(false);
-  const firstName = useMemo(() => firstNameFrom(profile, user), [profile, user]);
   const activeScreen = ONBOARDING_SCREEN_IDS[screenIndex];
   const isFirst = screenIndex === 0;
   const isLast = screenIndex === ONBOARDING_SCREEN_IDS.length - 1;
@@ -120,21 +107,11 @@ export default function UniversalOnboarding() {
 
   const content = (() => {
     if (activeScreen === "country") return <CountryScreen />;
-    if (activeScreen === "quiet-spending") return <QuietSpendingScreen />;
-    if (activeScreen === "spending-impact") {
-      return <SpendingImpactScreen reduceMotion={reduceMotion} />;
-    }
-    if (activeScreen === "money-situation") return <MoneySituationScreen />;
-    if (activeScreen === "financial-success") {
-      return <FinancialSuccessScreen user={user} profile={profile} />;
-    }
-    if (activeScreen === "before") return <BeforeScreen />;
-    if (activeScreen === "personal") return <PersonalScreen firstName={firstName} />;
-    if (activeScreen === "clara") {
-      return <ClaraRevealScreen reduceMotion={reduceMotion} />;
-    }
-    if (activeScreen === "mission") return <MissionScreen />;
-    return <RuleScreen />;
+    if (activeScreen === "measurement") return <MeasurementScreen />;
+    if (activeScreen === "means-score") return <MeansScoreScreen />;
+    if (activeScreen === "decision-impact") return <DecisionImpactScreen />;
+    if (activeScreen === "awareness") return <AwarenessScreen />;
+    return <MissionRuleScreen />;
   })();
 
   return (
@@ -351,15 +328,7 @@ export default function UniversalOnboarding() {
             onClick={isLast ? enterClara : goNext}
             className="clara-onboarding-continue"
           >
-            <span>
-              {isLast ? (
-                <>Start with <ClaraBrandName /></>
-              ) : activeScreen === "financial-success" ? (
-                "Protect What I Have"
-              ) : (
-                "Continue"
-              )}
-            </span>
+            <span>{isLast ? "See My Financial Status" : "Continue"}</span>
             <ArrowRight />
           </button>
         </div>

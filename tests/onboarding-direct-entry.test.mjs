@@ -57,22 +57,30 @@ test("normal login does not enter the beta welcome or mission onboarding", () =>
   );
 });
 
-test("onboarding is mission-led instead of a financial diagnosis questionnaire", () => {
-  assert.doesNotMatch(onboardingSource, /QUESTION_SETS/);
-  assert.doesNotMatch(onboardingSource, /commitment_level/);
-  assert.doesNotMatch(onboardingSource, /money_pressure_point/);
-  assert.doesNotMatch(onboardingSource, /spending_guidance_style/);
-  assert.match(onboardingSource, /Filipinos work hard for every peso\./);
-  assert.match(onboardingSource, /Ask before you spend\./);
-  assert.match(onboardingSource, /Your support matters to us\./);
-  assert.match(onboardingSource, /Make it your commitment/);
+test("onboarding is Means Score led instead of a spending-loss diagnosis", () => {
+  assert.match(
+    onboardingScreensSource,
+    /SCREEN_IDS = \[[\s\S]*?"country"[\s\S]*?"measurement"[\s\S]*?"means-score"[\s\S]*?"decision-impact"[\s\S]*?"awareness"[\s\S]*?"mission-rule"[\s\S]*?\]/
+  );
+  assert.match(onboardingSource, /What you can see, you can manage\./);
+  assert.match(onboardingSource, /Meet your Means Score\./);
+  assert.match(onboardingSource, /Ask <ClaraBrandName \/> before you spend/);
+  assert.match(onboardingSource, /See the impact before you spend\./);
+  assert.match(onboardingSource, /Stay aware of where you stand\./);
+  assert.match(onboardingSource, /Better financial awareness should become normal in the Philippines\./);
+  assert.match(onboardingSource, /See My Financial Status/);
+
+  assert.doesNotMatch(onboardingSource, /Money rarely disappears in one dramatic moment\./);
+  assert.doesNotMatch(onboardingSource, /₱100–₱165 a day/);
+  assert.doesNotMatch(onboardingShellSource, /MoneySituationScreen/);
+  assert.doesNotMatch(onboardingShellSource, /FinancialSuccessScreen/);
+  assert.doesNotMatch(onboardingShellSource, /PersonalScreen/);
 });
 
-test("support exploration hands off to the existing CLARA support bubble", () => {
-  assert.match(onboardingSource, /clara_open_support_after_onboarding_v1/);
-  assert.match(onboardingSource, /clara_support_bubble_cycle_epoch_v2/);
-  assert.match(appSource, /document\.querySelector\("\[data-clara-support-bubble\]"\)/);
-  assert.match(appSource, /supportButton\.click\(\)/);
+test("onboarding still routes completion directly into the CLARA ORB", () => {
+  assert.match(onboardingShellSource, /const CLARA_ORB_PATH = "\/community\?view=orb"/);
+  assert.match(onboardingShellSource, /rememberCompletion\(user\)/);
+  assert.match(onboardingShellSource, /navigate\(CLARA_ORB_PATH, \{ replace: true \}\)/);
 });
 
 test("logged-out routes still wait for account restoration and then use Login", () => {
