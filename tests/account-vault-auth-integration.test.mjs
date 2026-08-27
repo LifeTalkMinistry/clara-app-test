@@ -30,7 +30,7 @@ test("signup does not retry account creation after local activation fails", () =
   assert.match(source, /activationError\.accountCreated = true/);
 });
 
-test("signup enters the founding beta welcome before official onboarding", () => {
+test("signup enters the onboarding bridge before official onboarding", () => {
   const source = readRepositoryFile("src/pages/Login.jsx");
   assert.match(
     source,

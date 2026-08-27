@@ -30,7 +30,7 @@ test("mission onboarding is available as an authenticated app route", () => {
   assert.doesNotMatch(appSource, /if \(isUniversalOnboardingRoute\)/);
 });
 
-test("new account creation enters the founding beta welcome before mission onboarding", () => {
+test("new account creation no longer shows the founding beta introduction", () => {
   assert.match(
     appSource,
     /const FoundingBetaWelcome = lazy\(\(\) =>[\s\S]*?import\("\.\/pages\/onboarding\/FoundingBetaWelcome"\)/
@@ -43,14 +43,11 @@ test("new account creation enters the founding beta welcome before mission onboa
     loginSource,
     /if \(mode === "signup"\)[\s\S]*?await signUp\([\s\S]*?navigate\("\/beta-welcome", \{ replace: true \}\)/
   );
-  assert.match(
-    betaWelcomeSource,
-    /navigate\("\/onboarding", \{ replace: true \}\)/
-  );
-  assert.match(betaWelcomeSource, /00 \/ 08/);
-  assert.match(betaWelcomeSource, /You&apos;re one of the/);
-  assert.match(betaWelcomeSource, /Thank you for giving CLARA a real chance\./);
-  assert.match(betaWelcomeSource, /helping shape what/);
+  assert.match(betaWelcomeSource, /<Navigate to="\/onboarding" replace \/>/);
+  assert.doesNotMatch(betaWelcomeSource, /00 \/ 08/);
+  assert.doesNotMatch(betaWelcomeSource, /very first beta users/i);
+  assert.doesNotMatch(betaWelcomeSource, /Beta Season/i);
+  assert.doesNotMatch(betaWelcomeSource, /helping shape what/i);
 });
 
 test("normal login does not enter the beta welcome or mission onboarding", () => {

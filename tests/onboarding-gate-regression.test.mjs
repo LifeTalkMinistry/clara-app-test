@@ -142,7 +142,7 @@ test("retired Memory records cannot complete onboarding for any vault", async ()
   }
 });
 
-test("mission onboarding is direct-entry only and the beta welcome precedes it for new accounts", () => {
+test("mission onboarding is direct-entry only and the retired beta route immediately redirects", () => {
   const mainSource = readRepositoryFile("src/main.jsx");
   const appSource = readRepositoryFile("src/App.jsx");
   const loginSource = readRepositoryFile("src/pages/Login.jsx");
@@ -170,8 +170,9 @@ test("mission onboarding is direct-entry only and the beta welcome precedes it f
   );
   assert.match(
     betaWelcomeSource,
-    /navigate\("\/onboarding", \{ replace: true \}\)/
+    /<Navigate to="\/onboarding" replace \/>/
   );
+  assert.doesNotMatch(betaWelcomeSource, /Beta Season/i);
 });
 
 test("access flow still bypasses mandatory onboarding while saved legacy setup data stays intact", () => {
