@@ -38,10 +38,15 @@ jobs:
           node --test tests/buy-check-metric-impact.test.mjs
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
 
-      - name: Build application without prebuild side effects
-        run: npx vite build --base=./
+      - name: Build application
+        run: npm run build:web
+        env:
+          VITE_GEMINI_MODEL: gemini-3.6-flash
+          VITE_CLARA_RUNTIME_MODE: local_only
+          VITE_CLARA_AUTH_ENABLED: "false"
+          VITE_CLARA_LOCAL_MODE_ENABLED: "true"
 
       - name: Commit verified Fully Covered state
         run: |
