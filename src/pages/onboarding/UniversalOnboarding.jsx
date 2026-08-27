@@ -7,6 +7,7 @@ import ClaraCoreTutorial from "./ClaraCoreTutorial";
 import { getUniversalOnboardingStyles } from "./UniversalOnboardingStyles";
 import {
   AmbientField,
+  BiggerVisionScreen,
   ClaraRevealScreen,
   ClaraWordmark,
   CountryScreen,
@@ -115,7 +116,8 @@ export default function UniversalOnboarding() {
     if (activeScreen === "clara-reveal") {
       return <ClaraRevealScreen reduceMotion={reduceMotion} />;
     }
-    return <MissionRuleScreen />;
+    if (activeScreen === "mission-rule") return <MissionRuleScreen />;
+    return <BiggerVisionScreen />;
   })();
 
   return (
