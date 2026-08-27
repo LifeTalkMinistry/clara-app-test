@@ -1,43 +1,50 @@
 export const SUPPORT_TIERS = Object.freeze({
   supporter: Object.freeze({
+    // Backend compatibility key. Product-facing name is Take Control.
     key: "supporter",
-    name: "CLARA Supporter",
+    membershipKey: "core",
+    name: "Take Control",
     price: 99,
     productId: "clara_supporter_99",
-    positioning: "Help keep CLARA free.",
+    positioning: "Start being intentional with your money.",
     benefits: Object.freeze([
-      "Supporter badge and recognition",
-      "Supporter polls and product feedback",
-      "Recognition for helping keep CLARA free",
+      "CLARA ORB",
+      "Ask Before You Spend",
+      "Means Score",
+      "Wallet",
+      "Money Schedule",
+      "Weekly Cross-Check",
     ]),
   }),
   builder: Object.freeze({
+    // Backend compatibility key. Product-facing name is Stay Consistent.
     key: "builder",
-    name: "CLARA Builder",
-    price: 249,
+    membershipKey: "personal",
+    name: "Stay Consistent",
+    price: 149,
     productId: "clara_builder_249",
     recommended: true,
-    positioning: "Help us build CLARA.",
+    positioning: "More continuity, personalization, and accountability.",
     benefits: Object.freeze([
-      "Everything from Supporter",
-      "CLARA Builder badge",
-      "Supporter development and progress updates",
-      "Stronger product feedback and voting",
-      "Monthly group financial coaching / Q&A with Max",
+      "Everything in Take Control",
+      "Unlimited AI",
+      "Personalized guidance",
+      "Personal context",
+      "Reminders",
+      "Follow-ups",
     ]),
   }),
   champion: Object.freeze({
+    // Backend compatibility key. Product-facing name is Don't Do It Alone.
     key: "champion",
-    name: "CLARA Champion",
-    price: 499,
+    membershipKey: "partner",
+    name: "Don't Do It Alone",
+    price: 299,
     productId: "clara_champion_499",
-    positioning: "Support the mission and personally work with Max.",
+    positioning: "Add a real person to your accountability system.",
     benefits: Object.freeze([
-      "Everything from Builder",
-      "CLARA Champion badge",
-      "One 30-minute private financial coaching session with Max per supported month",
-      "Priority coaching booking",
-      "Higher-level supporter recognition",
+      "Everything in Stay Consistent",
+      "One 30-minute human accountability session each month",
     ]),
   }),
 });
@@ -79,9 +86,9 @@ export function isSupportRecordActive(record, now = Date.now()) {
   if (!record || String(record.status || "").toLowerCase() !== "active") return false;
   if (!normalizeSupportTier(record.tier || record.tierKey)) return false;
 
-  // The canonical users.plan authority may represent an administrator-assigned
-  // supporter tier with no billing expiration. Billing-backed records continue
-  // to require a future support_expires_at timestamp.
+  // Canonical users.plan may represent an administrator-assigned membership
+  // with no billing expiration. Billing-backed records still require a future
+  // expiration timestamp.
   if (String(record.source || "").toLowerCase() === "account_plan") {
     return record.active !== false;
   }
@@ -93,13 +100,13 @@ export function isSupportRecordActive(record, now = Date.now()) {
 
 export function getSupportDisplayState(record, now = Date.now()) {
   if (!isSupportRecordActive(record, now)) {
-    return { active: false, label: "Support", compactLabel: "💙", tier: null };
+    return { active: false, label: "Membership", compactLabel: "CLARA", tier: null };
   }
 
   return {
     active: true,
-    label: "Thank you",
-    compactLabel: "💙",
+    label: "Active",
+    compactLabel: "CLARA",
     tier: normalizeSupportTier(record.tier || record.tierKey),
   };
 }
