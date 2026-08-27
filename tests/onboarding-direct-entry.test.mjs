@@ -72,7 +72,11 @@ test("onboarding builds the Means Score story into a dedicated CLARA reveal", ()
   assert.match(onboardingSource, /By asking <ClaraBrandName \/>\./);
   assert.match(onboardingSource, /Your financial accountability companion\./);
   assert.match(onboardingSource, /Before you spend, ask <ClaraBrandName \/>\./);
-  assert.match(onboardingSource, /Better financial awareness should become normal in the Philippines\./);
+  assert.match(onboardingSource, /understands your financial position\./);
+  assert.match(onboardingSource, /Your Means Score shows where you currently stand\./);
+  assert.match(onboardingSource, /helps you protect your Means Score/);
+  assert.match(onboardingSource, /The bigger vision/);
+  assert.match(onboardingSource, /Normalize healthy money habits in the Philippines\./);
   assert.match(onboardingSource, /See My Financial Status/);
 
   assert.doesNotMatch(onboardingSource, /Money rarely disappears in one dramatic moment\./);
