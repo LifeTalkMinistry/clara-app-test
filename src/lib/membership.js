@@ -141,7 +141,9 @@ export function resolveMembership({
     accessLevel: isActiveSupporter
       ? COMMITTED_ACCESS_LEVEL
       : FREE_ACCESS_LEVEL,
-    membershipType: isSupporterPlan ? "membership" : "free",
+    // Keep this legacy internal discriminator stable while product-facing copy
+    // uses the new membership terminology.
+    membershipType: isSupporterPlan ? "supporter" : "free",
     membershipStatus,
     accountStatus,
     isSupporterPlan,
