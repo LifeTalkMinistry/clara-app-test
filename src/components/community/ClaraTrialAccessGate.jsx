@@ -184,7 +184,7 @@ function AccessRow({ choice, selected, onToggle, children }) {
         type="button"
         onClick={onToggle}
         aria-expanded={selected}
-        className="grid min-h-[76px] w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#4d8cff]/45"
+        className="grid min-h-[82px] w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#4d8cff]/45"
       >
         <span className="min-w-0 pl-0.5">
           <span className="flex items-center gap-2">
@@ -206,7 +206,7 @@ function AccessRow({ choice, selected, onToggle, children }) {
           <span className="mt-1 block truncate text-[15px] font-black tracking-[-0.03em] text-white">
             {choice.name}
           </span>
-          <span className="mt-0.5 block truncate text-[8.5px] font-semibold text-white/40">
+          <span className="mt-1 block max-w-[260px] text-[10px] font-medium leading-[1.4] text-white/60">
             {choice.summary}
           </span>
         </span>
