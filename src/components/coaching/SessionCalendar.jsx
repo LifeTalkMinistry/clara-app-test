@@ -1,10 +1,10 @@
+import { useState } from "react";
 import { ArrowRight, ChevronLeft, ChevronRight, Clock3, Lock, X } from "lucide-react";
+import MembershipPaymentModal from "@/components/membership/MembershipPaymentModal";
 import { useCommittedMembershipState } from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
 import { LoadingPanel, NoticePanel } from "./SessionShared";
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const CREATOR_FACEBOOK_URL =
-  "https://www.facebook.com/profile.php?id=61590352695488";
 
 export function buildCalendarDays(monthDate) {
   const firstDay = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1, 12);
@@ -34,6 +34,7 @@ export function MonthCalendar({
   isCommitmentSession,
 }) {
   const membership = useCommittedMembershipState();
+  const [paymentOpen, setPaymentOpen] = useState(false);
   const lockedPreview = !membership.hasMonthlyCoachingAccess;
   const monthLabel = new Intl.DateTimeFormat("en-PH", {
     month: "long",
@@ -172,15 +173,14 @@ export function MonthCalendar({
               Monthly Coaching belongs to CLARA&apos;s human-accountability tier. Activate Don&apos;t Do It Alone to book one dedicated 30-minute conversation each month.
             </p>
 
-            <a
-              href={CREATOR_FACEBOOK_URL}
-              target="_blank"
-              rel="noreferrer noopener"
+            <button
+              type="button"
+              onClick={() => setPaymentOpen(true)}
               className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[17px] border border-[#ff8b91]/24 bg-[linear-gradient(105deg,rgba(37,99,235,0.94),rgba(85,77,224,0.95)_52%,rgba(218,48,88,0.90))] px-5 text-[11px] font-black text-white shadow-[0_12px_30px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.12)] transition active:scale-[0.99]"
             >
               Choose Don&apos;t Do It Alone
               <ArrowRight className="h-4 w-4" />
-            </a>
+            </button>
 
             <p className="mt-3 text-[9px] font-bold leading-4 text-white/40">
               ₱299/month · includes one 30-minute human accountability session each month.
@@ -188,6 +188,11 @@ export function MonthCalendar({
           </div>
         </div>
       ) : null}
+
+      <MembershipPaymentModal
+        tierKey={paymentOpen ? "champion" : ""}
+        onClose={() => setPaymentOpen(false)}
+      />
     </section>
   );
 }
