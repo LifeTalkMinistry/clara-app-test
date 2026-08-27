@@ -341,11 +341,6 @@ export default function ClaraTrialAccessGate({
               ? "How do you want to continue?"
               : "How do you want to stay accountable?"}
           </h1>
-          <p className="mx-auto mt-1.5 max-w-[460px] text-[9px] font-medium leading-4 text-white/42 sm:text-[10px]">
-            {expired
-              ? "Choose the level of support that fits how you want to keep moving forward."
-              : "Start free, take control, build consistency, or add a real person to your accountability."}
-          </p>
         </div>
 
         {checking ? (
@@ -467,14 +462,9 @@ export default function ClaraTrialAccessGate({
           })}
         </div>
 
-        <div className="relative mx-auto mt-3 max-w-[520px] border-t border-white/[0.055] pt-3 text-center">
-          <p className="text-[8px] font-medium leading-3.5 text-white/28">
-            Paid plan activation is arranged directly with the creator. Your financial data stays preserved if you decide later.
-          </p>
-          <p className="mt-1.5 text-[7px] font-black uppercase tracking-[.18em] text-white/20">
-            Ask before you spend.
-          </p>
-        </div>
+        <p className="relative mx-auto mt-3 text-center text-[7px] font-black uppercase tracking-[.18em] text-white/20">
+          Ask before you spend.
+        </p>
       </section>
     </main>
   );
