@@ -5,6 +5,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import { ClaraOrbMark } from "@/components/community/ClaraOrbPage";
+import MembershipPaymentModal from "@/components/membership/MembershipPaymentModal";
 import { normalizeBetaTesterCodeInput } from "@/lib/beta-tester-access-client";
 
 const CREATOR_FACEBOOK_URL =
@@ -34,6 +35,7 @@ const TRIAL_CHOICE = {
 const CLARA_PLANS = [
   {
     id: "core",
+    backendTierKey: "supporter",
     tier: "TAKE CONTROL",
     name: "Take Control",
     planLabel: "CLARA Core",
@@ -50,10 +52,11 @@ const CLARA_PLANS = [
       "Money Schedule",
       "Weekly Cross-Check",
     ],
-    cta: "Choose Take Control",
+    cta: "Continue with Take Control",
   },
   {
     id: "personal",
+    backendTierKey: "builder",
     tier: "STAY CONSISTENT",
     name: "Stay Consistent",
     planLabel: "CLARA Personal",
@@ -70,11 +73,12 @@ const CLARA_PLANS = [
       "Reminders",
       "Follow-ups",
     ],
-    cta: "Choose Stay Consistent",
+    cta: "Continue with Stay Consistent",
     featured: true,
   },
   {
     id: "partner",
+    backendTierKey: "champion",
     tier: "DON'T DO IT ALONE",
     name: "Don't Do It Alone",
     planLabel: "CLARA + Human Accountability",
@@ -87,7 +91,7 @@ const CLARA_PLANS = [
       "Everything in Stay Consistent",
       "One 30-minute human accountability session each month",
     ],
-    cta: "Choose Human Accountability",
+    cta: "Continue with Don't Do It Alone",
   },
 ];
 
@@ -110,6 +114,18 @@ function CreatorButton({ label = "Chat with the Creator", compact = false }) {
       {label}
       <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
     </a>
+  );
+}
+
+function MembershipButton({ label, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-[#7aa8ff]/24 bg-[linear-gradient(135deg,#246fff,#2149ba)] px-3 text-[9px] font-black text-white shadow-[0_10px_26px_rgba(37,96,225,.2)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4d8cff]/45"
+    >
+      {label}
+    </button>
   );
 }
 
@@ -263,6 +279,7 @@ export default function ClaraTrialAccessGate({
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [selectedChoiceId, setSelectedChoiceId] = useState(null);
+  const [paymentTierKey, setPaymentTierKey] = useState("");
   const expired = trial?.status === "expired";
 
   const choices = useMemo(
@@ -453,7 +470,10 @@ export default function ClaraTrialAccessGate({
                     </p>
                     <FeatureList features={choice.features} />
                     <div className="mt-3">
-                      <CreatorButton label={choice.cta} compact />
+                      <MembershipButton
+                        label={choice.cta}
+                        onClick={() => setPaymentTierKey(choice.backendTierKey)}
+                      />
                     </div>
                   </>
                 )}
@@ -466,6 +486,11 @@ export default function ClaraTrialAccessGate({
           Ask before you spend.
         </p>
       </section>
+
+      <MembershipPaymentModal
+        tierKey={paymentTierKey}
+        onClose={() => setPaymentTierKey("")}
+      />
     </main>
   );
 }
