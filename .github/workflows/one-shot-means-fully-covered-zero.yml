@@ -54,3 +54,5 @@ jobs:
           git rm scripts/apply_means_fully_covered_zero.py .github/workflows/one-shot-means-fully-covered-zero.yml
           git commit -m "Show Fully Covered when remaining runway reaches zero"
           git push origin HEAD:main
+
+# trigger: fully-covered-zero-v1
