@@ -57,10 +57,10 @@ test("normal login does not enter the beta welcome or mission onboarding", () =>
   );
 });
 
-test("onboarding builds the Means Score story before spending impact", () => {
+test("onboarding builds the Means Score story into a dedicated CLARA reveal", () => {
   assert.match(
     onboardingScreensSource,
-    /SCREEN_IDS = \[[\s\S]*?"country"[\s\S]*?"measurement"[\s\S]*?"means-score"[\s\S]*?"score-meaning"[\s\S]*?"decision-impact"[\s\S]*?"awareness"[\s\S]*?"mission-rule"[\s\S]*?\]/
+    /SCREEN_IDS = \[[\s\S]*?"country"[\s\S]*?"measurement"[\s\S]*?"means-score"[\s\S]*?"score-meaning"[\s\S]*?"decision-impact"[\s\S]*?"clara-reveal"[\s\S]*?"mission-rule"[\s\S]*?\]/
   );
   assert.match(onboardingSource, /You can&apos;t manage what you don&apos;t measure\./);
   assert.match(onboardingSource, /Meet your Means Score\./);
@@ -68,8 +68,10 @@ test("onboarding builds the Means Score story before spending impact", () => {
   assert.match(onboardingSource, /100 is the line\./);
   assert.match(onboardingSource, /Below it means financial pressure\. Above it means more financial room\./);
   assert.match(onboardingSource, /Before you spend, see what it changes\./);
-  assert.match(onboardingSource, /Ask <ClaraBrandName \/> before you spend/);
-  assert.match(onboardingSource, /Stay aware of where you stand\./);
+  assert.match(onboardingSource, /How do you see the impact before you spend\?/);
+  assert.match(onboardingSource, /By asking <ClaraBrandName \/>\./);
+  assert.match(onboardingSource, /Your financial accountability companion\./);
+  assert.match(onboardingSource, /Before you spend, ask <ClaraBrandName \/>\./);
   assert.match(onboardingSource, /Better financial awareness should become normal in the Philippines\./);
   assert.match(onboardingSource, /See My Financial Status/);
 
@@ -78,6 +80,7 @@ test("onboarding builds the Means Score story before spending impact", () => {
   assert.doesNotMatch(onboardingShellSource, /MoneySituationScreen/);
   assert.doesNotMatch(onboardingShellSource, /FinancialSuccessScreen/);
   assert.doesNotMatch(onboardingShellSource, /PersonalScreen/);
+  assert.doesNotMatch(onboardingShellSource, /AwarenessScreen/);
 });
 
 test("onboarding still routes completion directly into the CLARA ORB", () => {
