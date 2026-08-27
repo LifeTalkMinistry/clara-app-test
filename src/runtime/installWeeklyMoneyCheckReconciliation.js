@@ -1,3 +1,4 @@
+import "./installOrbReminderPriority";
 import "./installWeeklyCrossCheckForegroundOwnership";
 import "./installWeeklyCrossCheckReminder";
 import { getEffectiveDemoFinanceLocalUserId } from "@/lib/demo/activeDemoProfile";
