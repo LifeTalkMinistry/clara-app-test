@@ -1,5 +1,7 @@
 from pathlib import Path
 
+# Trigger the verified one-shot migration repair after its workflow is active on main.
+
 
 def replace_once(text, old, new, label):
     if old not in text:
