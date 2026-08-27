@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { ExternalLink, KeyRound, Sparkles } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  KeyRound,
+  Sparkles,
+} from "lucide-react";
 import { normalizeBetaTesterCodeInput } from "@/lib/beta-tester-access-client";
 
 const CREATOR_FACEBOOK_URL =
@@ -10,16 +16,33 @@ const CLARA_PLANS = [
     name: "Core",
     price: "₱99",
     eyebrow: "CONTINUE CLARA",
-    description: "The complete CLARA financial accountability system you experience during the trial.",
-    features: "ORB · Ask Before You Spend · Means Score · Wallet · Schedule · Weekly Cross-Check",
+    summary: "Complete financial context",
+    description:
+      "The complete CLARA financial accountability system you experience during the trial.",
+    features: [
+      "CLARA ORB",
+      "Ask Before You Spend",
+      "Means Score",
+      "Wallet",
+      "Money Schedule",
+      "Weekly Cross-Check",
+    ],
     cta: "Choose Core",
   },
   {
     name: "Personal",
     price: "₱249",
     eyebrow: "BEST FOR ACCOUNTABILITY",
-    description: "Everything in Core, with stronger AI access and more personal accountability.",
-    features: "Unlimited AI · Personalized guidance · Reminders · Follow-ups",
+    summary: "Personal context + unlimited AI",
+    description:
+      "Everything in Core, with stronger AI access and more personal accountability.",
+    features: [
+      "Everything in Core",
+      "Unlimited AI",
+      "Personalized guidance",
+      "Reminders",
+      "Follow-ups",
+    ],
     cta: "Choose Personal",
     featured: true,
   },
@@ -27,8 +50,13 @@ const CLARA_PLANS = [
     name: "Serious",
     price: "₱499",
     eyebrow: "HUMAN ACCOUNTABILITY",
-    description: "Everything in Personal, plus a real monthly accountability conversation.",
-    features: "Personal + one 30-minute human accountability session each month",
+    summary: "Monthly human accountability",
+    description:
+      "Everything in Personal, plus a real monthly accountability conversation.",
+    features: [
+      "Everything in Personal",
+      "One 30-minute human accountability session each month",
+    ],
     cta: "Choose Serious",
   },
 ];
@@ -47,55 +75,111 @@ function CreatorButton({ label = "Chat with the Creator" }) {
   );
 }
 
-function PlanCard({ plan }) {
+function PlanCard({ plan, expanded, onToggle }) {
+  const detailsId = `clara-plan-${plan.name.toLowerCase()}-details`;
+
   return (
     <article
-      className={`relative flex min-h-[252px] flex-col rounded-[24px] border p-5 text-left transition ${
+      className={`relative rounded-[22px] border px-4 py-4 text-left transition duration-300 ${
         plan.featured
-          ? "border-cyan-200/24 bg-[linear-gradient(160deg,rgba(26,66,104,.42),rgba(16,24,64,.72))] shadow-[0_18px_46px_rgba(46,120,255,.11)]"
+          ? "border-cyan-200/28 bg-[linear-gradient(160deg,rgba(26,66,104,.46),rgba(16,24,64,.76))] shadow-[0_16px_38px_rgba(46,120,255,.12)]"
           : "border-white/[0.08] bg-white/[0.035]"
       }`}
     >
-      {plan.featured ? (
-        <div className="absolute right-4 top-4 rounded-full border border-cyan-100/15 bg-cyan-200/[0.08] px-2.5 py-1 text-[8px] font-black uppercase tracking-[.16em] text-cyan-100/70">
-          Accountability
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <p className="min-w-0 truncate text-[7px] font-black uppercase tracking-[.18em] text-cyan-100/45">
+          {plan.eyebrow}
+        </p>
+        {plan.featured ? (
+          <span className="shrink-0 rounded-full border border-cyan-100/15 bg-cyan-200/[0.08] px-2 py-1 text-[7px] font-black uppercase tracking-[.13em] text-cyan-100/70">
+            Recommended
+          </span>
+        ) : null}
+      </div>
+
+      <div className="mt-2 flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-[17px] font-black tracking-[-0.035em] text-white">
+            CLARA {plan.name}
+          </h2>
+          <p className="mt-1 truncate text-[9px] font-bold text-white/38">
+            {plan.summary}
+          </p>
         </div>
-      ) : null}
 
-      <p className="pr-20 text-[8px] font-black uppercase tracking-[.19em] text-cyan-100/45">
-        {plan.eyebrow}
-      </p>
-      <div className="mt-3 flex items-end gap-2">
-        <h2 className="text-[20px] font-black tracking-[-0.035em] text-white">
-          CLARA {plan.name}
-        </h2>
+        <div className="shrink-0 text-right">
+          <span className="text-[22px] font-black tracking-[-0.045em] text-white">
+            {plan.price}
+          </span>
+          <span className="ml-1 text-[8px] font-bold text-white/30">/mo</span>
+        </div>
       </div>
-      <div className="mt-2 flex items-baseline gap-1">
-        <span className="text-[27px] font-black tracking-[-0.045em] text-white">
-          {plan.price}
-        </span>
-        <span className="text-[10px] font-bold text-white/35">/ month</span>
-      </div>
-      <p className="mt-3 text-[11px] font-semibold leading-5 text-white/48">
-        {plan.description}
-      </p>
-      <p className="mt-3 text-[9px] font-bold leading-4 text-white/30">
-        {plan.features}
-      </p>
 
-      <a
-        href={CREATOR_FACEBOOK_URL}
-        target="_blank"
-        rel="noreferrer noopener"
-        aria-label={`${plan.cta} with the CLARA creator`}
-        className={`mt-auto inline-flex min-h-11 w-full items-center justify-center rounded-2xl border px-3 text-[10px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60 ${
-          plan.featured
-            ? "border-cyan-100/16 bg-[linear-gradient(135deg,rgba(39,137,255,.72),rgba(72,70,220,.78))] text-white hover:brightness-110"
-            : "border-white/10 bg-white/[0.045] text-white/72 hover:border-white/20 hover:bg-white/[0.07]"
+      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+        <a
+          href={CREATOR_FACEBOOK_URL}
+          target="_blank"
+          rel="noreferrer noopener"
+          aria-label={`${plan.cta} with the CLARA creator`}
+          className={`inline-flex min-h-10 min-w-0 items-center justify-center rounded-xl border px-3 text-[9px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60 ${
+            plan.featured
+              ? "border-cyan-100/16 bg-[linear-gradient(135deg,rgba(39,137,255,.78),rgba(72,70,220,.82))] text-white hover:brightness-110"
+              : "border-white/10 bg-white/[0.045] text-white/72 hover:border-white/20 hover:bg-white/[0.07]"
+          }`}
+        >
+          {plan.cta}
+        </a>
+
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          aria-controls={detailsId}
+          className="inline-flex min-h-10 items-center justify-center gap-1 rounded-xl border border-white/[0.08] bg-black/10 px-3 text-[9px] font-black text-white/52 transition hover:border-white/16 hover:bg-white/[0.04] hover:text-white/78 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50"
+        >
+          {expanded ? "Less" : "See more"}
+          {expanded ? (
+            <ChevronUp className="h-3 w-3" aria-hidden="true" />
+          ) : (
+            <ChevronDown className="h-3 w-3" aria-hidden="true" />
+          )}
+        </button>
+      </div>
+
+      <div
+        id={detailsId}
+        aria-hidden={!expanded}
+        className={`grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out ${
+          expanded
+            ? "mt-3 grid-rows-[1fr] opacity-100"
+            : "mt-0 grid-rows-[0fr] opacity-0"
         }`}
       >
-        {plan.cta}
-      </a>
+        <div className="overflow-hidden">
+          <div className="border-t border-white/[0.07] pt-3">
+            <p className="text-[10px] font-semibold leading-5 text-white/52">
+              {plan.description}
+            </p>
+            <p className="mt-3 text-[7px] font-black uppercase tracking-[.18em] text-cyan-100/38">
+              Included
+            </p>
+            <ul className="mt-2 grid gap-1.5 sm:grid-cols-2">
+              {plan.features.map((feature) => (
+                <li
+                  key={feature}
+                  className="flex items-start gap-2 text-[9px] font-bold leading-4 text-white/38"
+                >
+                  <span
+                    className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-cyan-200/55"
+                    aria-hidden="true"
+                  />
+                  <span>{feature}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
     </article>
   );
 }
@@ -110,6 +194,7 @@ export default function ClaraTrialAccessGate({
   const [code, setCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [expandedPlan, setExpandedPlan] = useState(null);
   const expired = trial?.status === "expired";
 
   const submitCode = async (event) => {
@@ -131,6 +216,10 @@ export default function ClaraTrialAccessGate({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const togglePlan = (planName) => {
+    setExpandedPlan((current) => (current === planName ? null : planName));
   };
 
   return (
@@ -252,19 +341,27 @@ export default function ClaraTrialAccessGate({
           </div>
         ) : null}
 
-        <div className="mt-7 border-t border-white/[0.07] pt-6">
+        <div className="mt-7 border-t border-white/[0.07] pt-5">
           <div className="text-center">
-            <p className="text-[9px] font-black uppercase tracking-[.2em] text-white/34">
+            <p className="text-[8px] font-black uppercase tracking-[.2em] text-white/34">
               {expired ? "Continue with CLARA" : "Or choose your plan now"}
             </p>
-            <h2 className="mt-2 text-[19px] font-black tracking-[-0.03em] text-white">
-              Choose your level of accountability
+            <h2 className="mt-1.5 text-[18px] font-black tracking-[-0.03em] text-white">
+              Compare your CLARA plans
             </h2>
+            <p className="mt-1 text-[9px] font-semibold text-white/30">
+              Compare first. Open a plan only when you want the details.
+            </p>
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
             {CLARA_PLANS.map((plan) => (
-              <PlanCard key={plan.name} plan={plan} />
+              <PlanCard
+                key={plan.name}
+                plan={plan}
+                expanded={expandedPlan === plan.name}
+                onToggle={() => togglePlan(plan.name)}
+              />
             ))}
           </div>
 
