@@ -16,10 +16,12 @@ export const BACKEND_ACCOUNT_PLANS = Object.freeze([
 ]);
 export const BACKEND_ACCOUNT_STATUSES = Object.freeze(["active", "pending", "inactive"]);
 
+// The backend keys remain unchanged for compatibility with the existing payment
+// and admin infrastructure. Only the product-facing labels have changed.
 const SUPPORT_PLAN_LABELS = Object.freeze({
-  supporter: "CLARA Supporter",
-  builder: "CLARA Builder",
-  champion: "CLARA Champion",
+  supporter: "Take Control",
+  builder: "Stay Consistent",
+  champion: "Don't Do It Alone",
 });
 
 export function normalizeBackendPlan(value) {
@@ -38,7 +40,7 @@ export function isBackendSupportPlanActive(serverUser = {}) {
 }
 
 // Legacy compatibility alias. The old Committed plan is retired; callers that
-// still use this helper now receive the canonical supporter-plan answer.
+// still use this helper now receive the canonical paid-membership answer.
 export function isBackendCommittedActive(serverUser = {}) {
   return isBackendSupportPlanActive(serverUser);
 }
@@ -76,7 +78,7 @@ export function buildBackendMembershipProfile(serverUser = {}, baseProfile = {})
     support_tier: backendPlan === BACKEND_FREE_PLAN ? null : backendPlan,
     subscription_label:
       backendPlan === BACKEND_FREE_PLAN
-        ? "Free Version"
+        ? "No Active Membership"
         : SUPPORT_PLAN_LABELS[backendPlan],
   };
 }
