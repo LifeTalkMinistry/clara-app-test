@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "@/lib/clara-pause-events";
 import { triggerClaraHaptic } from "@/lib/claraHaptics";
+import { installDailyAwarenessStreak } from "@/runtime/installDailyAwarenessStreak";
 import {
   CLARA_ORB_COMMANDS,
   ORB_COMMAND_HOLD_MS,
@@ -460,6 +461,8 @@ export default function ClaraOrbPage({ onActivate, activationDelayMs = 0 }) {
     setCommandRadius(radius);
     return { centerX, centerY, deadZonePx };
   };
+
+  useEffect(() => installDailyAwarenessStreak(), []);
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
