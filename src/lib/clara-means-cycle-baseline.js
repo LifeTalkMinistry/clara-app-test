@@ -1,4 +1,4 @@
-const BASELINE_VERSION = 2;
+const BASELINE_VERSION = 3;
 
 function finiteNonNegative(value) {
   const amount = Number(value);
@@ -19,6 +19,21 @@ function canonicalize(value) {
 
 export function stableMeansPlanFingerprint(value) {
   return JSON.stringify(canonicalize(value));
+}
+
+// The user's personal 100 is the amount this pay cycle is consuming/committing.
+// In plain terms: cycle income minus the money that will still remain after all
+// currently-known commitments are protected.
+export function calculateCycleRequiredRunway({
+  income = 0,
+  availableNow = 0,
+  upcoming = 0,
+} = {}) {
+  const normalizedIncome = finiteNonNegative(income);
+  const normalizedAvailable = finiteNonNegative(availableNow);
+  const normalizedUpcoming = finiteNonNegative(upcoming);
+  const projectedRoom = normalizedAvailable - normalizedUpcoming;
+  return Math.max(0, normalizedIncome - projectedRoom);
 }
 
 export function resolveMeansCycleBaselineState({

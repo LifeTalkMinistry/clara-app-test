@@ -29,6 +29,7 @@ import { isSavingsGoalActive } from "@/lib/savingsGoalLifecycle";
 import { MEANS_SNAPSHOT_UPDATED_EVENT } from "@/lib/clara-means-boundary";
 import { isDebtOccurrencePaid } from "@/lib/debtOccurrenceState";
 import {
+  calculateCycleRequiredRunway,
   calculateMeansScoreState,
   resolveMeansCycleBaselineState,
   stableMeansPlanFingerprint,
@@ -61,7 +62,7 @@ const MEANS_CONTEXT_KEY = "__claraCanonicalMeansSnapshot__";
 const INCOME_HUB_UPDATED_EVENT = "clara-income-hub-updated";
 const INCOME_HUB_CASH_IN_TYPE = "add_money";
 const SAVINGS_GOAL_SCHEDULE_SOURCE = "savings_goal_card_projection";
-const MEANS_CYCLE_BASELINE_STORAGE_PREFIX = "clara:means-cycle-baseline:v2";
+const MEANS_CYCLE_BASELINE_STORAGE_PREFIX = "clara:means-cycle-baseline:v3";
 
 function resolveGreetingLabel() {
   return (
@@ -714,6 +715,7 @@ function resolveLockedMeansCycleBaseline({
   cycleStart,
   cycleEnd,
   upcoming,
+  requiredRunwayCandidate,
   assumedSpent,
   debtObligations,
   planFingerprint,
@@ -724,9 +726,11 @@ function resolveLockedMeansCycleBaseline({
     cycleEnd
   );
 
-  // Reconstruct already-realized planned debt so fulfillment cannot shrink the
-  // authoritative requirement. New plan information is handled by the fingerprint.
+  // 100 is the full predicted amount needed for this pay cycle. Keep already-realized
+  // planned debt inside the floor so fulfilling a known obligation cannot make the
+  // measuring stick artificially smaller.
   const reconstructedRequiredRunway = Math.max(
+    Number(requiredRunwayCandidate || 0),
     Number(upcoming || 0) + plannedDebtAlreadyPaid,
     0
   );
@@ -855,6 +859,11 @@ async function buildMeansSnapshot(profile = {}) {
 
   const projectedSpending = upcoming;
   const projectedRoom = availableNow - upcoming;
+  const requiredRunwayCandidate = calculateCycleRequiredRunway({
+    income,
+    availableNow,
+    upcoming,
+  });
 
   // Means Score uses one locked measuring stick for the whole payday-to-payday window.
   // Paying a commitment CLARA already predicted must be neutral: cash and remaining
@@ -865,6 +874,7 @@ async function buildMeansSnapshot(profile = {}) {
     cycleStart: cycleStartDate,
     cycleEnd: cycleEndDate,
     upcoming,
+    requiredRunwayCandidate,
     assumedSpent,
     debtObligations,
     planFingerprint,
