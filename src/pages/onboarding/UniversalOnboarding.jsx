@@ -14,6 +14,7 @@ import {
   MeasurementScreen,
   MeansScoreScreen,
   MissionRuleScreen,
+  ScoreMeaningScreen,
   SCREEN_IDS,
 } from "./UniversalOnboardingScreens";
 
@@ -109,6 +110,7 @@ export default function UniversalOnboarding() {
     if (activeScreen === "country") return <CountryScreen />;
     if (activeScreen === "measurement") return <MeasurementScreen />;
     if (activeScreen === "means-score") return <MeansScoreScreen />;
+    if (activeScreen === "score-meaning") return <ScoreMeaningScreen />;
     if (activeScreen === "decision-impact") return <DecisionImpactScreen />;
     if (activeScreen === "awareness") return <AwarenessScreen />;
     return <MissionRuleScreen />;

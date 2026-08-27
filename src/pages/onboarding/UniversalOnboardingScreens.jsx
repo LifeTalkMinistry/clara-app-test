@@ -6,6 +6,7 @@ export const SCREEN_IDS = [
   "country",
   "measurement",
   "means-score",
+  "score-meaning",
   "decision-impact",
   "awareness",
   "mission-rule",
@@ -157,22 +158,37 @@ export function MeansScoreScreen() {
       <Eyebrow>Your financial status</Eyebrow>
       <h1 className="clara-onboarding-title">Meet your Means Score.</h1>
       <div className="clara-onboarding-compare">
-        <section className="clara-onboarding-compare-block clara-onboarding-compare-block--muted">
-          <p className="clara-onboarding-kicker">Example Means Score</p>
-          <p className="clara-onboarding-compare-copy clara-onboarding-compare-copy--hero">87</p>
-        </section>
-        <AccentRule />
         <section className="clara-onboarding-compare-block clara-onboarding-compare-block--clara">
-          <p className="clara-onboarding-kicker clara-onboarding-kicker--blue">Above Your Means</p>
-          <p className="clara-onboarding-compare-copy">
-            Your financial pressure becomes visible instead of being something you only feel.
-          </p>
+          <p className="clara-onboarding-kicker clara-onboarding-kicker--blue">One practical number</p>
+          <p className="clara-onboarding-compare-copy clara-onboarding-compare-copy--hero">87</p>
         </section>
       </div>
       <p className="clara-onboarding-body clara-onboarding-body--narrow">
-        Your Means Score compares the financial resources available to you with what you currently need until the next relevant income point.
+        One practical number that makes your financial position visible.
       </p>
-      <p className="clara-onboarding-impact-destinations">Under 100 <i /> 100 = covered <i /> Over 100 = more room</p>
+    </ScreenFrame>
+  );
+}
+
+export function ScoreMeaningScreen() {
+  return (
+    <ScreenFrame>
+      <Eyebrow tone="gold">What the score means</Eyebrow>
+      <h1 className="clara-onboarding-title">100 is the line.</h1>
+      <p className="clara-onboarding-body clara-onboarding-body--lead">
+        Below it means financial pressure. Above it means more financial room.
+      </p>
+      <div className="clara-onboarding-personal-list">
+        <div className="clara-onboarding-personal-line">
+          <span>87 — Financial pressure</span>
+        </div>
+        <div className="clara-onboarding-personal-line clara-onboarding-personal-line--gold">
+          <span>100 — Exactly covered</span>
+        </div>
+        <div className="clara-onboarding-personal-line">
+          <span>126 — More financial room</span>
+        </div>
+      </div>
     </ScreenFrame>
   );
 }
@@ -180,11 +196,11 @@ export function MeansScoreScreen() {
 export function DecisionImpactScreen() {
   return (
     <ScreenFrame>
-      <Eyebrow tone="gold">Before the decision</Eyebrow>
-      <h1 className="clara-onboarding-title">See the impact before you spend.</h1>
+      <Eyebrow tone="gold">Now it becomes practical</Eyebrow>
+      <h1 className="clara-onboarding-title">Before you spend, see what it changes.</h1>
       <div className="clara-onboarding-compare">
         <section className="clara-onboarding-compare-block clara-onboarding-compare-block--muted">
-          <p className="clara-onboarding-kicker">Example Means Score</p>
+          <p className="clara-onboarding-kicker">Before purchase</p>
           <p className="clara-onboarding-compare-copy">126</p>
         </section>
         <AccentRule />

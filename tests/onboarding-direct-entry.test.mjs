@@ -57,15 +57,18 @@ test("normal login does not enter the beta welcome or mission onboarding", () =>
   );
 });
 
-test("onboarding is Means Score led instead of a spending-loss diagnosis", () => {
+test("onboarding builds the Means Score story before spending impact", () => {
   assert.match(
     onboardingScreensSource,
-    /SCREEN_IDS = \[[\s\S]*?"country"[\s\S]*?"measurement"[\s\S]*?"means-score"[\s\S]*?"decision-impact"[\s\S]*?"awareness"[\s\S]*?"mission-rule"[\s\S]*?\]/
+    /SCREEN_IDS = \[[\s\S]*?"country"[\s\S]*?"measurement"[\s\S]*?"means-score"[\s\S]*?"score-meaning"[\s\S]*?"decision-impact"[\s\S]*?"awareness"[\s\S]*?"mission-rule"[\s\S]*?\]/
   );
-  assert.match(onboardingSource, /What you can see, you can manage\./);
+  assert.match(onboardingSource, /You can&apos;t manage what you don&apos;t measure\./);
   assert.match(onboardingSource, /Meet your Means Score\./);
+  assert.match(onboardingSource, /One practical number that makes your financial position visible\./);
+  assert.match(onboardingSource, /100 is the line\./);
+  assert.match(onboardingSource, /Below it means financial pressure\. Above it means more financial room\./);
+  assert.match(onboardingSource, /Before you spend, see what it changes\./);
   assert.match(onboardingSource, /Ask <ClaraBrandName \/> before you spend/);
-  assert.match(onboardingSource, /See the impact before you spend\./);
   assert.match(onboardingSource, /Stay aware of where you stand\./);
   assert.match(onboardingSource, /Better financial awareness should become normal in the Philippines\./);
   assert.match(onboardingSource, /See My Financial Status/);
