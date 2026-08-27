@@ -29,7 +29,13 @@ import { isSavingsGoalActive } from "@/lib/savingsGoalLifecycle";
 import { MEANS_SNAPSHOT_UPDATED_EVENT } from "@/lib/clara-means-boundary";
 import { isDebtOccurrencePaid } from "@/lib/debtOccurrenceState";
 import {
+  calculateMeansScoreState,
+  resolveMeansCycleBaselineState,
+  stableMeansPlanFingerprint,
+} from "@/lib/clara-means-cycle-baseline";
+import {
   CLARA_MONEY_ROUTINE_UPDATED_EVENT,
+  CLARA_MONEY_SCHEDULE_UPDATED_EVENT,
   getClaraMoneyScheduleStorageKey,
   readClaraMoneyRoutine,
 } from "@/lib/clara-money-schedule-repository";
@@ -55,7 +61,7 @@ const MEANS_CONTEXT_KEY = "__claraCanonicalMeansSnapshot__";
 const INCOME_HUB_UPDATED_EVENT = "clara-income-hub-updated";
 const INCOME_HUB_CASH_IN_TYPE = "add_money";
 const SAVINGS_GOAL_SCHEDULE_SOURCE = "savings_goal_card_projection";
-const MEANS_CYCLE_BASELINE_STORAGE_PREFIX = "clara:means-cycle-baseline:v1";
+const MEANS_CYCLE_BASELINE_STORAGE_PREFIX = "clara:means-cycle-baseline:v2";
 
 function resolveGreetingLabel() {
   return (
@@ -590,6 +596,114 @@ function plannedDebtPaidInsideCycle(records = [], cycleStart = "", cycleEnd = ""
   }, 0);
 }
 
+function isInactiveSavingsPlanGoal(goal = {}) {
+  const status = normalizeLower(goal?.completion_status ?? goal?.completionStatus ?? goal?.status);
+  return Boolean(
+    goal?.deletedAt ||
+      goal?.deleted_at ||
+      goal?.archived === true ||
+      goal?.is_archived === true ||
+      goal?.isArchived === true ||
+      goal?.cancelled === true ||
+      goal?.canceled === true ||
+      ["deleted", "archived", "cancelled", "canceled"].includes(status)
+  );
+}
+
+function buildMeansPlanFingerprint({
+  owner,
+  cycleStart,
+  cycleEnd,
+  debtObligations = [],
+  savingsGoals = [],
+} = {}) {
+  const routine = readClaraMoneyRoutine(owner);
+  const routinePlan =
+    routine && routine.active !== false && Array.isArray(routine.days)
+      ? routine.days
+          .map((day) => ({
+            weekdayIndex: Number(day?.weekdayIndex ?? day?.weekday_index),
+            totalCentavos: Math.max(0, Number(day?.totalCentavos ?? day?.total_centavos ?? 0)),
+          }))
+          .filter((day) => Number.isInteger(day.weekdayIndex) && day.totalCentavos > 0)
+          .sort((a, b) => a.weekdayIndex - b.weekdayIndex)
+      : [];
+
+  const schedulePlan = parseScheduleEvents(owner)
+    .map((event) => {
+      const date = String(event?.date || "").slice(0, 10);
+      const direction = String(event?.direction || "out").trim().toLowerCase();
+      const amount = Number(String(event?.amount ?? "0").replace(/[₱,\s]/g, ""));
+      const source = normalizeLower(event?.source);
+      const savingsGoalProjection =
+        source === SAVINGS_GOAL_SCHEDULE_SOURCE || event?.savingsGoalId || event?.savings_goal_id;
+      const debtProjection =
+        source === DEBT_OBLIGATION_SCHEDULE_SOURCE || event?.debtObligationId || event?.debt_obligation_id;
+      if (!date || date < cycleStart || date >= cycleEnd) return null;
+      if (
+        direction !== "out" ||
+        event?.affectsMoney === false ||
+        savingsGoalProjection ||
+        debtProjection ||
+        !Number.isFinite(amount) ||
+        amount <= 0
+      ) {
+        return null;
+      }
+      return {
+        id: String(event?.id || "").trim(),
+        date,
+        amount: Math.max(0, amount),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => `${a.date}:${a.id}:${a.amount}`.localeCompare(`${b.date}:${b.id}:${b.amount}`));
+
+  const debtPlan = buildDebtObligationScheduleProjection(debtObligations)
+    .map((event) => {
+      const date = String(event?.date || "").slice(0, 10);
+      const amount = Number(String(event?.amount ?? "0").replace(/[₱,\s]/g, ""));
+      if (!date || date < cycleStart || date >= cycleEnd || !Number.isFinite(amount) || amount <= 0) {
+        return null;
+      }
+      return {
+        debtId: String(event?.debtObligationId || event?.debt_obligation_id || "").trim(),
+        date,
+        amount: Math.max(0, amount),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => `${a.date}:${a.debtId}:${a.amount}`.localeCompare(`${b.date}:${b.debtId}:${b.amount}`));
+
+  // Saved/progress/completion fields are intentionally excluded. Funding or using an
+  // already-known goal is realization, while target/date/delete edits are plan changes.
+  const savingsPlan = (Array.isArray(savingsGoals) ? savingsGoals : [])
+    .filter((goal) => !isInactiveSavingsPlanGoal(goal))
+    .map((goal) => ({
+      id: String(goal?.id || goal?.goal_id || goal?.goalId || "").trim(),
+      date: savingsGoalDate(goal),
+      target: savingsGoalMoney(
+        goal?.target_amount,
+        goal?.targetAmount,
+        goal?.goal_amount,
+        goal?.goalAmount,
+        goal?.target,
+        goal?.amount
+      ),
+    }))
+    .filter((goal) => goal.id && goal.date && goal.date < cycleEnd && goal.target > 0)
+    .sort((a, b) => `${a.date}:${a.id}:${a.target}`.localeCompare(`${b.date}:${b.id}:${b.target}`));
+
+  return stableMeansPlanFingerprint({
+    cycleStart,
+    cycleEnd,
+    routine: routinePlan,
+    schedule: schedulePlan,
+    debt: debtPlan,
+    savings: savingsPlan,
+  });
+}
+
 function meansCycleBaselineStorageKey(owner, cycleStart, cycleEnd) {
   const ownerKey = encodeURIComponent(String(owner || "local-user").trim() || "local-user");
   return `${MEANS_CYCLE_BASELINE_STORAGE_PREFIX}:${ownerKey}:${cycleStart}:${cycleEnd}`;
@@ -602,6 +716,7 @@ function resolveLockedMeansCycleBaseline({
   upcoming,
   assumedSpent,
   debtObligations,
+  planFingerprint,
 }) {
   const plannedDebtAlreadyPaid = plannedDebtPaidInsideCycle(
     debtObligations,
@@ -609,52 +724,58 @@ function resolveLockedMeansCycleBaseline({
     cycleEnd
   );
 
-  // Migration-safe reconstruction: if the fix lands after a scheduled debt payment,
-  // add only that already-planned payment back to the current requirement. This
-  // restores the same denominator CLARA was using immediately before the payment.
+  // Reconstruct already-realized planned debt so fulfillment cannot shrink the
+  // authoritative requirement. New plan information is handled by the fingerprint.
   const reconstructedRequiredRunway = Math.max(
     Number(upcoming || 0) + plannedDebtAlreadyPaid,
     0
   );
-  const fallback = {
-    requiredRunway: reconstructedRequiredRunway,
-    assumedSpentAtLock: Math.max(0, Number(assumedSpent || 0)),
+  const fallbackState = resolveMeansCycleBaselineState({
+    stored: null,
     cycleStart,
     cycleEnd,
-  };
+    planFingerprint,
+    requiredRunway: reconstructedRequiredRunway,
+    assumedSpent,
+  });
 
-  if (typeof window === "undefined" || !window.localStorage) return fallback;
+  if (typeof window === "undefined" || !window.localStorage) {
+    return fallbackState.baseline;
+  }
 
   const key = meansCycleBaselineStorageKey(owner, cycleStart, cycleEnd);
+  let stored = null;
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(key) || "null");
-    if (
-      parsed &&
-      parsed.cycleStart === cycleStart &&
-      parsed.cycleEnd === cycleEnd &&
-      Number.isFinite(Number(parsed.requiredRunway)) &&
-      Number(parsed.requiredRunway) >= 0
-    ) {
-      return {
-        requiredRunway: Math.max(0, Number(parsed.requiredRunway)),
-        assumedSpentAtLock: Math.max(0, Number(parsed.assumedSpentAtLock || 0)),
-        cycleStart,
-        cycleEnd,
-      };
-    }
+    stored = JSON.parse(window.localStorage.getItem(key) || "null");
   } catch {
-    // Replace malformed local state with a clean cycle lock below.
+    stored = null;
   }
 
-  try {
-    window.localStorage.setItem(
-      key,
-      JSON.stringify({ ...fallback, lockedAt: new Date().toISOString() })
-    );
-  } catch {
-    // Means must remain available even if localStorage is temporarily unavailable.
+  const resolved = resolveMeansCycleBaselineState({
+    stored,
+    cycleStart,
+    cycleEnd,
+    planFingerprint,
+    requiredRunway: reconstructedRequiredRunway,
+    assumedSpent,
+  });
+
+  if (resolved.shouldPersist) {
+    try {
+      window.localStorage.setItem(
+        key,
+        JSON.stringify({
+          ...resolved.baseline,
+          refreshedAt: new Date().toISOString(),
+          refreshReason: resolved.reason,
+        })
+      );
+    } catch {
+      // Means must remain available even if localStorage is temporarily unavailable.
+    }
   }
-  return fallback;
+
+  return resolved.baseline;
 }
 
 function realizedBuyCheckMeansOffset(expenses = [], cycleStart = "", cycleEnd = "") {
@@ -724,6 +845,13 @@ async function buildMeansSnapshot(profile = {}) {
     futureDebtObligationAmount(debtObligations, cycleEndDate) +
     overdueUnpaidDebtAmount(debtObligations, cycleStartDate, cycleEndDate);
   const upcoming = debtUpcoming + savingsGoalUpcoming + moneyScheduleUpcoming + otherScheduledUpcoming;
+  const planFingerprint = buildMeansPlanFingerprint({
+    owner,
+    cycleStart: cycleStartDate,
+    cycleEnd: cycleEndDate,
+    debtObligations,
+    savingsGoals,
+  });
 
   const projectedSpending = upcoming;
   const projectedRoom = availableNow - upcoming;
@@ -739,23 +867,17 @@ async function buildMeansSnapshot(profile = {}) {
     upcoming,
     assumedSpent,
     debtObligations,
+    planFingerprint,
   });
   const requiredRunway = Math.max(0, Number(cycleBaseline.requiredRunway || 0));
-
-  // Money Schedule becomes "assumed spent" as time passes without directly mutating
-  // the wallet. Neutralize only the amount assumed after this cycle was locked so time
-  // progression alone cannot manufacture a higher score.
-  const plannedAssumedSinceLock = Math.max(
-    0,
-    assumedSpent - Math.max(0, Number(cycleBaseline.assumedSpentAtLock || 0))
-  );
-  const scoreRoom = financialRunway - upcoming - plannedAssumedSinceLock + realizedPlannedBuyCheckOffset;
-  const score =
-    requiredRunway > 0
-      ? Math.round(((requiredRunway + scoreRoom) / requiredRunway) * 100)
-      : financialRunway > 0
-        ? 100
-        : 0;
+  const { score, scoreRoom, plannedAssumedSinceLock } = calculateMeansScoreState({
+    financialRunway,
+    upcoming,
+    requiredRunway,
+    assumedSpent,
+    assumedSpentAtLock: cycleBaseline.assumedSpentAtLock,
+    realizedPlannedOffset: realizedPlannedBuyCheckOffset,
+  });
 
   return {
     hasIncomePayCycle: true,
@@ -775,6 +897,7 @@ async function buildMeansSnapshot(profile = {}) {
     availableNow,
     financialRunway,
     requiredRunway,
+    planFingerprint,
     scoreRoom,
     plannedAssumedSinceLock,
     realizedPlannedBuyCheckOffset,
@@ -1117,6 +1240,7 @@ function installClaraOrbGreeting() {
   window.addEventListener(INCOME_HUB_UPDATED_EVENT, handleFinanceRefresh);
   window.addEventListener(DEBT_OBLIGATIONS_UPDATED_EVENT, handleFinanceRefresh);
   window.addEventListener(CLARA_MONEY_ROUTINE_UPDATED_EVENT, handleFinanceRefresh);
+  window.addEventListener(CLARA_MONEY_SCHEDULE_UPDATED_EVENT, handleFinanceRefresh);
   window.addEventListener("clara:schedule:create-event", handleFinanceRefresh);
   queueSync();
 
@@ -1128,6 +1252,7 @@ function installClaraOrbGreeting() {
       window.removeEventListener(INCOME_HUB_UPDATED_EVENT, handleFinanceRefresh);
       window.removeEventListener(DEBT_OBLIGATIONS_UPDATED_EVENT, handleFinanceRefresh);
       window.removeEventListener(CLARA_MONEY_ROUTINE_UPDATED_EVENT, handleFinanceRefresh);
+      window.removeEventListener(CLARA_MONEY_SCHEDULE_UPDATED_EVENT, handleFinanceRefresh);
       window.removeEventListener("clara:schedule:create-event", handleFinanceRefresh);
       clearGreetingPresentation(activeLabel);
       activeLabel = null;

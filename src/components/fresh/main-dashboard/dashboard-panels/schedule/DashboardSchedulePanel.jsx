@@ -11,6 +11,7 @@ import {
 import useUserRole from "@/hooks/useUserRole";
 import { getIncomeSources } from "@/lib/incomeHubRepository";
 import { getRecurringCashFlowOwnerId } from "@/lib/recurringCashFlowRepository";
+import { CLARA_MONEY_SCHEDULE_UPDATED_EVENT } from "@/lib/clara-money-schedule-repository";
 import {
   buildStableIncomeScheduleProjection,
   isStableIncomeScheduleProjection,
@@ -348,6 +349,11 @@ function saveEvents(user, events) {
     window.localStorage.setItem(
       getStorageKey(user),
       JSON.stringify(persistedEvents)
+    );
+    window.dispatchEvent(
+      new CustomEvent(CLARA_MONEY_SCHEDULE_UPDATED_EVENT, {
+        detail: { ownerId: getRecurringCashFlowOwnerId(user), reason: "persist" },
+      })
     );
   } catch {
     // Local schedule memory is optional.

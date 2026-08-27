@@ -1,6 +1,7 @@
 import { getRecurringCashFlowOwnerId } from "./recurringCashFlowRepository.js";
 
 export const CLARA_SCHEDULE_CREATE_EVENT = "clara:schedule:create-event";
+export const CLARA_MONEY_SCHEDULE_UPDATED_EVENT = "clara:money-schedule-updated";
 export const CLARA_MONEY_SCHEDULE_SOURCE = "orb-money-schedule";
 export const CLARA_MONEY_ROUTINE_UPDATED_EVENT = "clara:money-routine-updated";
 export const CLARA_MONEY_ROUTINE_SOURCE = "orb-money-schedule-routine";
@@ -278,6 +279,11 @@ export function appendClaraMoneyScheduleEvent({ user, draft } = {}) {
 
   if (!currentEvents.some((item) => String(item?.id) === String(event.id))) {
     window.localStorage.setItem(storageKey, JSON.stringify([...currentEvents, event]));
+    window.dispatchEvent(
+      new CustomEvent(CLARA_MONEY_SCHEDULE_UPDATED_EVENT, {
+        detail: { ownerId: getRecurringCashFlowOwnerId(user), reason: "append", eventId: event.id },
+      })
+    );
   }
 
   // If the Calendar is already mounted elsewhere, hand it the same event so its
