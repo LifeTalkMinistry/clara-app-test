@@ -21,21 +21,16 @@ export function stableMeansPlanFingerprint(value) {
   return JSON.stringify(canonicalize(value));
 }
 
-// The user's personal 100 is the amount this pay cycle is consuming/committing.
-// In plain terms: cycle income minus the money that will still remain after all
-// currently-known commitments are protected.
-export function calculateCycleRequiredRunway({
-  income = 0,
-  availableNow = 0,
-  upcoming = 0,
-} = {}) {
-  const normalizedIncome = finiteNonNegative(income);
-  const normalizedAvailable = finiteNonNegative(availableNow);
-  const normalizedUpcoming = finiteNonNegative(upcoming);
-  const projectedRoom = normalizedAvailable - normalizedUpcoming;
-  return Math.max(0, normalizedIncome - projectedRoom);
+// Means Score 100 is the user's remaining required financial runway from now
+// until the next relevant income point. Past income/spending does not stay in
+// the denominator after it has already been realized.
+export function calculateCycleRequiredRunway({ upcoming = 0 } = {}) {
+  return finiteNonNegative(upcoming);
 }
 
+// Kept for compatibility with existing stored cycle data. The live Means Score
+// no longer uses a locked historical baseline as its measuring stick; it uses
+// the current remaining required runway instead.
 export function resolveMeansCycleBaselineState({
   stored = null,
   cycleStart = "",
@@ -95,31 +90,24 @@ export function resolveMeansCycleBaselineState({
 export function calculateMeansScoreState({
   financialRunway = 0,
   upcoming = 0,
-  requiredRunway = 0,
-  assumedSpent = 0,
-  assumedSpentAtLock = 0,
-  realizedPlannedOffset = 0,
 } = {}) {
   const normalizedFinancialRunway = finiteNonNegative(financialRunway);
-  const normalizedUpcoming = finiteNonNegative(upcoming);
-  const normalizedRequired = finiteNonNegative(requiredRunway);
-  const plannedAssumedSinceLock = Math.max(
-    0,
-    finiteNonNegative(assumedSpent) - finiteNonNegative(assumedSpentAtLock)
-  );
-  const scoreRoom =
-    normalizedFinancialRunway -
-    normalizedUpcoming -
-    plannedAssumedSinceLock +
-    finiteNonNegative(realizedPlannedOffset);
+  const currentRequiredRunway = finiteNonNegative(upcoming);
+  const scoreRoom = normalizedFinancialRunway - currentRequiredRunway;
   const score =
-    normalizedRequired > 0
-      ? Math.round(((normalizedRequired + scoreRoom) / normalizedRequired) * 100)
+    currentRequiredRunway > 0
+      ? Math.round((normalizedFinancialRunway / currentRequiredRunway) * 100)
       : normalizedFinancialRunway > 0
         ? 100
         : 0;
 
-  return { score, scoreRoom, plannedAssumedSinceLock };
+  return {
+    score,
+    scoreRoom,
+    // Retained in the return shape so older callers do not break. Assumed spend
+    // is informational now; it is not deducted a second time from live runway.
+    plannedAssumedSinceLock: 0,
+  };
 }
 
 export const MEANS_CYCLE_BASELINE_VERSION = BASELINE_VERSION;
