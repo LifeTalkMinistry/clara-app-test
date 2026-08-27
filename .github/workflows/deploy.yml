@@ -61,7 +61,7 @@ jobs:
           node --check src/lib/clara-money-schedule-repository.js
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
 
       - name: Run Means regression coverage
         run: node --test tests/means-score-context-baseline-regression.test.mjs
