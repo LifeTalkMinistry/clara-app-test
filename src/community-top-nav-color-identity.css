@@ -26,10 +26,22 @@
   --clara-nav-accent-rgb: 121, 175, 255;
 }
 
+/* Calendar used to be labelled "Open Schedule". Keep both selectors so the
+   destination keeps its established gold identity if the accessible copy changes. */
 .clara-community-root[data-community-view]
-  .clara-community-shell-nav > a[aria-label="Open Schedule"] {
+  .clara-community-shell-nav > a[aria-label="Open Schedule"],
+.clara-community-root[data-community-view]
+  .clara-community-shell-nav > a[aria-label="Open Calendar"] {
   --clara-nav-accent: #ffd84a;
   --clara-nav-accent-rgb: 255, 216, 74;
+}
+
+/* Settings is a utility destination: give it a cool teal identity so it stays
+   visually distinct from Calendar while remaining inside the CLARA palette. */
+.clara-community-root[data-community-view]
+  .clara-community-shell-nav > a[aria-label="Open Settings"] {
+  --clara-nav-accent: #55e6d8;
+  --clara-nav-accent-rgb: 85, 230, 216;
 }
 
 .clara-community-root[data-community-view]
