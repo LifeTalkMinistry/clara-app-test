@@ -410,7 +410,7 @@ export default function ClaraTrialAccessGate({
                           maxLength={6}
                           placeholder="ENTER CODE"
                           spellCheck="false"
-                          className="min-h-11 w-full rounded-xl border border-[#4d8cff]/18 bg-[#01071b]/78 pl-9 pr-3 text-center text-[12px] font-black uppercase tracking-[.22em] text-white outline-none transition placeholder:text-white/20 focus:border-[#4d8cff]/45 focus:ring-2 focus:ring-[#4d8cff]/12"
+                          className="min-h-11 w-full rounded-xl border border-[#4d8cff]/18 bg-[#01071b]/78 px-10 text-center text-[12px] font-black uppercase tracking-[.22em] text-white outline-none transition [font-variant-numeric:tabular-nums] placeholder:text-white/20 focus:border-[#4d8cff]/45 focus:ring-2 focus:ring-[#4d8cff]/12"
                         />
                       </div>
 
