@@ -45,14 +45,8 @@ jobs:
             assert.match(source, /function buildMeansPlanFingerprint/);
             assert.match(source, /parsed\.planFingerprint/);
             assert.match(source, /planFingerprint,/);
-
-            // Test 1: incomplete setup cannot freeze 100.
             assert.equal(score(12000, 8000, 8000), 150);
-
-            // Test 2: adding another 1,000 requirement lowers the score.
             assert.equal(score(12000, 9000, 9000), 133);
-
-            // Test 3: deleting that context restores the prior score.
             assert.equal(score(12000, 8000, 8000), 150);
           });
 
@@ -114,3 +108,5 @@ jobs:
           fi
           git commit -m "Refresh Means baseline when financial context changes"
           git push origin HEAD:main
+
+# Triggered after workflow registration.
