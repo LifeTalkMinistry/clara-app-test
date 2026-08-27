@@ -89,12 +89,13 @@ test("unchanged cycle plan preserves the locked Means anchor", () => {
     assumedSpent: 5000,
   });
   assert.equal(preserved.shouldPersist, false);
+  assert.equal(preserved.reason, "cycle_anchor_locked");
   assert.equal(preserved.baseline.requiredRunway, 10000);
 });
 
-test("an explicit plan change may establish a new cycle Means anchor", () => {
+test("same-cycle plan/context changes cannot move the fixed 100 anchor", () => {
   const baseline = freshBaseline({ amount: 10000 });
-  const refreshed = resolveMeansCycleBaselineState({
+  const preserved = resolveMeansCycleBaselineState({
     stored: baseline,
     cycleStart: baseline.cycleStart,
     cycleEnd: baseline.cycleEnd,
@@ -102,7 +103,23 @@ test("an explicit plan change may establish a new cycle Means anchor", () => {
     requiredRunway: 12000,
     assumedSpent: 0,
   });
-  assert.equal(refreshed.reason, "plan_changed");
+  assert.equal(preserved.shouldPersist, false);
+  assert.equal(preserved.reason, "cycle_anchor_locked");
+  assert.equal(preserved.baseline.requiredRunway, 10000);
+});
+
+test("a new pay cycle establishes a new Means anchor", () => {
+  const baseline = freshBaseline({ amount: 10000 });
+  const refreshed = resolveMeansCycleBaselineState({
+    stored: baseline,
+    cycleStart: "2026-09-10",
+    cycleEnd: "2026-09-25",
+    planFingerprint: plan(12000, "new-cycle"),
+    requiredRunway: 12000,
+    assumedSpent: 0,
+  });
+  assert.equal(refreshed.shouldPersist, true);
+  assert.equal(refreshed.reason, "new_cycle_or_stale_baseline");
   assert.equal(refreshed.baseline.requiredRunway, 12000);
 });
 
