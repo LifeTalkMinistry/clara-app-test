@@ -2,6 +2,7 @@ import "../community-top-nav-tools.css";
 
 const TOP_NAV_SELECTOR = ".clara-community-shell-nav";
 const PROFILE_SELECTOR = 'a[aria-label="Open Community profile"]';
+const SETTINGS_SELECTOR = 'a[aria-label="Open Settings"]';
 const PINNED_PROFILE_CLASS = "clara-community-profile-pinned";
 const TOP_NAV_TOOL_ATTR = "data-clara-topnav-tool";
 
@@ -77,8 +78,8 @@ function createTopNavTool(tool) {
     return button;
   }
 
-  button.title = "30-minute CLARA Coaching";
-  button.setAttribute("aria-label", "Open 30-minute CLARA Coaching");
+  button.title = "Schedule Session";
+  button.setAttribute("aria-label", "Schedule CLARA Session");
   button.innerHTML = `${TOOL_ICONS.coaching}<span class="clara-community-topnav-30m">30m</span>`;
   button.addEventListener("click", (event) => {
     event.preventDefault();
@@ -93,13 +94,23 @@ function ensureTopNavTools(nav) {
   const originalProfile = nav.querySelector(PROFILE_SELECTOR);
   if (!originalProfile) return;
 
-  ["learning", "coaching"].forEach((tool) => {
-    let button = nav.querySelector(`[${TOP_NAV_TOOL_ATTR}="${tool}"]`);
-    if (!button) {
-      button = createTopNavTool(tool);
-      nav.insertBefore(button, originalProfile);
-    }
-  });
+  let learningButton = nav.querySelector(`[${TOP_NAV_TOOL_ATTR}="learning"]`);
+  if (!learningButton) {
+    learningButton = createTopNavTool("learning");
+    nav.insertBefore(learningButton, originalProfile);
+  }
+
+  let coachingButton = nav.querySelector(`[${TOP_NAV_TOOL_ATTR}="coaching"]`);
+  if (!coachingButton) coachingButton = createTopNavTool("coaching");
+
+  // Schedule Session is a primary money-management destination. Keep it in the
+  // first nav group immediately after Calendar and immediately before Settings:
+  // ORB -> Home -> Calendar -> Schedule Session -> Settings.
+  const settingsButton = nav.querySelector(SETTINGS_SELECTOR);
+  const coachingAnchor = settingsButton || originalProfile;
+  if (coachingButton.nextElementSibling !== coachingAnchor) {
+    nav.insertBefore(coachingButton, coachingAnchor);
+  }
 
   nav.querySelectorAll(`[${TOP_NAV_TOOL_ATTR}="guide"]`).forEach((node) => node.remove());
 
