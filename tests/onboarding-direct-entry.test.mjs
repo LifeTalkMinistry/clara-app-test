@@ -57,10 +57,10 @@ test("normal login does not enter the beta welcome or mission onboarding", () =>
   );
 });
 
-test("onboarding builds the Means Score story into a dedicated CLARA reveal", () => {
+test("onboarding separates CLARA mechanics from the bigger vision", () => {
   assert.match(
     onboardingScreensSource,
-    /SCREEN_IDS = \[[\s\S]*?"country"[\s\S]*?"measurement"[\s\S]*?"means-score"[\s\S]*?"score-meaning"[\s\S]*?"decision-impact"[\s\S]*?"clara-reveal"[\s\S]*?"mission-rule"[\s\S]*?\]/
+    /SCREEN_IDS = \[[\s\S]*?"country"[\s\S]*?"measurement"[\s\S]*?"means-score"[\s\S]*?"score-meaning"[\s\S]*?"decision-impact"[\s\S]*?"clara-reveal"[\s\S]*?"mission-rule"[\s\S]*?"bigger-vision"[\s\S]*?\]/
   );
   assert.match(onboardingSource, /You can&apos;t manage what you don&apos;t measure\./);
   assert.match(onboardingSource, /Meet your Means Score\./);
@@ -76,8 +76,11 @@ test("onboarding builds the Means Score story into a dedicated CLARA reveal", ()
   assert.match(onboardingSource, /Your Means Score shows where you currently stand\./);
   assert.match(onboardingSource, /helps you protect your Means Score/);
   assert.match(onboardingSource, /The bigger vision/);
+  assert.match(onboardingSource, /The goal is bigger than one person\./);
   assert.match(onboardingSource, /Normalize healthy money habits in the Philippines\./);
   assert.match(onboardingSource, /See My Financial Status/);
+  assert.match(onboardingShellSource, /if \(activeScreen === "mission-rule"\) return <MissionRuleScreen \/>/);
+  assert.match(onboardingShellSource, /return <BiggerVisionScreen \/>/);
 
   assert.doesNotMatch(onboardingSource, /Money rarely disappears in one dramatic moment\./);
   assert.doesNotMatch(onboardingSource, /₱100–₱165 a day/);
