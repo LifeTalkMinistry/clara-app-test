@@ -6,42 +6,45 @@ import {
 } from "../src/lib/clara-buy-check-metric-impact.js";
 
 const snapshot = {
-  score: 150,
+  score: 225,
   requiredRunway: 10000,
   scoreRoom: 5000,
   projectedRoom: 5000,
   availableNow: 9000,
+  financialRunway: 9000,
   upcoming: 4000,
   cycleStartDate: "2026-08-25",
   cycleEndDate: "2026-09-10",
 };
 
-test("unplanned purchase uses the locked canonical required runway", () => {
+test("unplanned purchase uses the live remaining required runway", () => {
   const impact = simulateMeansPurchaseImpact({ snapshot, purchasePrice: 1000 });
-  assert.equal(impact.currentScore, 150);
-  assert.equal(impact.projectedScoreAfterPurchase, 140);
-  assert.equal(impact.scoreChange, -10);
+  assert.equal(impact.currentScore, 225);
+  assert.equal(impact.requiredRunway, 4000);
+  assert.equal(impact.projectedScoreAfterPurchase, 200);
+  assert.equal(impact.scoreChange, -25);
   assert.equal(impact.incrementalImpact, 1000);
   assert.equal(impact.projectedRoomAfterPurchase, 4000);
   const line = formatClaraMetricImpactLine(impact);
-  assert.equal(line, "That ₱1,000 would bring your Means Score from 150 down to 140.");
+  assert.equal(line, "That ₱1,000 would bring your Means Score from 225 down to 200.");
   assert.doesNotMatch(line, /Means impact|New pressure|→|\(−/);
 });
 
-test("fully accounted purchase is metric-neutral", () => {
+test("planned purchase reduces both money and the remaining required runway", () => {
   const impact = simulateMeansPurchaseImpact({
     snapshot,
     purchasePrice: 1000,
     alreadyAccountedAmount: 1000,
     impactSource: "money_schedule_routine",
   });
-  assert.equal(impact.projectedScoreAfterPurchase, 150);
-  assert.equal(impact.scoreChange, 0);
+  assert.equal(impact.upcomingCommitmentsAfterPurchase, 3000);
+  assert.equal(impact.projectedScoreAfterPurchase, 267);
+  assert.equal(impact.scoreChange, 42);
   assert.equal(impact.incrementalImpact, 0);
   assert.match(formatClaraMetricImpactLine(impact), /already planned ₱1,000 for this in Money Schedule/);
 });
 
-test("only overspend above the planned amount creates new pressure", () => {
+test("overspending above plan uses the smaller remaining runway after the planned amount", () => {
   const impact = simulateMeansPurchaseImpact({
     snapshot,
     purchasePrice: 1300,
@@ -49,11 +52,12 @@ test("only overspend above the planned amount creates new pressure", () => {
     impactSource: "money_schedule_routine",
   });
   assert.equal(impact.incrementalImpact, 300);
-  assert.equal(impact.projectedScoreAfterPurchase, 147);
+  assert.equal(impact.upcomingCommitmentsAfterPurchase, 3000);
+  assert.equal(impact.projectedScoreAfterPurchase, 257);
   assert.equal(impact.projectedRoomAfterPurchase, 4700);
 });
 
-test("spending below plan creates room instead of another penalty", () => {
+test("spending below plan creates more room against the smaller remaining runway", () => {
   const impact = simulateMeansPurchaseImpact({
     snapshot,
     purchasePrice: 800,
@@ -61,14 +65,22 @@ test("spending below plan creates room instead of another penalty", () => {
     impactSource: "money_schedule_routine",
   });
   assert.equal(impact.incrementalImpact, -200);
-  assert.equal(impact.projectedScoreAfterPurchase, 152);
+  assert.equal(impact.upcomingCommitmentsAfterPurchase, 3000);
+  assert.equal(impact.projectedScoreAfterPurchase, 273);
   assert.equal(impact.projectedRoomAfterPurchase, 5200);
   assert.match(formatClaraMetricImpactLine(impact), /₱200 under plan/);
 });
 
-test("crossing 100 is detected from the projected canonical score", () => {
-  const tight = { ...snapshot, score: 105, scoreRoom: 500, projectedRoom: 500 };
-  const impact = simulateMeansPurchaseImpact({ snapshot: tight, purchasePrice: 700 });
+test("crossing 100 is detected from the live runway projection", () => {
+  const tight = {
+    ...snapshot,
+    score: 105,
+    availableNow: 4200,
+    financialRunway: 4200,
+    scoreRoom: 200,
+    projectedRoom: 200,
+  };
+  const impact = simulateMeansPurchaseImpact({ snapshot: tight, purchasePrice: 300 });
   assert.equal(impact.projectedScoreAfterPurchase, 98);
   assert.equal(impact.crossesProtectionLine, true);
 });
