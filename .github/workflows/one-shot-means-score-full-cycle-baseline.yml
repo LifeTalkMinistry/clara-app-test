@@ -1,0 +1,54 @@
+name: One-shot Means Score full-cycle baseline repair
+
+on:
+  push:
+    paths:
+      - '.github/workflows/one-shot-means-score-full-cycle-baseline.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply Means Score repair
+        run: python scripts/fix_means_score_full_cycle_baseline.py
+
+      - name: Run focused regression test
+        run: node --test tests/means-score-context-baseline-regression.test.mjs
+
+      - name: Run production build
+        run: npm run build
+
+      - name: Remove one-shot repair files
+        run: |
+          rm -f scripts/fix_means_score_full_cycle_baseline.py
+          rm -f .github/workflows/one-shot-means-score-full-cycle-baseline.yml
+
+      - name: Commit repair
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Fix Means Score full-cycle baseline"
+          git push origin main
