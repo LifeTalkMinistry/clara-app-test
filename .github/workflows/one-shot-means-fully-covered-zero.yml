@@ -1,0 +1,56 @@
+name: One-shot Means fully covered zero
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - scripts/apply_means_fully_covered_zero.py
+      - .github/workflows/one-shot-means-fully-covered-zero.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-build:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply Fully Covered zero state
+        run: python scripts/apply_means_fully_covered_zero.py
+
+      - name: Syntax check changed sources
+        run: |
+          node --check src/lib/clara-means-cycle-baseline.js
+          node --check src/lib/clara-buy-check-metric-impact.js
+          node --check src/runtime/installClaraOrbGreeting.js
+
+      - name: Run targeted Means regressions
+        run: |
+          node --test tests/means-score-context-baseline-regression.test.mjs
+          node --test tests/buy-check-metric-impact.test.mjs
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application without prebuild side effects
+        run: npx vite build --base=./
+
+      - name: Commit verified Fully Covered state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/lib/clara-means-cycle-baseline.js \
+            src/lib/clara-buy-check-metric-impact.js \
+            src/runtime/installClaraOrbGreeting.js \
+            tests/means-score-context-baseline-regression.test.mjs \
+            tests/buy-check-metric-impact.test.mjs
+          git rm scripts/apply_means_fully_covered_zero.py .github/workflows/one-shot-means-fully-covered-zero.yml
+          git commit -m "Show Fully Covered when remaining runway reaches zero"
+          git push origin HEAD:main
