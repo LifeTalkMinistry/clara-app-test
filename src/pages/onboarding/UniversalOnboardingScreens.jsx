@@ -8,7 +8,7 @@ export const SCREEN_IDS = [
   "means-score",
   "score-meaning",
   "decision-impact",
-  "awareness",
+  "clara-reveal",
   "mission-rule",
 ];
 
@@ -210,32 +210,38 @@ export function DecisionImpactScreen() {
         </section>
       </div>
       <p className="clara-onboarding-body clara-onboarding-body--narrow">
-        Ask <ClaraBrandName /> before you spend and see how a decision could change your financial position before it becomes a transaction.
+        How do you see the impact before you spend?
       </p>
-      <p className="clara-onboarding-mantra">Pause <i /> See the impact <i /> Decide</p>
+      <p className="clara-onboarding-tagline">By asking <ClaraBrandName />.</p>
     </ScreenFrame>
   );
 }
 
-export function AwarenessScreen() {
+export function ClaraRevealScreen({ reduceMotion }) {
   return (
     <ScreenFrame>
-      <Eyebrow>The habit</Eyebrow>
-      <h1 className="clara-onboarding-title">Stay aware of where you stand.</h1>
-      <p className="clara-onboarding-body clara-onboarding-body--lead">
-        Your score changes as your money changes. <ClaraBrandName /> keeps the signal practical.
+      <Eyebrow>Meet <ClaraBrandName /></Eyebrow>
+      <motion.div
+        initial={reduceMotion ? false : { opacity: 0, scale: 0.88 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: reduceMotion ? 0 : 0.68, ease: [0.16, 1, 0.3, 1] }}
+        className="clara-onboarding-logo-stage"
+      >
+        <span className="clara-onboarding-logo-halo" aria-hidden="true" />
+        <div className="clara-onboarding-logo-mark">
+          <ClaraLogo variant="icon" theme="dark" />
+        </div>
+      </motion.div>
+      <ClaraWordmark
+        className="clara-onboarding-wordmark--hero"
+        animateLetters
+        reduceMotion={reduceMotion}
+      />
+      <p className="clara-onboarding-tagline">Your financial accountability companion.</p>
+      <AccentRule />
+      <p className="clara-onboarding-body clara-onboarding-body--narrow">
+        Before you spend, ask <ClaraBrandName />.
       </p>
-      <div className="clara-onboarding-personal-list">
-        <div className="clara-onboarding-personal-line">
-          <span>Check your Means Score.</span>
-        </div>
-        <div className="clara-onboarding-personal-line">
-          <span>Ask before you spend.</span>
-        </div>
-        <div className="clara-onboarding-personal-line clara-onboarding-personal-line--gold">
-          <span>Decide with awareness.</span>
-        </div>
-      </div>
     </ScreenFrame>
   );
 }
