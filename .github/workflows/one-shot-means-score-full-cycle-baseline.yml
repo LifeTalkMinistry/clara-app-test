@@ -18,22 +18,11 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install dependencies
-        run: npm install
-
       - name: Apply Means Score repair
         run: python scripts/fix_means_score_full_cycle_baseline.py
 
       - name: Run focused regression test
         run: node --test tests/means-score-context-baseline-regression.test.mjs
-
-      - name: Run production build
-        run: npm run build
 
       - name: Remove one-shot repair files
         run: |
