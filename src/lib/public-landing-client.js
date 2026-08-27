@@ -4,7 +4,7 @@ import {
 } from "@/lib/clara-backend-client";
 
 const API_URL = getClaraBackendUrl().replace(/\/+$/, "");
-const MAX_PUBLIC_DEMO_VIDEO_BYTES = 500 * 1024 * 1024;
+const MAX_PUBLIC_DEMO_VIDEO_BYTES = 1024 * 1024 * 1024;
 const FALLBACK_CHUNK_BYTES = 20 * 1024 * 1024;
 
 async function parseJson(response) {
@@ -60,7 +60,7 @@ function validateVideoFile(file) {
   }
 
   if (file.size > MAX_PUBLIC_DEMO_VIDEO_BYTES) {
-    throw new Error("Video is too large. Maximum size is 500 MB.");
+    throw new Error("Video is too large. Maximum size is 1 GB.");
   }
 
   return mimeType;
