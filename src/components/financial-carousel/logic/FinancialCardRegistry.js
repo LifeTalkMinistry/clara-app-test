@@ -1,4 +1,4 @@
-export const DEFAULT_FINANCIAL_CARD_KEY = "budget";
+export const DEFAULT_FINANCIAL_CARD_KEY = "wallet";
 
 export const FINANCIAL_CARD_REGISTRY = [
   {
@@ -22,18 +22,18 @@ export const FINANCIAL_CARD_REGISTRY = [
     tone: "teal",
     minimumPlan: "free",
     featureFlag: "wallets",
+    default: true,
   },
   {
     key: "budget",
     type: "budget",
-    label: "Budget Hub",
-    enabled: true,
+    label: "Weekly Cross-Check",
+    enabled: false,
     order: 2,
     detailKey: "budgets",
     tone: "emerald",
     minimumPlan: "free",
     featureFlag: "budgets",
-    default: true,
   },
   {
     key: "emergencyFund",
