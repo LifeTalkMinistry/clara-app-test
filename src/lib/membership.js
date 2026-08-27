@@ -3,6 +3,11 @@ export const SUPPORTER_PLAN_KEY = "supporter";
 export const BUILDER_PLAN_KEY = "builder";
 export const CHAMPION_PLAN_KEY = "champion";
 
+// The backend still stores the historical supporter/builder/champion keys.
+// Product-facing CLARA now treats the highest historical key as the
+// "Don't Do It Alone" tier, which is the only tier that includes Monthly Coaching.
+export const MONTHLY_COACHING_PLAN_KEY = CHAMPION_PLAN_KEY;
+
 // Retained only for compatibility with older imports. The Committed plan is no
 // longer a canonical account plan and normalizes to Free.
 export const COMMITTED_PLAN_KEY = "committed_249";
@@ -119,6 +124,11 @@ export function resolveMembership({
   const isActiveSupporter = Boolean(
     membershipReady && isSupporterPlan && accountStatus === "active"
   );
+  const hasMonthlyCoachingAccess = Boolean(
+    membershipReady &&
+      planKey === MONTHLY_COACHING_PLAN_KEY &&
+      accountStatus === "active"
+  );
   const membershipStatus = !membershipReady
     ? "loading"
     : !isSupporterPlan
@@ -137,6 +147,7 @@ export function resolveMembership({
     isSupporterPlan,
     isActiveSupporter,
     hasSupporterAccess: isActiveSupporter,
+    hasMonthlyCoachingAccess,
 
     // Legacy aliases remain so older components continue to operate while the
     // product vocabulary migrates away from Committed.
