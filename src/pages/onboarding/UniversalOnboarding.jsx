@@ -7,7 +7,7 @@ import ClaraCoreTutorial from "./ClaraCoreTutorial";
 import { getUniversalOnboardingStyles } from "./UniversalOnboardingStyles";
 import {
   AmbientField,
-  AwarenessScreen,
+  ClaraRevealScreen,
   ClaraWordmark,
   CountryScreen,
   DecisionImpactScreen,
@@ -112,7 +112,9 @@ export default function UniversalOnboarding() {
     if (activeScreen === "means-score") return <MeansScoreScreen />;
     if (activeScreen === "score-meaning") return <ScoreMeaningScreen />;
     if (activeScreen === "decision-impact") return <DecisionImpactScreen />;
-    if (activeScreen === "awareness") return <AwarenessScreen />;
+    if (activeScreen === "clara-reveal") {
+      return <ClaraRevealScreen reduceMotion={reduceMotion} />;
+    }
     return <MissionRuleScreen />;
   })();
 
