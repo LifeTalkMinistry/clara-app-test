@@ -65,17 +65,14 @@ if old_debt_import in runtime:
 elif "getDebtObligationPlanRecords" not in runtime:
     raise SystemExit("Means debt import shape changed")
 
-# The existing future routine helper already begins tomorrow. Do not subtract today twice.
-old_money_schedule = '''  const assumedToday = routineAmountForDate(owner, new Date());
-  const rawMoneyScheduleUpcoming = futureRoutineAmount(owner, cycleEndDate);
-  const moneyScheduleUpcoming = Math.max(0, rawMoneyScheduleUpcoming - assumedToday);'''
-new_money_schedule = '''  const assumedToday = routineAmountForDate(owner, new Date());
-  const rawMoneyScheduleUpcoming = futureRoutineAmount(owner, cycleEndDate);
-  const moneyScheduleUpcoming = rawMoneyScheduleUpcoming;'''
-if old_money_schedule in runtime:
-    runtime = runtime.replace(old_money_schedule, new_money_schedule, 1)
-elif new_money_schedule not in runtime:
-    raise SystemExit("Money Schedule upcoming shape changed")
+# futureRoutineAmount already starts tomorrow. Replace only the computation line so harmless
+# explanatory comments around this code cannot make the patch brittle.
+old_money_schedule_line = "  const moneyScheduleUpcoming = Math.max(0, rawMoneyScheduleUpcoming - assumedToday);"
+new_money_schedule_line = "  const moneyScheduleUpcoming = rawMoneyScheduleUpcoming;"
+if old_money_schedule_line in runtime:
+    runtime = runtime.replace(old_money_schedule_line, new_money_schedule_line, 1)
+elif new_money_schedule_line not in runtime:
+    raise SystemExit("Money Schedule upcoming computation changed")
 
 # Full-cycle plan helpers are deliberately date-stable: elapsed days and paid occurrences remain
 # part of the cycle's original measuring stick.
