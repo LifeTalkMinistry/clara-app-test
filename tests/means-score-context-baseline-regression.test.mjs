@@ -57,15 +57,15 @@ test("full-cycle Means anchor is plan-owned, not rebuilt from current wallet bal
   assert.equal(calculateMeansScoreState({ financialRunway: 7388, requiredRunway: baseline.requiredRunway }).score, 217);
 });
 
-test("stale v3 baseline is rebuilt so previous transactions cannot keep a corrupted 100", () => {
+test("stale pre-v5 baseline is rebuilt so previous transactions cannot keep a corrupted 100", () => {
   const refreshed = resolveMeansCycleBaselineState({
     stored: {
-      version: 3,
-      requiredRunway: 10833,
-      assumedSpentAtLock: 0,
+      version: 4,
+      requiredRunway: 7859,
+      assumedSpentAtLock: 280,
       cycleStart: "2026-08-25",
       cycleEnd: "2026-09-10",
-      planFingerprint: plan(10833, "stale"),
+      planFingerprint: plan(7859, "stale"),
     },
     cycleStart: "2026-08-25",
     cycleEnd: "2026-09-10",
@@ -76,7 +76,7 @@ test("stale v3 baseline is rebuilt so previous transactions cannot keep a corrup
 
   assert.equal(refreshed.shouldPersist, true);
   assert.equal(refreshed.reason, "new_cycle_or_stale_baseline");
-  assert.equal(refreshed.baseline.version, 4);
+  assert.equal(refreshed.baseline.version, 5);
   assert.equal(refreshed.baseline.requiredRunway, 3401);
 });
 
@@ -163,7 +163,8 @@ test("runtime/store wiring remains intact for financial context updates", async 
     "utf8"
   );
 
-  assert.match(runtime, /clara:means-cycle-baseline:v3/);
+  assert.match(runtime, /clara:means-cycle-baseline:v5/);
+  assert.doesNotMatch(runtime, /plannedDebtAlreadyPaid/);
   assert.match(runtime, /FINANCE_DATA_UPDATED_EVENT/);
   assert.match(runtime, /INCOME_HUB_UPDATED_EVENT/);
   assert.match(runtime, /DEBT_OBLIGATIONS_UPDATED_EVENT/);
