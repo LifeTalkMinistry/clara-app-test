@@ -244,13 +244,22 @@ function futureScheduledAmount(user, cycleStart = localDateKey(), horizonEnd = e
 
 function futureDebtObligationAmount(records = [], horizonEnd = endOfCurrentMonthKey()) {
   const today = localDateKey();
+  const recordMap = new Map(
+    (Array.isArray(records) ? records : []).map((record) => [
+      String(record?.id || record?.debt_id || record?.debtId || "").trim(),
+      record,
+    ])
+  );
 
   return buildDebtObligationScheduleProjection(records).reduce((sum, event) => {
     const date = String(event?.date || "").slice(0, 10);
     const direction = String(event?.direction || "out").trim().toLowerCase();
+    const debtId = String(event?.debtObligationId || event?.debt_obligation_id || "").trim();
+    const record = recordMap.get(debtId) || {};
     const amount = Number(String(event?.amount ?? "0").replace(/[₱,\s]/g, ""));
     if (!date || date <= today || date >= horizonEnd) return sum;
     if (direction !== "out") return sum;
+    if (debtId && isDebtOccurrencePaid(record, date)) return sum;
     return sum + (Number.isFinite(amount) ? Math.max(0, amount) : 0);
   }, 0);
 }

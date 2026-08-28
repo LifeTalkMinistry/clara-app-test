@@ -49,7 +49,12 @@ export function getDebtOccurrenceState(record = {}, referenceDate = new Date()) 
     };
   }
 
-  const next = events.find((event) => dateKey(event?.date) > today) || null;
+  const next =
+    events.find(
+      (event) =>
+        dateKey(event?.date) > today &&
+        !isDebtOccurrencePaid(record, event?.date)
+    ) || null;
   if (next) {
     return {
       state: "upcoming",
