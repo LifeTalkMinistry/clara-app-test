@@ -66,9 +66,10 @@ export function resolveMeansCycleBaselineState({
     };
   }
 
-  // Assumed spent is scheduled routine value that has already crossed into the elapsed
-  // part of the cycle. It is still part of the user's declared cycle requirement.
-  // Actual payments/transactions are intentionally excluded from reconstruction.
+  // Deterministic migration/new-cycle strategy: use only the authoritative planned-cycle
+  // requirement available now plus elapsed routine that belongs to that declared plan.
+  // Do not synthesize missing history from wallet balances, transactions, debt payments,
+  // completed obligations, or any other realized state.
   const fullCycleRequiredRunway = normalizedRequired + normalizedAssumed;
 
   return {

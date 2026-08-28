@@ -106,12 +106,12 @@ test("hidden Settings demo shortcut has been removed from production source", ()
 test("router exposes the CLARA backend login and protects app routes", () => {
   assert.match(appSource, /pages\/Login/);
   assert.match(appSource, /<Login \/>/);
-  assert.match(appSource, /const isLoginRoute = location\.pathname === "\/login";/);
-  assert.match(appSource, /!authReady \|\| roleLoading \|\| \(loading && !isLoginRoute\)/);
-  assert.match(appSource, /<Navigate to="\/login" replace state=\{\{ from: location \}\} \/>/);
+  assert.match(appSource, /const isPublicAuthRoute =/);
+  assert.match(appSource, /loading && !isPublicAuthRoute/);
+  assert.match(appSource, /state=\{location\.pathname === "\/" \? undefined : \{ from: location \}\}/);
   assert.match(
     appSource,
-    /path="\/link-local-vault"\s+element=\{<Navigate to=\{user \? "\/dashboard" : "\/login"\} replace \/>\}/
+    /path="\/link-local-vault"[\s\S]*?<Navigate to=\{user \? CLARA_ORB_PATH : "\/login"\} replace \/>/
   );
 });
 

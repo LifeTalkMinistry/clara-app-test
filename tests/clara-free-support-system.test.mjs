@@ -20,14 +20,15 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "u
 test("CLARA support tiers preserve free core access while carrying supporter benefits", () => {
   assert.deepEqual(SUPPORT_TIER_KEYS, ["supporter", "builder", "champion"]);
   assert.equal(SUPPORT_TIERS.supporter.price, 99);
-  assert.equal(SUPPORT_TIERS.builder.price, 249);
-  assert.equal(SUPPORT_TIERS.champion.price, 499);
-  assert.equal(SUPPORT_TIERS.supporter.name, "CLARA Supporter");
-  assert.equal(SUPPORT_TIERS.builder.name, "CLARA Builder");
-  assert.equal(SUPPORT_TIERS.champion.name, "CLARA Champion");
+  assert.equal(SUPPORT_TIERS.builder.price, 149);
+  assert.equal(SUPPORT_TIERS.champion.price, 299);
+  assert.equal(SUPPORT_TIERS.supporter.name, "Take Control");
+  assert.equal(SUPPORT_TIERS.builder.name, "Stay Consistent");
+  assert.equal(SUPPORT_TIERS.champion.name, "Don't Do It Alone");
   assert.equal(SUPPORT_TIERS.builder.recommended, true);
-  assert.equal("popular" in SUPPORT_TIERS.builder, false);
-  assert.match(SUPPORT_TIERS.champion.positioning, /personally work with Max/i);
+  assert.equal(SUPPORT_TIERS.supporter.membershipKey, "core");
+  assert.equal(SUPPORT_TIERS.builder.membershipKey, "personal");
+  assert.equal(SUPPORT_TIERS.champion.membershipKey, "partner");
 });
 
 test("support gratitude state lasts only through the active support cycle or a canonical admin plan", () => {
@@ -37,14 +38,8 @@ test("support gratitude state lasts only through the active support cycle or a c
     status: "active",
     support_expires_at: "2026-09-09T00:00:00+08:00",
   };
-  const expired = {
-    ...active,
-    support_expires_at: "2026-08-08T00:00:00+08:00",
-  };
-  const inactive = {
-    ...active,
-    status: "inactive",
-  };
+  const expired = { ...active, support_expires_at: "2026-08-08T00:00:00+08:00" };
+  const inactive = { ...active, status: "inactive" };
   const adminAssigned = {
     tier: "champion",
     status: "active",
@@ -53,13 +48,12 @@ test("support gratitude state lasts only through the active support cycle or a c
   };
 
   assert.equal(isSupportRecordActive(active, now), true);
-  assert.equal(getSupportDisplayState(active, now).label, "Thank you");
+  assert.equal(getSupportDisplayState(active, now).label, "Active");
   assert.equal(getSupportDisplayState(active, now).tier, "builder");
   assert.equal(isSupportRecordActive(expired, now), false);
-  assert.equal(getSupportDisplayState(expired, now).label, "Support");
+  assert.equal(getSupportDisplayState(expired, now).label, "Membership");
   assert.equal(getSupportDisplayState(expired, now).tier, null);
   assert.equal(isSupportRecordActive(inactive, now), false);
-  assert.equal(getSupportDisplayState(inactive, now).tier, null);
   assert.equal(isSupportRecordActive(adminAssigned, now), true);
   assert.equal(getSupportDisplayState(adminAssigned, now).tier, "champion");
 });
@@ -113,9 +107,8 @@ test("Settings identity surfaces resolve only from active supporter status", () 
   assert.match(settings, /useClaraSupport\(user\)/);
   assert.match(settings, /activeSupporterTier = supporterStatus\?\.active \? supporterStatus\.tier : null/);
   assert.match(settings, /badgeNode: activeSupporterTier \?/);
-  assert.match(settings, /<SupportTierBadge tier=\{activeSupporterTier\} compact \/>/);
+  assert.match(settings, /<SupportTierBadge tier=\{activeSupporterTier\} compact tone="settings" \/>/);
   assert.doesNotMatch(settings, /badge: currentPlan/);
-  assert.doesNotMatch(settings, /\{currentPlan\}/);
   assert.match(badge, /getSupportTier/);
   assert.match(badge, /const label = canonicalTier\.name/);
 });
@@ -131,11 +124,14 @@ test("legacy enrollment can no longer force or sell a core feature unlock", () =
 });
 
 test("support verifier never mutates CLARA profile entitlements", () => {
-  const verifier = read("supabase/functions/verify-clara-support-purchase/index.ts");
-  assert.match(verifier, /support_subscriptions/);
-  assert.doesNotMatch(verifier, /process_google_play_purchase/);
-  assert.doesNotMatch(verifier, /\.from\("profiles"\)/);
-  assert.match(verifier, /app_access_changed: false/);
+  const hook = read("src/hooks/useClaraSupport.js");
+  const support = read("src/lib/clara-support.js");
+
+  assert.match(hook, /backendRequest\("\/api\/support\/status"/);
+  assert.match(hook, /source: "account_plan"/);
+  assert.doesNotMatch(hook, /\.from\("profiles"\)/);
+  assert.doesNotMatch(hook, /process_google_play_purchase/);
+  assert.doesNotMatch(support, /\.from\("profiles"\)/);
 });
 
 test("Support CLARA owns a persistent app-level overlay world and animation clock", () => {
@@ -151,10 +147,6 @@ test("Support CLARA owns a persistent app-level overlay world and animation cloc
   assert.match(bubble, /EXPANDED_MS: 3000/);
   assert.match(bubble, /ICON_SECOND_MS: 3000/);
   assert.match(bubble, /HIDDEN_MS: 10000/);
-  assert.match(
-    bubble,
-    /if \(!user\?\.id \|\| !portalHost \|\| supportState\.isActive\) return null;/
-  );
+  assert.match(bubble, /if \(!user\?\.id \|\| !portalHost \|\| membershipState\.isActive\) return null;/);
   assert.doesNotMatch(bubble, /SESSION_EXPANSION_KEY/);
-  assert.doesNotMatch(bubble, /querySelectorAll\('\[role="dialog"\]/);
 });

@@ -570,42 +570,6 @@ function currentMonthIncomeFromSources(incomeSources, currentMonthKey) {
   }, 0);
 }
 
-function readDebtPaymentHistory(record = {}) {
-  const source = Array.isArray(record?.paymentHistory)
-    ? record.paymentHistory
-    : Array.isArray(record?.payment_history)
-      ? record.payment_history
-      : [];
-  return source.filter(Boolean);
-}
-
-function plannedDebtPaidInsideCycle(records = [], cycleStart = "", cycleEnd = "") {
-  return (Array.isArray(records) ? records : []).reduce((total, record) => {
-    const monthlyPayment = Math.max(0, Number(getMonthlyDebtPayment(record) || 0));
-    if (!(monthlyPayment > 0)) return total;
-
-    const paidByOccurrence = new Map();
-    readDebtPaymentHistory(record).forEach((payment) => {
-      const paidDate = String(payment?.paidAt || payment?.paid_at || "").slice(0, 10);
-      const dueDate = String(payment?.dueDate || payment?.due_date || "").slice(0, 10);
-      if (!paidDate || paidDate < cycleStart || paidDate >= cycleEnd) return;
-      if (!dueDate || dueDate < cycleStart || dueDate >= cycleEnd) return;
-
-      const amount = Math.max(0, Number(payment?.amount || 0));
-      if (!(amount > 0)) return;
-      paidByOccurrence.set(dueDate, (paidByOccurrence.get(dueDate) || 0) + amount);
-    });
-
-    let plannedPaid = 0;
-    paidByOccurrence.forEach((paidAmount) => {
-      // Only the amount CLARA had already scheduled is neutral. Paying extra toward
-      // principal is a real additional outflow and must still reduce Means Score.
-      plannedPaid += Math.min(paidAmount, monthlyPayment);
-    });
-    return total + plannedPaid;
-  }, 0);
-}
-
 function isInactiveSavingsPlanGoal(goal = {}) {
   const status = normalizeLower(goal?.completion_status ?? goal?.completionStatus ?? goal?.status);
   return Boolean(
@@ -723,26 +687,21 @@ function resolveLockedMeansCycleBaseline({
   owner,
   cycleStart,
   cycleEnd,
-  upcoming,
-  requiredRunwayCandidate,
+  plannedRequiredRunway,
   assumedSpent,
-  debtObligations,
   planFingerprint,
 }) {
-  // Rebuild the cycle anchor only from currently declared/predicted cycle context.
-  // Never backfill already-paid debt from payment history: that silently makes old
-  // transactions part of the user's hidden 100 and can double-count realized outflow.
-  const reconstructedRequiredRunway = Math.max(
-    Number(requiredRunwayCandidate || 0),
-    Number(upcoming || 0),
-    0
-  );
+  // PLAN owns the user's personal 100. For a fresh cycle this is the declared/predicted
+  // requirement still represented by the plan, plus legitimate elapsed routine assumed
+  // spending captured by resolveMeansCycleBaselineState. Realized transactions are never
+  // read here and therefore cannot reconstruct or inflate the denominator.
+  const authoritativePlannedRunway = Math.max(0, Number(plannedRequiredRunway || 0));
   const fallbackState = resolveMeansCycleBaselineState({
     stored: null,
     cycleStart,
     cycleEnd,
     planFingerprint,
-    requiredRunway: reconstructedRequiredRunway,
+    requiredRunway: authoritativePlannedRunway,
     assumedSpent,
   });
 
@@ -763,7 +722,7 @@ function resolveLockedMeansCycleBaseline({
     cycleStart,
     cycleEnd,
     planFingerprint,
-    requiredRunway: reconstructedRequiredRunway,
+    requiredRunway: authoritativePlannedRunway,
     assumedSpent,
   });
 
@@ -862,34 +821,24 @@ async function buildMeansSnapshot(profile = {}) {
 
   const projectedSpending = upcoming;
   const projectedRoom = availableNow - upcoming;
-  const requiredRunwayCandidate = calculateCycleRequiredRunway({
-    income,
-    availableNow,
-    upcoming,
-  });
+  const plannedRequiredRunway = calculateCycleRequiredRunway({ upcoming });
 
   // Means Score uses one locked measuring stick for the whole payday-to-payday window.
-  // Paying a commitment CLARA already predicted must be neutral: cash and remaining
-  // commitments fall together, so the user's real room has not changed.
+  // Realized outflows only change financialRunway. A paid/completed commitment may leave
+  // Upcoming, but that realization cannot shrink or rebuild the already-locked 100.
   const financialRunway = availableNow + emergencyProtected;
   const cycleBaseline = resolveLockedMeansCycleBaseline({
     owner,
     cycleStart: cycleStartDate,
     cycleEnd: cycleEndDate,
-    upcoming,
-    requiredRunwayCandidate,
+    plannedRequiredRunway,
     assumedSpent,
-    debtObligations,
     planFingerprint,
   });
   const requiredRunway = Math.max(0, Number(cycleBaseline.requiredRunway || 0));
   const { score, scoreRoom, plannedAssumedSinceLock, fullyCovered } = calculateMeansScoreState({
     financialRunway,
-    upcoming,
     requiredRunway,
-    assumedSpent,
-    assumedSpentAtLock: cycleBaseline.assumedSpentAtLock,
-    realizedPlannedOffset: realizedPlannedBuyCheckOffset,
   });
 
   return {

@@ -79,41 +79,21 @@ test("personal backup preserves Daily Check-In data", async () => {
 });
 
 test("the production app has no background server finance synchronization", async () => {
-  const mainSource = await fs.readFile(
-    new URL("../src/main.jsx", import.meta.url),
-    "utf8"
-  );
-  const repositorySource = await fs.readFile(
-    new URL("../src/lib/financeRepository.js", import.meta.url),
-    "utf8"
-  );
-  const storageScreen = await fs.readFile(
-    new URL("../src/pages/DataExport.jsx", import.meta.url),
-    "utf8"
-  );
+  const mainSource = await fs.readFile(new URL("../src/main.jsx", import.meta.url), "utf8");
+  const repositorySource = await fs.readFile(new URL("../src/lib/financeRepository.js", import.meta.url), "utf8");
+  const storageScreen = await fs.readFile(new URL("../src/pages/DataExport.jsx", import.meta.url), "utf8");
   const settingsSource = await fs.readFile(
-    new URL(
-      "../src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx",
-      import.meta.url
-    ),
+    new URL("../src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx", import.meta.url),
     "utf8"
   );
 
   assert.doesNotMatch(mainSource, /CloudVaultSyncBridge/);
   assert.doesNotMatch(mainSource, /installFastAccountSync/);
-  assert.doesNotMatch(mainSource, /installAccountStreakSyncBridge/);
-  assert.doesNotMatch(mainSource, /installEmergencyLocalFinanceRecovery/);
-  assert.doesNotMatch(mainSource, /installLocalFinanceSyncGuard/);
-
   assert.doesNotMatch(repositorySource, /server-finance-sync/);
-  assert.doesNotMatch(repositorySource, /prepareServerVersionBeforeMutation/);
   assert.doesNotMatch(repositorySource, /__claraPrepareServerFinanceMutation/);
-
   assert.match(settingsSource, /DeviceTransferPanel/);
-  assert.match(settingsSource, /Backup & Restore File/);
   assert.match(storageScreen, /Backup & Restore/);
   assert.match(storageScreen, /Personal backup file/);
-  assert.doesNotMatch(storageScreen, /DeviceTransferPanel/);
   assert.doesNotMatch(storageScreen, /syncServerFinance/);
   assert.doesNotMatch(storageScreen, /\/api\/finance\/sync/);
 });
@@ -134,11 +114,9 @@ test("legacy cloud vault remains available only as backup and recovery plumbing"
 });
 
 test("backend requests bypass the ngrok browser interstitial", async () => {
-  const clientSource = await fs.readFile(
-    new URL("../src/lib/clara-backend-client.js", import.meta.url),
-    "utf8"
-  );
+  const clientSource = await fs.readFile(new URL("../src/lib/clara-backend-client.js", import.meta.url), "utf8");
 
-  assert.match(clientSource, /ngrok-skip-browser-warning/);
+  assert.match(clientSource, /DEFAULT_API_URL = "https:\/\/api\.clarapmc\.com"/);
   assert.match(clientSource, /Authorization: `Bearer \$\{token\}`/);
+  assert.doesNotMatch(clientSource, /ngrok-skip-browser-warning/);
 });

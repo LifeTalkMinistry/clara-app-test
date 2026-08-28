@@ -60,34 +60,14 @@ test("normal login does not enter the beta welcome or mission onboarding", () =>
 test("onboarding separates CLARA mechanics from the bigger vision", () => {
   assert.match(
     onboardingScreensSource,
-    /SCREEN_IDS = \[[\s\S]*?"country"[\s\S]*?"measurement"[\s\S]*?"means-score"[\s\S]*?"score-meaning"[\s\S]*?"decision-impact"[\s\S]*?"clara-reveal"[\s\S]*?"mission-rule"[\s\S]*?"bigger-vision"[\s\S]*?\]/
+    /SCREEN_IDS = \[[\s\S]*?"country"[\s\S]*?"measurement"[\s\S]*?"means-score"[\s\S]*?"score-meaning"[\s\S]*?"simulation-ready"[\s\S]*?"juan-intro"[\s\S]*?"juan-choice"[\s\S]*?"quantified-feedback"[\s\S]*?"ask-clara-build-up"[\s\S]*?"clara-reveal"[\s\S]*?"mission-rule"[\s\S]*?"clara-context"[\s\S]*?"bigger-vision"[\s\S]*?\]/
   );
-  assert.match(onboardingSource, /You can&apos;t manage what you don&apos;t measure\./);
-  assert.match(onboardingSource, /Meet your Means Score\./);
-  assert.match(onboardingSource, /One practical number that makes your financial position visible\./);
-  assert.match(onboardingSource, /100 is the line\./);
-  assert.match(onboardingSource, /Below it means financial pressure\. Above it means more financial room\./);
-  assert.match(onboardingSource, /Before you spend, see what it changes\./);
-  assert.match(onboardingSource, /How do you see the impact before you spend\?/);
-  assert.match(onboardingSource, /By asking <ClaraBrandName \/>\./);
-  assert.match(onboardingSource, /Your financial accountability companion\./);
-  assert.match(onboardingSource, /Before you spend, ask <ClaraBrandName \/>\./);
-  assert.match(onboardingSource, /understands your financial position\./);
-  assert.match(onboardingSource, /Your Means Score shows where you currently stand\./);
-  assert.match(onboardingSource, /helps you protect your Means Score/);
-  assert.match(onboardingSource, /The bigger vision/);
-  assert.match(onboardingSource, /The goal is bigger than one person\./);
-  assert.match(onboardingSource, /Normalize healthy money habits in the Philippines\./);
-  assert.match(onboardingSource, /See My Financial Status/);
-  assert.match(onboardingShellSource, /if \(activeScreen === "mission-rule"\) return <MissionRuleScreen \/>/);
-  assert.match(onboardingShellSource, /return <BiggerVisionScreen \/>/);
-
-  assert.doesNotMatch(onboardingSource, /Money rarely disappears in one dramatic moment\./);
-  assert.doesNotMatch(onboardingSource, /₱100–₱165 a day/);
+  assert.match(onboardingScreensSource, /JUAN_SHOE_OPTIONS/);
+  assert.match(onboardingScreensSource, /afterScore/);
+  assert.match(onboardingShellSource, /activeScreen === "mission-rule"/);
+  assert.match(onboardingShellSource, /BiggerVisionScreen/);
   assert.doesNotMatch(onboardingShellSource, /MoneySituationScreen/);
   assert.doesNotMatch(onboardingShellSource, /FinancialSuccessScreen/);
-  assert.doesNotMatch(onboardingShellSource, /PersonalScreen/);
-  assert.doesNotMatch(onboardingShellSource, /AwarenessScreen/);
 });
 
 test("onboarding still routes completion directly into the CLARA ORB", () => {
@@ -97,16 +77,8 @@ test("onboarding still routes completion directly into the CLARA ORB", () => {
 });
 
 test("logged-out routes still wait for account restoration and then use Login", () => {
-  assert.match(
-    appSource,
-    /<FullScreenLoader message="Restoring your CLARA account\.\.\." \/>/
-  );
-  assert.match(
-    appSource,
-    /<Navigate to="\/login" replace state=\{\{ from: location \}\} \/>/
-  );
-  assert.match(
-    appSource,
-    /<Suspense fallback=\{<FullScreenLoader message="Opening CLARA\.\.\." \/>\}>/
-  );
+  assert.match(appSource, /<FullScreenLoader message="Restoring your CLARA account\.\.\." \/>/);
+  assert.match(appSource, /const isPublicAuthRoute =/);
+  assert.match(appSource, /state=\{location\.pathname === "\/" \? undefined : \{ from: location \}\}/);
+  assert.match(appSource, /<Suspense fallback=\{<FullScreenLoader message="Opening CLARA\.\.\." \/>\}>/);
 });

@@ -36,7 +36,9 @@ test("preferred login UI remains connected to the custom backend AuthContext", (
 });
 
 test("login remains mounted while an authentication request is processing", () => {
-  assert.match(appSource, /const isLoginRoute = location\.pathname === "\/login";/);
-  assert.match(appSource, /loading && !isLoginRoute/);
+  assert.match(appSource, /const isPublicAuthRoute =/);
+  assert.match(appSource, /location\.pathname === "\/login"/);
+  assert.match(appSource, /location\.pathname === "\/reset-password"/);
+  assert.match(appSource, /loading && !isPublicAuthRoute/);
   assert.doesNotMatch(appSource, /if \(!authReady \|\| loading \|\| roleLoading\)/);
 });

@@ -7,7 +7,7 @@ import {
 } from "../src/lib/savingsGoalLifecycle.js";
 import { getWalletMoneySemantics } from "../src/lib/clara-wallet-money-semantics.js";
 
-const finance = readFileSync(new URL("../src/hooks/useFinancialData.js", import.meta.url), "utf8");
+const finance = readFileSync(new URL("../src/hooks/useFinancialDataBase.js", import.meta.url), "utf8");
 const savings = readFileSync(new URL("../src/pages/SavingsGoalsIntegrated.jsx", import.meta.url), "utf8");
 
 test("Savings reconciliation corrections do not inflate earned income", () => {
