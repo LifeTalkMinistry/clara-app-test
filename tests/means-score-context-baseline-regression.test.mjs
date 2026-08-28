@@ -36,16 +36,48 @@ function score({ financialRunway, baseline }) {
   }).score;
 }
 
-test("full-cycle Means requirement is the fixed 100 anchor", () => {
+test("full-cycle Means anchor is plan-owned, not rebuilt from current wallet balance", () => {
   const requiredRunway = calculateCycleRequiredRunway({
     income: 15100,
-    availableNow: 9388,
-    upcoming: 4691,
+    availableNow: 7388,
+    upcoming: 3121,
   });
-  assert.equal(requiredRunway, 10403);
-  assert.equal(calculateMeansScoreState({ financialRunway: 10403, requiredRunway }).score, 100);
-  assert.equal(calculateMeansScoreState({ financialRunway: 15605, requiredRunway }).score, 150);
-  assert.equal(calculateMeansScoreState({ financialRunway: 20806, requiredRunway }).score, 200);
+  assert.equal(requiredRunway, 3121);
+
+  const baseline = resolveMeansCycleBaselineState({
+    stored: null,
+    cycleStart: "2026-08-25",
+    cycleEnd: "2026-09-10",
+    planFingerprint: plan(3121),
+    requiredRunway,
+    assumedSpent: 280,
+  }).baseline;
+
+  assert.equal(baseline.requiredRunway, 3401);
+  assert.equal(calculateMeansScoreState({ financialRunway: 7388, requiredRunway: baseline.requiredRunway }).score, 217);
+});
+
+test("stale v3 baseline is rebuilt so previous transactions cannot keep a corrupted 100", () => {
+  const refreshed = resolveMeansCycleBaselineState({
+    stored: {
+      version: 3,
+      requiredRunway: 10833,
+      assumedSpentAtLock: 0,
+      cycleStart: "2026-08-25",
+      cycleEnd: "2026-09-10",
+      planFingerprint: plan(10833, "stale"),
+    },
+    cycleStart: "2026-08-25",
+    cycleEnd: "2026-09-10",
+    planFingerprint: plan(3121, "current"),
+    requiredRunway: 3121,
+    assumedSpent: 280,
+  });
+
+  assert.equal(refreshed.shouldPersist, true);
+  assert.equal(refreshed.reason, "new_cycle_or_stale_baseline");
+  assert.equal(refreshed.baseline.version, 4);
+  assert.equal(refreshed.baseline.requiredRunway, 3401);
 });
 
 test("time and shrinking upcoming commitments cannot increase the score", () => {
