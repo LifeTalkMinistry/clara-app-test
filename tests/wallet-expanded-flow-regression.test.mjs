@@ -36,20 +36,21 @@ test("wallet editing preserves provider identity and shows inline errors", () =>
 
 test("wallet transfers respect spendable balance after protected funds", () => {
   assert.equal(helpers.includes("getWalletSpendableBalance"), true);
-  assert.equal(handlers.includes("getWalletSpendableBalance(fromWallet) < amount"), true);
-  assert.equal(renderer.includes("Spendable after protected funds"), true);
-  assert.equal(renderer.includes("submitDisabled={!transferDestinationValid || !transferAmountValid}"), true);
+  assert.equal(handlers.includes("const transferableBalance"), true);
+  assert.equal(handlers.includes("getWalletSpendableBalance(fromWallet)"), true);
+  assert.equal(handlers.includes("if (transferableBalance < amount)"), true);
+  assert.equal(handlers.includes("spendable balance after protected funds"), true);
 });
 
 test("wallet removal blocks money loss and preserves transaction history", () => {
   assert.equal(handlers.includes("Transfer or clear the wallet balance before removing it"), true);
+  assert.equal(handlers.includes("protectedAmount > 0 || hasLinkedFunds"), true);
+  assert.equal(handlers.includes("hasHistory"), true);
   assert.equal(handlers.includes("is_archived: true"), true);
-  assert.equal(renderer.includes("submitDisabled={deleteWalletBlocked}"), true);
-  assert.equal(renderer.includes("deleteWalletHasLinkedFunds"), true);
-  assert.equal(handlers.includes("hasLinkedFunds"), true);
-  assert.equal(syncedContent.includes("isEmergencyFundStorageWallet"), true);
+  assert.equal(handlers.includes("wallet?.isEmergencyFundStorageWallet"), true);
   assert.equal(walletListItem.includes("onDeleteWallet?.(wallet)"), true);
   assert.equal(stateSync.includes("!wallet?.is_archived"), true);
+  assert.equal(stateSync.includes("!wallet?.isArchived"), true);
 });
 
 test("wallet reorder touches only the two adjacent wallets", () => {

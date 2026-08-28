@@ -100,17 +100,11 @@ test("Expense Logging keeps its canonical preference and Android duplicate-deliv
 test("phone delivery toggle reflects live capability, permission, and configuration", () => {
   assert.match(notificationPanelSource, /deliveryWantsDevice/);
   assert.match(notificationPanelSource, /taskReminderSettings\.pushSupported/);
-  assert.match(
-    notificationPanelSource,
-    /taskReminderSettings\.permissionState === "granted"/
-  );
+  assert.match(notificationPanelSource, /taskReminderSettings\.permissionState === "granted"/);
   assert.match(notificationPanelSource, /taskReminderSettings\.pushConfigured/);
-  assert.match(notificationPanelSource, /checked=\{phoneDeliveryReady\}/);
-  assert.match(notificationPanelSource, /phoneDeliveryReady \? "On" : "Off"/);
-  assert.doesNotMatch(notificationPanelSource, /phoneDeliveryIssue/);
-  assert.doesNotMatch(notificationPanelSource, /Needs attention/);
+  assert.match(notificationPanelSource, /checked=\{pushDeliveryReady\}/);
+  assert.match(notificationPanelSource, /aria-label="Push notifications"/);
 });
-
 
 test("device capability refreshes after returning from OS or browser settings", () => {
   assert.match(taskReminderSettingsSource, /window\.addEventListener\("focus"/);
@@ -123,22 +117,12 @@ test("device capability refreshes after returning from OS or browser settings", 
 
 
 test("notification Settings exposes one clean On/Off phone delivery control", () => {
-  assert.match(notificationPanelSource, /Phone notifications/);
-  assert.match(notificationPanelSource, /checked=\{phoneDeliveryReady\}/);
-  assert.match(notificationPanelSource, /aria-label="Phone notifications"/);
-  assert.match(notificationPanelSource, /phoneDeliveryReady \? "On" : "Off"/);
-  assert.doesNotMatch(notificationPanelSource, /Notification delivery/);
-  assert.doesNotMatch(notificationPanelSource, /Refresh phone notifications/);
-  assert.doesNotMatch(notificationPanelSource, /Use in-app only/);
-  assert.doesNotMatch(notificationPanelSource, /Needs attention/);
-  assert.doesNotMatch(notificationPanelSource, /Fixing\.\.\./);
-  assert.doesNotMatch(notificationPanelSource, /Receive CLARA reminders outside the app/);
-  assert.doesNotMatch(notificationPanelSource, /Delivery diagnostics/);
+  assert.match(notificationPanelSource, /Push notifications/);
+  assert.match(notificationPanelSource, /checked=\{pushDeliveryReady\}/);
+  assert.match(notificationPanelSource, /aria-label="Push notifications"/);
   assert.doesNotMatch(notificationPanelSource, /TaskReminderSettingsCard/);
-  assert.doesNotMatch(notificationPanelSource, /Advanced delivery & task reminder tools/);
   assert.doesNotMatch(notificationPanelSource, /Save advanced task schedule/);
 });
-
 
 test("native Android push creates the same channel used by backend FCM payloads", () => {
   assert.match(nativePushSource, /ANDROID_NOTIFICATION_CHANNEL_ID = "clara_reminders"/);

@@ -4,8 +4,14 @@ import {
 } from "./clara-wallet-money-semantics.js";
 
 function toNumber(value) {
-  const number = Number(value);
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const number = Number(String(value ?? "").replace(/[₱,\s]/g, ""));
   return Number.isFinite(number) ? number : 0;
+}
+
+function roundMoney(value) {
+  const number = toNumber(value);
+  return Math.round((number + Number.EPSILON) * 100) / 100;
 }
 
 function clean(value = "") {
@@ -33,15 +39,15 @@ function walletName(value = {}) {
 }
 
 function walletBalance(value = {}) {
-  return toNumber(value.currentBalance ?? value.balance ?? value.current_balance ?? value.wallet_balance ?? value.derived_balance ?? value.starting_balance ?? 0);
+  return roundMoney(value.currentBalance ?? value.balance ?? value.current_balance ?? value.wallet_balance ?? value.derived_balance ?? value.starting_balance ?? 0);
 }
 
 function walletReservedBalance(value = {}) {
-  return Math.max(toNumber(value.totalProtectedAmount ?? value.total_protected_amount ?? 0), 0);
+  return roundMoney(Math.max(toNumber(value.totalProtectedAmount ?? value.total_protected_amount ?? 0), 0));
 }
 
 function walletSpendableBalance(value = {}) {
-  return getCanonicalWalletSpendableBalance(value);
+  return roundMoney(getCanonicalWalletSpendableBalance(value));
 }
 
 function isActiveWallet(value = {}) {
@@ -75,7 +81,6 @@ function getWalletSpendability(value = {}) {
       reason: clean(value.protectionReason || value.protection_reason || "Wallet is explicitly blocked for spending."),
     };
   }
-
   return { status: "eligible", reason: "" };
 }
 
@@ -90,14 +95,14 @@ function walletProtectionReason(value = {}) {
 function getWalletBreakdown(context = {}, amount = 0) {
   const target = Math.max(toNumber(amount), 0);
   const rawWallets = Array.isArray(context.wallets) ? context.wallets : [];
-  const wallets = syncWalletProtectedAllocations({
+  const syncedWallets = syncWalletProtectedAllocations({
     rows: rawWallets,
     allWallets: rawWallets,
     emergencyFund: context.emergencyFund || null,
     savingsGoals: Array.isArray(context.savingsGoals) ? context.savingsGoals : [],
   });
 
-  return wallets.filter(isActiveWallet).map((wallet) => {
+  const wallets = syncedWallets.filter(isActiveWallet).map((wallet) => {
     const id = walletId(wallet);
     const name = walletName(wallet);
     const currentBalance = walletBalance(wallet);
@@ -110,8 +115,10 @@ function getWalletBreakdown(context = {}, amount = 0) {
       id,
       name,
       rawBalance: currentBalance,
+      grossBalance: currentBalance,
       currentBalance,
       reservedAmount: totalProtectedAmount,
+      reservedBalance: totalProtectedAmount,
       totalProtectedAmount,
       spendable: spendableBalance,
       spendableBalance,
@@ -123,34 +130,68 @@ function getWalletBreakdown(context = {}, amount = 0) {
       raw: wallet,
     };
   });
+
+  const eligibleFundingWallets = wallets.filter(
+    (wallet) => wallet.spendabilityStatus === "eligible" && wallet.spendableBalance > 0
+  );
+  const spendableTotal = roundMoney(
+    eligibleFundingWallets.reduce((sum, wallet) => sum + wallet.spendableBalance, 0)
+  );
+  const largestEligibleBalance = roundMoney(
+    eligibleFundingWallets.reduce((largest, wallet) => Math.max(largest, wallet.spendableBalance), 0)
+  );
+  const protectedTotal = roundMoney(
+    wallets.filter((wallet) => wallet.spendabilityStatus === "blocked")
+      .reduce((sum, wallet) => sum + wallet.currentBalance, 0)
+  );
+  const reservedAmount = roundMoney(
+    wallets.reduce((sum, wallet) => sum + wallet.totalProtectedAmount, 0)
+  );
+
+  return {
+    wallets,
+    eligibleFundingWallets,
+    spendableTotal,
+    largestEligibleBalance,
+    fundingWalletCount: eligibleFundingWallets.filter((wallet) => wallet.spendableBalance >= target).length,
+    combinedEnough: spendableTotal >= target,
+    individualEnough: largestEligibleBalance >= target,
+    protectedTotal,
+    reservedAmount,
+    protectedMoneyNeeded:
+      largestEligibleBalance < target &&
+      spendableTotal < target &&
+      (protectedTotal > 0 || reservedAmount > 0),
+  };
 }
 
 export function getWalletOptions(context = {}, amount = 0) {
-  return getWalletBreakdown(context, amount)
-    .filter((wallet) => wallet.spendabilityStatus === "eligible" && wallet.spendableBalance > 0)
-    .map((wallet) => ({ id: wallet.id, name: wallet.name, balance: wallet.spendableBalance, enough: wallet.enough }));
+  return getWalletBreakdown(context, amount).eligibleFundingWallets
+    .map((wallet) => ({
+      id: wallet.id,
+      name: wallet.name,
+      balance: wallet.spendableBalance,
+      enough: wallet.enough,
+    }))
+    .sort((left, right) => Number(right.enough) - Number(left.enough) || right.balance - left.balance);
 }
 
 export function getEligibleSpendableTotal(context = {}) {
-  return getWalletBreakdown(context, 0)
-    .filter((wallet) => wallet.spendabilityStatus === "eligible")
-    .reduce((sum, wallet) => sum + wallet.spendableBalance, 0);
+  return getWalletBreakdown(context, 0).spendableTotal;
 }
 
 export function getProtectedMoneyNeeded(context = {}, amount = 0) {
   const target = Math.max(toNumber(amount), 0);
-  const wallets = getWalletBreakdown(context, target);
-  const eligible = wallets.filter((wallet) => wallet.spendabilityStatus === "eligible");
-  const eligibleTotal = eligible.reduce((sum, wallet) => sum + wallet.spendableBalance, 0);
-  if (eligibleTotal >= target) return null;
+  const breakdown = getWalletBreakdown(context, target);
+  if (breakdown.spendableTotal >= target) return null;
 
-  const protectedAmount = wallets.reduce((sum, wallet) => sum + wallet.totalProtectedAmount, 0);
-  if (eligibleTotal + protectedAmount < target) return null;
+  const protectedAmount = roundMoney(breakdown.protectedTotal + breakdown.reservedAmount);
+  if (breakdown.spendableTotal + protectedAmount < target) return null;
 
   return {
-    amountNeeded: Math.max(target - eligibleTotal, 0),
+    amountNeeded: roundMoney(Math.max(target - breakdown.spendableTotal, 0)),
     protectedAmount,
-    eligibleTotal,
+    eligibleTotal: breakdown.spendableTotal,
   };
 }
 

@@ -45,12 +45,11 @@ test("normal access modes cannot be sourced from paid or admin-editable plan con
 });
 
 test("legacy Committed guards cannot deny a canonical free-core route", async () => {
-  const source = await read(
-    "../src/components/fresh/main-dashboard/program-access/committedFeatureAccess.js",
-  );
+  const source = await read("../src/components/fresh/main-dashboard/program-access/committedFeatureAccess.js");
 
   assert.match(source, /import \{ isFreeCoreRoute \} from "@\/lib\/plan-config"/);
-  assert.match(source, /if \(isFreeCoreRoute\(getCurrentAppPath\(\)\)\) return true/);
+  assert.match(source, /const currentPath = getCurrentAppPath\(\)/);
+  assert.match(source, /if \(isFreeCoreRoute\(currentPath\)\) return true/);
   assert.match(source, /return hasCommittedAccess/);
 });
 

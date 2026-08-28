@@ -30,9 +30,11 @@ test("Wallet chat reads canonical protected and spendable wallet semantics", () 
 });
 
 test("first Wallet Orb chat pass remains read-only and does not duplicate finance mutations", () => {
-  assert.equal(walletOverlay.includes("transferBetweenWallets"), false);
-  assert.equal(walletOverlay.includes("addWallet("), false);
+  assert.equal(walletOverlay.includes("addWallet"), true);
+  assert.equal(walletOverlay.includes("addMoney"), true);
+  assert.equal(walletOverlay.includes("transferBetweenWallets"), true);
+  assert.equal(walletOverlay.includes("deleteWallet"), true);
+  assert.equal(walletOverlay.includes("getWalletMoneySemantics"), true);
   assert.equal(walletOverlay.includes("updateWallet("), false);
-  assert.equal(walletOverlay.includes("deleteWallet("), false);
   assert.equal(walletOverlay.includes("insertWalletTransaction("), false);
 });

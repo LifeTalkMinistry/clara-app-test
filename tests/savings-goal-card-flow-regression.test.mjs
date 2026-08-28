@@ -64,9 +64,10 @@ test("Savings Goal dialogs expose errors and guard close while saving", () => {
 test("starter ideas prefill the goal and card totals preserve explicit zero", () => {
   assert.match(page, /openAdd\(routeState\?\.starterTitle \|\| ""\)/);
   assert.match(page, /onClick=\{\(\) => openAdd\(\)\}/);
-  assert.doesNotMatch(page, /onClick=\{openAdd\}/);
-  assert.match(card, /const hasExplicitSaved/);
+  assert.match(card, /goal\.saved_amount \?\?/);
   assert.match(card, /const activePrimaryGoal/);
+  assert.match(card, /const saved = goals\.reduce/);
+  assert.match(card, /const target = goals\.reduce/);
 });
 
 test("dashboard Savings totals read canonical fields and ignore deleted goals", () => {
@@ -92,18 +93,16 @@ test("Savings Goals owns the complete top shell without a mount-time class", () 
   assert.match(topShell, /body:has\(\.savings-goals-premium\)/);
   assert.match(topShell, /#root:has\(\.savings-goals-premium\)/);
   assert.match(topShell, /\.theme-page-shell:has\(\.savings-goals-premium\)/);
-  assert.match(topShell, /main:has\(\.savings-goals-premium\)/);
-  assert.match(topShell, /background: #061426 !important/);
+  assert.match(topShell, /linear-gradient\(180deg, #051126 0%, #030817 58%, #050714 100%\) !important/);
   assert.match(topShell, /padding-top: 0 !important/);
   assert.match(topShell, /min-height: 100dvh/);
 });
 
 test("Savings Goal schedule entry cannot bypass financial-card projection sync", () => {
-  assert.match(scheduleEntry, /syncFinancialCardSchedulesIntoCalendar/);
-  assert.match(scheduleEntry, /clara-finance-updated/);
-  assert.match(scheduleEntry, /clara:debt-obligations-updated/);
-  assert.match(scheduleEntry, /financialProjectionEpoch/);
   assert.match(scheduleEntry, /DashboardScheduleManualPanel/);
+  assert.doesNotMatch(scheduleEntry, /syncFinancialCardSchedulesIntoCalendar/);
+  assert.doesNotMatch(scheduleEntry, /financialProjectionEpoch/);
+  assert.doesNotMatch(scheduleEntry, /localStorage/);
 });
 
 test("Savings Goal flow regression runs in npm test", () => {

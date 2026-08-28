@@ -92,7 +92,7 @@ const OTHER_PROTECTED_KEYS = [
   "otherProtectedAmount",
   "other_protected_amount",
   "otherReservedAmount",
-  "other_reserved_amount",
+  "other_reserved_amount",  "reservedAmount",  "reserved_amount",  "protectedAmount",  "protected_amount",
 ];
 
 const MONEY_LENT_TYPES = new Set(["money_lent", "money-lent", "lent", "receivable"]);
@@ -105,6 +105,11 @@ function toMoney(value) {
   }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function roundMoney(value) {
+  const amount = toMoney(value);
+  return Math.round(amount * 100) / 100;
 }
 
 function firstDefinedValue(source, keys = [], fallback = null) {
@@ -205,7 +210,7 @@ export function getWalletProtectedAmounts({
   savingsGoals = [],
   wallets = [],
 } = {}) {
-  const currentBalance = Math.max(getWalletCurrentBalance(wallet), 0);
+  const currentBalance = roundMoney(Math.max(getWalletCurrentBalance(wallet), 0));
   const moneyLent = isMoneyLentWallet(wallet);
   const walletId = getWalletId(wallet);
   const emergencyStorageWallet = resolveEmergencyStorageWallet({
@@ -245,15 +250,16 @@ export function getWalletProtectedAmounts({
         requestedOtherProtectedAmount,
         Math.max(currentBalance - emergencyProtectedAmount - savingsProtectedAmount, 0)
       );
-  const totalProtectedAmount =
-    emergencyProtectedAmount + savingsProtectedAmount + otherProtectedAmount;
+  const totalProtectedAmount = roundMoney(
+    emergencyProtectedAmount + savingsProtectedAmount + otherProtectedAmount
+  );
   const unavailableAmount = moneyLent ? currentBalance : 0;
 
   return {
     currentBalance,
-    emergencyProtectedAmount,
-    savingsProtectedAmount,
-    otherProtectedAmount,
+    emergencyProtectedAmount: roundMoney(emergencyProtectedAmount),
+    savingsProtectedAmount: roundMoney(savingsProtectedAmount),
+    otherProtectedAmount: roundMoney(otherProtectedAmount),
     totalProtectedAmount,
     unavailableAmount,
     moneyLentUnavailableAmount: unavailableAmount,
@@ -283,9 +289,11 @@ export function getWalletMoneySemantics({
     ...protectedAmounts,
     spendableBalance: protectedAmounts.isMoneyLent
       ? 0
-      : Math.max(
-          protectedAmounts.currentBalance - protectedAmounts.totalProtectedAmount,
-          0
+      : roundMoney(
+          Math.max(
+            protectedAmounts.currentBalance - protectedAmounts.totalProtectedAmount,
+            0
+          )
         ),
   };
 }
@@ -299,10 +307,10 @@ export function getWalletSpendableBalance(walletOrContext = {}) {
   if (isMoneyLentWallet(wallet)) return 0;
 
   const explicitSpendable = firstDefinedValue(wallet, EXPLICIT_SPENDABLE_KEYS, null);
-  if (explicitSpendable !== null) return Math.max(toMoney(explicitSpendable), 0);
+  if (explicitSpendable !== null) return roundMoney(Math.max(toMoney(explicitSpendable), 0));
 
   const protectedAmount = Math.max(firstNumber(wallet, EXPLICIT_PROTECTED_KEYS), 0);
-  return Math.max(getWalletCurrentBalance(wallet) - protectedAmount, 0);
+  return roundMoney(Math.max(getWalletCurrentBalance(wallet) - protectedAmount, 0));
 }
 
 export function syncWalletProtectedAllocations({
@@ -387,7 +395,7 @@ export function getWalletTotals(wallets = []) {
     .filter(isActiveWalletForMoneySemantics)
     .reduce(
       (totals, wallet) => {
-        const currentBalance = Math.max(getWalletCurrentBalance(wallet), 0);
+        const currentBalance = roundMoney(Math.max(getWalletCurrentBalance(wallet), 0));
         const unavailableAmount = isMoneyLentWallet(wallet) ? currentBalance : Math.max(
           firstNumber(wallet, ["unavailableAmount", "unavailable_amount", "moneyLentUnavailableAmount", "money_lent_unavailable_amount"]),
           0
@@ -416,18 +424,18 @@ export function getWalletTotals(wallets = []) {
             );
 
         return {
-          currentBalance: totals.currentBalance + currentBalance,
-          availableBalance: totals.availableBalance + spendableBalance,
-          unavailableAmount: totals.unavailableAmount + unavailableAmount,
-          moneyLentUnavailableAmount: totals.moneyLentUnavailableAmount + unavailableAmount,
+          currentBalance: roundMoney(totals.currentBalance + currentBalance),
+          availableBalance: roundMoney(totals.availableBalance + spendableBalance),
+          unavailableAmount: roundMoney(totals.unavailableAmount + unavailableAmount),
+          moneyLentUnavailableAmount: roundMoney(totals.moneyLentUnavailableAmount + unavailableAmount),
           emergencyProtectedAmount:
             totals.emergencyProtectedAmount + emergencyProtectedAmount,
           savingsProtectedAmount:
             totals.savingsProtectedAmount + savingsProtectedAmount,
           otherProtectedAmount:
             totals.otherProtectedAmount + otherProtectedAmount,
-          totalProtectedAmount: totals.totalProtectedAmount + totalProtectedAmount,
-          spendableBalance: totals.spendableBalance + spendableBalance,
+          totalProtectedAmount: roundMoney(totals.totalProtectedAmount + totalProtectedAmount),
+          spendableBalance: roundMoney(totals.spendableBalance + spendableBalance),
         };
       },
       {
