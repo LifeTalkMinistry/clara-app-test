@@ -298,19 +298,25 @@ export function QuantifiedFeedbackScreen({ selectedOptionId }) {
   return (
     <ScreenFrame>
       <Eyebrow tone="gold">That&apos;s the point</Eyebrow>
-      <h1 className="clara-onboarding-title">You didn&apos;t just see the price.</h1>
       <div className="clara-onboarding-feedback-result">
         <span className="clara-onboarding-kicker">Juan&apos;s Means Score</span>
-        <strong>150 → {selectedOption.afterScore}</strong>
+        <strong style={{ fontWeight: 540 }}>150 → {selectedOption.afterScore}</strong>
         <span>{selectedOption.name} · {formatPeso(selectedOption.price)}</span>
       </div>
-      <p className="clara-onboarding-body clara-onboarding-body--lead">
-        You saw what the purchase would do to his financial position before he made the decision.
+      <p
+        className="clara-onboarding-body clara-onboarding-body--narrow"
+        style={{ marginTop: 32, fontWeight: 420 }}
+      >
+        Psychology calls this
       </p>
-      <p className="clara-onboarding-tagline">Psychology calls this quantified feedback.</p>
-      <AccentRule />
-      <p className="clara-onboarding-closing">
-        What if Juan could ask CLARA to show him this impact before he buys?
+      <h1
+        className="clara-onboarding-title"
+        style={{ marginTop: 8, maxWidth: 390, fontWeight: 780, letterSpacing: "-0.05em" }}
+      >
+        QUANTIFIED FEEDBACK
+      </h1>
+      <p className="clara-onboarding-body clara-onboarding-body--lead" style={{ marginTop: 20 }}>
+        You didn&apos;t just see the price. You saw what the decision would do to Juan&apos;s financial position.
       </p>
     </ScreenFrame>
   );
