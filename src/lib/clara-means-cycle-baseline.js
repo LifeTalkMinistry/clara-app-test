@@ -34,9 +34,11 @@ export function resolveMeansCycleBaselineState({
   planFingerprint = "",
   requiredRunway = 0,
   assumedSpent = 0,
+  legacyRequiredRunway = null,
 } = {}) {
   const normalizedRequired = finiteNonNegative(requiredRunway);
   const normalizedAssumed = finiteNonNegative(assumedSpent);
+  const normalizedLegacy = finiteNonNegative(legacyRequiredRunway);
   const validSameCycleBaseline = Boolean(
     stored &&
       Number(stored.version) === BASELINE_VERSION &&
@@ -98,13 +100,19 @@ export function resolveMeansCycleBaselineState({
     };
   }
 
-  // A new pay cycle (or migration from the malformed v5 anchor) establishes 100 directly
-  // from the complete cycle plan supplied by the runtime. Assumed/actual spent are context
-  // only and are intentionally not added to the denominator here.
+  // For a cycle CLARA already read before v6, keep that earlier fixed ruler once and attach
+  // today's complete plan only as the delta reference. This prevents a mid-cycle migration
+  // from pretending today is day one. v4/v5 remaining-commitment anchors are not eligible;
+  // the runtime supplies only the earlier preserved cycle anchor when one exists.
+  const migratedExistingAnchor = normalizedLegacy > 0;
+  const initialRequiredRunway = migratedExistingAnchor
+    ? normalizedLegacy
+    : normalizedRequired;
+
   return {
     baseline: {
       version: BASELINE_VERSION,
-      requiredRunway: normalizedRequired,
+      requiredRunway: initialRequiredRunway,
       planRequiredRunway: normalizedRequired,
       assumedSpentAtLock: normalizedAssumed,
       cycleStart,
@@ -112,7 +120,9 @@ export function resolveMeansCycleBaselineState({
       planFingerprint: String(planFingerprint || ""),
     },
     shouldPersist: true,
-    reason: "new_cycle_or_stale_baseline",
+    reason: migratedExistingAnchor
+      ? "legacy_cycle_anchor_migrated"
+      : "new_cycle_or_stale_baseline",
   };
 }
 
