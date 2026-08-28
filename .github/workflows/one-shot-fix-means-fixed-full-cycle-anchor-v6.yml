@@ -56,3 +56,5 @@ jobs:
           git add src/runtime/installClaraOrbGreeting.js src/lib/clara-means-cycle-baseline.js tests/means-score-context-baseline-regression.test.mjs
           git commit -m "Restore fixed full-cycle Means anchor"
           git push origin HEAD:main
+
+# Trigger the verified v6 migration on main.
