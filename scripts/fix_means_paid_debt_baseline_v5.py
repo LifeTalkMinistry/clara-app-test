@@ -40,3 +40,4 @@ else:
 
 path.write_text(text, encoding="utf-8")
 print("Patched Means baseline reconstruction to exclude already-paid debt.")
+# v5 one-shot repair trigger
