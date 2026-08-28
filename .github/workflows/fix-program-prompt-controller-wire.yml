@@ -1,328 +1,115 @@
-name: Validate Plan and Billing membership synchronization
+name: CLARA financial integrity PR verifier
 
 on:
   pull_request:
-    branches:
-      - main
+    branches: [main]
     paths:
-      - ".github/plan-billing-sync.trigger"
-      - "src/pages/Dashboard.jsx"
-      - "src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx"
+      - ".github/financial-integrity-repair.trigger"
 
 permissions:
   contents: write
 
 jobs:
-  patch-and-validate:
+  verify-repair:
+    if: ${{ github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout pull request branch
+      - name: Checkout repair branch
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Apply surgical membership-status synchronization
+      - name: Apply fixed Means baseline repair
+        run: python3 scripts/fix_means_fixed_full_cycle_anchor_v6.py
+
+      - name: Normalize wallet semantics for current source shape
+        shell: python
         run: |
-          python <<'PY'
           from pathlib import Path
+          import re
 
-          dashboard_path = Path("src/pages/Dashboard.jsx")
-          settings_path = Path("src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx")
+          path = Path("src/lib/clara-wallet-money-semantics.js")
+          text = path.read_text(encoding="utf-8")
+          block = re.search(r'const OTHER_PROTECTED_KEYS = \[[\s\S]*?\n\];', text)
+          if not block:
+              raise SystemExit("OTHER_PROTECTED_KEYS block not found")
+          protected_block = block.group(0)
+          for key in ["reservedAmount", "reserved_amount", "protectedAmount", "protected_amount"]:
+              quoted = f'"{key}"'
+              if quoted not in protected_block:
+                  protected_block = protected_block[:-3] + f'  {quoted},\n];'
+          text = text[:block.start()] + protected_block + text[block.end():]
 
-          def replace_once(path, old, new):
-              text = path.read_text(encoding="utf-8")
-              if new in text:
-                  return
-              count = text.count(old)
-              if count != 1:
-                  raise RuntimeError(f"Expected exactly one match in {path}, found {count}")
-              path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          if "function roundMoney(value)" not in text:
+              marker = "\nfunction firstDefinedValue("
+              idx = text.find(marker)
+              if idx < 0:
+                  raise SystemExit("firstDefinedValue marker not found")
+              helper = '''\nfunction roundMoney(value) {\n  const amount = toMoney(value);\n  return Math.round((amount + Number.EPSILON) * 100) / 100;\n}\n'''
+              text = text[:idx] + helper + text[idx:]
+          path.write_text(text, encoding="utf-8")
 
-          replace_once(
-              dashboard_path,
-              '''  const { user, plan, isAdmin, isAdvertiser, isPaid, isFree, isPending, refreshUser } =
-    useUserRole();''',
-              '''  const {
-    user,
-    plan,
-    isAdmin,
-    isAdvertiser,
-    isPaid,
-    isFree,
-    isPending,
-    refreshUser,
-    loading: accessLoading,
-    isActivated,
-    isPreActivation,
-  } = useUserRole();''',
-          )
+      - name: Apply remaining full-suite repair
+        run: python3 scripts/fix_remaining_full_suite_after_means_v1.py
 
-          replace_once(
-              dashboard_path,
-              '''                isPaid={isPaid}
-                isFree={isFree}
-                isAdmin={isAdmin}''',
-              '''                accessLoading={accessLoading}
-                isPaid={isPaid}
-                isFree={isFree}
-                isPending={isPending}
-                isActivated={isActivated}
-                isPreActivation={isPreActivation}
-                isAdmin={isAdmin}''',
-          )
+      - name: Syntax checks
+        run: |
+          python3 -m py_compile scripts/fix_means_fixed_full_cycle_anchor_v6.py scripts/fix_remaining_full_suite_after_means_v1.py
+          node --check src/runtime/installClaraOrbGreeting.js
+          node --check src/lib/clara-means-cycle-baseline.js
+          node --check src/lib/clara-buy-check-wallet-engine.js
+          node --check src/lib/clara-buy-check-income-runway-engine.js
+          node --check src/lib/clara-wallet-money-semantics.js
 
-          replace_once(
-              settings_path,
-              '''  onBack,
-  user,
-  isAdmin = false,
-  notificationSettings,''',
-              '''  onBack,
-  user,
-  accessLoading = false,
-  isPaid = false,
-  isFree = true,
-  isPending = false,
-  isActivated = false,
-  isPreActivation = false,
-  isAdmin = false,
-  notificationSettings,''',
-          )
-
-          replace_once(
-              settings_path,
-              '''const rawBillingStatus = normalizeLower(
-  billingRecord?.payment_status ||
-    billingRecord?.status ||
-    billingRecord?.enrollment_status ||
-    billingRecord?.subscription_status ||
-    billingRecord?.approval_status ||
-    billingRecord?.payment_state ||
-    billingRecord?.access_status ||
-    ""
-)
-  .replaceAll("_", " ")
-  .replaceAll("-", " ")
-  .trim();
-
-const matchesBillingStatus = (statuses = []) =>
-  statuses.some(
-    (status) => rawBillingStatus === status || rawBillingStatus.includes(status)
-  );
-
-const membershipStatusKey = billingLoading
-  ? "checking"
-  : !billingRecord
-    ? "notActivated"
-    : matchesBillingStatus([
-          "expired",
-          "inactive",
-          "cancelled",
-          "canceled",
-          "rejected",
-          "declined",
-          "failed",
-          "suspended",
-        ])
-      ? "inactive"
-      : matchesBillingStatus([
-            "pending",
-            "processing",
-            "submitted",
-            "awaiting approval",
-            "awaiting review",
-            "under review",
-          ])
-        ? "pending"
-        : matchesBillingStatus([
-              "active",
-              "approved",
-              "paid",
-              "completed",
-              "complete",
-              "confirmed",
-              "verified",
-              "successful",
-              "success",
-              "current",
-            ])
-          ? "active"
-          : "pending";''',
-              '''const normalizeMembershipStatus = (value) =>
-  normalizeLower(value)
-    .replaceAll("_", " ")
-    .replaceAll("-", " ")
-    .trim();
-
-const userStatusCandidates = [
-  user?.enrollment_status,
-  user?.status,
-  user?.entitlement_status,
-  user?.activation_status,
-  user?.subscription_status,
-]
-  .map(normalizeMembershipStatus)
-  .filter(Boolean);
-
-const billingStatusCandidates = [
-  billingRecord?.payment_status,
-  billingRecord?.status,
-  billingRecord?.enrollment_status,
-  billingRecord?.subscription_status,
-  billingRecord?.approval_status,
-  billingRecord?.payment_state,
-  billingRecord?.access_status,
-]
-  .map(normalizeMembershipStatus)
-  .filter(Boolean);
-
-const membershipStatusCandidates = [
-  ...userStatusCandidates,
-  ...billingStatusCandidates,
-];
-
-const matchesMembershipStatus = (statuses = []) =>
-  membershipStatusCandidates.some((candidate) =>
-    statuses.some(
-      (status) => candidate === status || candidate.includes(status)
-    )
-  );
-
-const hasExplicitPendingStatus = matchesMembershipStatus([
-  "pending",
-  "processing",
-  "submitted",
-  "awaiting approval",
-  "awaiting review",
-  "under review",
-  "payment pending",
-  "purchase pending",
-  "google play pending",
-  "google play processing",
-  "purchase processing",
-]);
-
-const hasExplicitInactiveStatus = matchesMembershipStatus([
-  "expired",
-  "inactive",
-  "cancelled",
-  "canceled",
-  "rejected",
-  "declined",
-  "failed",
-  "suspended",
-  "revoked",
-  "refunded",
-]);
-
-const accessConfirmsActive = isPaid && isActivated;
-const profileConfirmsActive =
-  !isPending &&
-  !isPreActivation &&
-  !isFree &&
-  !hasExplicitPendingStatus &&
-  !hasExplicitInactiveStatus &&
-  (user?.is_activated === true ||
-    user?.program_active === true ||
-    user?.is_enrolled === true ||
-    Boolean(user?.activated_at));
-
-const membershipStatusKey = accessLoading
-  ? "checking"
-  : accessConfirmsActive || profileConfirmsActive
-    ? "active"
-    : isPending || hasExplicitPendingStatus
-      ? "pending"
-      : hasExplicitInactiveStatus
-        ? "inactive"
-        : "notActivated";''',
-          )
-
-          replace_once(
-              settings_path,
-              '''const billingStartLabel = billingRecord
-  ? resolveBillingDate(billingRecord, ["current_period_start", "billing_start", "started_at", "approved_at", "created_at"])
-  : "Not recorded";
-
-const nextBillingLabel = billingRecord
-  ? resolveBillingDate(billingRecord, ["next_billing_date", "next_payment_due", "current_period_end", "renewal_date", "expires_at", "valid_until", "end_date"])
-  : "Not recorded";
-
-const hasBillingStart = billingStartLabel !== "Not recorded";
-const hasNextBilling = nextBillingLabel !== "Not recorded";
-const hasBillingDates = hasBillingStart || hasNextBilling;''',
-              '''const billingStartLabel = resolveBillingDate(
-  {
-    ...(billingRecord || {}),
-    profile_activated_at: user?.activated_at,
-  },
-  [
-    "current_period_start",
-    "billing_start",
-    "started_at",
-    "approved_at",
-    "activated_at",
-    "profile_activated_at",
-    "created_at",
-  ]
-);
-
-const nextBillingLabel = resolveBillingDate(billingRecord, [
-  "next_billing_date",
-  "next_payment_due",
-  "current_period_end",
-  "renewal_date",
-  "expires_at",
-  "valid_until",
-  "end_date",
-]);
-
-const hasBillingStart = billingStartLabel !== "Not recorded";
-const hasNextBilling = nextBillingLabel !== "Not recorded";
-const hasBillingDates = hasBillingStart || hasNextBilling;
-const billingDatesNotice = billingLoading
-  ? "Checking billing dates..."
-  : membershipStatusKey === "active"
-    ? "Your membership is active. Billing dates are not available yet."
-    : "Billing dates will appear after your membership is activated.";''',
-          )
-
-          replace_once(
-              settings_path,
-              '''          Billing dates will appear after your membership is activated.''',
-              '''          {billingDatesNotice}''',
-          )
-
-          Path(".github/plan-billing-sync.trigger").unlink(missing_ok=True)
-          PY
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
+      - name: Focused financial regression tests
+        run: |
+          node --test tests/means-score-context-baseline-regression.test.mjs
+          node --test tests/buy-check-context-facts.test.mjs
+          node --test tests/wallet-money-semantics.test.mjs
+          node --test tests/wallet-expanded-flow-regression.test.mjs
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
 
-      - name: Lint Dashboard
-        run: npx eslint src/pages/Dashboard.jsx
-
-      - name: Lint Dashboard Settings panel
-        run: npx eslint src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx
-
-      - name: Build project
-        run: npm run build
-
-      - name: Commit validated changes to pull request branch
+      - name: Full application regression suite
+        id: full_tests
+        continue-on-error: true
         run: |
-          if git diff --quiet; then
-            echo "No synchronization changes needed."
-            exit 0
-          fi
+          set -o pipefail
+          npm test 2>&1 | tee financial-integrity-test.log
+
+      - name: Upload application test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: financial-integrity-test-log
+          path: financial-integrity-test.log
+          if-no-files-found: warn
+          retention-days: 1
+
+      - name: Gate on full-suite result
+        if: steps.full_tests.outcome == 'failure'
+        run: exit 1
+
+      - name: Production build
+        run: npm run build:web
+        env:
+          VITE_GEMINI_MODEL: gemini-3.6-flash
+          VITE_CLARA_RUNTIME_MODE: local_only
+          VITE_CLARA_AUTH_ENABLED: "false"
+          VITE_CLARA_LOCAL_MODE_ENABLED: "true"
+
+      - name: Commit verified repair to branch
+        run: |
+          rm -f .github/financial-integrity-repair.trigger
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/pages/Dashboard.jsx src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx .github/plan-billing-sync.trigger
-          git commit -m "Fix Plan and Billing membership status synchronization"
-          git push
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No verified repair changes to commit."
+            exit 0
+          fi
+          git commit -m "Restore financial integrity and regression contracts"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
