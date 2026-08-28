@@ -9,6 +9,7 @@ import {
   stableMeansPlanFingerprint,
 } from "../src/lib/clara-means-cycle-baseline.js";
 
+// Guards the live ORB presentation boundary against a second Means Score authority.
 const CYCLE_A = {
   start: "2026-08-25",
   end: "2026-09-10",
