@@ -170,16 +170,17 @@ export function MeansScoreScreen() {
 export function ScoreMeaningScreen() {
   return (
     <ScreenFrame>
-      <Eyebrow tone="gold">What the score means</Eyebrow>
-      <h1 className="clara-onboarding-title">100 is the line.</h1>
+      <Eyebrow tone="gold">So what is the Means Score?</Eyebrow>
+      <h1 className="clara-onboarding-title">Remember this number: 100.</h1>
       <p className="clara-onboarding-body clara-onboarding-body--lead">
-        Below it means financial pressure. Above it means more financial room.
+        100 means you have exactly enough money to cover what CLARA expects you&apos;ll need for your current cycle.
       </p>
       <div className="clara-onboarding-personal-list">
-        <div className="clara-onboarding-personal-line"><span>87 — Financial pressure</span></div>
-        <div className="clara-onboarding-personal-line clara-onboarding-personal-line--gold"><span>100 — Exactly covered</span></div>
-        <div className="clara-onboarding-personal-line"><span>126 — More financial room</span></div>
+        <div className="clara-onboarding-personal-line"><span>87 — Living above your means</span></div>
+        <div className="clara-onboarding-personal-line clara-onboarding-personal-line--gold"><span>100 — Living within your means</span></div>
+        <div className="clara-onboarding-personal-line"><span>126 — Living below your means</span></div>
       </div>
+      <p className="clara-onboarding-closing">Keep your Means Score above 100.</p>
     </ScreenFrame>
   );
 }
