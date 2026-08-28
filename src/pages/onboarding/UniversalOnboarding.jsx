@@ -11,11 +11,14 @@ import {
   ClaraRevealScreen,
   ClaraWordmark,
   CountryScreen,
-  DecisionImpactScreen,
+  JuanChoiceScreen,
+  JuanIntroScreen,
   MeasurementScreen,
   MeansScoreScreen,
   MissionRuleScreen,
+  QuantifiedFeedbackScreen,
   ScoreMeaningScreen,
+  SimulationReadyScreen,
   SCREEN_IDS,
 } from "./UniversalOnboardingScreens";
 
@@ -64,12 +67,14 @@ export default function UniversalOnboarding() {
   const { user } = useAuth();
   const [screenIndex, setScreenIndex] = useState(0);
   const [tutorialActive, setTutorialActive] = useState(false);
+  const [selectedJuanShoe, setSelectedJuanShoe] = useState("");
   const activeScreen = ONBOARDING_SCREEN_IDS[screenIndex];
   const isFirst = screenIndex === 0;
   const isLast = screenIndex === ONBOARDING_SCREEN_IDS.length - 1;
+  const choiceNeedsSelection = activeScreen === "juan-choice" && !selectedJuanShoe;
 
   const goNext = () => {
-    if (isLast) return;
+    if (isLast || choiceNeedsSelection) return;
     setScreenIndex((current) =>
       Math.min(current + 1, ONBOARDING_SCREEN_IDS.length - 1),
     );
@@ -112,12 +117,35 @@ export default function UniversalOnboarding() {
     if (activeScreen === "measurement") return <MeasurementScreen />;
     if (activeScreen === "means-score") return <MeansScoreScreen />;
     if (activeScreen === "score-meaning") return <ScoreMeaningScreen />;
-    if (activeScreen === "decision-impact") return <DecisionImpactScreen />;
+    if (activeScreen === "simulation-ready") return <SimulationReadyScreen />;
+    if (activeScreen === "juan-intro") return <JuanIntroScreen />;
+    if (activeScreen === "juan-choice") {
+      return (
+        <JuanChoiceScreen
+          selectedOptionId={selectedJuanShoe}
+          onSelect={setSelectedJuanShoe}
+        />
+      );
+    }
+    if (activeScreen === "quantified-feedback") {
+      return <QuantifiedFeedbackScreen selectedOptionId={selectedJuanShoe} />;
+    }
     if (activeScreen === "clara-reveal") {
       return <ClaraRevealScreen reduceMotion={reduceMotion} />;
     }
     if (activeScreen === "mission-rule") return <MissionRuleScreen />;
     return <BiggerVisionScreen />;
+  })();
+
+  const primaryLabel = (() => {
+    if (isLast) return "See My Financial Status";
+    if (activeScreen === "simulation-ready") return "Ready";
+    if (activeScreen === "juan-intro") return "Yes, help Juan";
+    if (activeScreen === "juan-choice") {
+      return selectedJuanShoe ? "See the impact" : "Choose a pair";
+    }
+    if (activeScreen === "quantified-feedback") return "Ask CLARA";
+    return "Continue";
   })();
 
   return (
@@ -238,6 +266,213 @@ export default function UniversalOnboarding() {
           height: 14px;
         }
 
+        .clara-onboarding-simulation-score {
+          width: min(100%, 280px);
+          margin-top: 26px;
+          padding: 17px 18px 15px;
+          border: 1px solid rgba(73, 132, 235, 0.24);
+          border-radius: 18px;
+          background: linear-gradient(180deg, rgba(27, 66, 132, 0.12), rgba(8, 20, 49, 0.06));
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+        }
+
+        .clara-onboarding-simulation-score span,
+        .clara-onboarding-simulation-scorebar span {
+          display: block;
+          color: rgba(174, 204, 248, 0.66);
+          font-size: 9px;
+          font-weight: 760;
+          letter-spacing: 0.15em;
+          text-transform: uppercase;
+        }
+
+        .clara-onboarding-simulation-score strong {
+          display: block;
+          margin-top: 7px;
+          color: #f8fbff;
+          font-size: 38px;
+          line-height: 1;
+          font-weight: 720;
+          letter-spacing: -0.045em;
+          font-variant-numeric: tabular-nums;
+        }
+
+        .clara-onboarding-simulation-question {
+          max-width: 350px;
+          margin-top: 24px;
+          line-height: 1.45;
+        }
+
+        .clara-onboarding-simulation-choice-screen {
+          justify-content: flex-start;
+        }
+
+        .clara-onboarding-shoe-options {
+          width: 100%;
+          max-width: 375px;
+          margin-top: 24px;
+          display: grid;
+          gap: 10px;
+        }
+
+        .clara-onboarding-shoe-option {
+          width: 100%;
+          min-height: 104px;
+          padding: 14px 15px;
+          border: 1px solid rgba(255, 255, 255, 0.09);
+          border-radius: 17px;
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.016));
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+          color: #f4f8ff;
+          text-align: left;
+          cursor: pointer;
+          transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .clara-onboarding-shoe-option:active {
+          transform: scale(0.985);
+        }
+
+        .clara-onboarding-shoe-option.is-selected {
+          border-color: rgba(79, 145, 255, 0.52);
+          background: linear-gradient(180deg, rgba(40, 103, 222, 0.15), rgba(11, 31, 74, 0.09));
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 0 24px rgba(42, 111, 245, 0.08);
+        }
+
+        .clara-onboarding-shoe-option-topline,
+        .clara-onboarding-shoe-option-impact {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .clara-onboarding-shoe-option-topline strong {
+          font-size: 13px;
+          font-weight: 680;
+          letter-spacing: -0.015em;
+        }
+
+        .clara-onboarding-shoe-option-topline > span {
+          color: #f8fbff;
+          font-size: 13px;
+          font-weight: 720;
+          font-variant-numeric: tabular-nums;
+        }
+
+        .clara-onboarding-shoe-option-impact {
+          margin-top: 11px;
+        }
+
+        .clara-onboarding-shoe-option-impact > span {
+          color: rgba(213, 226, 246, 0.48);
+          font-size: 10px;
+          font-weight: 600;
+        }
+
+        .clara-onboarding-shoe-option-impact strong {
+          color: #8ebcff;
+          font-size: 17px;
+          font-weight: 720;
+          letter-spacing: -0.025em;
+          font-variant-numeric: tabular-nums;
+        }
+
+        .clara-onboarding-shoe-option-status {
+          display: block;
+          margin-top: 7px;
+          font-size: 9px;
+          font-weight: 760;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+        }
+
+        .clara-onboarding-shoe-option-status.is-safe { color: #8fc2ff; }
+        .clara-onboarding-shoe-option-status.is-line { color: #ffe178; }
+        .clara-onboarding-shoe-option-status.is-below { color: #ff9ba3; }
+
+        .clara-onboarding-simulation-scorebar {
+          width: 100%;
+          max-width: 375px;
+          margin-top: 16px;
+          padding: 12px 15px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 14px;
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
+          color: #f8fbff;
+        }
+
+        .clara-onboarding-simulation-scorebar strong {
+          font-size: 23px;
+          line-height: 1;
+          font-weight: 720;
+          font-variant-numeric: tabular-nums;
+        }
+
+        .clara-onboarding-feedback-result {
+          width: min(100%, 315px);
+          margin-top: 27px;
+          padding: 19px 18px;
+          border: 1px solid rgba(77, 136, 239, 0.26);
+          border-radius: 19px;
+          background: linear-gradient(180deg, rgba(34, 86, 184, 0.11), rgba(8, 24, 60, 0.06));
+        }
+
+        .clara-onboarding-feedback-result > strong {
+          display: block;
+          margin-top: 8px;
+          color: #f8fbff;
+          font-size: 35px;
+          line-height: 1;
+          font-weight: 720;
+          letter-spacing: -0.045em;
+          font-variant-numeric: tabular-nums;
+        }
+
+        .clara-onboarding-feedback-result > span:last-child {
+          display: block;
+          margin-top: 9px;
+          color: rgba(220, 231, 247, 0.53);
+          font-size: 11px;
+          line-height: 1.4;
+        }
+
+        .clara-onboarding-continue:disabled {
+          opacity: 0.42;
+          cursor: not-allowed;
+          filter: saturate(0.55);
+        }
+
+        @media (max-height: 740px) {
+          .clara-onboarding-simulation-choice-screen {
+            padding-top: 102px;
+            padding-bottom: 102px;
+          }
+
+          .clara-onboarding-simulation-choice-screen .clara-onboarding-title {
+            margin-top: 18px;
+            font-size: clamp(1.72rem, 7.5vw, 2.12rem);
+          }
+
+          .clara-onboarding-simulation-choice-screen .clara-onboarding-body {
+            margin-top: 13px;
+            line-height: 1.5;
+          }
+
+          .clara-onboarding-shoe-options {
+            margin-top: 16px;
+            gap: 8px;
+          }
+
+          .clara-onboarding-shoe-option {
+            min-height: 92px;
+            padding-block: 11px;
+          }
+        }
+
         @media (max-height: 700px) {
           .clara-onboarding-tour-entry {
             bottom: 82px;
@@ -333,8 +568,9 @@ export default function UniversalOnboarding() {
             type="button"
             onClick={isLast ? enterClara : goNext}
             className="clara-onboarding-continue"
+            disabled={choiceNeedsSelection}
           >
-            <span>{isLast ? "See My Financial Status" : "Continue"}</span>
+            <span>{primaryLabel}</span>
             <ArrowRight />
           </button>
         </div>
