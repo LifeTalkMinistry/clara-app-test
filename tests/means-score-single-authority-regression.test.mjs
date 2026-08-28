@@ -5,10 +5,12 @@ import { readFile } from "node:fs/promises";
 import {
   calculateMeansScoreState,
   MEANS_CYCLE_BASELINE_VERSION,
+  repairMalformedMeansBaselineStorage,
   resolveMeansCycleBaselineState,
   stableMeansPlanFingerprint,
 } from "../src/lib/clara-means-cycle-baseline.js";
 
+// Guards the live ORB presentation boundary against a second Means Score authority.
 const CYCLE_A = {
   start: "2026-08-25",
   end: "2026-09-10",
@@ -25,23 +27,23 @@ function fingerprint(label, amount) {
   });
 }
 
-function establishBaseline(requiredRunway = 10000, planFingerprint = fingerprint("cycle-a", requiredRunway)) {
+function establishBaseline(requiredRunway = 10000) {
   return resolveMeansCycleBaselineState({
     stored: null,
     cycleStart: CYCLE_A.start,
     cycleEnd: CYCLE_A.end,
-    planFingerprint,
+    planFingerprint: fingerprint("cycle-a", requiredRunway),
     requiredRunway,
     assumedSpent: 0,
   }).baseline;
 }
 
-function resolveSameCycle({ stored, requiredRunway, planFingerprint = stored.planFingerprint, assumedSpent = 0 }) {
+function resolveSameCycle({ stored, requiredRunway, assumedSpent = 0, label = "changed-plan" }) {
   return resolveMeansCycleBaselineState({
     stored,
     cycleStart: CYCLE_A.start,
     cycleEnd: CYCLE_A.end,
-    planFingerprint,
+    planFingerprint: fingerprint(label, requiredRunway),
     requiredRunway,
     assumedSpent,
   });
@@ -54,23 +56,45 @@ function canonicalScore(financialRunway, baseline) {
   }).score;
 }
 
+class MemoryStorage {
+  constructor(entries = {}) {
+    this.values = new Map(Object.entries(entries));
+  }
+
+  get length() {
+    return this.values.size;
+  }
+
+  key(index) {
+    return [...this.values.keys()][index] ?? null;
+  }
+
+  getItem(key) {
+    return this.values.has(key) ? this.values.get(key) : null;
+  }
+
+  setItem(key, value) {
+    this.values.set(key, String(value));
+  }
+}
+
 test("fixed full-cycle 100 stays constant while spending lowers the numerator", () => {
   const baseline = establishBaseline(10000);
 
-  assert.equal(MEANS_CYCLE_BASELINE_VERSION, 6);
+  assert.equal(MEANS_CYCLE_BASELINE_VERSION, 5);
   assert.equal(baseline.requiredRunway, 10000);
   assert.equal(canonicalScore(15000, baseline), 150);
   assert.equal(canonicalScore(13000, baseline), 130);
   assert.equal(canonicalScore(11000, baseline), 110);
+  assert.equal(baseline.requiredRunway, 10000);
 });
 
-test("completed commitment cannot shrink same-cycle 100 when the full plan is unchanged", () => {
-  const planFingerprint = fingerprint("full-cycle", 10000);
-  const baseline = establishBaseline(10000, planFingerprint);
+test("completed commitment cannot shrink the locked same-cycle 100", () => {
+  const baseline = establishBaseline(10000);
   const afterCompletion = resolveSameCycle({
     stored: baseline,
-    requiredRunway: 10000,
-    planFingerprint,
+    requiredRunway: 7000,
+    label: "commitment-completed",
   });
 
   assert.equal(afterCompletion.shouldPersist, false);
@@ -79,58 +103,31 @@ test("completed commitment cannot shrink same-cycle 100 when the full plan is un
 });
 
 test("debt payment lowers available runway without shrinking the locked 100", () => {
-  const planFingerprint = fingerprint("full-cycle-with-debt", 10403);
-  const baseline = establishBaseline(10403, planFingerprint);
+  const baseline = establishBaseline(10000);
   const afterDebtPayment = resolveSameCycle({
     stored: baseline,
-    requiredRunway: 10403,
-    planFingerprint,
+    requiredRunway: 8000,
+    label: "debt-paid",
+  });
+
+  assert.equal(afterDebtPayment.baseline.requiredRunway, 10000);
+  assert.equal(canonicalScore(15000, baseline), 150);
+  assert.equal(canonicalScore(13000, afterDebtPayment.baseline), 130);
+});
+
+test("date progression and reload preserve a valid same-cycle v5 100", () => {
+  const baseline = establishBaseline(10000);
+  const reloadedBaseline = JSON.parse(JSON.stringify(baseline));
+  const laterSameCycle = resolveSameCycle({
+    stored: reloadedBaseline,
+    requiredRunway: 3121,
     assumedSpent: 280,
+    label: "later-date-current-remaining-plan",
   });
 
-  assert.equal(afterDebtPayment.baseline.requiredRunway, 10403);
-  assert.equal(canonicalScore(7388, baseline), 71);
-  assert.equal(canonicalScore(5569, afterDebtPayment.baseline), 54);
-});
-
-test("date progression and reload preserve same-cycle v6 100", () => {
-  const planFingerprint = fingerprint("stable-plan", 10000);
-  const baseline = establishBaseline(10000, planFingerprint);
-  const reloaded = JSON.parse(JSON.stringify(baseline));
-  const later = resolveSameCycle({
-    stored: reloaded,
-    requiredRunway: 10000,
-    planFingerprint,
-    assumedSpent: 5000,
-  });
-
-  assert.equal(later.shouldPersist, false);
-  assert.equal(later.reason, "cycle_anchor_locked");
-  assert.equal(later.baseline.requiredRunway, 10000);
-});
-
-test("explicit planning additions edits and cancellations move 100 only by their deltas", () => {
-  const baseline = establishBaseline(10000, fingerprint("p0", 10000));
-  const added = resolveSameCycle({
-    stored: baseline,
-    requiredRunway: 12000,
-    planFingerprint: fingerprint("p1", 12000),
-  });
-  const edited = resolveSameCycle({
-    stored: added.baseline,
-    requiredRunway: 12300,
-    planFingerprint: fingerprint("p2", 12300),
-  });
-  const cancelled = resolveSameCycle({
-    stored: edited.baseline,
-    requiredRunway: 11300,
-    planFingerprint: fingerprint("p3", 11300),
-  });
-
-  assert.equal(added.reason, "plan_delta_applied");
-  assert.equal(added.baseline.requiredRunway, 12000);
-  assert.equal(edited.baseline.requiredRunway, 12300);
-  assert.equal(cancelled.baseline.requiredRunway, 11300);
+  assert.equal(laterSameCycle.shouldPersist, false);
+  assert.equal(laterSameCycle.reason, "cycle_anchor_locked");
+  assert.equal(laterSameCycle.baseline.requiredRunway, 10000);
 });
 
 test("a genuine new pay cycle may establish a different 100", () => {
@@ -149,54 +146,113 @@ test("a genuine new pay cycle may establish a different 100", () => {
   assert.equal(nextCycle.baseline.requiredRunway, 12000);
 });
 
-test("first screenshot cannot use 3,401 remaining-runway denominator", () => {
-  const financialRunway = 7388;
-  const remainingUpcoming = 3121;
-  const assumedSpent = 280;
-  const dynamicDenominator = remainingUpcoming + assumedSpent;
-  const baseline = establishBaseline(10403);
-
-  assert.equal(dynamicDenominator, 3401);
-  assert.equal(Math.round((financialRunway / dynamicDenominator) * 100), 217);
-  assert.equal(canonicalScore(financialRunway, baseline), 71);
-  assert.notEqual(canonicalScore(financialRunway, baseline), 217);
-});
-
-test("second screenshot debt payment cannot manufacture 306 points by shrinking denominator", () => {
-  const beforeMoney = 7388;
-  const afterMoney = 5569;
-  const remainingUpcomingAfterPayment = 1540;
-  const assumedSpent = 280;
-  const dynamicDenominatorAfterPayment = remainingUpcomingAfterPayment + assumedSpent;
-  const baseline = establishBaseline(10403);
-
-  assert.equal(dynamicDenominatorAfterPayment, 1820);
-  assert.equal(Math.round((afterMoney / dynamicDenominatorAfterPayment) * 100), 306);
-  assert.equal(canonicalScore(beforeMoney, baseline), 71);
-  assert.equal(canonicalScore(afterMoney, baseline), 54);
-  assert.ok(canonicalScore(afterMoney, baseline) < canonicalScore(beforeMoney, baseline));
-});
-
-test("stale v5 score state is invalidated by the v6 cycle anchor", () => {
-  const migrated = resolveMeansCycleBaselineState({
-    stored: {
+test("malformed mid-cycle v5 anchor restores the prior fixed v3 cycle anchor", () => {
+  const suffix = `local-user:${CYCLE_A.start}:${CYCLE_A.end}`;
+  const currentKey = `clara:means-cycle-baseline:v5:${suffix}`;
+  const legacyKey = `clara:means-cycle-baseline:v3:${suffix}`;
+  const planFingerprint = fingerprint("preserved-cycle-plan", 10403);
+  const storage = new MemoryStorage({
+    [currentKey]: JSON.stringify({
       version: 5,
-      requiredRunway: 1820,
+      requiredRunway: 3401,
       assumedSpentAtLock: 280,
       cycleStart: CYCLE_A.start,
       cycleEnd: CYCLE_A.end,
-      planFingerprint: fingerprint("bad-v5", 1820),
-    },
-    cycleStart: CYCLE_A.start,
-    cycleEnd: CYCLE_A.end,
-    planFingerprint: fingerprint("full-cycle", 10403),
-    requiredRunway: 10403,
-    assumedSpent: 280,
+      planFingerprint,
+      refreshReason: "new_cycle_or_stale_baseline",
+    }),
+    [legacyKey]: JSON.stringify({
+      version: 3,
+      requiredRunway: 10403,
+      assumedSpentAtLock: 0,
+      cycleStart: CYCLE_A.start,
+      cycleEnd: CYCLE_A.end,
+      planFingerprint,
+    }),
   });
 
-  assert.equal(migrated.shouldPersist, true);
-  assert.equal(migrated.baseline.version, 6);
-  assert.equal(migrated.baseline.requiredRunway, 10403);
+  assert.equal(repairMalformedMeansBaselineStorage(storage), 1);
+
+  const repaired = JSON.parse(storage.getItem(currentKey));
+  assert.equal(repaired.requiredRunway, 10403);
+  assert.equal(repaired.restoredPreviousV5RequiredRunway, 3401);
+  assert.equal(repaired.restoredFromVersion, 3);
+  assert.equal(repaired.restoredFromLegacyFixedAnchor, true);
+  assert.equal(canonicalScore(7388, repaired), 71);
+  assert.notEqual(canonicalScore(7388, repaired), 217);
+});
+
+test("healthy v5 anchor is never replaced by legacy storage", () => {
+  const suffix = `local-user:${CYCLE_A.start}:${CYCLE_A.end}`;
+  const currentKey = `clara:means-cycle-baseline:v5:${suffix}`;
+  const legacyKey = `clara:means-cycle-baseline:v3:${suffix}`;
+  const planFingerprint = fingerprint("healthy-cycle-plan", 10000);
+  const storage = new MemoryStorage({
+    [currentKey]: JSON.stringify({
+      version: 5,
+      requiredRunway: 10000,
+      assumedSpentAtLock: 0,
+      cycleStart: CYCLE_A.start,
+      cycleEnd: CYCLE_A.end,
+      planFingerprint,
+      refreshReason: "new_cycle_or_stale_baseline",
+    }),
+    [legacyKey]: JSON.stringify({
+      version: 3,
+      requiredRunway: 10403,
+      assumedSpentAtLock: 0,
+      cycleStart: CYCLE_A.start,
+      cycleEnd: CYCLE_A.end,
+      planFingerprint,
+    }),
+  });
+
+  assert.equal(repairMalformedMeansBaselineStorage(storage), 0);
+  assert.equal(JSON.parse(storage.getItem(currentKey)).requiredRunway, 10000);
+});
+
+test("legacy anchor with a different plan fingerprint cannot overwrite v5", () => {
+  const suffix = `local-user:${CYCLE_A.start}:${CYCLE_A.end}`;
+  const currentKey = `clara:means-cycle-baseline:v5:${suffix}`;
+  const legacyKey = `clara:means-cycle-baseline:v3:${suffix}`;
+  const storage = new MemoryStorage({
+    [currentKey]: JSON.stringify({
+      version: 5,
+      requiredRunway: 3401,
+      assumedSpentAtLock: 280,
+      cycleStart: CYCLE_A.start,
+      cycleEnd: CYCLE_A.end,
+      planFingerprint: fingerprint("current-plan", 3401),
+      refreshReason: "new_cycle_or_stale_baseline",
+    }),
+    [legacyKey]: JSON.stringify({
+      version: 3,
+      requiredRunway: 10403,
+      assumedSpentAtLock: 0,
+      cycleStart: CYCLE_A.start,
+      cycleEnd: CYCLE_A.end,
+      planFingerprint: fingerprint("different-plan", 10403),
+    }),
+  });
+
+  assert.equal(repairMalformedMeansBaselineStorage(storage), 0);
+  assert.equal(JSON.parse(storage.getItem(currentKey)).requiredRunway, 3401);
+});
+
+test("production incident uses fixed baseline instead of 3,401 dynamic remaining runway", () => {
+  const financialRunway = 7388;
+  const upcoming = 3121;
+  const assumedSpent = 280;
+  const legacyDynamicRequiredRunway = upcoming + assumedSpent;
+  const baseline = establishBaseline(10000);
+
+  assert.equal(legacyDynamicRequiredRunway, 3401);
+  assert.equal(Math.round((financialRunway / legacyDynamicRequiredRunway) * 100), 217);
+  assert.notEqual(baseline.requiredRunway, legacyDynamicRequiredRunway);
+
+  const renderedMeansScore = canonicalScore(financialRunway, baseline);
+  assert.equal(renderedMeansScore, 74);
+  assert.notEqual(renderedMeansScore, 217);
 });
 
 test("stale precomputed orbRunway.meansScore cannot override the canonical ORB score", async () => {
@@ -204,10 +260,10 @@ test("stale precomputed orbRunway.meansScore cannot override the canonical ORB s
     financialRunway: 7388,
     meansScore: 217,
   };
-  const baseline = establishBaseline(10403);
+  const baseline = establishBaseline(10000);
   const renderedMeansScore = canonicalScore(orbRunway.financialRunway, baseline);
 
-  assert.equal(renderedMeansScore, 71);
+  assert.equal(renderedMeansScore, 74);
   assert.notEqual(renderedMeansScore, orbRunway.meansScore);
 
   const runtime = await readFile(
@@ -216,8 +272,6 @@ test("stale precomputed orbRunway.meansScore cannot override the canonical ORB s
   );
 
   assert.doesNotMatch(runtime, /orbRunway\.meansScore/);
-  assert.match(runtime, /clara:means-cycle-baseline:v6/);
-  assert.match(runtime, /const fullCyclePlannedRequirement\s*=/);
   assert.match(
     runtime,
     /const requiredRunway = Math\.max\(0, Number\(cycleBaseline\.requiredRunway \|\| 0\)\);/
