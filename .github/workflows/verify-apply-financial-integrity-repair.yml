@@ -1,5 +1,6 @@
 name: Verify and apply financial integrity repair
 
+# Active verification trigger v2.
 on:
   push:
     branches: [main]
