@@ -36,6 +36,9 @@ jobs:
       - name: Apply remaining full-suite repair
         run: python3 scripts/fix_remaining_full_suite_after_means_v1.py
 
+      - name: Preserve current Wallet regression owner
+        run: git restore --source=HEAD -- tests/wallet-expanded-flow-regression.test.mjs
+
       - name: Syntax checks
         run: |
           python3 -m py_compile scripts/fix_means_fixed_full_cycle_anchor_v6.py scripts/fix_remaining_full_suite_after_means_v1.py
