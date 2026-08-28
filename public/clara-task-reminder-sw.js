@@ -1,9 +1,39 @@
+const CLARA_APP_BUILD = "__CLARA_APP_BUILD__";
+const CLARA_BUILD_QUERY = "__clara_build";
+
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    (async () => {
+      await self.clients.claim();
+      const clients = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+
+      await Promise.all(
+        clients.map(async (client) => {
+          try {
+            const url = new URL(client.url);
+            if (url.searchParams.get(CLARA_BUILD_QUERY) === CLARA_APP_BUILD) return;
+            url.searchParams.set(CLARA_BUILD_QUERY, CLARA_APP_BUILD);
+            await client.navigate(url.href);
+          } catch {
+            // A refresh failure must never block CLARA notification activation.
+          }
+        })
+      );
+    })()
+  );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 function resolveTargetUrl(value) {
