@@ -1,16 +1,17 @@
-name: One-shot Means Score next-payday horizon
+name: Verify CLARA financial integrity repair
 
 on:
   push:
+    branches: [main]
     paths:
       - ".github/workflows/one-shot-means-next-payday-horizon.yml"
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  patch:
-    if: github.actor != 'github-actions[bot]'
+  verify-and-commit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,203 +19,73 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Apply next-payday Means Score horizon
-        shell: python
+      - name: Apply fixed Means baseline repair
+        run: python3 scripts/fix_means_fixed_full_cycle_anchor_v6.py
+
+      - name: Apply remaining full-suite repair
+        run: python3 scripts/fix_remaining_full_suite_after_means_v1.py
+
+      - name: Syntax checks
         run: |
-          from pathlib import Path
+          python3 -m py_compile scripts/fix_means_fixed_full_cycle_anchor_v6.py scripts/fix_remaining_full_suite_after_means_v1.py
+          node --check src/runtime/installClaraOrbGreeting.js
+          node --check src/lib/clara-means-cycle-baseline.js
+          node --check src/lib/clara-buy-check-wallet-engine.js
+          node --check src/lib/clara-buy-check-income-runway-engine.js
+          node --check src/lib/clara-wallet-money-semantics.js
 
-          path = Path("src/runtime/installClaraOrbGreeting.js")
-          text = path.read_text()
-
-          old_import = '''import {
-  DEBT_OBLIGATION_SCHEDULE_SOURCE,
-  buildDebtObligationScheduleProjection,
-} from "@/lib/financialCardScheduleProjection";
-'''
-          new_import = '''import {
-  DEBT_OBLIGATION_SCHEDULE_SOURCE,
-  buildDebtObligationScheduleProjection,
-} from "@/lib/financialCardScheduleProjection";
-import { getRecurrenceOccurrences } from "@/lib/recurringCashFlowRepository";
-'''
-          if old_import not in text:
-              raise SystemExit("Financial projection import block not found; refusing blind patch.")
-          text = text.replace(old_import, new_import, 1)
-
-          old_end = '''function endOfCurrentMonthKey() {
-  const now = new Date();
-  return localDateKey(new Date(now.getFullYear(), now.getMonth() + 1, 0));
-}
-'''
-          new_end = '''function endOfCurrentMonthKey() {
-  const now = new Date();
-  return localDateKey(new Date(now.getFullYear(), now.getMonth() + 1, 0));
-}
-
-function addLocalDaysKey(dateKey, days) {
-  const match = String(dateKey || "").match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
-  if (!match) return "";
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  date.setDate(date.getDate() + Number(days || 0));
-  return localDateKey(date);
-}
-
-function resolveMeansHorizonDate(incomeSources = []) {
-  const today = localDateKey();
-  const searchEnd = addLocalDaysKey(today, 62);
-  const candidates = [];
-
-  (Array.isArray(incomeSources) ? incomeSources : []).forEach((source) => {
-    if (normalizeLower(source?.stability) !== "stable") return;
-    const recurrence = stableIncomeRecurrence(source);
-    if (!recurrence || source?.useForBudgetTiming === false || source?.use_for_budget_timing === false) {
-      return;
-    }
-
-    const next = getRecurrenceOccurrences(recurrence, today, searchEnd, { kind: "income" })[0];
-    if (next) candidates.push(next);
-  });
-
-  return candidates.sort()[0] || endOfCurrentMonthKey();
-}
-
-function formatHorizonDate(dateKey) {
-  const match = String(dateKey || "").match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
-  if (!match) return "the end of this month";
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  return new Intl.DateTimeFormat("en-PH", {
-    month: "short",
-    day: "numeric",
-  }).format(date);
-}
-'''
-          if old_end not in text:
-              raise SystemExit("Month-end helper not found; refusing blind patch.")
-          text = text.replace(old_end, new_end, 1)
-
-          text = text.replace(
-'''function futureRoutineAmount(user) {
-''',
-'''function futureRoutineAmount(user, horizonEnd = endOfCurrentMonthKey()) {
-''', 1)
-          text = text.replace(
-'''  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-''',
-'''  const horizonMatch = String(horizonEnd || "").match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
-  const end = horizonMatch
-    ? new Date(Number(horizonMatch[1]), Number(horizonMatch[2]) - 1, Number(horizonMatch[3]))
-    : new Date(now.getFullYear(), now.getMonth() + 1, 0);
-''', 1)
-
-          text = text.replace(
-'''function futureScheduledAmount(user) {
-  const today = localDateKey();
-  const monthEnd = endOfCurrentMonthKey();
-''',
-'''function futureScheduledAmount(user, horizonEnd = endOfCurrentMonthKey()) {
-  const today = localDateKey();
-''', 1)
-          text = text.replace('''    if (!date || date <= today || date > monthEnd) return sum;
-''','''    if (!date || date <= today || date > horizonEnd) return sum;
-''',1)
-
-          text = text.replace(
-'''function futureDebtObligationAmount(records = []) {
-  const today = localDateKey();
-  const monthEnd = endOfCurrentMonthKey();
-''',
-'''function futureDebtObligationAmount(records = [], horizonEnd = endOfCurrentMonthKey()) {
-  const today = localDateKey();
-''', 1)
-          text = text.replace('''    if (!date || date <= today || date > monthEnd) return sum;
-''','''    if (!date || date <= today || date > horizonEnd) return sum;
-''',1)
-
-          text = text.replace(
-'''function futureSavingsGoalAmount(goals = []) {
-  const today = localDateKey();
-  const monthEnd = endOfCurrentMonthKey();
-''',
-'''function futureSavingsGoalAmount(goals = [], horizonEnd = endOfCurrentMonthKey()) {
-  const today = localDateKey();
-''', 1)
-          text = text.replace('''    if (!date || date <= today || date > monthEnd) return sum;
-''','''    if (!date || date <= today || date > horizonEnd) return sum;
-''',1)
-
-          old_upcoming = '''  const routineUpcoming = futureRoutineAmount(owner);
-  const scheduledUpcoming = futureScheduledAmount(owner);
-  const savingsGoalUpcoming = futureSavingsGoalAmount(savingsGoals);
-  const debtUpcoming = futureDebtObligationAmount(debtObligations);
-  const upcoming = routineUpcoming + scheduledUpcoming + savingsGoalUpcoming + debtUpcoming;
-'''
-          new_upcoming = '''  const horizonDate = resolveMeansHorizonDate(incomeSources);
-  const routineUpcoming = futureRoutineAmount(owner, horizonDate);
-  const scheduledUpcoming = futureScheduledAmount(owner, horizonDate);
-  const savingsGoalUpcoming = futureSavingsGoalAmount(savingsGoals, horizonDate);
-  const debtUpcoming = futureDebtObligationAmount(debtObligations, horizonDate);
-  const upcoming = routineUpcoming + scheduledUpcoming + savingsGoalUpcoming + debtUpcoming;
-'''
-          if old_upcoming not in text:
-              raise SystemExit("Means upcoming block not found; refusing blind patch.")
-          text = text.replace(old_upcoming, new_upcoming, 1)
-
-          old_return = '''    savingsGoalUpcoming,
-    debtUpcoming,
-    projectedSpending,
-'''
-          new_return = '''    savingsGoalUpcoming,
-    debtUpcoming,
-    horizonDate,
-    projectedSpending,
-'''
-          if old_return not in text:
-              raise SystemExit("Means return block not found; refusing blind patch.")
-          text = text.replace(old_return, new_return, 1)
-
-          old_signature = '''        Math.round(snapshot.debtUpcoming || 0),
-        Math.round(snapshot.projectedRoom),
-'''
-          new_signature = '''        Math.round(snapshot.debtUpcoming || 0),
-        snapshot.horizonDate || "",
-        Math.round(snapshot.projectedRoom),
-'''
-          if old_signature not in text:
-              raise SystemExit("Means render signature block not found; refusing blind patch.")
-          text = text.replace(old_signature, new_signature, 1)
-
-          old_footer = '''      <span style="display:block;margin-top:8px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">100 = living within your means</span>
-'''
-          new_footer = '''      <span style="display:block;margin-top:8px;font-size:8.5px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30);text-align:center">This score looks ahead through your next stable payday (${formatHorizonDate(snapshot.horizonDate)}). Only commitments due by then affect this score.</span>
-      <span style="display:block;margin-top:4px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">100 = living within your means</span>
-'''
-          idx = text.rfind(old_footer)
-          if idx < 0:
-              raise SystemExit("Ready-state Means footer not found; refusing blind patch.")
-          text = text[:idx] + new_footer + text[idx + len(old_footer):]
-
-          path.write_text(text)
-
-      - name: Verify next-payday horizon wiring
-        shell: python
+      - name: Focused financial regression tests
         run: |
-          from pathlib import Path
-          text = Path("src/runtime/installClaraOrbGreeting.js").read_text()
-          assert 'resolveMeansHorizonDate' in text
-          assert 'getRecurrenceOccurrences' in text
-          assert 'futureRoutineAmount(owner, horizonDate)' in text
-          assert 'futureScheduledAmount(owner, horizonDate)' in text
-          assert 'futureSavingsGoalAmount(savingsGoals, horizonDate)' in text
-          assert 'futureDebtObligationAmount(debtObligations, horizonDate)' in text
-          assert 'next stable payday' in text
-          assert 'Only commitments due by then affect this score.' in text
+          node --test tests/means-score-context-baseline-regression.test.mjs
+          node --test tests/buy-check-context-facts.test.mjs
+          node --test tests/wallet-money-semantics.test.mjs
+          node --test tests/wallet-expanded-flow-regression.test.mjs
 
-      - name: Commit fix to main
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
+
+      - name: Full application regression suite
+        id: full_tests
+        continue-on-error: true
         run: |
+          set -o pipefail
+          npm test 2>&1 | tee financial-integrity-test.log
+
+      - name: Upload application test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: financial-integrity-test-log
+          path: financial-integrity-test.log
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Stop if full suite failed
+        if: steps.full_tests.outcome == 'failure'
+        run: exit 1
+
+      - name: Production build
+        run: npm run build:web
+        env:
+          VITE_GEMINI_MODEL: gemini-3.6-flash
+          VITE_CLARA_RUNTIME_MODE: local_only
+          VITE_CLARA_AUTH_ENABLED: "false"
+          VITE_CLARA_LOCAL_MODE_ENABLED: "true"
+
+      - name: Commit verified repair to main
+        run: |
+          if git diff --quiet; then
+            echo "Verified repair already applied."
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/runtime/installClaraOrbGreeting.js
-          git commit -m "Scope Means Score to next payday"
+          git add \
+            src/runtime/installClaraOrbGreeting.js \
+            src/lib/clara-means-cycle-baseline.js \
+            src/lib/clara-buy-check-wallet-engine.js \
+            src/lib/clara-buy-check-income-runway-engine.js \
+            src/lib/clara-wallet-money-semantics.js \
+            tests
+          git commit -m "Restore financial integrity and regression contracts"
           git push origin HEAD:main
-
-# retrigger after workflow registration
