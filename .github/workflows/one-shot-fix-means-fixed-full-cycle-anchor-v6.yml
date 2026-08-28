@@ -1,0 +1,58 @@
+name: One-shot fix Means fixed full-cycle anchor v6
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/fix_means_fixed_full_cycle_anchor_v6.py'
+      - '.github/workflows/one-shot-fix-means-fixed-full-cycle-anchor-v6.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Patch fixed full-cycle Means anchor
+        run: python3 scripts/fix_means_fixed_full_cycle_anchor_v6.py
+
+      - name: Syntax check repaired sources
+        run: |
+          node --check src/runtime/installClaraOrbGreeting.js
+          node --check src/lib/clara-means-cycle-baseline.js
+
+      - name: Run focused Means regression tests
+        run: node --test tests/means-score-context-baseline-regression.test.mjs
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
+
+      - name: Run application tests
+        run: npm test
+
+      - name: Build application
+        run: npm run build:web
+        env:
+          VITE_GEMINI_MODEL: gemini-3.6-flash
+          VITE_CLARA_RUNTIME_MODE: local_only
+          VITE_CLARA_AUTH_ENABLED: "false"
+          VITE_CLARA_LOCAL_MODE_ENABLED: "true"
+
+      - name: Commit verified repair
+        run: |
+          if git diff --quiet; then
+            echo "Means v6 repair already applied."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/runtime/installClaraOrbGreeting.js src/lib/clara-means-cycle-baseline.js tests/means-score-context-baseline-regression.test.mjs
+          git commit -m "Restore fixed full-cycle Means anchor"
+          git push origin HEAD:main
