@@ -21,6 +21,41 @@ jobs:
       - name: Apply fixed Means baseline repair
         run: python3 scripts/fix_means_fixed_full_cycle_anchor_v6.py
 
+      - name: Normalize current wallet semantics for repair script
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          path = Path("src/lib/clara-wallet-money-semantics.js")
+          text = path.read_text(encoding="utf-8")
+
+          block = re.search(r'const OTHER_PROTECTED_KEYS = \[[\s\S]*?\n\];', text)
+          if not block:
+              raise SystemExit("OTHER_PROTECTED_KEYS block not found")
+          protected_block = block.group(0)
+          additions = [
+              '  "reservedAmount",',
+              '  "reserved_amount",',
+              '  "protectedAmount",',
+              '  "protected_amount",',
+          ]
+          for addition in additions:
+              key = addition.strip().rstrip(',')
+              if key not in protected_block:
+                  protected_block = protected_block[:-3] + addition + "\n];"
+          text = text[:block.start()] + protected_block + text[block.end():]
+
+          if "function roundMoney(value)" not in text:
+              marker = "\nfunction firstDefinedValue("
+              idx = text.find(marker)
+              if idx < 0:
+                  raise SystemExit("firstDefinedValue marker not found")
+              helper = '''\nfunction roundMoney(value) {\n  const amount = toMoney(value);\n  return Math.round((amount + Number.EPSILON) * 100) / 100;\n}\n'''
+              text = text[:idx] + helper + text[idx:]
+
+          path.write_text(text, encoding="utf-8")
+
       - name: Apply remaining full-suite repair
         run: python3 scripts/fix_remaining_full_suite_after_means_v1.py
 
