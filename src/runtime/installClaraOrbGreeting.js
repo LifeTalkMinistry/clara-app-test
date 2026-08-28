@@ -1,4 +1,3 @@
-import "./installClaraPwaFreshness";
 import "./installClaraOrbChatHandoff";
 import "./installClaraOrbCommandChatRouting";
 import "./installClaraBuyCheckKeyboardGuard";
@@ -30,14 +29,7 @@ import { isSavingsGoalActive } from "@/lib/savingsGoalLifecycle";
 import { MEANS_SNAPSHOT_UPDATED_EVENT } from "@/lib/clara-means-boundary";
 import { isDebtOccurrencePaid } from "@/lib/debtOccurrenceState";
 import {
-  calculateCycleRequiredRunway,
-  calculateMeansScoreState,
-  resolveMeansCycleBaselineState,
-  stableMeansPlanFingerprint,
-} from "@/lib/clara-means-cycle-baseline";
-import {
   CLARA_MONEY_ROUTINE_UPDATED_EVENT,
-  CLARA_MONEY_SCHEDULE_UPDATED_EVENT,
   getClaraMoneyScheduleStorageKey,
   readClaraMoneyRoutine,
 } from "@/lib/clara-money-schedule-repository";
@@ -63,7 +55,7 @@ const MEANS_CONTEXT_KEY = "__claraCanonicalMeansSnapshot__";
 const INCOME_HUB_UPDATED_EVENT = "clara-income-hub-updated";
 const INCOME_HUB_CASH_IN_TYPE = "add_money";
 const SAVINGS_GOAL_SCHEDULE_SOURCE = "savings_goal_card_projection";
-const MEANS_CYCLE_BASELINE_STORAGE_PREFIX = "clara:means-cycle-baseline:v5";
+const MEANS_CYCLE_BASELINE_STORAGE_PREFIX = "clara:means-cycle-baseline:v1";
 
 function resolveGreetingLabel() {
   return (
@@ -245,22 +237,13 @@ function futureScheduledAmount(user, cycleStart = localDateKey(), horizonEnd = e
 
 function futureDebtObligationAmount(records = [], horizonEnd = endOfCurrentMonthKey()) {
   const today = localDateKey();
-  const recordMap = new Map(
-    (Array.isArray(records) ? records : []).map((record) => [
-      String(record?.id || record?.debt_id || record?.debtId || "").trim(),
-      record,
-    ])
-  );
 
   return buildDebtObligationScheduleProjection(records).reduce((sum, event) => {
     const date = String(event?.date || "").slice(0, 10);
     const direction = String(event?.direction || "out").trim().toLowerCase();
-    const debtId = String(event?.debtObligationId || event?.debt_obligation_id || "").trim();
-    const record = recordMap.get(debtId) || {};
     const amount = Number(String(event?.amount ?? "0").replace(/[₱,\s]/g, ""));
     if (!date || date <= today || date >= horizonEnd) return sum;
     if (direction !== "out") return sum;
-    if (debtId && isDebtOccurrencePaid(record, date)) return sum;
     return sum + (Number.isFinite(amount) ? Math.max(0, amount) : 0);
   }, 0);
 }
@@ -571,112 +554,40 @@ function currentMonthIncomeFromSources(incomeSources, currentMonthKey) {
   }, 0);
 }
 
-function isInactiveSavingsPlanGoal(goal = {}) {
-  const status = normalizeLower(goal?.completion_status ?? goal?.completionStatus ?? goal?.status);
-  return Boolean(
-    goal?.deletedAt ||
-      goal?.deleted_at ||
-      goal?.archived === true ||
-      goal?.is_archived === true ||
-      goal?.isArchived === true ||
-      goal?.cancelled === true ||
-      goal?.canceled === true ||
-      ["deleted", "archived", "cancelled", "canceled"].includes(status)
-  );
+function readDebtPaymentHistory(record = {}) {
+  const source = Array.isArray(record?.paymentHistory)
+    ? record.paymentHistory
+    : Array.isArray(record?.payment_history)
+      ? record.payment_history
+      : [];
+  return source.filter(Boolean);
 }
 
-function buildMeansPlanFingerprint({
-  owner,
-  cycleStart,
-  cycleEnd,
-  debtObligations = [],
-  savingsGoals = [],
-} = {}) {
-  const routine = readClaraMoneyRoutine(owner);
-  const routinePlan =
-    routine && routine.active !== false && Array.isArray(routine.days)
-      ? routine.days
-          .map((day) => ({
-            weekdayIndex: Number(day?.weekdayIndex ?? day?.weekday_index),
-            totalCentavos: Math.max(0, Number(day?.totalCentavos ?? day?.total_centavos ?? 0)),
-          }))
-          .filter((day) => Number.isInteger(day.weekdayIndex) && day.totalCentavos > 0)
-          .sort((a, b) => a.weekdayIndex - b.weekdayIndex)
-      : [];
+function plannedDebtPaidInsideCycle(records = [], cycleStart = "", cycleEnd = "") {
+  return (Array.isArray(records) ? records : []).reduce((total, record) => {
+    const monthlyPayment = Math.max(0, Number(getMonthlyDebtPayment(record) || 0));
+    if (!(monthlyPayment > 0)) return total;
 
-  const schedulePlan = parseScheduleEvents(owner)
-    .map((event) => {
-      const date = String(event?.date || "").slice(0, 10);
-      const direction = String(event?.direction || "out").trim().toLowerCase();
-      const amount = Number(String(event?.amount ?? "0").replace(/[₱,\s]/g, ""));
-      const source = normalizeLower(event?.source);
-      const savingsGoalProjection =
-        source === SAVINGS_GOAL_SCHEDULE_SOURCE || event?.savingsGoalId || event?.savings_goal_id;
-      const debtProjection =
-        source === DEBT_OBLIGATION_SCHEDULE_SOURCE || event?.debtObligationId || event?.debt_obligation_id;
-      if (!date || date < cycleStart || date >= cycleEnd) return null;
-      if (
-        direction !== "out" ||
-        event?.affectsMoney === false ||
-        savingsGoalProjection ||
-        debtProjection ||
-        !Number.isFinite(amount) ||
-        amount <= 0
-      ) {
-        return null;
-      }
-      return {
-        id: String(event?.id || "").trim(),
-        date,
-        amount: Math.max(0, amount),
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => `${a.date}:${a.id}:${a.amount}`.localeCompare(`${b.date}:${b.id}:${b.amount}`));
+    const paidByOccurrence = new Map();
+    readDebtPaymentHistory(record).forEach((payment) => {
+      const paidDate = String(payment?.paidAt || payment?.paid_at || "").slice(0, 10);
+      const dueDate = String(payment?.dueDate || payment?.due_date || "").slice(0, 10);
+      if (!paidDate || paidDate < cycleStart || paidDate >= cycleEnd) return;
+      if (!dueDate || dueDate < cycleStart || dueDate >= cycleEnd) return;
 
-  const debtPlan = buildDebtObligationScheduleProjection(debtObligations)
-    .map((event) => {
-      const date = String(event?.date || "").slice(0, 10);
-      const amount = Number(String(event?.amount ?? "0").replace(/[₱,\s]/g, ""));
-      if (!date || date < cycleStart || date >= cycleEnd || !Number.isFinite(amount) || amount <= 0) {
-        return null;
-      }
-      return {
-        debtId: String(event?.debtObligationId || event?.debt_obligation_id || "").trim(),
-        date,
-        amount: Math.max(0, amount),
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => `${a.date}:${a.debtId}:${a.amount}`.localeCompare(`${b.date}:${b.debtId}:${b.amount}`));
+      const amount = Math.max(0, Number(payment?.amount || 0));
+      if (!(amount > 0)) return;
+      paidByOccurrence.set(dueDate, (paidByOccurrence.get(dueDate) || 0) + amount);
+    });
 
-  // Saved/progress/completion fields are intentionally excluded. Funding or using an
-  // already-known goal is realization, while target/date/delete edits are plan changes.
-  const savingsPlan = (Array.isArray(savingsGoals) ? savingsGoals : [])
-    .filter((goal) => !isInactiveSavingsPlanGoal(goal))
-    .map((goal) => ({
-      id: String(goal?.id || goal?.goal_id || goal?.goalId || "").trim(),
-      date: savingsGoalDate(goal),
-      target: savingsGoalMoney(
-        goal?.target_amount,
-        goal?.targetAmount,
-        goal?.goal_amount,
-        goal?.goalAmount,
-        goal?.target,
-        goal?.amount
-      ),
-    }))
-    .filter((goal) => goal.id && goal.date && goal.date < cycleEnd && goal.target > 0)
-    .sort((a, b) => `${a.date}:${a.id}:${a.target}`.localeCompare(`${b.date}:${b.id}:${b.target}`));
-
-  return stableMeansPlanFingerprint({
-    cycleStart,
-    cycleEnd,
-    routine: routinePlan,
-    schedule: schedulePlan,
-    debt: debtPlan,
-    savings: savingsPlan,
-  });
+    let plannedPaid = 0;
+    paidByOccurrence.forEach((paidAmount) => {
+      // Only the amount CLARA had already scheduled is neutral. Paying extra toward
+      // principal is a real additional outflow and must still reduce Means Score.
+      plannedPaid += Math.min(paidAmount, monthlyPayment);
+    });
+    return total + plannedPaid;
+  }, 0);
 }
 
 function meansCycleBaselineStorageKey(owner, cycleStart, cycleEnd) {
@@ -688,79 +599,62 @@ function resolveLockedMeansCycleBaseline({
   owner,
   cycleStart,
   cycleEnd,
-  plannedRequiredRunway,
+  upcoming,
   assumedSpent,
-  planFingerprint,
+  debtObligations,
 }) {
-  // PLAN owns the user's personal 100. For a fresh cycle this is the declared/predicted
-  // requirement still represented by the plan, plus legitimate elapsed routine assumed
-  // spending captured by resolveMeansCycleBaselineState. Realized transactions are never
-  // read here and therefore cannot reconstruct or inflate the denominator.
-  const authoritativePlannedRunway = Math.max(0, Number(plannedRequiredRunway || 0));
-  const fallbackState = resolveMeansCycleBaselineState({
-    stored: null,
+  const plannedDebtAlreadyPaid = plannedDebtPaidInsideCycle(
+    debtObligations,
+    cycleStart,
+    cycleEnd
+  );
+
+  // Migration-safe reconstruction: if the fix lands after a scheduled debt payment,
+  // add only that already-planned payment back to the current requirement. This
+  // restores the same denominator CLARA was using immediately before the payment.
+  const reconstructedRequiredRunway = Math.max(
+    Number(upcoming || 0) + plannedDebtAlreadyPaid,
+    0
+  );
+  const fallback = {
+    requiredRunway: reconstructedRequiredRunway,
+    assumedSpentAtLock: Math.max(0, Number(assumedSpent || 0)),
     cycleStart,
     cycleEnd,
-    planFingerprint,
-    requiredRunway: authoritativePlannedRunway,
-    assumedSpent,
-  });
+  };
 
-  if (typeof window === "undefined" || !window.localStorage) {
-    return fallbackState.baseline;
-  }
+  if (typeof window === "undefined" || !window.localStorage) return fallback;
 
   const key = meansCycleBaselineStorageKey(owner, cycleStart, cycleEnd);
-  let stored = null;
   try {
-    stored = JSON.parse(window.localStorage.getItem(key) || "null");
-  } catch {
-    stored = null;
-  }
-
-  const resolved = resolveMeansCycleBaselineState({
-    stored,
-    cycleStart,
-    cycleEnd,
-    planFingerprint,
-    requiredRunway: authoritativePlannedRunway,
-    assumedSpent,
-  });
-
-  if (resolved.shouldPersist) {
-    try {
-      window.localStorage.setItem(
-        key,
-        JSON.stringify({
-          ...resolved.baseline,
-          refreshedAt: new Date().toISOString(),
-          refreshReason: resolved.reason,
-        })
-      );
-    } catch {
-      // Means must remain available even if localStorage is temporarily unavailable.
+    const parsed = JSON.parse(window.localStorage.getItem(key) || "null");
+    if (
+      parsed &&
+      parsed.cycleStart === cycleStart &&
+      parsed.cycleEnd === cycleEnd &&
+      Number.isFinite(Number(parsed.requiredRunway)) &&
+      Number(parsed.requiredRunway) >= 0
+    ) {
+      return {
+        requiredRunway: Math.max(0, Number(parsed.requiredRunway)),
+        assumedSpentAtLock: Math.max(0, Number(parsed.assumedSpentAtLock || 0)),
+        cycleStart,
+        cycleEnd,
+      };
     }
+  } catch {
+    // Replace malformed local state with a clean cycle lock below.
   }
 
-  return resolved.baseline;
-}
-
-function realizedBuyCheckMeansOffset(expenses = [], cycleStart = "", cycleEnd = "") {
-  const today = localDateKey();
-  return (Array.isArray(expenses) ? expenses : []).reduce((sum, expense) => {
-    const date = localDateKey(getTransactionDate(expense));
-    if (!date || date < cycleStart || date >= cycleEnd) return sum;
-    const amount = Math.max(0, Number(expense?.means_accounted_amount || 0));
-    const source = normalizeLower(expense?.means_accounted_source);
-    if (!(amount > 0) || !source || source === "unplanned") return sum;
-
-    // One-off scheduled events stop needing an offset after their planned
-    // date leaves Upcoming. Weekly routine items remain represented as
-    // Assumed spent, so their offset remains valid for the whole cycle.
-    const offsetUntil = String(expense?.means_accounted_until || "").slice(0, 10);
-    if (source === "money_schedule_event" && offsetUntil && today > offsetUntil) return sum;
-    return sum + amount;
-  }, 0);
+  try {
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({ ...fallback, lockedAt: new Date().toISOString() })
+    );
+  } catch {
+    // Means must remain available even if localStorage is temporarily unavailable.
+  }
+  return fallback;
 }
 
 async function buildMeansSnapshot(profile = {}) {
@@ -779,7 +673,6 @@ async function buildMeansSnapshot(profile = {}) {
   const cycleStartDate = payCycle.start;
   const cycleEndDate = payCycle.end;
   const spent = payCycleSpent(expenses, cycleStartDate);
-  const realizedPlannedBuyCheckOffset = realizedBuyCheckMeansOffset(expenses, cycleStartDate, cycleEndDate);
   const income = payCycleIncomeFromSources(incomeSources, cycleStartDate, cycleEndDate);
   const canonicalWalletState = buildCanonicalWalletState({
     wallets,
@@ -812,40 +705,42 @@ async function buildMeansSnapshot(profile = {}) {
     futureDebtObligationAmount(debtObligations, cycleEndDate) +
     overdueUnpaidDebtAmount(debtObligations, cycleStartDate, cycleEndDate);
   const upcoming = debtUpcoming + savingsGoalUpcoming + moneyScheduleUpcoming + otherScheduledUpcoming;
-  const planFingerprint = buildMeansPlanFingerprint({
-    owner,
-    cycleStart: cycleStartDate,
-    cycleEnd: cycleEndDate,
-    debtObligations,
-    savingsGoals,
-  });
 
   const projectedSpending = upcoming;
   const projectedRoom = availableNow - upcoming;
-  const plannedRequiredRunway = calculateCycleRequiredRunway({ upcoming });
 
   // Means Score uses one locked measuring stick for the whole payday-to-payday window.
-  // Realized outflows only change financialRunway. A paid/completed commitment may leave
-  // Upcoming, but that realization cannot shrink or rebuild the already-locked 100.
+  // Paying a commitment CLARA already predicted must be neutral: cash and remaining
+  // commitments fall together, so the user's real room has not changed.
   const financialRunway = availableNow + emergencyProtected;
   const cycleBaseline = resolveLockedMeansCycleBaseline({
     owner,
     cycleStart: cycleStartDate,
     cycleEnd: cycleEndDate,
-    plannedRequiredRunway,
+    upcoming,
     assumedSpent,
-    planFingerprint,
+    debtObligations,
   });
   const requiredRunway = Math.max(0, Number(cycleBaseline.requiredRunway || 0));
-  const { score, scoreRoom, plannedAssumedSinceLock, fullyCovered } = calculateMeansScoreState({
-    financialRunway,
-    requiredRunway,
-  });
+
+  // Money Schedule becomes "assumed spent" as time passes without directly mutating
+  // the wallet. Neutralize only the amount assumed after this cycle was locked so time
+  // progression alone cannot manufacture a higher score.
+  const plannedAssumedSinceLock = Math.max(
+    0,
+    assumedSpent - Math.max(0, Number(cycleBaseline.assumedSpentAtLock || 0))
+  );
+  const scoreRoom = financialRunway - upcoming - plannedAssumedSinceLock;
+  const score =
+    requiredRunway > 0
+      ? Math.round(((requiredRunway + scoreRoom) / requiredRunway) * 100)
+      : financialRunway > 0
+        ? 100
+        : 0;
 
   return {
     hasIncomePayCycle: true,
     score,
-    fullyCovered,
     income,
     spent,
     assumedSpent,
@@ -861,10 +756,8 @@ async function buildMeansSnapshot(profile = {}) {
     availableNow,
     financialRunway,
     requiredRunway,
-    planFingerprint,
     scoreRoom,
     plannedAssumedSinceLock,
-    realizedPlannedBuyCheckOffset,
     moneyLentUnavailable,
     emergencyProtected,
     savingsProtected,
@@ -880,9 +773,9 @@ function statusForScore(score) {
   if (score >= 2000) return "Silver";
   if (score >= 1000) return "Bronze";
   if (score >= 500) return "Vanguard";
-  if (score >= 400) return "Level IV";
-  if (score >= 300) return "Level III";
-  if (score >= 200) return "Level II";
+  if (score >= 400) return "3 Cycles Ahead";
+  if (score >= 300) return "2 Cycles Ahead";
+  if (score >= 200) return "1 Cycle Ahead";
   if (score >= 101) return "Below Your Means";
   if (score === 100) return "Within Your Means";
   if (score >= 1) return "Above Your Means";
@@ -952,7 +845,6 @@ function ensureMeansMetric(label, snapshot, onToggle) {
   const renderSignature = snapshot
     ? [
         "ready",
-        snapshot.fullyCovered ? "fully-covered" : "scored",
         snapshot.score,
         Math.round(snapshot.income),
         Math.round(snapshot.spent),
@@ -1007,22 +899,17 @@ function ensureMeansMetric(label, snapshot, onToggle) {
     return root;
   }
 
-  const fullyCovered = snapshot.fullyCovered === true;
-  const tone = fullyCovered ? "#67e8c8" : metricTone(snapshot.score);
-  const scoreDisplay = fullyCovered ? "✓" : snapshot.score;
-  const statusLabel = fullyCovered ? "Fully Covered" : statusForScore(snapshot.score);
+  const tone = metricTone(snapshot.score);
   root.setAttribute(
     "aria-label",
-    fullyCovered
-      ? `Means Score Fully Covered. No remaining required runway before the next income point. ${expanded ? "Tap to collapse details." : "Tap for details."}`
-      : `Means Score ${snapshot.score}. ${statusLabel}. ${expanded ? "Tap to collapse details." : "Tap for details."}`
+    `Means Score ${snapshot.score}. ${statusForScore(snapshot.score)}. ${expanded ? "Tap to collapse details." : "Tap for details."}`
   );
   root.innerHTML = `
     <span style="display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:31px;padding:4px 10px 4px 5px;border:1px solid rgba(103,157,255,.14);border-radius:999px;background:linear-gradient(180deg,rgba(13,28,62,.68),rgba(4,10,31,.74));box-shadow:0 10px 28px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.035),0 0 20px rgba(46,110,255,.055);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)">
-      <strong style="display:inline-grid;place-items:center;min-width:29px;height:23px;padding:0 6px;border:1px solid ${tone}33;border-radius:999px;background:${tone}0d;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 0 14px ${tone}12;font-size:11px;font-weight:900;line-height:1;color:${tone}">${scoreDisplay}</strong>
+      <strong style="display:inline-grid;place-items:center;min-width:29px;height:23px;padding:0 6px;border:1px solid ${tone}33;border-radius:999px;background:${tone}0d;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 0 14px ${tone}12;font-size:11px;font-weight:900;line-height:1;color:${tone}">${snapshot.score}</strong>
       <span style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;line-height:1">
         <span style="font-size:7px;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.26)">Means score</span>
-        <span style="font-size:9px;font-weight:800;letter-spacing:-.01em;color:rgba(255,255,255,.62)">${statusLabel}</span>
+        <span style="font-size:9px;font-weight:800;letter-spacing:-.01em;color:rgba(255,255,255,.62)">${statusForScore(snapshot.score)}</span>
       </span>
       <span style="margin-left:1px;font-size:9px;line-height:1;color:rgba(255,255,255,.25);transform:${expanded ? "rotate(180deg)" : "none"};transition:transform 160ms ease">⌄</span>
     </span>
@@ -1044,10 +931,10 @@ function ensureMeansMetric(label, snapshot, onToggle) {
       ${snapshot.moneyLentUnavailable > 0 ? `<span style="display:flex;justify-content:space-between;gap:16px;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.05);font-size:9.5px;color:rgba(255,255,255,.30)"><span>Money lent · not available</span><strong style="color:rgba(255,255,255,.50)">${money(snapshot.moneyLentUnavailable)}</strong></span>` : ""}
       <span style="display:flex;justify-content:space-between;gap:16px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.07);font-size:10px;color:rgba(255,255,255,.48)"><span>Room until ${formatHorizonDate(snapshot.cycleEndDate)}</span><strong style="color:${snapshot.projectedRoom >= 0 ? "#67e8c8" : "#ff7f8d"}">${snapshot.projectedRoom >= 0 ? "" : "−"}${money(Math.abs(snapshot.projectedRoom))}</strong></span>
       <span style="display:flex;align-items:center;justify-content:center;gap:5px;margin-top:7px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">
-        <span>${fullyCovered ? "No remaining required runway before next income" : "100 = living within your means"}</span>
+        <span>100 = living within your means</span>
         <button type="button" data-clara-means-info-toggle="true" aria-label="How the Means Score is calculated" aria-expanded="false" style="display:inline-grid;place-items:center;width:15px;height:15px;padding:0;border:1px solid rgba(255,255,255,.13);border-radius:999px;background:rgba(255,255,255,.025);color:rgba(255,255,255,.36);font-size:9px;font-weight:800;line-height:1;cursor:pointer;-webkit-tap-highlight-color:transparent">i</button>
       </span>
-      <span data-clara-means-info-copy="true" style="display:none;margin-top:7px;padding:7px 8px;border:1px solid rgba(255,255,255,.05);border-radius:9px;background:rgba(255,255,255,.018);font-size:8.5px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30);text-align:center">This score uses one Income Hub pay-cycle window: ${formatHorizonDate(snapshot.cycleStartDate)} through ${formatHorizonDate(snapshot.cycleEndDate)}. Actual spent is based on recorded expenses. Assumed spent is the Money Schedule amount whose scheduled days have already begun in the current pay cycle. Upcoming commitments contain only the remaining future Money Schedule plus unresolved Debt / Obligations, Savings Goals, and other scheduled events before the next payday. Protected or lent money is already excluded from money in hand and is not subtracted twice.${fullyCovered ? " All remaining required runway is ₱0, so CLARA shows Fully Covered instead of forcing a numeric score." : ""}</span>
+      <span data-clara-means-info-copy="true" style="display:none;margin-top:7px;padding:7px 8px;border:1px solid rgba(255,255,255,.05);border-radius:9px;background:rgba(255,255,255,.018);font-size:8.5px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30);text-align:center">This score uses one Income Hub pay-cycle window: ${formatHorizonDate(snapshot.cycleStartDate)} through ${formatHorizonDate(snapshot.cycleEndDate)}. Actual spent is based on recorded expenses. Assumed spent is the Money Schedule amount whose scheduled days have already begun in the current pay cycle. Upcoming commitments contain only the remaining future Money Schedule plus unresolved Debt / Obligations, Savings Goals, and other scheduled events before the next payday. Protected or lent money is already excluded from money in hand and is not subtracted twice.</span>
     </span>
   `;
 
@@ -1210,7 +1097,6 @@ function installClaraOrbGreeting() {
   window.addEventListener(INCOME_HUB_UPDATED_EVENT, handleFinanceRefresh);
   window.addEventListener(DEBT_OBLIGATIONS_UPDATED_EVENT, handleFinanceRefresh);
   window.addEventListener(CLARA_MONEY_ROUTINE_UPDATED_EVENT, handleFinanceRefresh);
-  window.addEventListener(CLARA_MONEY_SCHEDULE_UPDATED_EVENT, handleFinanceRefresh);
   window.addEventListener("clara:schedule:create-event", handleFinanceRefresh);
   queueSync();
 
@@ -1222,7 +1108,6 @@ function installClaraOrbGreeting() {
       window.removeEventListener(INCOME_HUB_UPDATED_EVENT, handleFinanceRefresh);
       window.removeEventListener(DEBT_OBLIGATIONS_UPDATED_EVENT, handleFinanceRefresh);
       window.removeEventListener(CLARA_MONEY_ROUTINE_UPDATED_EVENT, handleFinanceRefresh);
-      window.removeEventListener(CLARA_MONEY_SCHEDULE_UPDATED_EVENT, handleFinanceRefresh);
       window.removeEventListener("clara:schedule:create-event", handleFinanceRefresh);
       clearGreetingPresentation(activeLabel);
       activeLabel = null;
