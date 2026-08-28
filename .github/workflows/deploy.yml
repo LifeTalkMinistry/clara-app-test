@@ -33,6 +33,9 @@ jobs:
       - name: Apply full-cycle Means plan anchor
         run: python3 scripts/fix_means_plan_delta_anchor_v7.py
 
+      - name: Migrate previously read cycle anchor
+        run: python3 scripts/install_means_legacy_cycle_anchor_migration.py
+
       - name: Wire installed-PWA freshness runtime
         run: python3 scripts/install_clara_pwa_freshness.py
 
@@ -55,6 +58,7 @@ jobs:
         run: |
           python3 -m py_compile \
             scripts/fix_means_plan_delta_anchor_v7.py \
+            scripts/install_means_legacy_cycle_anchor_migration.py \
             scripts/install_clara_pwa_freshness.py \
             scripts/fix_remaining_full_suite_after_means_v1.py
           node --check src/runtime/installClaraOrbGreeting.js
