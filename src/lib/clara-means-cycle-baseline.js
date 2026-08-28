@@ -1,4 +1,4 @@
-const BASELINE_VERSION = 4;
+const BASELINE_VERSION = 5;
 
 function finiteNonNegative(value) {
   const amount = Number(value);
@@ -39,9 +39,9 @@ export function resolveMeansCycleBaselineState({
   const normalizedRequired = finiteNonNegative(requiredRunway);
   const normalizedAssumed = finiteNonNegative(assumedSpent);
 
-  // Once a cycle has established its personal 100, that measuring stick is immutable
-  // until the next pay cycle. Realized spending, paid commitments, schedule progression,
-  // or other same-cycle context changes may alter the fingerprint, but must never move 100.
+  // Once a valid v5 cycle anchor exists, keep it fixed for the rest of that cycle.
+  // A version bump intentionally invalidates older reconstructed anchors that may have
+  // absorbed already-paid debt or other realized transactions into the user's 100.
   const validSameCycleBaseline = Boolean(
     stored &&
       Number(stored.version) === BASELINE_VERSION &&
@@ -59,7 +59,6 @@ export function resolveMeansCycleBaselineState({
         assumedSpentAtLock: finiteNonNegative(stored.assumedSpentAtLock),
         cycleStart,
         cycleEnd,
-        // Preserve the original fingerprint as audit context for the locked anchor.
         planFingerprint: stored.planFingerprint || planFingerprint,
       },
       shouldPersist: false,
@@ -67,9 +66,9 @@ export function resolveMeansCycleBaselineState({
     };
   }
 
-  // Assumed spent is planned Money Schedule value that has already crossed into the
-  // elapsed part of the cycle. It belongs in the fixed cycle requirement, while actual
-  // transactions do not. This reconstructs 100 without absorbing previous spending.
+  // Assumed spent is scheduled routine value that has already crossed into the elapsed
+  // part of the cycle. It is still part of the user's declared cycle requirement.
+  // Actual payments/transactions are intentionally excluded from reconstruction.
   const fullCycleRequiredRunway = normalizedRequired + normalizedAssumed;
 
   return {
