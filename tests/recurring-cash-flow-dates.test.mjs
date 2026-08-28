@@ -140,6 +140,48 @@ test("income timing saves, reloads, and resolves the next expected income", () =
   });
 });
 
+test("fresh monthly stable income immediately reconstructs the active payday window", () => {
+  const ownerId = "fresh-monthly-income-window";
+  reset(ownerId);
+
+  syncIncomeTimingFromSource(ownerId, {
+    id: "fresh-salary",
+    name: "Fresh Salary",
+    usualIncomeDateEnabled: true,
+    useForBudgetTiming: true,
+    incomeRecurrence: {
+      type: "monthly",
+      startDate: "2026-08-28",
+      dayOfMonth: 15,
+    },
+  });
+
+  const window = getExpectedIncomeWindow(ownerId, "2026-08-28");
+  assert.equal(window.previousExpectedDate, "2026-08-15");
+  assert.equal(window.nextExpectedDate, "2026-09-15");
+
+  const period = resolveIncomeBasedBudgetPeriod(ownerId, "2026-08-28");
+  assert.deepEqual(period, {
+    start: "2026-08-15",
+    end: "2026-09-14",
+    nextExpectedIncomeDate: "2026-09-15",
+    daysUntilNextIncome: 18,
+    source: "income_timing",
+  });
+});
+
+test("fresh twice-monthly stable income backfills the prior scheduled payday", () => {
+  const occurrences = getRecurrenceOccurrences(
+    { type: "twice_monthly", startDate: "2026-08-28", days: [15, 30] },
+    "2026-06-28",
+    "2026-10-29",
+    { kind: "income" }
+  );
+
+  assert.ok(occurrences.includes("2026-08-15"));
+  assert.ok(occurrences.includes("2026-08-30"));
+});
+
 test("legacy Stable Income without the budget-timing flag still backfills runway timing", () => {
   const ownerId = "legacy-stable-income-window";
   reset(ownerId);
