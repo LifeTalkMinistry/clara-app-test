@@ -48,6 +48,7 @@ jobs:
       - name: Run focused financial regression tests
         run: |
           node --test tests/means-score-context-baseline-regression.test.mjs
+          node --test tests/means-score-single-authority-regression.test.mjs
           node --test tests/buy-check-context-facts.test.mjs
           node --test tests/wallet-money-semantics.test.mjs
           node --test tests/wallet-expanded-flow-regression.test.mjs
