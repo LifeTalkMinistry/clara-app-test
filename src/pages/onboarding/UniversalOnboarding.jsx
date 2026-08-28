@@ -7,6 +7,7 @@ import ClaraCoreTutorial from "./ClaraCoreTutorial";
 import { getUniversalOnboardingStyles } from "./UniversalOnboardingStyles";
 import {
   AmbientField,
+  AskClaraBuildUpScreen,
   BiggerVisionScreen,
   ClaraRevealScreen,
   ClaraWordmark,
@@ -130,6 +131,9 @@ export default function UniversalOnboarding() {
     if (activeScreen === "quantified-feedback") {
       return <QuantifiedFeedbackScreen selectedOptionId={selectedJuanShoe} />;
     }
+    if (activeScreen === "ask-clara-build-up") {
+      return <AskClaraBuildUpScreen />;
+    }
     if (activeScreen === "clara-reveal") {
       return <ClaraRevealScreen reduceMotion={reduceMotion} />;
     }
@@ -144,7 +148,7 @@ export default function UniversalOnboarding() {
     if (activeScreen === "juan-choice") {
       return selectedJuanShoe ? "See the impact" : "Choose a pair";
     }
-    if (activeScreen === "quantified-feedback") return "Continue";
+    if (activeScreen === "ask-clara-build-up") return "Ask CLARA";
     return "Continue";
   })();
 
