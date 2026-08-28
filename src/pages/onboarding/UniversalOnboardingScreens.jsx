@@ -66,13 +66,13 @@ export function ClaraWordmark({ className = "", animateLetters = false, reduceMo
                 reduceMotion
                   ? undefined
                   : {
-                      duration: 3.2,
-                      delay: floatDelay,
-                      times: [0, 0.22, 0.52, 0.76, 1],
-                      ease: "easeInOut",
-                      repeat: Infinity,
-                      repeatType: "loop",
-                    }
+                    duration: 3.2,
+                    delay: floatDelay,
+                    times: [0, 0.22, 0.52, 0.76, 1],
+                    ease: "easeInOut",
+                    repeat: Infinity,
+                    repeatType: "loop",
+                  }
               }
             >
               {char}
@@ -160,11 +160,8 @@ export function MeansScoreScreen() {
           <p className="clara-onboarding-compare-copy clara-onboarding-compare-copy--hero">87</p>
         </section>
       </div>
-      <p className="clara-onboarding-kicker clara-onboarding-kicker--blue">
-        Psychology calls this quantified feedback.
-      </p>
       <p className="clara-onboarding-body clara-onboarding-body--narrow">
-        Turning your financial position into a number makes it easier to see, track, and respond when it changes.
+        One practical number that makes your financial position visible.
       </p>
     </ScreenFrame>
   );
