@@ -153,6 +153,7 @@ jobs:
       - name: Commit verified repair to branch
         run: |
           rm -f .github/financial-integrity-repair.trigger
+          rm -rf scripts/__pycache__
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
