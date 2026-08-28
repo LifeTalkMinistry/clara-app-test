@@ -1,5 +1,6 @@
 name: Verify CLARA financial integrity repair
 
+# Registered runner trigger v2.
 on:
   push:
     branches: [main]
