@@ -23,7 +23,7 @@ function plan(amount, id = "primary") {
   });
 }
 
-function freshBaseline({ amount, assumedSpent = 0, fingerprint = plan(amount) }) {
+function freshBaseline({ amount, assumedSpent = 0, fingerprint = plan(amount), legacyRequiredRunway = null }) {
   return resolveMeansCycleBaselineState({
     stored: null,
     cycleStart: CYCLE.start,
@@ -31,6 +31,7 @@ function freshBaseline({ amount, assumedSpent = 0, fingerprint = plan(amount) })
     planFingerprint: fingerprint,
     requiredRunway: amount,
     assumedSpent,
+    legacyRequiredRunway,
   }).baseline;
 }
 
@@ -171,6 +172,35 @@ test("successive planning edits accumulate from the already-amended cycle anchor
   assert.equal(minus1000.requiredRunway, 11300);
 });
 
+test("previously read cycle anchor survives v6 migration and current plan becomes delta reference", () => {
+  const migrated = resolveMeansCycleBaselineState({
+    stored: null,
+    cycleStart: CYCLE.start,
+    cycleEnd: CYCLE.end,
+    planFingerprint: plan(3401, "current-full-plan"),
+    requiredRunway: 3401,
+    assumedSpent: 280,
+    legacyRequiredRunway: 10403,
+  });
+
+  assert.equal(migrated.shouldPersist, true);
+  assert.equal(migrated.reason, "legacy_cycle_anchor_migrated");
+  assert.equal(migrated.baseline.requiredRunway, 10403);
+  assert.equal(migrated.baseline.planRequiredRunway, 3401);
+
+  const afterNew2000Obligation = resolveMeansCycleBaselineState({
+    stored: migrated.baseline,
+    cycleStart: CYCLE.start,
+    cycleEnd: CYCLE.end,
+    planFingerprint: plan(5401, "current-plan-plus-obligation"),
+    requiredRunway: 5401,
+    assumedSpent: 280,
+  });
+
+  assert.equal(afterNew2000Obligation.reason, "plan_delta_applied");
+  assert.equal(afterNew2000Obligation.baseline.requiredRunway, 12403);
+});
+
 test("a genuine new pay cycle establishes a new 100 instead of applying a same-cycle delta", () => {
   const baseline = freshBaseline({ amount: 10000 });
   const nextCycle = resolveMeansCycleBaselineState({
@@ -220,6 +250,8 @@ test("runtime builds denominator from complete cycle plan and keeps Upcoming pre
   assert.match(runtime, /fullCycleSavingsGoalAmount/);
   assert.match(runtime, /const fullCyclePlannedRequirement\s*=/);
   assert.match(runtime, /getDebtObligationPlanRecords\(owner\)/);
+  assert.match(runtime, /readPreviouslyLockedMeansCycleAnchor/);
+  assert.match(runtime, /legacyRequiredRunway/);
   assert.match(debtStore, /export async function getDebtObligationPlanRecords/);
   assert.doesNotMatch(runtime, /plannedDebtPaidInsideCycle/);
   assert.doesNotMatch(runtime, /readDebtPaymentHistory/);
@@ -230,6 +262,20 @@ test("Money Schedule current day is not subtracted twice from the cycle view", a
 
   assert.match(runtime, /const moneyScheduleUpcoming = rawMoneyScheduleUpcoming;/);
   assert.doesNotMatch(runtime, /rawMoneyScheduleUpcoming\s*-\s*assumedToday/);
+});
+
+test("installed PWA always checks for a fresh worker and a new worker navigates stale windows once", async () => {
+  const runtime = await readFile(new URL("../src/runtime/installClaraOrbGreeting.js", import.meta.url), "utf8");
+  const freshness = await readFile(new URL("../src/runtime/installClaraPwaFreshness.js", import.meta.url), "utf8");
+  const worker = await readFile(new URL("../public/clara-task-reminder-sw.js", import.meta.url), "utf8");
+
+  assert.match(runtime, /import "\.\/installClaraPwaFreshness";/);
+  assert.match(freshness, /navigator\.serviceWorker\.register/);
+  assert.match(freshness, /updateViaCache:\s*"none"/);
+  assert.match(freshness, /registration\.update\(\)/);
+  assert.match(worker, /__CLARA_APP_BUILD__/);
+  assert.match(worker, /client\.navigate\(url\.href\)/);
+  assert.match(worker, /__clara_build/);
 });
 
 test("financial context update wiring remains intact", async () => {
