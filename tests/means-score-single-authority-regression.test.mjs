@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 import {
   calculateMeansScoreState,
   MEANS_CYCLE_BASELINE_VERSION,
+  repairMalformedMeansBaselineStorage,
   resolveMeansCycleBaselineState,
   stableMeansPlanFingerprint,
 } from "../src/lib/clara-means-cycle-baseline.js";
@@ -53,6 +54,28 @@ function canonicalScore(financialRunway, baseline) {
     financialRunway,
     requiredRunway: baseline.requiredRunway,
   }).score;
+}
+
+class MemoryStorage {
+  constructor(entries = {}) {
+    this.values = new Map(Object.entries(entries));
+  }
+
+  get length() {
+    return this.values.size;
+  }
+
+  key(index) {
+    return [...this.values.keys()][index] ?? null;
+  }
+
+  getItem(key) {
+    return this.values.has(key) ? this.values.get(key) : null;
+  }
+
+  setItem(key, value) {
+    this.values.set(key, String(value));
+  }
 }
 
 test("fixed full-cycle 100 stays constant while spending lowers the numerator", () => {
@@ -121,6 +144,99 @@ test("a genuine new pay cycle may establish a different 100", () => {
   assert.equal(nextCycle.shouldPersist, true);
   assert.equal(nextCycle.reason, "new_cycle_or_stale_baseline");
   assert.equal(nextCycle.baseline.requiredRunway, 12000);
+});
+
+test("malformed mid-cycle v5 anchor restores the prior fixed v3 cycle anchor", () => {
+  const suffix = `local-user:${CYCLE_A.start}:${CYCLE_A.end}`;
+  const currentKey = `clara:means-cycle-baseline:v5:${suffix}`;
+  const legacyKey = `clara:means-cycle-baseline:v3:${suffix}`;
+  const planFingerprint = fingerprint("preserved-cycle-plan", 10403);
+  const storage = new MemoryStorage({
+    [currentKey]: JSON.stringify({
+      version: 5,
+      requiredRunway: 3401,
+      assumedSpentAtLock: 280,
+      cycleStart: CYCLE_A.start,
+      cycleEnd: CYCLE_A.end,
+      planFingerprint,
+      refreshReason: "new_cycle_or_stale_baseline",
+    }),
+    [legacyKey]: JSON.stringify({
+      version: 3,
+      requiredRunway: 10403,
+      assumedSpentAtLock: 0,
+      cycleStart: CYCLE_A.start,
+      cycleEnd: CYCLE_A.end,
+      planFingerprint,
+    }),
+  });
+
+  assert.equal(repairMalformedMeansBaselineStorage(storage), 1);
+
+  const repaired = JSON.parse(storage.getItem(currentKey));
+  assert.equal(repaired.requiredRunway, 10403);
+  assert.equal(repaired.restoredPreviousV5RequiredRunway, 3401);
+  assert.equal(repaired.restoredFromVersion, 3);
+  assert.equal(repaired.restoredFromLegacyFixedAnchor, true);
+  assert.equal(canonicalScore(7388, repaired), 71);
+  assert.notEqual(canonicalScore(7388, repaired), 217);
+});
+
+test("healthy v5 anchor is never replaced by legacy storage", () => {
+  const suffix = `local-user:${CYCLE_A.start}:${CYCLE_A.end}`;
+  const currentKey = `clara:means-cycle-baseline:v5:${suffix}`;
+  const legacyKey = `clara:means-cycle-baseline:v3:${suffix}`;
+  const planFingerprint = fingerprint("healthy-cycle-plan", 10000);
+  const storage = new MemoryStorage({
+    [currentKey]: JSON.stringify({
+      version: 5,
+      requiredRunway: 10000,
+      assumedSpentAtLock: 0,
+      cycleStart: CYCLE_A.start,
+      cycleEnd: CYCLE_A.end,
+      planFingerprint,
+      refreshReason: "new_cycle_or_stale_baseline",
+    }),
+    [legacyKey]: JSON.stringify({
+      version: 3,
+      requiredRunway: 10403,
+      assumedSpentAtLock: 0,
+      cycleStart: CYCLE_A.start,
+      cycleEnd: CYCLE_A.end,
+      planFingerprint,
+    }),
+  });
+
+  assert.equal(repairMalformedMeansBaselineStorage(storage), 0);
+  assert.equal(JSON.parse(storage.getItem(currentKey)).requiredRunway, 10000);
+});
+
+test("legacy anchor with a different plan fingerprint cannot overwrite v5", () => {
+  const suffix = `local-user:${CYCLE_A.start}:${CYCLE_A.end}`;
+  const currentKey = `clara:means-cycle-baseline:v5:${suffix}`;
+  const legacyKey = `clara:means-cycle-baseline:v3:${suffix}`;
+  const storage = new MemoryStorage({
+    [currentKey]: JSON.stringify({
+      version: 5,
+      requiredRunway: 3401,
+      assumedSpentAtLock: 280,
+      cycleStart: CYCLE_A.start,
+      cycleEnd: CYCLE_A.end,
+      planFingerprint: fingerprint("current-plan", 3401),
+      refreshReason: "new_cycle_or_stale_baseline",
+    }),
+    [legacyKey]: JSON.stringify({
+      version: 3,
+      requiredRunway: 10403,
+      assumedSpentAtLock: 0,
+      cycleStart: CYCLE_A.start,
+      cycleEnd: CYCLE_A.end,
+      planFingerprint: fingerprint("different-plan", 10403),
+    }),
+  });
+
+  assert.equal(repairMalformedMeansBaselineStorage(storage), 0);
+  assert.equal(JSON.parse(storage.getItem(currentKey)).requiredRunway, 3401);
 });
 
 test("production incident uses fixed baseline instead of 3,401 dynamic remaining runway", () => {
