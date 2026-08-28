@@ -7,10 +7,34 @@ export const SCREEN_IDS = [
   "measurement",
   "means-score",
   "score-meaning",
-  "decision-impact",
+  "simulation-ready",
+  "juan-intro",
+  "juan-choice",
+  "quantified-feedback",
   "clara-reveal",
   "mission-rule",
   "bigger-vision",
+];
+
+export const JUAN_SHOE_OPTIONS = [
+  {
+    id: "premium",
+    name: "Premium Work Shoes",
+    price: 10000,
+    afterScore: 50,
+  },
+  {
+    id: "quality",
+    name: "Quality Work Shoes",
+    price: 5000,
+    afterScore: 100,
+  },
+  {
+    id: "practical",
+    name: "Practical Work Shoes",
+    price: 2000,
+    afterScore: 130,
+  },
 ];
 
 const CLARA_WORDMARK_LETTERS = [
@@ -20,6 +44,10 @@ const CLARA_WORDMARK_LETTERS = [
   { char: "R", tone: "red" },
   { char: "A", tone: "red" },
 ];
+
+function formatPeso(amount) {
+  return `₱${amount.toLocaleString("en-PH")}`;
+}
 
 export function ClaraWordmark({ className = "", animateLetters = false, reduceMotion = false }) {
   const rootClassName = `clara-onboarding-wordmark ${
@@ -108,8 +136,8 @@ function AccentRule({ tone = "gold" }) {
   return <span className={`clara-onboarding-rule clara-onboarding-rule--${tone}`} aria-hidden="true" />;
 }
 
-function ScreenFrame({ children }) {
-  return <div className="clara-onboarding-screen">{children}</div>;
+function ScreenFrame({ children, className = "" }) {
+  return <div className={`clara-onboarding-screen ${className}`.trim()}>{children}</div>;
 }
 
 export function CountryScreen() {
@@ -185,26 +213,111 @@ export function ScoreMeaningScreen() {
   );
 }
 
-export function DecisionImpactScreen() {
+export function SimulationReadyScreen() {
   return (
     <ScreenFrame>
-      <Eyebrow tone="gold">Now it becomes practical</Eyebrow>
-      <h1 className="clara-onboarding-title">Before you spend, see what it changes.</h1>
-      <div className="clara-onboarding-compare">
-        <section className="clara-onboarding-compare-block clara-onboarding-compare-block--muted">
-          <p className="clara-onboarding-kicker">Before purchase</p>
-          <p className="clara-onboarding-compare-copy">126</p>
-        </section>
-        <AccentRule />
-        <section className="clara-onboarding-compare-block clara-onboarding-compare-block--clara">
-          <p className="clara-onboarding-kicker clara-onboarding-kicker--blue">After a ₱850 purchase</p>
-          <p className="clara-onboarding-compare-copy clara-onboarding-compare-copy--hero">111</p>
-        </section>
-      </div>
-      <p className="clara-onboarding-body clara-onboarding-body--narrow">
-        How do you see the impact before you spend?
+      <Eyebrow tone="gold">So what&apos;s the point?</Eyebrow>
+      <h1 className="clara-onboarding-title">Let&apos;s do a little simulation.</h1>
+      <p className="clara-onboarding-body clara-onboarding-body--lead">
+        You already know what 100 means. Now let&apos;s use the Means Score in a real spending decision.
       </p>
-      <p className="clara-onboarding-tagline">By asking <ClaraBrandName />.</p>
+      <AccentRule />
+      <p className="clara-onboarding-tagline">Ready?</p>
+    </ScreenFrame>
+  );
+}
+
+export function JuanIntroScreen() {
+  return (
+    <ScreenFrame>
+      <Eyebrow>Meet Juan</Eyebrow>
+      <h1 className="clara-onboarding-title clara-onboarding-title--mission">
+        Juan needs new shoes for work.
+      </h1>
+      <p className="clara-onboarding-body clara-onboarding-body--narrow">
+        CLARA already knows his financial situation. His current work shoes are no longer usable, so replacing them is a real need.
+      </p>
+      <div className="clara-onboarding-simulation-score">
+        <span>Juan&apos;s current Means Score</span>
+        <strong>150</strong>
+      </div>
+      <p className="clara-onboarding-tagline clara-onboarding-simulation-question">
+        Can you help Juan buy new shoes without bringing his Means Score below 100?
+      </p>
+    </ScreenFrame>
+  );
+}
+
+export function JuanChoiceScreen({ selectedOptionId, onSelect }) {
+  return (
+    <ScreenFrame className="clara-onboarding-screen--dense clara-onboarding-simulation-choice-screen">
+      <Eyebrow tone="gold">Choose for Juan</Eyebrow>
+      <h1 className="clara-onboarding-title clara-onboarding-title--support">
+        All three are brand-new work shoes. Which one would you choose?
+      </h1>
+      <p className="clara-onboarding-body clara-onboarding-body--narrow">
+        Don&apos;t look only at the price. Look at what each choice does to his Means Score.
+      </p>
+
+      <div className="clara-onboarding-shoe-options" role="group" aria-label="Choose work shoes for Juan">
+        {JUAN_SHOE_OPTIONS.map((option) => {
+          const isSelected = selectedOptionId === option.id;
+          const staysAbove = option.afterScore > 100;
+          const landsOnLine = option.afterScore === 100;
+          const status = staysAbove ? "Stays above 100" : landsOnLine ? "Exactly 100" : "Falls below 100";
+
+          return (
+            <button
+              key={option.id}
+              type="button"
+              className={`clara-onboarding-shoe-option ${isSelected ? "is-selected" : ""}`}
+              onClick={() => onSelect(option.id)}
+              aria-pressed={isSelected}
+            >
+              <span className="clara-onboarding-shoe-option-topline">
+                <strong>{option.name}</strong>
+                <span>{formatPeso(option.price)}</span>
+              </span>
+              <span className="clara-onboarding-shoe-option-impact">
+                <span>Means Score</span>
+                <strong>150 → {option.afterScore}</strong>
+              </span>
+              <span className={`clara-onboarding-shoe-option-status ${staysAbove ? "is-safe" : landsOnLine ? "is-line" : "is-below"}`}>
+                {status}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="clara-onboarding-simulation-scorebar">
+        <span>Juan&apos;s current Means Score</span>
+        <strong>150</strong>
+      </div>
+    </ScreenFrame>
+  );
+}
+
+export function QuantifiedFeedbackScreen({ selectedOptionId }) {
+  const selectedOption = JUAN_SHOE_OPTIONS.find((option) => option.id === selectedOptionId) || JUAN_SHOE_OPTIONS[2];
+
+  return (
+    <ScreenFrame>
+      <Eyebrow tone="gold">That&apos;s the point</Eyebrow>
+      <h1 className="clara-onboarding-title">You didn&apos;t just see the price.</h1>
+      <div className="clara-onboarding-feedback-result">
+        <span className="clara-onboarding-kicker">Juan&apos;s Means Score</span>
+        <strong>150 → {selectedOption.afterScore}</strong>
+        <span>{selectedOption.name} · {formatPeso(selectedOption.price)}</span>
+      </div>
+      <p className="clara-onboarding-body clara-onboarding-body--lead">
+        You saw what the purchase would do to his financial position before he made the decision.
+      </p>
+      <p className="clara-onboarding-tagline">Psychology calls this quantified feedback.</p>
+      <AccentRule />
+      <p className="clara-onboarding-closing">
+        What if Juan could ask CLARA to show him this impact before he buys?
+      </p>
     </ScreenFrame>
   );
 }
