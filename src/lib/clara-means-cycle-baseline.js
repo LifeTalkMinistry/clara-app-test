@@ -54,23 +54,48 @@ function isMalformedMidCycleV5Anchor(value) {
 }
 
 function isLegacyFixedCycleAnchor(candidate, current) {
-  const version = Number(candidate?.version);
   return Boolean(
     candidate &&
-      [1, 2, 3].includes(version) &&
+      Number(candidate.version) === 3 &&
       sameCycle(candidate, current) &&
       Number.isFinite(Number(candidate.requiredRunway)) &&
       Number(candidate.requiredRunway) > Number(current.requiredRunway)
   );
 }
 
+function findLegacyFixedCycleAnchor(storage, keys, current) {
+  const candidates = [];
+
+  for (const key of keys) {
+    if (!LEGACY_BASELINE_STORAGE_PREFIXES.some((prefix) => key.startsWith(`${prefix}:`))) {
+      continue;
+    }
+
+    const candidate = parseStoredBaseline(storage.getItem(key));
+    if (!isLegacyFixedCycleAnchor(candidate, current)) continue;
+
+    candidates.push({ key, candidate });
+  }
+
+  if (!candidates.length) return null;
+
+  // v3 is the last pre-reconstruction baseline that represented the already-established
+  // fixed cycle ruler. When an authenticated identity changed after that anchor was written,
+  // the storage owner suffix may differ, but the pay-cycle dates remain authoritative.
+  return candidates.sort(
+    (left, right) =>
+      finiteNonNegative(right.candidate.requiredRunway) -
+      finiteNonNegative(left.candidate.requiredRunway)
+  )[0];
+}
+
 // Once a pay cycle starts, the user's personal 100 stays fixed until the next pay cycle.
-// A completed commitment, debt payment, plan fingerprint change, reload, or date progression
-// must never make CLARA replace that ruler with today's remaining commitments.
+// A completed commitment, debt payment, plan fingerprint change, reload, identity migration,
+// or date progression must never make CLARA replace that ruler with today's remaining plan.
 //
-// This migration is deliberately narrow: it never derives 100 from wallet balances,
-// transactions, paid debt, completed commitments, or current remaining commitments. It only
-// restores a previously stored fixed-cycle anchor for the exact same owner and pay-cycle dates.
+// Recovery never derives 100 from wallet balances, transactions, paid debt, completed
+// commitments, or current remaining commitments. It restores only a previously persisted
+// v3 fixed-cycle anchor whose cycleStart/cycleEnd exactly match the active v5 cycle.
 export function repairMalformedMeansBaselineStorage(storage) {
   if (!storage || typeof storage.getItem !== "function" || typeof storage.setItem !== "function") {
     return 0;
@@ -96,19 +121,13 @@ export function repairMalformedMeansBaselineStorage(storage) {
     const current = parseStoredBaseline(storage.getItem(key));
     if (!isMalformedMidCycleV5Anchor(current)) continue;
 
-    const suffix = key.slice(currentPrefix.length);
-    let legacy = null;
-    let legacyPrefix = "";
+    const legacyEntry = findLegacyFixedCycleAnchor(storage, keys, current);
+    if (!legacyEntry) continue;
 
-    for (const prefix of LEGACY_BASELINE_STORAGE_PREFIXES) {
-      const candidate = parseStoredBaseline(storage.getItem(`${prefix}:${suffix}`));
-      if (!isLegacyFixedCycleAnchor(candidate, current)) continue;
-      legacy = candidate;
-      legacyPrefix = prefix;
-      break;
-    }
-
-    if (!legacy) continue;
+    const legacy = legacyEntry.candidate;
+    const legacyPrefix = LEGACY_BASELINE_STORAGE_PREFIXES.find((prefix) =>
+      legacyEntry.key.startsWith(`${prefix}:`)
+    ) || "clara:means-cycle-baseline:v3";
 
     try {
       storage.setItem(
@@ -119,6 +138,7 @@ export function repairMalformedMeansBaselineStorage(storage) {
           restoredFromLegacyFixedAnchor: true,
           restoredFromVersion: Number(legacy.version),
           restoredFromStoragePrefix: legacyPrefix,
+          restoredFromStorageKey: legacyEntry.key,
           restoredPreviousV5RequiredRunway: finiteNonNegative(current.requiredRunway),
           restoredAt: new Date().toISOString(),
           refreshReason: "restored_pre_v4_fixed_cycle_anchor",
