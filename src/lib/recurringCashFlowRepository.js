@@ -126,10 +126,16 @@ function firstWeekdayOnOrAfter(startKey, weekday) {
 export function getRecurrenceOccurrences(ruleInput, rangeStart, rangeEnd, { kind = "bill" } = {}) {
   const range = dateRange(rangeStart, rangeEnd);
   const rule = normalizeRecurrenceRule(ruleInput, { kind, fallbackDate: range.start });
+  const incomePatternBackfill =
+    kind === "income" && ["weekly", "monthly", "twice_monthly"].includes(rule.type);
   const occurrences = [];
   const push = (dateKey) => {
     if (!dateKey || compareDateKeys(dateKey, range.start) < 0 || compareDateKeys(dateKey, range.end) > 0) return;
-    if (compareDateKeys(dateKey, rule.startDate) < 0) return;
+    // Stable-income setup records when the schedule was configured, but for calendar-pattern
+    // income (weekly/monthly/twice-monthly) that date is not the first-ever payday. Backfill
+    // the pattern inside the requested range so a newly configured account immediately has
+    // both the previous and next payday needed to establish its active pay cycle.
+    if (!incomePatternBackfill && compareDateKeys(dateKey, rule.startDate) < 0) return;
     occurrences.push(dateKey);
   };
 
@@ -140,7 +146,7 @@ export function getRecurrenceOccurrences(ruleInput, rangeStart, rangeEnd, { kind
   } else if (rule.type === "weekly" || rule.type === "biweekly") {
     const step = rule.type === "biweekly" ? 14 : 7;
     let cursor = rule.type === "weekly"
-      ? firstWeekdayOnOrAfter(rule.startDate, rule.dayOfWeek)
+      ? firstWeekdayOnOrAfter(incomePatternBackfill ? range.start : rule.startDate, rule.dayOfWeek)
       : rule.startDate;
 
     while (cursor && compareDateKeys(cursor, range.start) < 0) cursor = addLocalDays(cursor, step);
