@@ -181,15 +181,12 @@ test("Settings owns its detail history, logout, and scroll behavior without reti
 });
 
 test("schedule guide runtime cannot click or block the top navigation", () => {
-  assert.doesNotMatch(scheduleRuntimeSource, /button\[aria-label="Home"\]/);
+  assert.match(scheduleRuntimeSource, /Guide Mode was retired/);
+  assert.match(scheduleRuntimeSource, /export function installClaraGuideScheduleRuntime\(\) \{\}/);
   assert.doesNotMatch(scheduleRuntimeSource, /\.click\(\)/);
-  assert.match(scheduleRuntimeSource, /isGuideScopedTarget/);
-  assert.match(scheduleRuntimeSource, /startObserver/);
-  assert.match(scheduleRuntimeSource, /stopObserver/);
-  assert.doesNotMatch(
-    scheduleRuntimeSource,
-    /export function installClaraGuideScheduleRuntime[\s\S]*observer\.observe\(document\.body/
-  );
+  assert.doesNotMatch(scheduleRuntimeSource, /MutationObserver/);
+  assert.doesNotMatch(scheduleRuntimeSource, /addEventListener/);
+  assert.doesNotMatch(scheduleRuntimeSource, /observer\.observe/);
 });
 
 test("Me panel has one viewport owner and inherits that height through the component tree", () => {

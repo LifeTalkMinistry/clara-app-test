@@ -142,35 +142,18 @@ test("Calendar Orb command opens the existing Community Schedule calendar", asyn
   }
 
   const fakeWindow = new EventTarget();
-  let pushedPath = "";
-  let popstateObserved = false;
-  let chatOpened = false;
-
-  fakeWindow.history = {
-    state: null,
-    pushState(state, _title, path) {
-      this.state = state;
-      pushedPath = String(path || "");
-    },
-  };
-  fakeWindow.location = {
-    assign(path) {
-      pushedPath = String(path || "");
-    },
-  };
-
-  fakeWindow.addEventListener("popstate", () => {
-    popstateObserved = true;
-  });
-  fakeWindow.addEventListener(CLARA_PAUSE_OPEN_REQUEST_EVENT, () => {
-    chatOpened = true;
-  });
-
   globalThis.window = fakeWindow;
   globalThis.CustomEvent = TestCustomEvent;
 
   try {
     await import(`../src/runtime/installClaraOrbCommandChatRouting.js?test=${Date.now()}-calendar`);
+    const pauseRequest = new Promise((resolve) => {
+      fakeWindow.addEventListener(
+        CLARA_PAUSE_OPEN_REQUEST_EVENT,
+        (event) => resolve(event.detail),
+        { once: true }
+      );
+    });
 
     fakeWindow.dispatchEvent(
       new TestCustomEvent(CLARA_ORB_COMMAND_SELECT_EVENT, {
@@ -182,10 +165,10 @@ test("Calendar Orb command opens the existing Community Schedule calendar", asyn
       })
     );
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    assert.equal(pushedPath, "/community?view=schedule");
-    assert.equal(popstateObserved, true);
-    assert.equal(chatOpened, false);
+    const detail = await pauseRequest;
+    assert.equal(detail.mode, "calendar");
+    assert.equal(detail.commandId, "calendar");
+    assert.equal(detail.source, "clara-orb-page");
   } finally {
     fakeWindow.__claraOrbCommandChatRoutingRuntime__?.destroy?.();
     globalThis.window = previousWindow;

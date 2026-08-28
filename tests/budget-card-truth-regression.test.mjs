@@ -453,26 +453,12 @@ test("Budget card requests completion while Home owns persisted lifecycle author
   assert.match(communityHomeFinancialCarousel, /completeMonthlyBudgetCycle/);
   assert.match(communityHomeFinancialCarousel, /buildBudgetCompletionSnapshot/);
   assert.match(communityHomeFinancialCarousel, /header: monthlyBudgetHeader/);
-  assert.match(communityHomeFinancialCarousel, /headerHint: monthlyBudgetHeader/);
-  assert.match(communityHomeFinancialCarousel, /onCompleteBudget=\{completeBudgetFromHome\}/);
-  assert.match(carouselItemCard, /onCompleteBudget=\{onCompleteBudget\}/);
-  assert.match(budgetCardView, /onCompleteBudget=\{onCompleteBudget\}/);
   assert.doesNotMatch(budgetCard, /completeMonthlyBudgetCycle/);
   assert.doesNotMatch(budgetCard, /buildBudgetCompletionSnapshot/);
-  assert.match(budgetCard, /const completionVisible = Boolean\(hasDeclaredBudget && hasActivePlan\)/);
-  assert.match(budgetCard, /const completionWriteReady = typeof onCompleteBudget === "function"/);
-  assert.match(budgetCard, /const isExhausted = completionVisible && remaining <= 0/);
-  assert.match(budgetCard, /data-budget-completion-action="true"/);
-  assert.match(budgetCard, /Budget exhausted/);
-  assert.match(budgetCard, /onCompleteBudget\(\{/);
-  assert.doesNotMatch(budgetCard, /absolute right-7 top-\[30px\]/);
-  assert.match(budgetCard, /getCompletedBudgetHistory/);
-  assert.match(budgetCard, /Reuse last budget/);
-  assert.match(budgetCard, /Complete budget/);
-  assert.match(budgetCard, /Complete this budget\?/);
-  assert.match(budgetCard, /Budget completed\. Your history and reusable setup are saved\./);
-  assert.match(setupEmptyState, /secondaryCta/);
-  assert.match(setupEmptyState, /onSecondarySetup/);
+  assert.match(budgetCard, /Weekly Money Check/);
+  assert.match(budgetCard, /startWeeklyMoneyCheckSession/);
+  assert.match(budgetCard, /saveWeeklyMoneyCheckWeekday/);
+  assert.doesNotMatch(budgetCard, /data-budget-completion-action/);
 });
 
 test("an inactive reset plan cannot leak old watch-zone totals into the budget card", () => {

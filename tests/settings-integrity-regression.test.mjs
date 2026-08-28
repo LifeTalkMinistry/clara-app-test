@@ -8,7 +8,7 @@ const readSource = (relativePath) =>
 const scheduleSource = readSource(
   "src/lib/notifications/scheduleNotificationEvaluator.js"
 );
-const localFacadeSource = readSource("src/lib/local-supabase-facade.js");
+const localFacadeSource = readSource("src/lib/local-data-facade.js");
 const notificationHookSource = readSource(
   "src/hooks/useNotificationPreferences.js"
 );
@@ -37,6 +37,7 @@ const adminPanelSource = readSource("src/pages/AdminPanel.jsx");
 const adminClientSource = readSource("src/lib/admin-backend-client.js");
 const profileClientSource = readSource("src/lib/profile-backend-client.js");
 const supabaseClientSource = readSource("src/lib/supabaseClient.js");
+const claraDataClientSource = readSource("src/lib/clara-data-client.js");
 const supportCompatibilitySource = readSource(
   "src/lib/settings-support-compatibility.js"
 );
@@ -108,20 +109,16 @@ test("notification preference storage failures cannot crash Settings", () => {
 
 test("notification Settings no longer queries retired program tables to decide whether task settings exist", () => {
   assert.doesNotMatch(notificationPanelSource, /from\("user_programs"\)/);
-  assert.doesNotMatch(
-    notificationPanelSource,
-    /from\("user_program_day_assignments"\)/
-  );
-  assert.match(notificationPanelSource, /Delivery diagnostics/);
-  assert.doesNotMatch(notificationPanelSource, /TaskReminderSettingsCard/);
+  assert.doesNotMatch(notificationPanelSource, /from\("user_program_day_assignments"\)/);
+  assert.match(notificationPanelSource, /Push notifications/);
   assert.match(notificationPanelSource, /tasksAndCoaching/);
+  assert.doesNotMatch(notificationPanelSource, /TaskReminderSettingsCard/);
 });
 
 test("Weekly Money Review visible setting is the authoritative runtime gate", () => {
-  assert.match(
-    notificationRegistrySource,
-    /eventType === "weekly_review_ready"[\s\S]*weeklyMoneyReview !== false/
-  );
+  assert.match(notificationRegistrySource, /weekly_review_ready: event\(\{ category: NOTIFICATION_CATEGORIES\.WEEKLY_REVIEW/);
+  assert.match(notificationRegistrySource, /\[NOTIFICATION_CATEGORIES\.WEEKLY_REVIEW\]: "weeklyMoneyReview"/);
+  assert.match(notificationRegistrySource, /return preferenceKey \? preferences\?\.\[preferenceKey\] !== false : false/);
 });
 
 test("the Settings overview leaves notification state to the Notifications detail surface", () => {
@@ -150,7 +147,8 @@ test("Settings no longer installs duplicate theme hiding or the hidden double-ta
     runtimePatchRegistrySource,
     /clara-settings-young-professional-current-state/
   );
-  assert.match(runtimePatchRegistrySource, /clara-google-play-verify-auth-retry/);
+  assert.match(runtimePatchRegistrySource, /google-play-already-owned-restore-bridge/);
+  assert.doesNotMatch(runtimePatchRegistrySource, /clara-google-play-verify-auth-retry/);
 });
 
 test("signed-in theme persistence is scoped to the active CLARA account", () => {
@@ -200,7 +198,8 @@ test("legacy profile compatibility writes through the canonical CLARA Profile", 
 });
 
 test("legacy Settings support UI delivers into the real CLARA backend support inbox", () => {
-  assert.match(supabaseClientSource, /withSettingsSupportCompatibility/);
+  assert.match(claraDataClientSource, /withSettingsSupportCompatibility\(createLocalDataFacade\(\)\)/);
+  assert.doesNotMatch(supabaseClientSource, /withSettingsSupportCompatibility/);
   assert.match(supportCompatibilitySource, /direct_messages/);
   assert.match(supportCompatibilitySource, /sendBackendSupportMessage/);
   assert.match(supportClientSource, /backendRequest\("\/api\/support\/messages"/);

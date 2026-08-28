@@ -40,7 +40,8 @@ test("environment switches chat modes without routing to Financial Dashboard", (
 test("Wallet chat owns wallet creation and funding", () => {
   assert.match(walletSource, /addWallet\(localUserId/);
   assert.match(walletSource, /addMoney\(localUserId/);
-  assert.match(walletSource, /no Financial Dashboard needed/i);
+  assert.match(walletSource, /transferBetweenWallets/);
+  assert.match(walletSource, /deleteWallet/);
   assert.match(walletSource, /onWalletReady/);
   assert.match(walletSource, /data-clara-wallet-chat-intent/);
 });

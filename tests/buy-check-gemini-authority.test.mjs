@@ -136,13 +136,15 @@ test("user still has Yes, No, and Ask more choices and Ask more preserves eviden
 
 test("hypothetical installment simulation cannot mutate money before safe recording exists", async () => {
   const finalization = await source("src/components/fresh/main-dashboard/assistant/useClaraBuyCheckFlowV5.js");
-  const guard = finalization.indexOf('if (decision.choice === "buy" && paymentStructure)');
-  const mutation = finalization.indexOf("await addBuyCheckExpense");
+  const installmentGuard = finalization.indexOf('if (decision.choice === "buy" && paymentStructure)');
+  const obligationWrite = finalization.indexOf("await upsertDebtObligation");
+  const oneTimeExpenseWrite = finalization.indexOf("await addBuyCheckExpense");
 
-  assert.ok(guard >= 0, "installment safety guard must exist");
-  assert.ok(mutation >= 0, "one-time expense mutation must still exist");
-  assert.ok(guard < mutation, "installment guard must run before any expense mutation");
-  assert.match(finalization, /cannot safely record the future payment schedule yet\. No money was changed/);
+  assert.ok(installmentGuard >= 0, "installment safety guard must exist");
+  assert.ok(obligationWrite > installmentGuard, "installments must use the obligation ledger");
+  assert.ok(oneTimeExpenseWrite > obligationWrite, "installment handling must finish before one-time expense mutation");
+  assert.match(finalization, /No wallet money was deducted yet/);
+  assert.match(finalization, /Record each actual payment from Debt \/ Obligations when you pay it/);
 });
 
 test("No remains a non-spending path and post-choice saving does not spend another Gemini call", async () => {

@@ -282,17 +282,28 @@ function analyzeIncomeRunway(context = {}, options = {}) {
     if (legacyFallback) return legacyFallback;
   }
 
+  const connected = Boolean(
+    context.incomeHubSnapshot?.connected ||
+      Array.isArray(context.incomes) ||
+      Array.isArray(context.incomeSources)
+  );
+  const hasIncomeEvidence = connected && records.length > 0;
+
   return {
-    connected: Boolean(context.incomeHubSnapshot?.connected || Array.isArray(context.incomes) || Array.isArray(context.incomeSources)),
+    connected,
     latestIncomeDate: latest?.date || null,
     latestIncomeAmount: latest?.amount || 0,
     sourceName: latest?.sourceName || "",
     estimatedNextIncomeDate: null,
     daysUntilNextIncome: null,
     regularity: "unknown",
-    confidence: "none",
+    confidence: hasIncomeEvidence ? "low" : "none",
     timingAuthority: "schedule",
-    basis: ["no_configured_income_schedule"],
+    basis: [
+      hasIncomeEvidence
+        ? "insufficient_income_history"
+        : "no_configured_income_schedule",
+    ],
     recordCount: records.length,
   };
 }
