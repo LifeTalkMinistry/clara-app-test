@@ -10,7 +10,6 @@ import {
   stableMeansPlanFingerprint,
 } from "../src/lib/clara-means-cycle-baseline.js";
 
-// Guards the live ORB presentation boundary against a second Means Score authority.
 const CYCLE_A = {
   start: "2026-08-25",
   end: "2026-09-10",
@@ -211,18 +210,18 @@ test("healthy v5 anchor is never replaced by legacy storage", () => {
   assert.equal(JSON.parse(storage.getItem(currentKey)).requiredRunway, 10000);
 });
 
-test("legacy anchor with a different plan fingerprint cannot overwrite v5", () => {
+test("same-cycle fixed anchor survives a changed plan fingerprint", () => {
   const suffix = `local-user:${CYCLE_A.start}:${CYCLE_A.end}`;
   const currentKey = `clara:means-cycle-baseline:v5:${suffix}`;
   const legacyKey = `clara:means-cycle-baseline:v3:${suffix}`;
   const storage = new MemoryStorage({
     [currentKey]: JSON.stringify({
       version: 5,
-      requiredRunway: 3401,
+      requiredRunway: 1820,
       assumedSpentAtLock: 280,
       cycleStart: CYCLE_A.start,
       cycleEnd: CYCLE_A.end,
-      planFingerprint: fingerprint("current-plan", 3401),
+      planFingerprint: fingerprint("current-remaining-plan", 1820),
       refreshReason: "new_cycle_or_stale_baseline",
     }),
     [legacyKey]: JSON.stringify({
@@ -231,12 +230,15 @@ test("legacy anchor with a different plan fingerprint cannot overwrite v5", () =
       assumedSpentAtLock: 0,
       cycleStart: CYCLE_A.start,
       cycleEnd: CYCLE_A.end,
-      planFingerprint: fingerprint("different-plan", 10403),
+      planFingerprint: fingerprint("original-full-cycle-plan", 10403),
     }),
   });
 
-  assert.equal(repairMalformedMeansBaselineStorage(storage), 0);
-  assert.equal(JSON.parse(storage.getItem(currentKey)).requiredRunway, 3401);
+  assert.equal(repairMalformedMeansBaselineStorage(storage), 1);
+  const repaired = JSON.parse(storage.getItem(currentKey));
+  assert.equal(repaired.requiredRunway, 10403);
+  assert.equal(canonicalScore(5569, repaired), 54);
+  assert.notEqual(canonicalScore(5569, repaired), 306);
 });
 
 test("production incident uses fixed baseline instead of 3,401 dynamic remaining runway", () => {
