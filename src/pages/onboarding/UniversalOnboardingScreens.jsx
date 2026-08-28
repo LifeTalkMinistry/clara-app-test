@@ -249,22 +249,19 @@ export function JuanIntroScreen() {
 }
 
 export function JuanChoiceScreen({ selectedOptionId, onSelect }) {
+  const selectedOption = JUAN_SHOE_OPTIONS.find((option) => option.id === selectedOptionId);
+  const displayedScore = selectedOption?.afterScore ?? 150;
+
   return (
     <ScreenFrame className="clara-onboarding-screen--dense clara-onboarding-simulation-choice-screen">
       <Eyebrow tone="gold">Choose for Juan</Eyebrow>
       <h1 className="clara-onboarding-title clara-onboarding-title--support">
-        All three are brand-new work shoes. Which one would you choose?
+        Which one would you choose?
       </h1>
-      <p className="clara-onboarding-body clara-onboarding-body--narrow">
-        Don&apos;t look only at the price. Look at what each choice does to his Means Score.
-      </p>
 
       <div className="clara-onboarding-shoe-options" role="group" aria-label="Choose work shoes for Juan">
         {JUAN_SHOE_OPTIONS.map((option) => {
           const isSelected = selectedOptionId === option.id;
-          const staysAbove = option.afterScore > 100;
-          const landsOnLine = option.afterScore === 100;
-          const status = staysAbove ? "Stays above 100" : landsOnLine ? "Exactly 100" : "Falls below 100";
 
           return (
             <button
@@ -278,21 +275,18 @@ export function JuanChoiceScreen({ selectedOptionId, onSelect }) {
                 <strong>{option.name}</strong>
                 <span>{formatPeso(option.price)}</span>
               </span>
-              <span className="clara-onboarding-shoe-option-impact">
-                <span>Means Score</span>
-                <strong>150 → {option.afterScore}</strong>
-              </span>
-              <span className={`clara-onboarding-shoe-option-status ${staysAbove ? "is-safe" : landsOnLine ? "is-line" : "is-below"}`}>
-                {status}
-              </span>
             </button>
           );
         })}
       </div>
 
-      <div className="clara-onboarding-simulation-scorebar">
-        <span>Juan&apos;s current Means Score</span>
-        <strong>150</strong>
+      <div className="clara-onboarding-simulation-scorebar" aria-live="polite">
+        <span>
+          {selectedOption
+            ? "Your choice changes Juan's Means Score to"
+            : "Juan starts at Means Score"}
+        </span>
+        <strong>{displayedScore}</strong>
       </div>
     </ScreenFrame>
   );
