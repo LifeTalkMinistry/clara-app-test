@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, ChevronLeft, Compass, Sparkles } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import ClaraBrandName from "@/components/ClaraBrandName";
 import ClaraCoreTutorial from "./ClaraCoreTutorial";
 import { getUniversalOnboardingStyles } from "./UniversalOnboardingStyles";
 import {
@@ -30,7 +31,40 @@ const CORE_TUTORIAL_STATUS_PREFIX = "clara_core_tutorial_status_v1";
 // Keep the tutorial implementation intact while temporarily removing it from onboarding.
 // Flip this back on when the guided walkthrough is ready to return.
 const CORE_TUTORIAL_ENABLED = false;
-const ONBOARDING_SCREEN_IDS = SCREEN_IDS;
+const ONBOARDING_SCREEN_IDS = [
+  ...SCREEN_IDS.slice(0, -1),
+  "movement-build-up",
+  SCREEN_IDS[SCREEN_IDS.length - 1],
+];
+
+function MovementBuildUpScreen() {
+  return (
+    <div className="clara-onboarding-screen">
+      <span className="clara-onboarding-eyebrow clara-onboarding-eyebrow--gold">
+        Before we end
+      </span>
+      <h1
+        className="clara-onboarding-title clara-onboarding-title--mission"
+        style={{ maxWidth: 360, marginTop: 28 }}
+      >
+        There&apos;s one more thing I want you to know.
+      </h1>
+      <p
+        className="clara-onboarding-body clara-onboarding-body--lead"
+        style={{ maxWidth: 335, marginTop: 28 }}
+      >
+        When you join <ClaraBrandName />, you&apos;re not just using a financial tool.
+      </p>
+      <span className="clara-onboarding-rule clara-onboarding-rule--gold" aria-hidden="true" />
+      <p
+        className="clara-onboarding-tagline"
+        style={{ maxWidth: 330, marginTop: 28, lineHeight: 1.35 }}
+      >
+        You&apos;re joining the <ClaraBrandName /> movement.
+      </p>
+    </div>
+  );
+}
 
 function completionKey(user) {
   const identity = user?.id || user?.email || "local";
@@ -140,6 +174,7 @@ export default function UniversalOnboarding() {
     }
     if (activeScreen === "mission-rule") return <MissionRuleScreen />;
     if (activeScreen === "clara-context") return <ClaraContextScreen />;
+    if (activeScreen === "movement-build-up") return <MovementBuildUpScreen />;
     return <BiggerVisionScreen />;
   })();
 
