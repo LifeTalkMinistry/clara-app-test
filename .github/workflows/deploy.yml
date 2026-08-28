@@ -30,11 +30,17 @@ jobs:
         with:
           node-version: 22
 
-      - name: Apply fixed Means baseline repair
-        run: python3 scripts/fix_means_fixed_full_cycle_anchor_v6.py
+      - name: Apply full-cycle Means plan anchor
+        run: python3 scripts/fix_means_plan_delta_anchor_v7.py
 
       - name: Apply remaining full-suite repair
         run: python3 scripts/fix_remaining_full_suite_after_means_v1.py
+
+      - name: Preserve current Means regression contracts
+        run: |
+          git restore --source=HEAD -- src/lib/clara-means-cycle-baseline.js
+          git restore --source=HEAD -- tests/means-score-context-baseline-regression.test.mjs
+          git restore --source=HEAD -- tests/means-score-single-authority-regression.test.mjs
 
       - name: Preserve current Wallet regression owner
         run: git restore --source=HEAD -- tests/wallet-expanded-flow-regression.test.mjs
@@ -44,12 +50,14 @@ jobs:
 
       - name: Syntax checks
         run: |
-          python3 -m py_compile scripts/fix_means_fixed_full_cycle_anchor_v6.py scripts/fix_remaining_full_suite_after_means_v1.py
+          python3 -m py_compile scripts/fix_means_plan_delta_anchor_v7.py scripts/fix_remaining_full_suite_after_means_v1.py
           node --check src/runtime/installClaraOrbGreeting.js
           node --check src/lib/clara-means-cycle-baseline.js
+          node --check src/lib/debtObligationStore.js
           node --check src/lib/clara-buy-check-wallet-engine.js
           node --check src/lib/clara-buy-check-income-runway-engine.js
           node --check src/lib/clara-wallet-money-semantics.js
+          node --check public/clara-task-reminder-sw.js
 
       - name: Run focused financial regression tests
         run: |
@@ -83,9 +91,11 @@ jobs:
             git add \
               src/runtime/installClaraOrbGreeting.js \
               src/lib/clara-means-cycle-baseline.js \
+              src/lib/debtObligationStore.js \
               src/lib/clara-buy-check-wallet-engine.js \
               src/lib/clara-buy-check-income-runway-engine.js \
               src/lib/clara-wallet-money-semantics.js \
+              public/clara-task-reminder-sw.js \
               tests
             git commit -m "Restore financial integrity and regression contracts"
             git push origin HEAD:main
