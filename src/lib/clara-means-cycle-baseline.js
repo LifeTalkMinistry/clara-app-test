@@ -41,13 +41,6 @@ function sameCycle(left, right) {
   );
 }
 
-function fingerprintsCompatible(left, right) {
-  const leftFingerprint = String(left?.planFingerprint || "");
-  const rightFingerprint = String(right?.planFingerprint || "");
-  if (!leftFingerprint || !rightFingerprint) return true;
-  return leftFingerprint === rightFingerprint;
-}
-
 function isMalformedMidCycleV5Anchor(value) {
   return Boolean(
     value &&
@@ -61,24 +54,23 @@ function isMalformedMidCycleV5Anchor(value) {
 }
 
 function isLegacyFixedCycleAnchor(candidate, current) {
+  const version = Number(candidate?.version);
   return Boolean(
     candidate &&
-      Number(candidate.version) === 3 &&
+      [1, 2, 3].includes(version) &&
       sameCycle(candidate, current) &&
-      fingerprintsCompatible(candidate, current) &&
       Number.isFinite(Number(candidate.requiredRunway)) &&
       Number(candidate.requiredRunway) > Number(current.requiredRunway)
   );
 }
 
-// v5 was intentionally introduced without mutating healthy same-cycle anchors. One rollout,
-// however, could create a fresh v5 anchor in the middle of an already-running cycle from only
-// the remaining plan. That made values such as 3,121 + 280 become the new 100 even when the
-// browser still held the previously locked full-cycle v3 anchor.
+// Once a pay cycle starts, the user's personal 100 stays fixed until the next pay cycle.
+// A completed commitment, debt payment, plan fingerprint change, reload, or date progression
+// must never make CLARA replace that ruler with today's remaining commitments.
 //
 // This migration is deliberately narrow: it never derives 100 from wallet balances,
 // transactions, paid debt, completed commitments, or current remaining commitments. It only
-// restores a previously stored v3 fixed-cycle anchor for the exact same owner/cycle and plan.
+// restores a previously stored fixed-cycle anchor for the exact same owner and pay-cycle dates.
 export function repairMalformedMeansBaselineStorage(storage) {
   if (!storage || typeof storage.getItem !== "function" || typeof storage.setItem !== "function") {
     return 0;
@@ -174,9 +166,6 @@ export function resolveMeansCycleBaselineState({
   const normalizedRequired = finiteNonNegative(requiredRunway);
   const normalizedAssumed = finiteNonNegative(assumedSpent);
 
-  // Once a valid v5 cycle anchor exists, keep it fixed for the rest of that cycle.
-  // A version bump intentionally invalidates older reconstructed anchors that may have
-  // absorbed already-paid debt or other realized transactions into the user's 100.
   const validSameCycleBaseline = Boolean(
     stored &&
       Number(stored.version) === BASELINE_VERSION &&
@@ -201,10 +190,6 @@ export function resolveMeansCycleBaselineState({
     };
   }
 
-  // Deterministic migration/new-cycle strategy: use only the authoritative planned-cycle
-  // requirement available now plus elapsed routine that belongs to that declared plan.
-  // Do not synthesize missing history from wallet balances, transactions, debt payments,
-  // completed obligations, or any other realized state.
   const fullCycleRequiredRunway = normalizedRequired + normalizedAssumed;
 
   return {
