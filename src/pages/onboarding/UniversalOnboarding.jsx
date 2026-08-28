@@ -144,7 +144,7 @@ export default function UniversalOnboarding() {
     if (activeScreen === "juan-choice") {
       return selectedJuanShoe ? "See the impact" : "Choose a pair";
     }
-    if (activeScreen === "quantified-feedback") return "Ask CLARA";
+    if (activeScreen === "quantified-feedback") return "Continue";
     return "Continue";
   })();
 
