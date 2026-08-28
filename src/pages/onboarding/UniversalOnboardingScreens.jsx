@@ -160,8 +160,11 @@ export function MeansScoreScreen() {
           <p className="clara-onboarding-compare-copy clara-onboarding-compare-copy--hero">87</p>
         </section>
       </div>
+      <p className="clara-onboarding-kicker clara-onboarding-kicker--blue">
+        Psychology calls this quantified feedback.
+      </p>
       <p className="clara-onboarding-body clara-onboarding-body--narrow">
-        One practical number that makes your financial position visible.
+        Turning your financial position into a number makes it easier to see, track, and respond when it changes.
       </p>
     </ScreenFrame>
   );
