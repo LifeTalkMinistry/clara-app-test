@@ -19,10 +19,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Patch runtime
+      - name: Patch Means debt lifecycle
         run: python3 scripts/fix_means_paid_debt_baseline_v5.py
 
-      - name: Commit runtime repair
+      - name: Syntax check repaired sources
+        run: |
+          node --check src/runtime/installClaraOrbGreeting.js
+          node --check src/lib/debtOccurrenceState.js
+
+      - name: Commit verified repair
         run: |
           if git diff --quiet; then
             echo "Runtime already repaired."
@@ -30,6 +35,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/runtime/installClaraOrbGreeting.js
-          git commit -m "Fix Means paid-debt baseline reconstruction"
+          git add src/runtime/installClaraOrbGreeting.js src/lib/debtOccurrenceState.js
+          git commit -m "Exclude early-paid debt occurrences from Means"
           git push
