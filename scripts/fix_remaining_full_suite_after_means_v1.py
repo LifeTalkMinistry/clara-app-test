@@ -1,3 +1,4 @@
+# Trigger verified full-suite repair after workflow path activation.
 from pathlib import Path
 import re
 
