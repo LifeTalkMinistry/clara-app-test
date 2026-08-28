@@ -62,7 +62,7 @@ const MEANS_CONTEXT_KEY = "__claraCanonicalMeansSnapshot__";
 const INCOME_HUB_UPDATED_EVENT = "clara-income-hub-updated";
 const INCOME_HUB_CASH_IN_TYPE = "add_money";
 const SAVINGS_GOAL_SCHEDULE_SOURCE = "savings_goal_card_projection";
-const MEANS_CYCLE_BASELINE_STORAGE_PREFIX = "clara:means-cycle-baseline:v3";
+const MEANS_CYCLE_BASELINE_STORAGE_PREFIX = "clara:means-cycle-baseline:v5";
 
 function resolveGreetingLabel() {
   return (
@@ -720,18 +720,12 @@ function resolveLockedMeansCycleBaseline({
   debtObligations,
   planFingerprint,
 }) {
-  const plannedDebtAlreadyPaid = plannedDebtPaidInsideCycle(
-    debtObligations,
-    cycleStart,
-    cycleEnd
-  );
-
-  // 100 is the full predicted amount needed for this pay cycle. Keep already-realized
-  // planned debt inside the floor so fulfilling a known obligation cannot make the
-  // measuring stick artificially smaller.
+  // Rebuild the cycle anchor only from currently declared/predicted cycle context.
+  // Never backfill already-paid debt from payment history: that silently makes old
+  // transactions part of the user's hidden 100 and can double-count realized outflow.
   const reconstructedRequiredRunway = Math.max(
     Number(requiredRunwayCandidate || 0),
-    Number(upcoming || 0) + plannedDebtAlreadyPaid,
+    Number(upcoming || 0),
     0
   );
   const fallbackState = resolveMeansCycleBaselineState({
