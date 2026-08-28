@@ -1,10 +1,4 @@
-const BASELINE_VERSION = 5;
-const CURRENT_BASELINE_STORAGE_PREFIX = "clara:means-cycle-baseline:v5";
-const LEGACY_BASELINE_STORAGE_PREFIXES = [
-  "clara:means-cycle-baseline:v3",
-  "clara:means-cycle-baseline:v2",
-  "clara:means-cycle-baseline:v1",
-];
+const BASELINE_VERSION = 6;
 
 function finiteNonNegative(value) {
   const amount = Number(value);
@@ -23,142 +17,12 @@ function canonicalize(value) {
     }, {});
 }
 
-function parseStoredBaseline(value) {
-  try {
-    const parsed = JSON.parse(String(value || "null"));
-    return parsed && typeof parsed === "object" ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function sameCycle(left, right) {
-  return Boolean(
-    left &&
-      right &&
-      left.cycleStart === right.cycleStart &&
-      left.cycleEnd === right.cycleEnd
-  );
-}
-
-function fingerprintsCompatible(left, right) {
-  const leftFingerprint = String(left?.planFingerprint || "");
-  const rightFingerprint = String(right?.planFingerprint || "");
-  if (!leftFingerprint || !rightFingerprint) return true;
-  return leftFingerprint === rightFingerprint;
-}
-
-function isMalformedMidCycleV5Anchor(value) {
-  return Boolean(
-    value &&
-      Number(value.version) === BASELINE_VERSION &&
-      Number.isFinite(Number(value.requiredRunway)) &&
-      Number(value.requiredRunway) >= 0 &&
-      finiteNonNegative(value.assumedSpentAtLock) > 0 &&
-      String(value.refreshReason || "") === "new_cycle_or_stale_baseline" &&
-      !value.restoredFromLegacyFixedAnchor
-  );
-}
-
-function isLegacyFixedCycleAnchor(candidate, current) {
-  return Boolean(
-    candidate &&
-      Number(candidate.version) === 3 &&
-      sameCycle(candidate, current) &&
-      fingerprintsCompatible(candidate, current) &&
-      Number.isFinite(Number(candidate.requiredRunway)) &&
-      Number(candidate.requiredRunway) > Number(current.requiredRunway)
-  );
-}
-
-// v5 was intentionally introduced without mutating healthy same-cycle anchors. One rollout,
-// however, could create a fresh v5 anchor in the middle of an already-running cycle from only
-// the remaining plan. That made values such as 3,121 + 280 become the new 100 even when the
-// browser still held the previously locked full-cycle v3 anchor.
-//
-// This migration is deliberately narrow: it never derives 100 from wallet balances,
-// transactions, paid debt, completed commitments, or current remaining commitments. It only
-// restores a previously stored v3 fixed-cycle anchor for the exact same owner/cycle and plan.
-export function repairMalformedMeansBaselineStorage(storage) {
-  if (!storage || typeof storage.getItem !== "function" || typeof storage.setItem !== "function") {
-    return 0;
-  }
-
-  let keys = [];
-  try {
-    const length = Math.max(0, Number(storage.length || 0));
-    for (let index = 0; index < length; index += 1) {
-      const key = storage.key(index);
-      if (typeof key === "string") keys.push(key);
-    }
-  } catch {
-    return 0;
-  }
-
-  const currentPrefix = `${CURRENT_BASELINE_STORAGE_PREFIX}:`;
-  let repaired = 0;
-
-  for (const key of keys) {
-    if (!key.startsWith(currentPrefix)) continue;
-
-    const current = parseStoredBaseline(storage.getItem(key));
-    if (!isMalformedMidCycleV5Anchor(current)) continue;
-
-    const suffix = key.slice(currentPrefix.length);
-    let legacy = null;
-    let legacyPrefix = "";
-
-    for (const prefix of LEGACY_BASELINE_STORAGE_PREFIXES) {
-      const candidate = parseStoredBaseline(storage.getItem(`${prefix}:${suffix}`));
-      if (!isLegacyFixedCycleAnchor(candidate, current)) continue;
-      legacy = candidate;
-      legacyPrefix = prefix;
-      break;
-    }
-
-    if (!legacy) continue;
-
-    try {
-      storage.setItem(
-        key,
-        JSON.stringify({
-          ...current,
-          requiredRunway: finiteNonNegative(legacy.requiredRunway),
-          restoredFromLegacyFixedAnchor: true,
-          restoredFromVersion: Number(legacy.version),
-          restoredFromStoragePrefix: legacyPrefix,
-          restoredPreviousV5RequiredRunway: finiteNonNegative(current.requiredRunway),
-          restoredAt: new Date().toISOString(),
-          refreshReason: "restored_pre_v4_fixed_cycle_anchor",
-        })
-      );
-      repaired += 1;
-    } catch {
-      // Keep the current score available if browser storage is temporarily unavailable.
-    }
-  }
-
-  return repaired;
-}
-
-function repairBrowserMeansBaselineStorage() {
-  if (typeof window === "undefined") return;
-  try {
-    repairMalformedMeansBaselineStorage(window.localStorage);
-  } catch {
-    // Storage access can be blocked by browser privacy settings; Means still renders normally.
-  }
-}
-
-repairBrowserMeansBaselineStorage();
-
 export function stableMeansPlanFingerprint(value) {
   return JSON.stringify(canonicalize(value));
 }
 
-// The user's personal 100 is the fixed predicted/declared requirement for the cycle.
-// Current wallet balance and past actual transactions must never be used to rebuild 100:
-// those belong on the available-money side of the score and should only move the score.
+// The runtime passes the complete declared/predicted requirement for the whole pay cycle.
+// This helper deliberately ignores income, wallet balances, actual spending, and elapsed time.
 export function calculateCycleRequiredRunway({ upcoming = 0 } = {}) {
   return finiteNonNegative(upcoming);
 }
@@ -173,10 +37,6 @@ export function resolveMeansCycleBaselineState({
 } = {}) {
   const normalizedRequired = finiteNonNegative(requiredRunway);
   const normalizedAssumed = finiteNonNegative(assumedSpent);
-
-  // Once a valid v5 cycle anchor exists, keep it fixed for the rest of that cycle.
-  // A version bump intentionally invalidates older reconstructed anchors that may have
-  // absorbed already-paid debt or other realized transactions into the user's 100.
   const validSameCycleBaseline = Boolean(
     stored &&
       Number(stored.version) === BASELINE_VERSION &&
@@ -187,43 +47,77 @@ export function resolveMeansCycleBaselineState({
   );
 
   if (validSameCycleBaseline) {
+    const storedFingerprint = String(stored.planFingerprint || "");
+    const currentFingerprint = String(planFingerprint || "");
+    const samePlan = storedFingerprint === currentFingerprint;
+
+    if (samePlan) {
+      // Reality happened, but the plan did not change. Spending, debt payment, completed
+      // commitments, date progression, and reloads must therefore leave 100 untouched.
+      return {
+        baseline: {
+          version: BASELINE_VERSION,
+          requiredRunway: finiteNonNegative(stored.requiredRunway),
+          planRequiredRunway: finiteNonNegative(
+            stored.planRequiredRunway ?? normalizedRequired
+          ),
+          assumedSpentAtLock: finiteNonNegative(stored.assumedSpentAtLock),
+          cycleStart,
+          cycleEnd,
+          planFingerprint: storedFingerprint,
+        },
+        shouldPersist: false,
+        reason: "cycle_anchor_locked",
+      };
+    }
+
+    // An actual planning edit is the only same-cycle operation allowed to move 100.
+    // Apply exactly the difference between the previous full plan and the new full plan;
+    // never rebuild the denominator from whatever commitments merely remain today.
+    const previousPlanRequiredRunway = finiteNonNegative(
+      stored.planRequiredRunway ?? stored.requiredRunway
+    );
+    const planDelta = normalizedRequired - previousPlanRequiredRunway;
+    const amendedRequiredRunway = Math.max(
+      0,
+      finiteNonNegative(stored.requiredRunway) + planDelta
+    );
+
     return {
       baseline: {
         version: BASELINE_VERSION,
-        requiredRunway: finiteNonNegative(stored.requiredRunway),
+        requiredRunway: amendedRequiredRunway,
+        planRequiredRunway: normalizedRequired,
         assumedSpentAtLock: finiteNonNegative(stored.assumedSpentAtLock),
         cycleStart,
         cycleEnd,
-        planFingerprint: stored.planFingerprint || planFingerprint,
+        planFingerprint: currentFingerprint,
       },
-      shouldPersist: false,
-      reason: "cycle_anchor_locked",
+      shouldPersist: true,
+      reason: "plan_delta_applied",
     };
   }
 
-  // Deterministic migration/new-cycle strategy: use only the authoritative planned-cycle
-  // requirement available now plus elapsed routine that belongs to that declared plan.
-  // Do not synthesize missing history from wallet balances, transactions, debt payments,
-  // completed obligations, or any other realized state.
-  const fullCycleRequiredRunway = normalizedRequired + normalizedAssumed;
-
+  // A new pay cycle (or migration from the malformed v5 anchor) establishes 100 directly
+  // from the complete cycle plan supplied by the runtime. Assumed/actual spent are context
+  // only and are intentionally not added to the denominator here.
   return {
     baseline: {
       version: BASELINE_VERSION,
-      requiredRunway: fullCycleRequiredRunway,
+      requiredRunway: normalizedRequired,
+      planRequiredRunway: normalizedRequired,
       assumedSpentAtLock: normalizedAssumed,
       cycleStart,
       cycleEnd,
-      planFingerprint,
+      planFingerprint: String(planFingerprint || ""),
     },
     shouldPersist: true,
     reason: "new_cycle_or_stale_baseline",
   };
 }
 
-// Means Score is intentionally simple once the cycle anchor exists:
-// current financial capacity / fixed full-cycle Means × 100.
-// Past actual transactions reduce financial capacity; they never rewrite the anchor.
+// Means Score has one authority once the cycle anchor exists:
+// current financial capacity / fixed (or explicitly amended) full-cycle 100 × 100.
 export function calculateMeansScoreState({
   financialRunway = 0,
   requiredRunway = 0,
