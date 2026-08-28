@@ -1,77 +1,90 @@
-name: Repair schedule impact
+name: CLARA integrity verification runner
+
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+
 permissions:
   contents: write
+
 jobs:
-  repair:
+  verify-and-commit:
     if: ${{ github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Apply local-first schedule impact repair
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply fixed Means baseline repair
+        run: python3 scripts/fix_means_fixed_full_cycle_anchor_v6.py
+
+      - name: Apply remaining full-suite repair
+        run: python3 scripts/fix_remaining_full_suite_after_means_v1.py
+
+      - name: Syntax checks
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          p = Path('src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardScheduleImpactPortalPanel.jsx')
-          s = p.read_text()
+          python3 -m py_compile scripts/fix_means_fixed_full_cycle_anchor_v6.py scripts/fix_remaining_full_suite_after_means_v1.py
+          node --check src/runtime/installClaraOrbGreeting.js
+          node --check src/lib/clara-means-cycle-baseline.js
+          node --check src/lib/clara-buy-check-wallet-engine.js
+          node --check src/lib/clara-buy-check-income-runway-engine.js
+          node --check src/lib/clara-wallet-money-semantics.js
 
-          s = s.replace('function isClearMoneyReply(value) {\n  const text = cleanText(value).toLowerCase();\n  if (!text) return false;\n  if (isQuantityOnlyReply(text)) return false;\n  if (/(₱|php|peso|pesos|fare|cost|budget|spend|around|maybe|estimate|pamasahe)/i.test(text) && parseAmount(text) > 0) return true;\n  return /^\\d+(?:\\.\\d+)?$/.test(text) && parseAmount(text) > 0;\n}', 'function parseSingleAmount(text) {\n  const source = String(text || "").replace(/,/g, "");\n  const explicitMatches = [\n    ...source.matchAll(/(?:₱|php\\s*)\\s*(\\d+(?:\\.\\d+)?)/gi),\n    ...source.matchAll(/\\b(\\d+(?:\\.\\d+)?)\\s*(?:pesos?|php|fare|pamasahe|cost|spend|budget)\\b/gi),\n  ];\n  if (explicitMatches.length) return Math.max(0, Math.round(Number(explicitMatches.at(-1)?.[1] || 0)));\n  const numberMatches = [...source.matchAll(/\\b(\\d+(?:\\.\\d+)?)\\b/g)];\n  if (!numberMatches.length) return 0;\n  return Math.max(0, Math.round(Number(numberMatches.at(-1)?.[1] || 0)));\n}\n\nfunction isClearMoneyReply(value) {\n  const text = cleanText(value).toLowerCase();\n  if (!text) return false;\n  if (isQuantityOnlyReply(text)) return false;\n  if (/(₱|php|peso|pesos|fare|cost|budget|spend|around|maybe|estimate|pamasahe)/i.test(text) && parseSingleAmount(text) > 0) return true;\n  return /^\\d+(?:\\.\\d+)?$/.test(text) && parseSingleAmount(text) > 0;\n}\n\nfunction isReadyToMoveOn(value) {\n  return /\\b(ready|next|none|nothing else|wala na|move on|go ahead|continue|proceed|yes|yeah|yep|sure|ok|okay|sige)\\b/i.test(cleanText(value));\n}\n\nfunction isTransportTotalCorrection(value, activeCategory = "") {\n  const text = cleanText(value).toLowerCase();\n  if (!text || !isClearMoneyReply(text)) return false;\n  const hasTransportTerm = /(transportation|transport|pamasahe|fare|back and forth|balikan|round trip|both ways|going there and going back|going back and forth|whole transportation|total transportation|transportation total|already the whole)/i.test(text);\n  const hasTotalTerm = /\\b(total|overall|all in|already|back and forth|balikan|round trip|both ways)\\b/i.test(text);\n  return hasTransportTerm || (activeCategory === "transport" && hasTotalTerm);\n}')
-
-          if 'function reconcileCategoryTotal' not in s:
-            s = s.replace('function updatePathSubItem(path = [], subItemKey = "", amount = 0, status = "completed") {', 'function reconcileCategoryTotal(path, categoryKey, totalAmount) {\n  const normalized = normalizeExpensePath(path);\n  const targetCategory = normalized.find((category) => category.category === categoryKey);\n  if (!targetCategory) return normalized;\n  const amount = Math.max(0, Math.round(Number(totalAmount || 0)));\n  if (categoryKey === "transport") {\n    const split = Math.round(amount / 2);\n    const remainder = amount - split;\n    return normalized.map((category) => {\n      if (category.category !== categoryKey) return category;\n      return {\n        ...category,\n        sub_items: category.sub_items.map((item) => {\n          if (item.key === "transport_going_there") return { ...item, amount: split, status: amount > 0 ? "completed" : "skipped" };\n          if (item.key === "transport_going_home") return { ...item, amount: remainder, status: amount > 0 ? "completed" : "skipped" };\n          if (item.key === "transport_extra_stop") return item.status === "pending" ? { ...item, amount: 0, status: "skipped" } : item;\n          return item;\n        }),\n      };\n    });\n  }\n  return normalized;\n}\n\nfunction updatePathSubItem(path = [], subItemKey = "", amount = 0, status = "completed") {')
-
-          s = s.replace('function getLocalReplyForStage({ stage, reply, total, expensePath, activeCategory, activeSubItem }) {\n  const path = normalizeExpensePath(expensePath);', 'function getLocalReplyForStage({ stage, reply, total, expensePath, activeCategory, activeSubItem, form }) {\n  const path = normalizeExpensePath(expensePath);\n  const activeCategoryKey = cleanText(activeCategory);')
-
-          s = s.replace('return { stage: "category_assessment", total, expensePath: path, activeCategory: first.category, activeSubItem: first.subItem, message: getLocalPromptForSubItem(first.subItem, path) };', 'return { stage: "category_assessment", total, expensePath: path, activeCategory: first.category, activeSubItem: first.subItem, message: first.subItem === "transport_going_there" ? `Alright, let’s start with transportation. How much do you expect to spend going to your ${getScheduleTitleForImpact(form)}?` : getLocalPromptForSubItem(first.subItem, path) };')
-          s = s.replace('const amount = sameReply ? previousAmount : hasClearCost ? parseAmount(reply) : 0;', 'const amount = sameReply ? previousAmount : hasClearCost ? parseSingleAmount(reply) : 0;')
-
-          correction = '''\n    if (isTransportTotalCorrection(reply, category?.category || activeCategoryKey)) {\n      const correctedAmount = parseSingleAmount(reply);\n      const correctedPath = reconcileCategoryTotal(path, "transport", correctedAmount);\n      const nextTotal = sumPath(correctedPath);\n      if (category?.category === "transport") {\n        return { stage: "category_summary", total: nextTotal, expensePath: correctedPath, activeCategory: "transport", activeSubItem: "", message: `Got it, Max. I’ll treat ${formatPeso(correctedAmount)} as your total transportation estimate. Anything else for transportation, or are we ready to move to food and drinks?` };\n      }\n      return { stage: "category_assessment", total: nextTotal, expensePath: correctedPath, activeCategory: "food", activeSubItem: "food_personal", message: `Got it, Max. I corrected transportation to ${formatPeso(correctedAmount)} total. Now we can continue with food and drinks. ${getLocalPromptForSubItem("food_personal", correctedPath)}` };\n    }\n'''
-          if 'I’ll treat ${formatPeso(correctedAmount)} as your total transportation estimate' not in s:
-            s = s.replace('    const previousAmount = item.key === "transport_going_home" ? findSubItem(path, "transport_going_there").item?.amount || 0 : 0;', correction + '\n    const previousAmount = item.key === "transport_going_home" ? findSubItem(path, "transport_going_there").item?.amount || 0 : 0;')
-          if 'stage === "category_summary"' not in s:
-            s = s.replace('\n  if (stage === "category_assessment") {', '\n  if (stage === "category_summary") {\n    if (isTransportTotalCorrection(reply, activeCategoryKey)) {\n      const correctedAmount = parseSingleAmount(reply);\n      const correctedPath = reconcileCategoryTotal(path, "transport", correctedAmount);\n      const nextTotal = sumPath(correctedPath);\n      return { stage: "category_assessment", total: nextTotal, expensePath: correctedPath, activeCategory: "food", activeSubItem: "food_personal", message: `Got it, Max. I corrected transportation to ${formatPeso(correctedAmount)} total. Now we can continue with food and drinks. ${getLocalPromptForSubItem("food_personal", correctedPath)}` };\n    }\n    if (isReadyToMoveOn(reply) || isNegativeOrFree(reply)) {\n      const first = getFirstPending(path);\n      if (!first.subItem) return { stage: "complete", total, expensePath: path, activeCategory: "", activeSubItem: "", message: buildSummaryMessage(total, path) };\n      return { stage: "category_assessment", total, expensePath: path, activeCategory: first.category, activeSubItem: first.subItem, message: getLocalPromptForSubItem(first.subItem, path) };\n    }\n    return { stage: "category_summary", total, expensePath: path, activeCategory: activeCategoryKey, activeSubItem: "", message: "Anything else for transportation, or are we ready to move to food and drinks?" };\n  }\n\n  if (stage === "category_assessment") {')
-
-          s = s.replace('''    try {
-      const ai = await askGeminiForScheduleImpact({ form: preparedForm, messages: [], stage: "confirm_intent", activeCategory: "", activeSubItem: "", expensePath: basePath, total: 0, latestUserReply: "" });
-      const suggestions = applyScheduleSuggestions(rootRef.current, ai);
-      const nextForm = { ...preparedForm, ...suggestions };
-      const nextPath = normalizeExpensePath(ai.expense_path).length ? normalizeExpensePath(ai.expense_path) : basePath;
-      setSession({ ...baseSession, form: nextForm, expensePath: nextPath, stage: normalizeGeminiStage(ai.stage, "confirm_intent"), activeCategory: ai.active_category || "", activeSubItem: ai.active_sub_item || "", messages: [{ role: "assistant", text: cleanText(ai.assistant_message) || getOpeningMessage(nextForm) }] });
-    } catch (error) {
-      console.warn("[CLARA Schedule] Impact AI unavailable, using local safety reply:", error);
-      setSession({ ...baseSession, messages: [{ role: "assistant", text: getOpeningMessage(preparedForm) }] });
-    } finally {
-      setThinking(false);
-    }''', '''    console.info("[CLARA Schedule Impact] Local flow handled:", { stage: "confirm_intent", activeCategory: "", activeSubItem: "" });
-    setSession({ ...baseSession, messages: [{ role: "assistant", text: getOpeningMessage(preparedForm) }] });
-    setThinking(false);''')
-
-          local_block = '''    const localOnly =
-      currentStage === "confirm_intent" ||
-      currentStage === "ask_permission" ||
-      currentStage === "category_summary" ||
-      (currentStage === "category_assessment" && (isClearMoneyReply(reply) || isNegativeOrFree(reply) || /^same$/i.test(reply) || isTransportTotalCorrection(reply, session.activeCategory)));
-'''
-          if 'const localOnly =' not in s:
-            s = s.replace('    const optimisticMessages = [...(session.messages || []), nextUserMessage];\n', '    const optimisticMessages = [...(session.messages || []), nextUserMessage];\n' + local_block)
-            s = s.replace('    try {\n      const ai = await askGeminiForScheduleImpact', '    try {\n      if (localOnly) {\n        console.info("[CLARA Schedule Impact] Local flow handled:", { stage: currentStage, activeCategory: session.activeCategory, activeSubItem: session.activeSubItem });\n        const local = getLocalReplyForStage({ stage: currentStage, reply, total: session.total, expensePath: session.expensePath, activeCategory: session.activeCategory, activeSubItem: session.activeSubItem, form: session.form });\n        const shouldAutoApplyEstimate = currentStage === "complete" && isAffirmative(reply) && local.total > 0;\n        setSession((current) => ({ ...current, stage: local.stage, total: local.total, expensePath: local.expensePath, activeCategory: local.activeCategory, activeSubItem: local.activeSubItem, autoClosing: shouldAutoApplyEstimate, messages: [...optimisticMessages, { role: "assistant", text: local.message }] }));\n        if (shouldAutoApplyEstimate) {\n          applyEstimateToSchedule(local.total);\n          if (autoCloseTimerRef.current && typeof window !== "undefined") window.clearTimeout(autoCloseTimerRef.current);\n          autoCloseTimerRef.current = window.setTimeout(() => { setSession(null); autoCloseTimerRef.current = null; }, 1000);\n        }\n        return;\n      }\n\n      console.info("[CLARA Schedule Impact] Gemini interpretation requested:", { stage: currentStage, activeCategory: session.activeCategory, activeSubItem: session.activeSubItem });\n      const ai = await askGeminiForScheduleImpact')
-
-          s = s.replace('getLocalReplyForStage({ stage: currentStage, reply, total: session.total, expensePath: session.expensePath, activeCategory: session.activeCategory, activeSubItem: session.activeSubItem })', 'getLocalReplyForStage({ stage: currentStage, reply, total: session.total, expensePath: session.expensePath, activeCategory: session.activeCategory, activeSubItem: session.activeSubItem, form: session.form })')
-          p.write_text(s)
-
-          q = Path('src/lib/ai-command/schedule-impact-service.js')
-          t = q.read_text()
-          t = t.replace('temperature: 0.45', 'temperature: 0.2')
-          if 'Do not include trailing commas.' not in t:
-            t = t.replace('Return JSON only.\n', 'Return JSON only.\n- Return valid JSON only.\n- Do not wrap JSON in markdown.\n- Do not include comments.\n- Do not include trailing commas.\n- assistant_message must be a plain string.\n- expense_path must be a valid JSON array.\n- If unsure, return a safe JSON object using the required shape.\n')
-          q.write_text(t)
-          PY
-      - name: Commit repair
+      - name: Focused financial regression tests
         run: |
-          rm -f .github/workflows/repair-schedule-impact.yml .github/workflows/refine-schedule-impact-tone-once.yml .github/workflows/fix-schedule-impact-completion-once.yml
+          node --test tests/means-score-context-baseline-regression.test.mjs
+          node --test tests/buy-check-context-facts.test.mjs
+          node --test tests/wallet-money-semantics.test.mjs
+          node --test tests/wallet-expanded-flow-regression.test.mjs
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
+
+      - name: Full application regression suite
+        id: full_tests
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee financial-integrity-test.log
+
+      - name: Upload application test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: financial-integrity-test-log
+          path: financial-integrity-test.log
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Stop if full suite failed
+        if: steps.full_tests.outcome == 'failure'
+        run: exit 1
+
+      - name: Production build
+        run: npm run build:web
+        env:
+          VITE_GEMINI_MODEL: gemini-3.6-flash
+          VITE_CLARA_RUNTIME_MODE: local_only
+          VITE_CLARA_AUTH_ENABLED: "false"
+          VITE_CLARA_LOCAL_MODE_ENABLED: "true"
+
+      - name: Commit verified repair to main
+        run: |
+          if git diff --quiet; then
+            echo "Verified repair already applied."
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git diff --cached --quiet || (git commit -m "Refactor schedule impact early flow to local" && git push)
+          git add \
+            src/runtime/installClaraOrbGreeting.js \
+            src/lib/clara-means-cycle-baseline.js \
+            src/lib/clara-buy-check-wallet-engine.js \
+            src/lib/clara-buy-check-income-runway-engine.js \
+            src/lib/clara-wallet-money-semantics.js \
+            tests
+          git commit -m "Restore financial integrity and regression contracts"
+          git push origin HEAD:main
