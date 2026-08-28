@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -22,30 +22,41 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
+      - name: Apply fixed Means baseline repair
+        run: python3 scripts/fix_means_fixed_full_cycle_anchor_v6.py
+
+      - name: Apply remaining full-suite repair
+        run: python3 scripts/fix_remaining_full_suite_after_means_v1.py
+
+      - name: Syntax checks
+        run: |
+          python3 -m py_compile scripts/fix_means_fixed_full_cycle_anchor_v6.py scripts/fix_remaining_full_suite_after_means_v1.py
+          node --check src/runtime/installClaraOrbGreeting.js
+          node --check src/lib/clara-means-cycle-baseline.js
+          node --check src/lib/clara-buy-check-wallet-engine.js
+          node --check src/lib/clara-buy-check-income-runway-engine.js
+          node --check src/lib/clara-wallet-money-semantics.js
+
+      - name: Run focused financial regression tests
+        run: |
+          node --test tests/means-score-context-baseline-regression.test.mjs
+          node --test tests/buy-check-context-facts.test.mjs
+          node --test tests/wallet-money-semantics.test.mjs
+          node --test tests/wallet-expanded-flow-regression.test.mjs
+
       - name: Install dependencies
         run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
 
-      - name: Run regression tests
-        id: regression_tests
-        continue-on-error: true
+      - name: Run full regression suite
         run: npm test
-
-      - name: Report regression test warning
-        if: steps.regression_tests.outcome == 'failure'
-        run: echo "::warning::Regression tests failed. GitHub Pages deployment will continue so the live build does not remain stale."
-
-      - name: Stamp web build
-        run: |
-          printf '{"commit":"%s","builtAt":"%s"}\n' \
-            "$GITHUB_SHA" \
-            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            > public/build-info.json
 
       - name: Build GitHub Pages app
         run: npm run build:web
@@ -54,6 +65,31 @@ jobs:
           VITE_CLARA_RUNTIME_MODE: local_only
           VITE_CLARA_AUTH_ENABLED: "false"
           VITE_CLARA_LOCAL_MODE_ENABLED: "true"
+
+      - name: Commit and push verified repair
+        run: |
+          if git diff --quiet; then
+            echo "Verified repair already applied."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add \
+              src/runtime/installClaraOrbGreeting.js \
+              src/lib/clara-means-cycle-baseline.js \
+              src/lib/clara-buy-check-wallet-engine.js \
+              src/lib/clara-buy-check-income-runway-engine.js \
+              src/lib/clara-wallet-money-semantics.js \
+              tests
+            git commit -m "Restore financial integrity and regression contracts"
+            git push origin HEAD:main
+          fi
+
+      - name: Stamp web build
+        run: |
+          printf '{"commit":"%s","builtAt":"%s"}\n' \
+            "$(git rev-parse HEAD)" \
+            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            > public/build-info.json
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
