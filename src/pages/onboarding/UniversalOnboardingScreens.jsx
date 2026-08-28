@@ -363,19 +363,29 @@ export function ClaraRevealScreen({ reduceMotion }) {
 
 export function MissionRuleScreen() {
   return (
-    <ScreenFrame>
+    <ScreenFrame className="clara-onboarding-screen--dense">
       <Eyebrow>How <ClaraBrandName /> works</Eyebrow>
       <h1 className="clara-onboarding-title clara-onboarding-title--mission">
         <ClaraBrandName /> understands your financial position.
       </h1>
-      <p className="clara-onboarding-body clara-onboarding-body--narrow">
-        Your Means Score shows where you currently stand.
+      <p className="clara-onboarding-body clara-onboarding-body--narrow" style={{ marginTop: 18 }}>
+        Remember what you did for Juan? For a moment, you became <ClaraBrandName />. You looked at his Means Score, compared the choices, and helped him consider staying above 100.
       </p>
-      <p className="clara-onboarding-tagline">Before you spend, ask <ClaraBrandName />.</p>
-      <p className="clara-onboarding-body clara-onboarding-body--narrow">
-        <ClaraBrandName /> checks the decision against your financial status and helps you protect your Means Score — so you can stay within your means and build more financial room over time.
+      <AccentRule />
+      <p className="clara-onboarding-kicker clara-onboarding-kicker--blue" style={{ marginTop: 22 }}>
+        This is how <ClaraBrandName /> does it for you.
       </p>
-      <p className="clara-onboarding-mantra">Ask <i /> See the impact <i /> Decide</p>
+      <div className="clara-onboarding-personal-list" style={{ marginTop: 16 }}>
+        <div className="clara-onboarding-personal-line"><span>Your income and pay schedule</span></div>
+        <div className="clara-onboarding-personal-line"><span>Your available money across your wallets</span></div>
+        <div className="clara-onboarding-personal-line"><span>Your scheduled and recurring expenses</span></div>
+        <div className="clara-onboarding-personal-line"><span>Your debts and financial obligations</span></div>
+        <div className="clara-onboarding-personal-line"><span>Your transactions as your money changes</span></div>
+      </div>
+      <p className="clara-onboarding-body clara-onboarding-body--narrow" style={{ marginTop: 18 }}>
+        <ClaraBrandName /> brings that context together to keep your Means Score updated and show how a spending decision could affect your financial position.
+      </p>
+      <p className="clara-onboarding-mantra" style={{ marginTop: 18 }}>Ask <i /> See the impact <i /> Decide</p>
     </ScreenFrame>
   );
 }
