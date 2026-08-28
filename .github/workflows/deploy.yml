@@ -33,6 +33,9 @@ jobs:
       - name: Apply full-cycle Means plan anchor
         run: python3 scripts/fix_means_plan_delta_anchor_v7.py
 
+      - name: Wire installed-PWA freshness runtime
+        run: python3 scripts/install_clara_pwa_freshness.py
+
       - name: Apply remaining full-suite repair
         run: python3 scripts/fix_remaining_full_suite_after_means_v1.py
 
@@ -50,8 +53,12 @@ jobs:
 
       - name: Syntax checks
         run: |
-          python3 -m py_compile scripts/fix_means_plan_delta_anchor_v7.py scripts/fix_remaining_full_suite_after_means_v1.py
+          python3 -m py_compile \
+            scripts/fix_means_plan_delta_anchor_v7.py \
+            scripts/install_clara_pwa_freshness.py \
+            scripts/fix_remaining_full_suite_after_means_v1.py
           node --check src/runtime/installClaraOrbGreeting.js
+          node --check src/runtime/installClaraPwaFreshness.js
           node --check src/lib/clara-means-cycle-baseline.js
           node --check src/lib/debtObligationStore.js
           node --check src/lib/clara-buy-check-wallet-engine.js
@@ -73,14 +80,6 @@ jobs:
       - name: Run full regression suite
         run: npm test
 
-      - name: Build GitHub Pages app
-        run: npm run build:web
-        env:
-          VITE_GEMINI_MODEL: gemini-3.6-flash
-          VITE_CLARA_RUNTIME_MODE: local_only
-          VITE_CLARA_AUTH_ENABLED: "false"
-          VITE_CLARA_LOCAL_MODE_ENABLED: "true"
-
       - name: Commit and push verified repair
         run: |
           if git diff --quiet; then
@@ -90,23 +89,40 @@ jobs:
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add \
               src/runtime/installClaraOrbGreeting.js \
+              src/runtime/installClaraPwaFreshness.js \
               src/lib/clara-means-cycle-baseline.js \
               src/lib/debtObligationStore.js \
               src/lib/clara-buy-check-wallet-engine.js \
               src/lib/clara-buy-check-income-runway-engine.js \
               src/lib/clara-wallet-money-semantics.js \
-              public/clara-task-reminder-sw.js \
               tests
             git commit -m "Restore financial integrity and regression contracts"
             git push origin HEAD:main
           fi
 
-      - name: Stamp web build
+      - name: Stamp release freshness
         run: |
-          printf '{"commit":"%s","builtAt":"%s"}\n' \
-            "$(git rev-parse HEAD)" \
-            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            > public/build-info.json
+          BUILD_ID="$(git rev-parse HEAD)"
+          BUILD_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          python3 - "$BUILD_ID" <<'PY'
+          from pathlib import Path
+          import sys
+          path = Path("public/clara-task-reminder-sw.js")
+          source = path.read_text(encoding="utf-8")
+          marker = "__CLARA_APP_BUILD__"
+          if marker not in source:
+              raise SystemExit("PWA build marker missing")
+          path.write_text(source.replace(marker, sys.argv[1]), encoding="utf-8")
+          PY
+          printf '{"commit":"%s","builtAt":"%s"}\n' "$BUILD_ID" "$BUILD_AT" > public/build-info.json
+
+      - name: Build GitHub Pages app
+        run: npm run build:web
+        env:
+          VITE_GEMINI_MODEL: gemini-3.6-flash
+          VITE_CLARA_RUNTIME_MODE: local_only
+          VITE_CLARA_AUTH_ENABLED: "false"
+          VITE_CLARA_LOCAL_MODE_ENABLED: "true"
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
