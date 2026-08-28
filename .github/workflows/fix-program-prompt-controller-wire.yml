@@ -47,8 +47,40 @@ jobs:
               idx = text.find(marker)
               if idx < 0:
                   raise SystemExit("firstDefinedValue marker not found")
-              helper = '''\nfunction roundMoney(value) {\n  const amount = toMoney(value);\n  return Math.round((amount + Number.EPSILON) * 100) / 100;\n}\n'''
+              helper = '''\nfunction roundMoney(value) {\n  const amount = toMoney(value);\n  return Math.round(amount * 100) / 100;\n}\n'''
               text = text[:idx] + helper + text[idx:]
+
+          text = text.replace(
+              '  const currentBalance = Math.max(getWalletCurrentBalance(wallet), 0);',
+              '  const currentBalance = roundMoney(Math.max(getWalletCurrentBalance(wallet), 0));'
+          )
+          text = text.replace(
+              '  const totalProtectedAmount =\n    emergencyProtectedAmount + savingsProtectedAmount + otherProtectedAmount;',
+              '  const totalProtectedAmount = roundMoney(\n    emergencyProtectedAmount + savingsProtectedAmount + otherProtectedAmount\n  );'
+          )
+          text = text.replace(
+              '''    spendableBalance: protectedAmounts.isMoneyLent\n      ? 0\n      : Math.max(\n          protectedAmounts.currentBalance - protectedAmounts.totalProtectedAmount,\n          0\n        ),''',
+              '''    spendableBalance: protectedAmounts.isMoneyLent\n      ? 0\n      : roundMoney(\n          Math.max(\n            protectedAmounts.currentBalance - protectedAmounts.totalProtectedAmount,\n            0\n          )\n        ),'''
+          )
+          text = text.replace(
+              '  if (explicitSpendable !== null) return Math.max(toMoney(explicitSpendable), 0);',
+              '  if (explicitSpendable !== null) return roundMoney(Math.max(toMoney(explicitSpendable), 0));'
+          )
+          text = text.replace(
+              '  return Math.max(getWalletCurrentBalance(wallet) - protectedAmount, 0);',
+              '  return roundMoney(Math.max(getWalletCurrentBalance(wallet) - protectedAmount, 0));'
+          )
+          for field in [
+              "currentBalance", "availableBalance", "unavailableAmount",
+              "moneyLentUnavailableAmount", "emergencyProtectedAmount",
+              "savingsProtectedAmount", "otherProtectedAmount",
+              "totalProtectedAmount", "spendableBalance"
+          ]:
+              text = re.sub(
+                  rf'{field}: totals\.{field} \+ ([A-Za-z]+),',
+                  rf'{field}: roundMoney(totals.{field} + \1),',
+                  text,
+              )
           path.write_text(text, encoding="utf-8")
 
       - name: Apply remaining full-suite repair
