@@ -11,6 +11,7 @@ export const SCREEN_IDS = [
   "juan-intro",
   "juan-choice",
   "quantified-feedback",
+  "ask-clara-build-up",
   "clara-reveal",
   "mission-rule",
   "bigger-vision",
@@ -317,6 +318,21 @@ export function QuantifiedFeedbackScreen({ selectedOptionId }) {
       </h1>
       <p className="clara-onboarding-body clara-onboarding-body--lead" style={{ marginTop: 20 }}>
         You didn&apos;t just see the price. You saw what the decision would do to Juan&apos;s financial position.
+      </p>
+    </ScreenFrame>
+  );
+}
+
+export function AskClaraBuildUpScreen() {
+  return (
+    <ScreenFrame>
+      <Eyebrow tone="gold">Before the decision</Eyebrow>
+      <h1 className="clara-onboarding-title clara-onboarding-title--mission">
+        What if Juan could ask <ClaraBrandName />...
+      </h1>
+      <AccentRule />
+      <p className="clara-onboarding-tagline" style={{ maxWidth: 340, marginTop: 28, lineHeight: 1.45 }}>
+        ...to show him this impact before he buys?
       </p>
     </ScreenFrame>
   );
