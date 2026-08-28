@@ -100,9 +100,12 @@ jobs:
               raise SystemExit("wallet removal regression ownership assertion not found")
           path.write_text(text, encoding="utf-8")
 
+      - name: Align final current-architecture regression contracts
+        run: python3 scripts/fix_final_regression_contracts_v1.py
+
       - name: Syntax checks
         run: |
-          python3 -m py_compile scripts/fix_means_fixed_full_cycle_anchor_v6.py scripts/fix_remaining_full_suite_after_means_v1.py
+          python3 -m py_compile scripts/fix_means_fixed_full_cycle_anchor_v6.py scripts/fix_remaining_full_suite_after_means_v1.py scripts/fix_final_regression_contracts_v1.py
           node --check src/runtime/installClaraOrbGreeting.js
           node --check src/lib/clara-means-cycle-baseline.js
           node --check src/lib/clara-buy-check-wallet-engine.js
