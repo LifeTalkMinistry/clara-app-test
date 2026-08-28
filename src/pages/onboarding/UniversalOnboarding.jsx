@@ -9,6 +9,7 @@ import {
   AmbientField,
   AskClaraBuildUpScreen,
   BiggerVisionScreen,
+  ClaraContextScreen,
   ClaraRevealScreen,
   ClaraWordmark,
   CountryScreen,
@@ -138,6 +139,7 @@ export default function UniversalOnboarding() {
       return <ClaraRevealScreen reduceMotion={reduceMotion} />;
     }
     if (activeScreen === "mission-rule") return <MissionRuleScreen />;
+    if (activeScreen === "clara-context") return <ClaraContextScreen />;
     return <BiggerVisionScreen />;
   })();
 
