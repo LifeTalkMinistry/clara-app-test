@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/fix_means_fixed_full_cycle_anchor_v6.py'
+      - 'scripts/fix_remaining_full_suite_after_means_v1.py'
       - '.github/workflows/one-shot-fix-means-fixed-full-cycle-anchor-v6.yml'
   workflow_dispatch:
 
@@ -23,13 +24,23 @@ jobs:
       - name: Patch fixed full-cycle Means anchor
         run: python3 scripts/fix_means_fixed_full_cycle_anchor_v6.py
 
+      - name: Patch remaining full-suite regressions
+        run: python3 scripts/fix_remaining_full_suite_after_means_v1.py
+
       - name: Syntax check repaired sources
         run: |
           node --check src/runtime/installClaraOrbGreeting.js
           node --check src/lib/clara-means-cycle-baseline.js
+          node --check src/lib/clara-buy-check-wallet-engine.js
+          node --check src/lib/clara-buy-check-income-runway-engine.js
+          node --check src/lib/clara-wallet-money-semantics.js
 
-      - name: Run focused Means regression tests
-        run: node --test tests/means-score-context-baseline-regression.test.mjs
+      - name: Run focused financial regression tests
+        run: |
+          node --test tests/means-score-context-baseline-regression.test.mjs
+          node --test tests/buy-check-context-facts.test.mjs
+          node --test tests/wallet-money-semantics.test.mjs
+          node --test tests/wallet-expanded-flow-regression.test.mjs
 
       - name: Install dependencies
         run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
@@ -65,11 +76,17 @@ jobs:
       - name: Commit verified repair
         run: |
           if git diff --quiet; then
-            echo "Means v6 repair already applied."
+            echo "Verified repair already applied."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/runtime/installClaraOrbGreeting.js src/lib/clara-means-cycle-baseline.js tests/means-score-context-baseline-regression.test.mjs
-          git commit -m "Restore fixed full-cycle Means anchor"
+          git add \
+            src/runtime/installClaraOrbGreeting.js \
+            src/lib/clara-means-cycle-baseline.js \
+            src/lib/clara-buy-check-wallet-engine.js \
+            src/lib/clara-buy-check-income-runway-engine.js \
+            src/lib/clara-wallet-money-semantics.js \
+            tests
+          git commit -m "Restore Means baseline and full-suite integrity"
           git push origin HEAD:main
