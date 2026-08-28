@@ -1,4 +1,4 @@
-const BASELINE_VERSION = 3;
+const BASELINE_VERSION = 4;
 
 function finiteNonNegative(value) {
   const amount = Number(value);
@@ -21,19 +21,11 @@ export function stableMeansPlanFingerprint(value) {
   return JSON.stringify(canonicalize(value));
 }
 
-// The user's personal 100 is a fixed full-cycle Means anchor.
-// It is calculated from the cycle's predicted/declared financial requirement,
-// then locked for that cycle so the passage of time cannot manufacture points.
-export function calculateCycleRequiredRunway({
-  income = 0,
-  availableNow = 0,
-  upcoming = 0,
-} = {}) {
-  const normalizedIncome = finiteNonNegative(income);
-  const normalizedAvailable = finiteNonNegative(availableNow);
-  const normalizedUpcoming = finiteNonNegative(upcoming);
-  const projectedRoom = normalizedAvailable - normalizedUpcoming;
-  return Math.max(0, normalizedIncome - projectedRoom);
+// The user's personal 100 is the fixed predicted/declared requirement for the cycle.
+// Current wallet balance and past actual transactions must never be used to rebuild 100:
+// those belong on the available-money side of the score and should only move the score.
+export function calculateCycleRequiredRunway({ upcoming = 0 } = {}) {
+  return finiteNonNegative(upcoming);
 }
 
 export function resolveMeansCycleBaselineState({
@@ -75,10 +67,15 @@ export function resolveMeansCycleBaselineState({
     };
   }
 
+  // Assumed spent is planned Money Schedule value that has already crossed into the
+  // elapsed part of the cycle. It belongs in the fixed cycle requirement, while actual
+  // transactions do not. This reconstructs 100 without absorbing previous spending.
+  const fullCycleRequiredRunway = normalizedRequired + normalizedAssumed;
+
   return {
     baseline: {
       version: BASELINE_VERSION,
-      requiredRunway: normalizedRequired,
+      requiredRunway: fullCycleRequiredRunway,
       assumedSpentAtLock: normalizedAssumed,
       cycleStart,
       cycleEnd,
@@ -91,7 +88,7 @@ export function resolveMeansCycleBaselineState({
 
 // Means Score is intentionally simple once the cycle anchor exists:
 // current financial capacity / fixed full-cycle Means × 100.
-// Upcoming commitments and elapsed days are context, not a moving denominator.
+// Past actual transactions reduce financial capacity; they never rewrite the anchor.
 export function calculateMeansScoreState({
   financialRunway = 0,
   requiredRunway = 0,
