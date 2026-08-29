@@ -21,7 +21,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - name: Install dependencies
         run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
@@ -45,6 +44,8 @@ jobs:
           node --test tests/buy-check-metric-impact.test.mjs
           node --test tests/means-authority-wallet-protection-source.test.mjs
           node --test tests/means-master-cycle-authority.test.mjs
+          node --test tests/means-score-plan-actual-separation.test.mjs
+          node --test tests/means-authority-no-legacy-repair-workflow.test.mjs
 
       - name: Existing application regression suite
         run: npm test
