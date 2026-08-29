@@ -265,6 +265,7 @@ test("35 finance events refresh Means and no recurring polling loop owns correct
   const runtime = await source("../src/runtime/installClaraOrbGreeting.js");
   assert.match(runtime, /CLARA_MONEY_SCHEDULE_UPDATED_EVENT/);
   assert.match(runtime, /clara:means-assumed-spent-reset/);
-  assert.match(runtime, /clara-finance-updated/);
+  assert.match(runtime, /FINANCE_DATA_UPDATED_EVENT/);
+  assert.match(runtime, /window\.addEventListener\(FINANCE_DATA_UPDATED_EVENT, handleFinanceRefresh\)/);
   assert.doesNotMatch(runtime, /setInterval\([^)]*refreshMeans/);
 });
