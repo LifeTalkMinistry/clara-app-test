@@ -142,6 +142,7 @@ export default function ObligationDebt({ item = null, user = null, expanded = fa
     setConfirmDelete(false);
     setNotice("");
   };
+
   const notifyChanged = (records = []) => {
     if (typeof window === "undefined") return;
     const active = records.filter(isActiveDebtObligation);
@@ -154,6 +155,7 @@ export default function ObligationDebt({ item = null, user = null, expanded = fa
       },
     }));
   };
+
   const saveObligation = async () => {
     const title = String(form.title || "").trim();
     const mode = form.obligationMode === "recurring" ? "recurring" : "balance";
@@ -188,6 +190,7 @@ export default function ObligationDebt({ item = null, user = null, expanded = fa
       setSaving(false);
     }
   };
+
   const markOccurrencePaid = async (record, dueDate) => {
     const id = String(record?.id || "").trim();
     if (!id || !dueDate) return;
@@ -222,6 +225,173 @@ export default function ObligationDebt({ item = null, user = null, expanded = fa
     }
   };
 
+  const formPanel = formOpen ? (
+    <PremiumFinanceItemSurface tone={FINANCE_ITEM_HIERARCHY_TONES.neutral} rail={false} glow={false} className="p-3.5">
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <p className="text-sm font-black text-white/92">{form.id ? "Edit obligation" : "Add obligation"}</p>
+          <p className="text-[11px] text-white/45">Choose a payoff balance or an ongoing monthly commitment.</p>
+        </div>
+        <button
+          type="button"
+          onClick={closeForm}
+          disabled={actionLoading}
+          className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.045] text-white/65"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="space-y-2.5">
+        <div>
+          <Label htmlFor="debt-title">Name</Label>
+          <input
+            id="debt-title"
+            value={form.title}
+            onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
+            className={fieldClass}
+            placeholder="Example: Home Credit"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <div>
+            <Label htmlFor="obligation-mode">Setup</Label>
+            <select
+              id="obligation-mode"
+              value={form.obligationMode}
+              onChange={(event) => setForm((current) => ({ ...current, obligationMode: event.target.value }))}
+              className={fieldClass}
+            >
+              <option value="balance" className="bg-slate-950">Payoff debt</option>
+              <option value="recurring" className="bg-slate-950">Recurring monthly</option>
+            </select>
+          </div>
+          <div>
+            <Label htmlFor="debt-type">Type</Label>
+            <select
+              id="debt-type"
+              value={form.debtType}
+              onChange={(event) => setForm((current) => ({ ...current, debtType: event.target.value }))}
+              className={fieldClass}
+            >
+              {DEBT_TYPES.map((type) => (
+                <option key={type.value} value={type.value} className="bg-slate-950">{type.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {form.obligationMode === "balance" ? (
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <Label htmlFor="total-debt">Remaining balance</Label>
+              <input
+                id="total-debt"
+                type="number"
+                min="0"
+                inputMode="decimal"
+                value={form.totalDebt}
+                onChange={(event) => setForm((current) => ({ ...current, totalDebt: event.target.value }))}
+                className={fieldClass}
+                placeholder="0"
+              />
+            </div>
+            <div>
+              <Label htmlFor="debt-interest">Annual interest %</Label>
+              <input
+                id="debt-interest"
+                type="number"
+                min="0"
+                inputMode="decimal"
+                value={form.interestRate}
+                onChange={(event) => setForm((current) => ({ ...current, interestRate: event.target.value }))}
+                className={fieldClass}
+                placeholder="Optional"
+              />
+            </div>
+          </div>
+        ) : null}
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <div>
+            <Label htmlFor="monthly-debt">Monthly payment</Label>
+            <input
+              id="monthly-debt"
+              type="number"
+              min="0"
+              inputMode="decimal"
+              value={form.monthlyDebt}
+              onChange={(event) => setForm((current) => ({ ...current, monthlyDebt: event.target.value }))}
+              className={fieldClass}
+              placeholder="0"
+            />
+          </div>
+          <div>
+            <Label htmlFor="debt-due-day">Due day</Label>
+            <input
+              id="debt-due-day"
+              type="number"
+              min="1"
+              max="31"
+              inputMode="numeric"
+              value={form.dueDay}
+              onChange={(event) => setForm((current) => ({ ...current, dueDay: event.target.value }))}
+              className={fieldClass}
+              placeholder="1–31"
+            />
+          </div>
+        </div>
+      </div>
+
+      {notice ? <p className="mt-3 text-[11px] font-semibold text-white/58">{notice}</p> : null}
+
+      <button
+        type="button"
+        onClick={saveObligation}
+        disabled={actionLoading}
+        className="mt-3 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.09] text-sm font-black text-emerald-200 disabled:opacity-45"
+      >
+        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+        {saving ? "Saving..." : form.id ? "Update Obligation" : "Save Obligation"}
+      </button>
+
+      {form.id ? (
+        !confirmDelete ? (
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            disabled={actionLoading}
+            className="mt-2.5 flex min-h-[42px] w-full items-center justify-center gap-2 rounded-2xl border border-rose-300/18 bg-rose-400/[0.07] text-sm font-black text-rose-200"
+          >
+            <Trash2 className="h-4 w-4" /> Delete Obligation
+          </button>
+        ) : (
+          <div className="mt-2.5 rounded-2xl border border-rose-300/16 bg-rose-500/[0.07] p-3">
+            <p className="text-sm font-black text-rose-100">Delete {form.title || "this obligation"}?</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                className="rounded-xl border border-white/[0.08] bg-white/[0.045] py-2 text-xs font-black text-white/72"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={removeObligation}
+                disabled={actionLoading}
+                className="flex items-center justify-center gap-1.5 rounded-xl border border-rose-300/20 bg-rose-400/[0.12] py-2 text-xs font-black text-rose-100"
+              >
+                {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />} Delete
+              </button>
+            </div>
+          </div>
+        )
+      ) : null}
+    </PremiumFinanceItemSurface>
+  ) : null;
+
   return (
     <FinanceCardShell
       cardKey="debtObligations"
@@ -241,17 +411,31 @@ export default function ObligationDebt({ item = null, user = null, expanded = fa
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
-                    <div><p className="text-base font-semibold text-white">Debt / Obligations</p><p className="text-[11px] text-white/70">Track what you owe.</p></div>
+                    <div>
+                      <p className="text-base font-semibold text-white">Debt / Obligations</p>
+                      <p className="text-[11px] text-white/70">Track what you owe.</p>
+                    </div>
                     <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${tone.status}`}>{statusLabel}</span>
                   </div>
                 </div>
               </div>
               <p className={`text-[32px] font-bold leading-none tracking-[-0.045em] ${tone.value}`}>{fmt(totalDebt)}</p>
-              <p className="mt-2 text-sm font-semibold text-white/72">{activeRecords.length ? `Active obligations (${activeDebtCount}).` : "No active debt recorded."}</p>
+              <p className="mt-2 text-sm font-semibold text-white/72">
+                {activeRecords.length ? `Active obligations (${activeDebtCount}).` : "No active debt recorded."}
+              </p>
               <div className="mt-4 grid grid-cols-3 divide-x divide-white/[0.055] overflow-hidden rounded-[22px] border border-white/[0.055] bg-black/[0.105]">
-                <div className="p-2.5 text-center"><p className="text-[13px] font-black text-white/88">{fmt(monthlyDebt)}</p><p className="mt-1 text-[8px] uppercase tracking-[0.18em] text-white/34">Monthly</p></div>
-                <div className="p-2.5 text-center"><p className={`text-[13px] font-black ${pressureClass}`}>{debtRatio.toFixed(0)}%</p><p className="mt-1 text-[8px] uppercase tracking-[0.18em] text-white/34">Pressure</p></div>
-                <div className="p-2.5 text-center"><p className="text-[13px] font-black text-white/88">{activeDebtCount || "Clear"}</p><p className="mt-1 text-[8px] uppercase tracking-[0.18em] text-white/34">Accounts</p></div>
+                <div className="p-2.5 text-center">
+                  <p className="text-[13px] font-black text-white/88">{fmt(monthlyDebt)}</p>
+                  <p className="mt-1 text-[8px] uppercase tracking-[0.18em] text-white/34">Monthly</p>
+                </div>
+                <div className="p-2.5 text-center">
+                  <p className={`text-[13px] font-black ${pressureClass}`}>{debtRatio.toFixed(0)}%</p>
+                  <p className="mt-1 text-[8px] uppercase tracking-[0.18em] text-white/34">Pressure</p>
+                </div>
+                <div className="p-2.5 text-center">
+                  <p className="text-[13px] font-black text-white/88">{activeDebtCount || "Clear"}</p>
+                  <p className="mt-1 text-[8px] uppercase tracking-[0.18em] text-white/34">Accounts</p>
+                </div>
               </div>
             </div>
             <ExpandRow expanded={false} onToggle={handleToggleDetails} />
@@ -264,37 +448,73 @@ export default function ObligationDebt({ item = null, user = null, expanded = fa
           <div className="mt-4 min-h-0 flex-1 overflow-hidden">
             <FinanceCardExpandedPanel className="h-full space-y-3 overflow-y-auto pr-1">
               <PremiumFinanceItemSurface tone={FINANCE_ITEM_HIERARCHY_TONES.neutral} rail={false} glow={false}>
-                <div className="flex items-center justify-between gap-3"><span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Debt pressure</span><RiskText riskLevel={riskLevel} /></div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Debt pressure</span>
+                  <RiskText riskLevel={riskLevel} />
+                </div>
                 <p className="mt-3 text-[12px] font-semibold leading-6 text-white/62">{payoffText}</p>
               </PremiumFinanceItemSurface>
 
-              <button type="button" disabled={actionLoading} onClick={() => { setForm(emptyForm()); setFormOpen(true); setNotice(""); }} className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.09] px-3 py-3 text-sm font-black text-emerald-200 disabled:opacity-45"><Plus className="h-4 w-4" /> New Obligation</button>
+              <button
+                type="button"
+                disabled={actionLoading}
+                onClick={() => {
+                  setForm(emptyForm());
+                  setFormOpen(true);
+                  setConfirmDelete(false);
+                  setNotice("");
+                }}
+                className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.09] px-3 py-3 text-sm font-black text-emerald-200 disabled:opacity-45"
+              >
+                <Plus className="h-4 w-4" /> New Obligation
+              </button>
 
-              {formOpen ? (
-                <PremiumFinanceItemSurface tone={FINANCE_ITEM_HIERARCHY_TONES.neutral} rail={false} glow={false} className="p-3.5">
-                  <div className="mb-3 flex items-center justify-between"><div><p className="text-sm font-black text-white/92">{form.id ? "Edit obligation" : "Add obligation"}</p><p className="text-[11px] text-white/45">Choose a payoff balance or an ongoing monthly commitment.</p></div><button type="button" onClick={closeForm} disabled={actionLoading} className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.045] text-white/65"><X className="h-4 w-4" /></button></div>
-                  <div className="space-y-2.5">
-                    <div><Label htmlFor="debt-title">Name</Label><input id="debt-title" value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} className={fieldClass} placeholder="Example: Home Credit" /></div>
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <div><Label htmlFor="obligation-mode">Setup</Label><select id="obligation-mode" value={form.obligationMode} onChange={(event) => setForm((current) => ({ ...current, obligationMode: event.target.value }))} className={fieldClass}><option value="balance" className="bg-slate-950">Payoff debt</option><option value="recurring" className="bg-slate-950">Recurring monthly</option></select></div>
-                      <div><Label htmlFor="debt-type">Type</Label><select id="debt-type" value={form.debtType} onChange={(event) => setForm((current) => ({ ...current, debtType: event.target.value }))} className={fieldClass}>{DEBT_TYPES.map((type) => <option key={type.value} value={type.value} className="bg-slate-950">{type.label}</option>)}</select></div>
-                    </div>
-                    {form.obligationMode === "balance" ? <div className="grid grid-cols-2 gap-2.5"><div><Label htmlFor="total-debt">Remaining balance</Label><input id="total-debt" type="number" min="0" inputMode="decimal" value={form.totalDebt} onChange={(event) => setForm((current) => ({ ...current, totalDebt: event.target.value }))} className={fieldClass} placeholder="0" /></div><div><Label htmlFor="debt-interest">Annual interest %</Label><input id="debt-interest" type="number" min="0" inputMode="decimal" value={form.interestRate} onChange={(event) => setForm((current) => ({ ...current, interestRate: event.target.value }))} className={fieldClass} placeholder="Optional" /></div></div> : null}
-                    <div className="grid grid-cols-2 gap-2.5"><div><Label htmlFor="monthly-debt">Monthly payment</Label><input id="monthly-debt" type="number" min="0" inputMode="decimal" value={form.monthlyDebt} onChange={(event) => setForm((current) => ({ ...current, monthlyDebt: event.target.value }))} className={fieldClass} placeholder="0" /></div><div><Label htmlFor="debt-due-day">Due day</Label><input id="debt-due-day" type="number" min="1" max="31" inputMode="numeric" value={form.dueDay} onChange={(event) => setForm((current) => ({ ...current, dueDay: event.target.value }))} className={fieldClass} placeholder="1–31" /></div></div>
-                  </div>
-                  {notice ? <p className="mt-3 text-[11px] font-semibold text-white/58">{notice}</p> : null}
-                  <button type="button" onClick={saveObligation} disabled={actionLoading} className="mt-3 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.09] text-sm font-black text-emerald-200 disabled:opacity-45">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}{saving ? "Saving..." : form.id ? "Update Obligation" : "Save Obligation"}</button>
-                  {form.id ? (!confirmDelete ? <button type="button" onClick={() => setConfirmDelete(true)} disabled={actionLoading} className="mt-2.5 flex min-h-[42px] w-full items-center justify-center gap-2 rounded-2xl border border-rose-300/18 bg-rose-400/[0.07] text-sm font-black text-rose-200"><Trash2 className="h-4 w-4" /> Delete Obligation</button> : <div className="mt-2.5 rounded-2xl border border-rose-300/16 bg-rose-500/[0.07] p-3"><p className="text-sm font-black text-rose-100">Delete {form.title || "this obligation"}?</p><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={() => setConfirmDelete(false)} className="rounded-xl border border-white/[0.08] bg-white/[0.045] py-2 text-xs font-black text-white/72">Cancel</button><button type="button" onClick={removeObligation} disabled={actionLoading} className="flex items-center justify-center gap-1.5 rounded-xl border border-rose-300/20 bg-rose-400/[0.12] py-2 text-xs font-black text-rose-100">{deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />} Delete</button></div></div>) : null}
-                </PremiumFinanceItemSurface>
-              ) : null}
+              {formOpen && !form.id ? formPanel : null}
 
               <PremiumFinanceItemSurface tone={FINANCE_ITEM_HIERARCHY_TONES.neutral} rail={false} glow={false}>
-                <div className="flex items-center justify-between"><span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Current setup</span><RiskText riskLevel={riskLevel} /></div>
-                <div className="mt-2 border-t border-white/[0.06]"><PremiumFinanceInfoRow label="Monthly pressure" value={fmt(monthlyDebt)} /><PremiumFinanceInfoRow label="Debt ratio" value={`${debtRatio.toFixed(0)}%`} valueClassName={pressureClass} /></div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Current setup</span>
+                  <RiskText riskLevel={riskLevel} />
+                </div>
+                <div className="mt-2 border-t border-white/[0.06]">
+                  <PremiumFinanceInfoRow label="Monthly pressure" value={fmt(monthlyDebt)} />
+                  <PremiumFinanceInfoRow label="Debt ratio" value={`${debtRatio.toFixed(0)}%`} valueClassName={pressureClass} />
+                </div>
               </PremiumFinanceItemSurface>
 
               <div className="space-y-2.5">
-                {activeRecords.length ? activeRecords.map((record, index) => <DebtObligationItem key={record.id || `${getDebtTitle(record)}-${index}`} record={record} totalPositiveDebt={totalPositiveDebt} onEdit={(selected) => { setForm(formFromRecord(selected)); setFormOpen(true); setConfirmDelete(false); setNotice(""); }} />) : <PremiumFinanceItemSurface tone={FINANCE_ITEM_HIERARCHY_TONES.neutral} glow={false} className="p-4 text-center"><p className="text-sm font-black text-white/90">No obligations yet</p><p className="mt-1 text-[11px] text-white/50">Add debts or recurring commitments one by one.</p></PremiumFinanceItemSurface>}
+                {activeRecords.length ? (
+                  activeRecords.map((record, index) => {
+                    const recordKey = record.id || `${getDebtTitle(record)}-${index}`;
+                    const isEditingRecord =
+                      formOpen &&
+                      Boolean(form.id) &&
+                      String(form.id) === String(record.id || "");
+
+                    if (isEditingRecord) {
+                      return <div key={recordKey}>{formPanel}</div>;
+                    }
+
+                    return (
+                      <DebtObligationItem
+                        key={recordKey}
+                        record={record}
+                        totalPositiveDebt={totalPositiveDebt}
+                        onEdit={(selected) => {
+                          setForm(formFromRecord(selected));
+                          setFormOpen(true);
+                          setConfirmDelete(false);
+                          setNotice("");
+                        }}
+                      />
+                    );
+                  })
+                ) : (
+                  <PremiumFinanceItemSurface tone={FINANCE_ITEM_HIERARCHY_TONES.neutral} glow={false} className="p-4 text-center">
+                    <p className="text-sm font-black text-white/90">No obligations yet</p>
+                    <p className="mt-1 text-[11px] text-white/50">Add debts or recurring commitments one by one.</p>
+                  </PremiumFinanceItemSurface>
+                )}
               </div>
               <div aria-hidden="true" className="h-5" />
             </FinanceCardExpandedPanel>
