@@ -70,7 +70,7 @@ money_replacement = '''function money(value) {
     maximumFractionDigits: 0,
   })}`;
 }'''
-text, count = money_pattern.subn(money_replacement, text, count=1)
+text, count = money_pattern.subn(lambda _: money_replacement, text, count=1)
 if count != 1:
     raise SystemExit(f"Expected to replace one legacy money formatter, replaced {count}.")
 
@@ -94,7 +94,7 @@ helper_pattern = re.compile(
     r'function localDateKey\(value = new Date\(\)\) \{.*?function statusForScore\(score\)',
     re.S,
 )
-text, count = helper_pattern.subn(authority_block, text, count=1)
+text, count = helper_pattern.subn(lambda _: authority_block, text, count=1)
 if count != 1:
     raise SystemExit(f"Expected to replace one legacy Means helper/authority span, replaced {count}.")
 
@@ -120,8 +120,12 @@ info_pattern = re.compile(
     r'<span data-clara-means-info-copy="true" style="([^"]*)">.*?</span>',
     re.S,
 )
-info_copy = '<span data-clara-means-info-copy="true" style="\\1">This score compares your effective Wallet money with the protected and currently applicable requirements of this pay cycle. Past and today stay protected; future requirements adapt. Money Schedule days may be assumed spent until a successful Cross-Check confirms fresh Wallet truth. Savings Goal, Emergency Fund, and Money Lent tracking do not directly affect the Means Score.</span>'
-text, count = info_pattern.subn(info_copy, text, count=1)
+info_text = "This score compares your effective Wallet money with the protected and currently applicable requirements of this pay cycle. Past and today stay protected; future requirements adapt. Money Schedule days may be assumed spent until a successful Cross-Check confirms fresh Wallet truth. Savings Goal, Emergency Fund, and Money Lent tracking do not directly affect the Means Score."
+text, count = info_pattern.subn(
+    lambda match: f'<span data-clara-means-info-copy="true" style="{match.group(1)}">{info_text}</span>',
+    text,
+    count=1,
+)
 if count != 1:
     raise SystemExit(f"Expected one Means info copy span, replaced {count}.")
 
