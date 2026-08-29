@@ -80,25 +80,27 @@ test("08 editing or deleting a past scheduled occurrence cannot rewrite protecte
   assert.equal(next.requiredRunway, 900);
 });
 
-test("09 Assumed Spent day activation uses Manila financial day, not client-local day", async () => {
+test("09 Manila financial day is authoritative but time passage alone cannot spend Wallet money", async () => {
   assert.equal(financialDateKey(new Date("2026-08-28T16:00:00.000Z")), "2026-08-29");
   const authority = await source("../src/lib/clara-means-authority.js");
-  assert.match(authority, /date > today/);
-  assert.match(authority, /availableNow - assumedSpent/);
+  assert.match(authority, /const assumedSpent = 0/);
+  assert.match(authority, /const effectiveCurrentMoney = availableNow/);
+  assert.doesNotMatch(authority, /availableNow\s*-\s*assumedSpent/);
 });
 
-test("10 Cross-Check adjustment updates wallet truth and resets Assumed Spent only after success", async () => {
+test("10 Cross-Check changes Means only through reconciled Wallet truth", async () => {
   const reconciliation = await source("../src/lib/weeklyMoneyCheckReconciliationRepository.js");
   assert.match(reconciliation, /type:\s*"weekly_cross_check_adjustment"/);
   assert.match(reconciliation, /category:\s*"Cross-Check Adjustment"/);
   assert.match(reconciliation, /const result = await runLocalFinanceTransaction/);
-  assert.match(reconciliation, /resetMeansAssumedSpent\(safeLocalUserId/);
+  assert.doesNotMatch(reconciliation, /resetMeansAssumedSpent/);
 });
 
-test("11 honest no-delta Cross-Check still resets Assumed Spent", async () => {
+test("11 honest no-delta Cross-Check creates no synthetic Means mutation", async () => {
   const reconciliation = await source("../src/lib/weeklyMoneyCheckReconciliationRepository.js");
-  assert.match(reconciliation, /if \(!candidates\.length\) \{[\s\S]*resetMeansAssumedSpent/);
+  assert.match(reconciliation, /if \(!candidates\.length\)/);
   assert.match(reconciliation, /adjustedWallets:\s*0/);
+  assert.doesNotMatch(reconciliation, /means-assumed-spent/);
 });
 
 test("12 a wallet expense lowers Means without rewriting 100", () => {
@@ -111,23 +113,26 @@ test("13 adding actual wallet money raises Means without rewriting 100", () => {
   assert.equal(score(15000, 10000), 150);
 });
 
-test("14 Savings Goal create edit delete is Means-neutral", async () => {
+test("14 Savings Goal protected money is excluded from available Wallet, not added to 100", async () => {
   const authority = await source("../src/lib/clara-means-authority.js");
-  assert.doesNotMatch(authority, /getSavingsGoals/);
+  assert.match(authority, /getSavingsGoals/);
+  assert.match(authority, /getWalletProtectedAmounts/);
+  assert.match(authority, /savingsProtected/);
   assert.match(authority, /savingsGoalUpcoming:\s*0/);
-  assert.match(authority, /savingsProtected:\s*0/);
 });
 
-test("15 Emergency Fund create edit delete is Means-neutral", async () => {
+test("15 Emergency Fund protected money is excluded from available Wallet, not added to 100", async () => {
   const authority = await source("../src/lib/clara-means-authority.js");
-  assert.doesNotMatch(authority, /getEmergencyFund/);
-  assert.match(authority, /emergencyProtected:\s*0/);
+  assert.match(authority, /getEmergencyFund/);
+  assert.match(authority, /emergencyProtected/);
+  assert.doesNotMatch(authority, /emergencyProtected\s*\+\s*baselineState\.requiredRunway/);
 });
 
-test("16 Money Lent create edit delete is Means-neutral and excluded as a special container", async () => {
+test("16 Money Lent is unavailable to Means while remaining outside the 100 baseline", async () => {
   const authority = await source("../src/lib/clara-means-authority.js");
-  assert.match(authority, /isMeansNeutralMoneyLentWallet/);
-  assert.match(authority, /moneyLentUnavailable:\s*0/);
+  assert.match(authority, /isMoneyLentWallet/);
+  assert.match(authority, /moneyLentUnavailable/);
+  assert.match(authority, /savingsGoalUpcoming:\s*0/);
 });
 
 test("17 an obligation occurrence due inside the cycle enters the baseline immediately", () => {
@@ -159,26 +164,27 @@ test("20 exact occurrence payment preserves obligation and due-date identity", a
   assert.match(payment, /debt_payment_id:\s*paymentId/);
 });
 
-test("21 overpay expands only the current occurrence baseline and does not roll to the next", () => {
+test("21 overpay never expands the protected occurrence baseline", () => {
   const current = resolve({ occurrences: [occurrence("debt:a:2026-08-28", "2026-08-28", 1200, { kind: "debt", actualPaid: 1500 })] });
-  assert.equal(current.requiredRunway, 1500);
+  assert.equal(current.requiredRunway, 1200);
   const withNext = resolve({ stored: current.baseline, occurrences: [
     occurrence("debt:a:2026-08-28", "2026-08-28", 1200, { kind: "debt", actualPaid: 1500 }),
     occurrence("debt:a:2026-09-05", "2026-09-05", 1200, { kind: "debt", actualPaid: 0 }),
   ] });
-  assert.equal(withNext.requiredRunway, 2700);
+  assert.equal(withNext.requiredRunway, 2400);
 });
 
-test("22 paying a future-cycle occurrence early counts as current-cycle actual exactly once", () => {
+test("22 paying a future-cycle occurrence early cannot enter the current-cycle 100", () => {
   const state = resolve({ occurrences: [occurrence("plan", "2026-09-01", 8000)], extra: 1200 });
-  assert.equal(state.requiredRunway, 9200);
+  assert.equal(state.requiredRunway, 8000);
+  assert.equal(state.extraCurrentCycleActual, 1200);
 });
 
-test("23 a later cycle excludes an occurrence already fully paid before that cycle", async () => {
+test("23 future-cycle payment history is not a current-cycle baseline input", async () => {
   const authority = await source("../src/lib/clara-means-authority.js");
   assert.match(authority, /amountPaidBeforeCycle/);
-  assert.match(authority, /paidBeforeCycle \+ EPSILON >= planned\) return false/);
-  assert.match(authority, /currentCycleFutureDebtActual/);
+  assert.doesNotMatch(authority, /currentCycleFutureDebtActual/);
+  assert.doesNotMatch(authority, /confirmedCarriedDebt/);
 });
 
 test("24 obligation payment uses the chosen wallet while source-card identity remains debt-owned", async () => {
@@ -205,22 +211,22 @@ test("26 obligation payment mutations are atomic across debt wallet and transact
   assert.match(payment, /await tx\.putRaw\(WALLET_TRANSACTION_STORE/);
 });
 
-test("27 completed debt stops generating future planned occurrences", async () => {
+test("27 completed debt stops generating unrelated future planned occurrences", async () => {
   const authority = await source("../src/lib/clara-means-authority.js");
   assert.match(authority, /if \(isActiveDebtObligation\(record\)\) return true/);
-  assert.match(authority, /Completed obligations remain visible to the cycle in which their payment happened/);
+  assert.match(authority, /Completed obligations remain represented in the cycle where the requirement existed/);
 });
 
-test("28 confirmed Still Unpaid carry enters the new cycle baseline", () => {
+test("28 overdue carry cannot silently enter a new cycle baseline", () => {
   const state = resolve({ occurrences: [occurrence("plan", "2026-09-01", 8000)], carry: 500 });
-  assert.equal(state.requiredRunway, 8500);
+  assert.equal(state.requiredRunway, 8000);
+  assert.equal(state.carriedObligations, 500);
 });
 
-test("29 Paid Already or Ask Me Later cannot silently add arbitrary overdue carry", async () => {
+test("29 no carried-debt status path is permitted to size the denominator", async () => {
   const authority = await source("../src/lib/clara-means-authority.js");
-  assert.match(authority, /\["confirmed", "still_unpaid", "carried"\]\.includes\(status\)/);
-  assert.doesNotMatch(authority, /\["paid_already"[\s\S]*still_unpaid/);
-  assert.doesNotMatch(authority, /\["ask_me_later"[\s\S]*still_unpaid/);
+  assert.doesNotMatch(authority, /carriedOccurrences/);
+  assert.doesNotMatch(authority, /still_unpaid/);
 });
 
 test("30 genuine cycle rollover creates a new cycle baseline instead of carrying the old protected map", () => {
@@ -253,7 +259,7 @@ test("33 migration ignores ambiguous legacy scalar locks instead of preserving k
   assert.equal(state.baseline.version, 6);
 });
 
-test("34 runtime uses one canonical Means authority and contains no legacy duplicate score engine", async () => {
+test("34 runtime uses one canonical Means authority and contains no legacy duplicate current-score engine", async () => {
   const runtime = await source("../src/runtime/installClaraOrbGreeting.js");
   assert.match(runtime, /buildCanonicalMeansSnapshot/);
   assert.doesNotMatch(runtime, /resolveLockedMeansCycleBaseline/);
@@ -261,10 +267,9 @@ test("34 runtime uses one canonical Means authority and contains no legacy dupli
   assert.doesNotMatch(runtime, /futureSavingsGoalAmount/);
 });
 
-test("35 finance events refresh Means and no recurring polling loop owns correctness", async () => {
+test("35 finance and plan events refresh Means without correctness polling", async () => {
   const runtime = await source("../src/runtime/installClaraOrbGreeting.js");
   assert.match(runtime, /CLARA_MONEY_SCHEDULE_UPDATED_EVENT/);
-  assert.match(runtime, /clara:means-assumed-spent-reset/);
   assert.match(runtime, /FINANCE_DATA_UPDATED_EVENT/);
   assert.match(runtime, /window\.addEventListener\(FINANCE_DATA_UPDATED_EVENT, handleFinanceRefresh\)/);
   assert.doesNotMatch(runtime, /setInterval\([^)]*refreshMeans/);
