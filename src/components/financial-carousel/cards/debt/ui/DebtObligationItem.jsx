@@ -17,7 +17,6 @@ import {
   getDebtObligationMode,
   getDebtStatus,
   getMonthlyDebtPayment,
-  getNextDebtDueDate,
 } from "@/lib/debtObligationMath";
 
 export const getObligationBalance = (record) => getDebtBalance(record);
@@ -69,7 +68,7 @@ function getDebtAmountMeta({ mode, balance, monthly, interest, dueState, status 
   return { className: "text-white/94", label: "Outstanding balance", amount: balance };
 }
 
-export default function DebtObligationItem({ record, totalPositiveDebt, onEdit, onMarkPaid, markingPaid = false }) {
+export default function DebtObligationItem({ record, totalPositiveDebt, onEdit, onPay, paying = false }) {
   const balance = getObligationBalance(record);
   const monthly = getObligationMonthly(record);
   const interest = getObligationInterest(record);
@@ -96,6 +95,10 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit, 
     dueState: dueMeta.state,
     status,
   });
+  const canPay =
+    !["paid", "completed", "closed"].includes(status) &&
+    monthly > 0 &&
+    Boolean(dueMeta.dueDate);
 
   return (
     <PremiumFinanceItemSurface tone={tone} className="p-3.5">
@@ -172,16 +175,16 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit, 
             className="border-t border-white/[0.055]"
           />
         ) : null}
-      {dueMeta.dueDate && ["overdue", "due_today"].includes(dueMeta.state) ? (
-        <button
-          type="button"
-          disabled={markingPaid}
-          onClick={() => onMarkPaid?.(record, dueMeta.dueDate)}
-          className="mt-3 flex min-h-[42px] w-full items-center justify-center rounded-xl border border-emerald-300/20 bg-emerald-400/[0.08] px-3 text-[11px] font-black text-emerald-200 disabled:opacity-45"
-        >
-          {markingPaid ? "Saving payment..." : `Mark ${dueMeta.dueDate} paid`}
-        </button>
-      ) : null}
+        {canPay ? (
+          <button
+            type="button"
+            disabled={paying}
+            onClick={() => onPay?.(record, dueMeta.dueDate)}
+            className="mt-3 flex min-h-[42px] w-full items-center justify-center rounded-xl border border-emerald-300/20 bg-emerald-400/[0.08] px-3 text-[11px] font-black text-emerald-200 disabled:opacity-45"
+          >
+            {paying ? "Processing payment..." : "Pay Obligation"}
+          </button>
+        ) : null}
       </div>
     </PremiumFinanceItemSurface>
   );
