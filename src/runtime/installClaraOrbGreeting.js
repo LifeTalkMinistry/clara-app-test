@@ -87,25 +87,94 @@ async function buildMeansSnapshot(profile = {}) {
 }
 
 function statusForScore(score) {
-  if (score >= 10000) return "Diamond";
-  if (score >= 5000) return "Gold";
-  if (score >= 2000) return "Silver";
-  if (score >= 1000) return "Bronze";
-  if (score >= 500) return "Vanguard";
-  if (score >= 400) return "3 Cycles Ahead";
-  if (score >= 300) return "2 Cycles Ahead";
-  if (score >= 200) return "1 Cycle Ahead";
-  if (score >= 101) return "Below Your Means";
-  if (score === 100) return "Within Your Means";
-  if (score >= 1) return "Above Your Means";
+  const value = Number(score);
+  if (!Number.isFinite(value)) return "Score unavailable";
+  if (value >= 10000) return "Diamond";
+  if (value >= 5000) return "Gold";
+  if (value >= 2000) return "Silver";
+  if (value >= 1000) return "Bronze";
+  if (value >= 500) return "Vanguard";
+  if (value >= 400) return "3 Cycles Ahead";
+  if (value >= 300) return "2 Cycles Ahead";
+  if (value >= 200) return "1 Cycle Ahead";
+  if (value >= 101) return "Below Your Means";
+  if (value === 100) return "Within Your Means";
+  if (value >= 1) return "Above Your Means";
   return "In Deficit";
 }
 
 function metricTone(score) {
-  if (score > 100) return "#67e8c8";
-  if (score === 100) return "#e7eefc";
-  if (score >= 0) return "#f4d36a";
+  const value = Number(score);
+  if (!Number.isFinite(value)) return "#9aa7be";
+  if (value > 100) return "#67e8c8";
+  if (value === 100) return "#e7eefc";
+  if (value >= 0) return "#f4d36a";
   return "#ff7f8d";
+}
+
+function isScoreResolved(snapshot) {
+  if (!snapshot) return false;
+  if (snapshot.meansScoreResolved === false) return false;
+  return Number.isFinite(Number(snapshot.score));
+}
+
+function unresolvedScoreLabel(snapshot) {
+  if (snapshot?.migrationUnresolved) return "Cycle anchor needs migration";
+  if (snapshot?.anchorState === "no_anchor") return "Cycle anchor not established";
+  return "Score anchor unresolved";
+}
+
+function meansBriefingMarkup(snapshot, expanded) {
+  const realRoom = Number(snapshot?.wallBill ?? snapshot?.projectedRoom ?? 0) || 0;
+  const remainingPlan = Number(
+    snapshot?.remainingPlannedSpending ?? snapshot?.upcoming ?? 0
+  ) || 0;
+  const otherUpcoming = Number(snapshot?.otherScheduledUpcoming || 0) || 0;
+  return `
+    <span data-clara-means-expanded="true" data-clara-money-briefing="active-cycle" style="display:${expanded ? "block" : "none"};width:min(300px,78vw);margin:10px auto 1px;padding:11px 12px;border:1px solid rgba(112,157,229,.13);border-radius:15px;background:linear-gradient(180deg,rgba(9,21,50,.72),rgba(4,11,31,.66));box-shadow:0 14px 34px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.025);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);text-align:left;overflow:hidden">
+      <span style="display:block;font-size:7.5px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.25)">This pay cycle</span>
+      <span style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:12px;margin-top:6px;font-size:10px;color:rgba(255,255,255,.38)"><span style="min-width:0">Income this pay cycle</span><strong style="white-space:nowrap;color:rgba(255,255,255,.72)">${money(snapshot?.income)}</strong></span>
+      <span data-clara-money-in-hand="true" style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:12px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.50)"><span style="min-width:0">Money in hand</span><strong style="white-space:nowrap;color:rgba(255,255,255,.88)">${money(snapshot?.availableWalletMoney ?? snapshot?.availableNow)}</strong></span>
+
+      <span style="display:block;margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.055);font-size:7.5px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.25)">Spending</span>
+      <span style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:12px;margin-top:6px;font-size:10px;color:rgba(255,255,255,.38)"><span style="min-width:0">Actual spent</span><strong style="white-space:nowrap;color:rgba(255,255,255,.72)">${money(snapshot?.spent)}</strong></span>
+
+      <span style="display:block;margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.055);font-size:7.5px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.25)">Still to cover</span>
+      <span data-clara-upcoming-commitments="true" style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:12px;margin-top:6px;font-size:10px;color:rgba(255,255,255,.46)"><span style="min-width:0;font-weight:760">Remaining planned spending</span><strong style="white-space:nowrap;color:rgba(255,255,255,.80)">${money(remainingPlan)}</strong></span>
+      <span style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:12px;margin-top:4px;padding-left:9px;font-size:9.5px;color:rgba(255,255,255,.31)"><span style="min-width:0">↳ Debt / obligations</span><strong style="white-space:nowrap;color:rgba(255,255,255,.58)">${money(snapshot?.debtUpcoming)}</strong></span>
+      <span style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:12px;margin-top:4px;padding-left:9px;font-size:9.5px;color:rgba(255,255,255,.31)"><span style="min-width:0">↳ Money Schedule</span><strong style="white-space:nowrap;color:rgba(255,255,255,.58)">${money(snapshot?.moneyScheduleUpcoming)}</strong></span>
+      ${otherUpcoming > 0 ? `<span style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:12px;margin-top:4px;padding-left:9px;font-size:9.5px;color:rgba(255,255,255,.31)"><span style="min-width:0">↳ Other planned</span><strong style="white-space:nowrap;color:rgba(255,255,255,.58)">${money(otherUpcoming)}</strong></span>` : ""}
+
+      <span data-clara-real-room="true" style="display:block;margin-top:10px;padding-top:9px;border-top:1px solid rgba(103,232,200,.16)">
+        <span style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:12px">
+          <span style="min-width:0;font-size:8px;font-weight:900;letter-spacing:.105em;text-transform:uppercase;color:rgba(255,255,255,.55)">Real room until ${formatHorizonDate(snapshot?.cycleEndDate)}</span>
+          <strong style="white-space:nowrap;font-size:12px;font-weight:950;letter-spacing:-.02em;color:${realRoom >= 0 ? "#67e8c8" : "#ff7f8d"};text-shadow:0 0 14px ${realRoom >= 0 ? "rgba(103,232,200,.12)" : "rgba(255,127,141,.12)"}">${money(realRoom)}</strong>
+        </span>
+        <span style="display:block;margin-top:3px;font-size:8.5px;font-weight:650;line-height:1.35;color:rgba(255,255,255,.27)">Money in hand minus everything still planned</span>
+      </span>
+
+      <span style="display:flex;align-items:center;justify-content:center;gap:5px;margin-top:8px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">
+        <span>100 = exactly enough for the remaining plan</span>
+        <button type="button" data-clara-means-info-toggle="true" aria-label="How the Means Score is calculated" aria-expanded="false" style="display:inline-grid;place-items:center;width:15px;height:15px;padding:0;border:1px solid rgba(255,255,255,.13);border-radius:999px;background:rgba(255,255,255,.025);color:rgba(255,255,255,.36);font-size:9px;font-weight:800;line-height:1;cursor:pointer;-webkit-tap-highlight-color:transparent">i</button>
+      </span>
+      <span data-clara-means-info-copy="true" style="display:none;margin-top:7px;padding:7px 8px;border:1px solid rgba(255,255,255,.05);border-radius:9px;background:rgba(255,255,255,.018);font-size:8.5px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30);text-align:center">Real Room is Wallet money minus Remaining Planned Spending. Means Score translates that Real Room using the fixed Cycle 100 Anchor. A matched planned payment lowers Wallet and Remaining Plan together, so the matched portion does not lower the score.</span>
+    </span>
+  `;
+}
+
+function bindMeansInfoToggle(root) {
+  const infoToggle = root?.querySelector?.('[data-clara-means-info-toggle="true"]');
+  if (!infoToggle || infoToggle.dataset.claraMeansInfoBound === "true") return;
+  infoToggle.dataset.claraMeansInfoBound = "true";
+  infoToggle.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const infoCopy = root.querySelector?.('[data-clara-means-info-copy="true"]');
+    if (!infoCopy) return;
+    const nextOpen = infoToggle.getAttribute("aria-expanded") !== "true";
+    infoToggle.setAttribute("aria-expanded", nextOpen ? "true" : "false");
+    infoCopy.style.display = nextOpen ? "block" : "none";
+  });
 }
 
 function ensureMeansPlaceholder(idleCopy) {
@@ -165,28 +234,21 @@ function ensureMeansMetric(label, snapshot, onToggle) {
     ? [
         "ready",
         snapshot.score,
-        Math.round(snapshot.income),
-        Math.round(snapshot.spent),
-        Math.round(snapshot.assumedSpent || 0),
-        Math.round(snapshot.assumedToday || 0),
-        Math.round(snapshot.upcoming),
-        Math.round(snapshot.savingsGoalUpcoming || 0),
+        snapshot.meansScoreResolved === false ? 0 : 1,
+        snapshot.anchorState || "",
+        snapshot.migrationUnresolved ? 1 : 0,
+        Math.round(snapshot.income || 0),
+        Math.round(snapshot.spent || 0),
+        Math.round(snapshot.upcoming || 0),
         Math.round(snapshot.debtUpcoming || 0),
         Math.round(snapshot.moneyScheduleUpcoming || 0),
         Math.round(snapshot.otherScheduledUpcoming || 0),
         snapshot.cycleStartDate || "",
         snapshot.cycleEndDate || "",
         Math.round(snapshot.availableNow || 0),
-        Math.round(snapshot.financialRunway || 0),
-        Math.round(snapshot.requiredRunway || 0),
-        Math.round(snapshot.scoreRoom || 0),
-        Math.round(snapshot.plannedAssumedSinceLock || 0),
-        Math.round(snapshot.moneyLentUnavailable || 0),
-        Math.round(snapshot.emergencyProtected || 0),
-        Math.round(snapshot.savingsProtected || 0),
-        Math.round(snapshot.otherProtected || 0),
-        snapshot.horizonDate || "",
-        Math.round(snapshot.projectedRoom),
+        Math.round(snapshot.cycle100Anchor || 0),
+        Math.round(snapshot.remainingPlannedSpending || 0),
+        Math.round(snapshot.wallBill || 0),
         expanded ? 1 : 0,
       ].join(":")
     : `waiting:${expanded ? 1 : 0}`;
@@ -212,9 +274,29 @@ function ensureMeansMetric(label, snapshot, onToggle) {
       <span data-clara-means-expanded="true" style="display:${expanded ? "block" : "none"};width:min(300px,78vw);margin:10px auto 1px;padding:12px;border:1px solid rgba(112,157,229,.13);border-radius:15px;background:linear-gradient(180deg,rgba(9,21,50,.72),rgba(4,11,31,.66));box-shadow:0 14px 34px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.025);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);text-align:left">
         <strong style="display:block;font-size:10px;font-weight:900;letter-spacing:-.01em;color:rgba(255,255,255,.76)">No valid Income Hub pay cycle detected yet.</strong>
         <span style="display:block;margin-top:5px;font-size:9.5px;font-weight:650;line-height:1.5;color:rgba(255,255,255,.40)">Set a stable income schedule in Income Hub so CLARA can use payday-to-payday boundaries. CLARA will not substitute a calendar-month boundary.</span>
-        <span style="display:block;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.06);font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">100 = living within your means</span>
       </span>
     `;
+    return root;
+  }
+
+  if (!isScoreResolved(snapshot)) {
+    const unresolvedLabel = unresolvedScoreLabel(snapshot);
+    root.setAttribute(
+      "aria-label",
+      `Means Score unavailable. ${unresolvedLabel}. Financial briefing remains available. ${expanded ? "Tap to collapse details." : "Tap for details."}`
+    );
+    root.innerHTML = `
+      <span style="display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:31px;padding:4px 10px 4px 5px;border:1px solid rgba(154,167,190,.18);border-radius:999px;background:linear-gradient(180deg,rgba(13,28,62,.68),rgba(4,10,31,.74));box-shadow:0 10px 28px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.035);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)">
+        <strong style="display:inline-grid;place-items:center;min-width:29px;height:23px;padding:0 6px;border:1px solid rgba(154,167,190,.16);border-radius:999px;background:rgba(154,167,190,.05);font-size:11px;font-weight:900;line-height:1;color:#9aa7be">—</strong>
+        <span style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;line-height:1">
+          <span style="font-size:7px;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.26)">Means score</span>
+          <span style="font-size:9px;font-weight:800;letter-spacing:-.01em;color:rgba(255,255,255,.55)">${unresolvedLabel}</span>
+        </span>
+        <span style="margin-left:1px;font-size:9px;line-height:1;color:rgba(255,255,255,.25);transform:${expanded ? "rotate(180deg)" : "none"};transition:transform 160ms ease">⌄</span>
+      </span>
+      ${meansBriefingMarkup(snapshot, expanded)}
+    `;
+    bindMeansInfoToggle(root);
     return root;
   }
 
@@ -232,37 +314,10 @@ function ensureMeansMetric(label, snapshot, onToggle) {
       </span>
       <span style="margin-left:1px;font-size:9px;line-height:1;color:rgba(255,255,255,.25);transform:${expanded ? "rotate(180deg)" : "none"};transition:transform 160ms ease">⌄</span>
     </span>
-    <span data-clara-means-expanded="true" style="display:${expanded ? "block" : "none"};width:min(300px,78vw);margin:10px auto 1px;padding:11px 12px;border:1px solid rgba(112,157,229,.13);border-radius:15px;background:linear-gradient(180deg,rgba(9,21,50,.72),rgba(4,11,31,.66));box-shadow:0 14px 34px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.025);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);text-align:left">
-      <span style="display:flex;justify-content:space-between;gap:16px;font-size:10px;color:rgba(255,255,255,.38)"><span>Income this pay cycle</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.income)}</strong></span>
-      <span style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.50)"><span>Money in hand</span><strong style="color:rgba(255,255,255,.86)">${money(snapshot.availableNow)}</strong></span>
-      <span style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.38)"><span>Actual spent</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.spent)}</strong></span>
-      <span style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.38)"><span>Assumed spent</span><strong style="color:rgba(255,255,255,.72)">${money(snapshot.assumedSpent || 0)}</strong></span>
-      <span style="display:flex;justify-content:space-between;gap:16px;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.05);font-size:10px;color:rgba(255,255,255,.44)"><span>Upcoming commitments</span><strong style="color:rgba(255,255,255,.78)">${money(snapshot.upcoming)}</strong></span>
-      <span style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;padding-left:9px;font-size:9.5px;color:rgba(255,255,255,.31)"><span>↳ Debt / obligations</span><strong style="color:rgba(255,255,255,.58)">${money(snapshot.debtUpcoming)}</strong></span>
-      <span style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;padding-left:9px;font-size:9.5px;color:rgba(255,255,255,.31)"><span>↳ Money Schedule</span><strong style="color:rgba(255,255,255,.58)">${money(snapshot.moneyScheduleUpcoming)}</strong></span>
-      <span style="display:flex;justify-content:space-between;gap:16px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.07);font-size:10px;color:rgba(255,255,255,.48)"><span>Room until ${formatHorizonDate(snapshot.cycleEndDate)}</span><strong style="color:${snapshot.projectedRoom >= 0 ? "#67e8c8" : "#ff7f8d"}">${snapshot.projectedRoom >= 0 ? "" : "−"}${money(Math.abs(snapshot.projectedRoom))}</strong></span>
-      <span style="display:flex;align-items:center;justify-content:center;gap:5px;margin-top:7px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">
-        <span>100 = living within your means</span>
-        <button type="button" data-clara-means-info-toggle="true" aria-label="How the Means Score is calculated" aria-expanded="false" style="display:inline-grid;place-items:center;width:15px;height:15px;padding:0;border:1px solid rgba(255,255,255,.13);border-radius:999px;background:rgba(255,255,255,.025);color:rgba(255,255,255,.36);font-size:9px;font-weight:800;line-height:1;cursor:pointer;-webkit-tap-highlight-color:transparent">i</button>
-      </span>
-      <span data-clara-means-info-copy="true" style="display:none;margin-top:7px;padding:7px 8px;border:1px solid rgba(255,255,255,.05);border-radius:9px;background:rgba(255,255,255,.018);font-size:8.5px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30);text-align:center">This score compares your effective Wallet money with the protected and currently applicable requirements of this pay cycle. Past and today stay protected; future requirements adapt. Money Schedule days may be assumed spent until a successful Cross-Check confirms fresh Wallet truth. Savings Goal, Emergency Fund, and Money Lent tracking do not directly affect the Means Score.</span>
-    </span>
+    ${meansBriefingMarkup(snapshot, expanded)}
   `;
 
-  const infoToggle = root.querySelector?.('[data-clara-means-info-toggle="true"]');
-  if (infoToggle && infoToggle.dataset.claraMeansInfoBound !== "true") {
-    infoToggle.dataset.claraMeansInfoBound = "true";
-    infoToggle.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const infoCopy = root.querySelector?.('[data-clara-means-info-copy="true"]');
-      if (!infoCopy) return;
-      const nextOpen = infoToggle.getAttribute("aria-expanded") !== "true";
-      infoToggle.setAttribute("aria-expanded", nextOpen ? "true" : "false");
-      infoCopy.style.display = nextOpen ? "block" : "none";
-    });
-  }
-
+  bindMeansInfoToggle(root);
   return root;
 }
 
