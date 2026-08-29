@@ -110,6 +110,9 @@ function routineCandidates({ item, assistantContext, snapshot }) {
         targetDate: cursor,
         impactKey: clean(entry?.id) || `routine:${cursor}:${normalizedPhrase(label)}`,
         offsetUntil: horizon,
+        // Fuzzy item similarity is useful context, but it is not authoritative fulfillment.
+        authoritativeMatch: false,
+        requirementKey: null,
       });
     });
   }
@@ -150,14 +153,19 @@ function scheduledEventCandidates({ item, assistantContext, snapshot }) {
       return [];
     }
     if (!(amount > 0) || score < 0.72) return [];
+    const eventId = clean(event?.id);
     return [{
       source: "money_schedule_event",
       label,
       amount,
       matchScore: score,
       targetDate: date,
-      impactKey: clean(event?.id) || `event:${date}:${normalizedPhrase(label)}`,
+      impactKey: eventId || `event:${date}:${normalizedPhrase(label)}`,
       offsetUntil: date,
+      // Discovery by fuzzy text is not enough to claim fulfillment. The caller must
+      // explicitly confirm/persist this requirement identity before score protection.
+      authoritativeMatch: false,
+      requirementKey: eventId ? `money-schedule:${eventId}:${date}` : null,
     }];
   });
 }
@@ -177,17 +185,19 @@ function choosePlannedCandidate(args = {}) {
 }
 
 function statusForScore(score) {
-  if (score >= 10000) return "Diamond";
-  if (score >= 5000) return "Gold";
-  if (score >= 2000) return "Silver";
-  if (score >= 1000) return "Bronze";
-  if (score >= 500) return "Vanguard";
-  if (score >= 400) return "3 Cycles Ahead";
-  if (score >= 300) return "2 Cycles Ahead";
-  if (score >= 200) return "1 Cycle Ahead";
-  if (score >= 101) return "Below Your Means";
-  if (score === 100) return "Within Your Means";
-  if (score >= 1) return "Above Your Means";
+  if (!Number.isFinite(Number(score))) return null;
+  const value = Number(score);
+  if (value >= 10000) return "Diamond";
+  if (value >= 5000) return "Gold";
+  if (value >= 2000) return "Silver";
+  if (value >= 1000) return "Bronze";
+  if (value >= 500) return "Vanguard";
+  if (value >= 400) return "3 Cycles Ahead";
+  if (value >= 300) return "2 Cycles Ahead";
+  if (value >= 200) return "1 Cycle Ahead";
+  if (value >= 101) return "Below Your Means";
+  if (value === 100) return "Within Your Means";
+  if (value >= 1) return "Above Your Means";
   return "In Deficit";
 }
 
@@ -195,9 +205,12 @@ function simulateMeansPurchaseImpact({
   snapshot = {},
   purchasePrice = 0,
   alreadyAccountedAmount = 0,
+  matchedPlannedAmount = null,
+  authoritativePlannedMatch = false,
   impactSource = "unplanned",
   impactLabel = "",
   impactKey = "",
+  requirementKey = null,
   targetDate = null,
   offsetUntil = null,
 } = {}) {
@@ -205,64 +218,96 @@ function simulateMeansPurchaseImpact({
   if (!(price > 0) || !snapshot || typeof snapshot !== "object") return null;
 
   const currentScore = Number(snapshot.score);
-  const requiredRunway = Math.max(0, toNumber(snapshot.requiredRunway));
-  const availableNow = toNumber(snapshot.availableNow);
-  const upcomingCommitments = Math.max(0, toNumber(snapshot.upcoming));
-  const currentRoomUntilPayday = Number.isFinite(Number(snapshot.projectedRoom))
-    ? Number(snapshot.projectedRoom)
-    : availableNow - upcomingCommitments;
-  const currentScoreRoom = Number.isFinite(Number(snapshot.scoreRoom))
-    ? Number(snapshot.scoreRoom)
-    : requiredRunway > 0 && Number.isFinite(currentScore)
-      ? ((currentScore / 100) * requiredRunway) - requiredRunway
-      : availableNow - requiredRunway;
+  const cycle100Anchor = Math.max(
+    0,
+    toNumber(snapshot.cycle100Anchor ?? snapshot.requiredRunway)
+  );
+  const availableNow = toNumber(
+    snapshot.availableWalletMoney ?? snapshot.availableNow
+  );
+  const remainingPlannedSpending = Math.max(
+    0,
+    toNumber(
+      snapshot.remainingPlannedSpending ??
+        snapshot.projectedSpending ??
+        snapshot.upcoming
+    )
+  );
+  const currentWallBill = Number.isFinite(Number(snapshot.wallBill))
+    ? Number(snapshot.wallBill)
+    : Number.isFinite(Number(snapshot.scoreRoom))
+      ? Number(snapshot.scoreRoom)
+      : availableNow - remainingPlannedSpending;
 
   const accounted = Math.max(0, toNumber(alreadyAccountedAmount));
+  const explicitMatch = matchedPlannedAmount == null
+    ? authoritativePlannedMatch
+      ? accounted
+      : 0
+    : Math.max(0, toNumber(matchedPlannedAmount));
+  const matched = Math.min(price, remainingPlannedSpending, explicitMatch);
+  const unmatched = Math.max(price - matched, 0);
 
-  // A planned item is already represented on the denominator side. Buying it is still
-  // a real Wallet outflow, so the full actual purchase price changes the numerator.
-  const incrementalImpact = price;
   const availableAfterPurchase = availableNow - price;
-  const projectedScoreRoom = currentScoreRoom - price;
-  const projectedRoomAfterPurchase = currentRoomUntilPayday - price;
-  const projectedScoreAfterPurchase = requiredRunway > 0
-    ? Math.round((availableAfterPurchase / requiredRunway) * 100)
-    : Number.isFinite(currentScore)
-      ? currentScore
-      : availableAfterPurchase > 0
-        ? 100
-        : 0;
+  const remainingPlannedSpendingAfterPurchase = Math.max(
+    remainingPlannedSpending - matched,
+    0
+  );
+  const projectedWallBill =
+    availableAfterPurchase - remainingPlannedSpendingAfterPurchase;
+  const projectedRawScore = cycle100Anchor > 0
+    ? 100 + ((projectedWallBill / cycle100Anchor) * 100)
+    : null;
+  const projectedScoreAfterPurchase = projectedRawScore == null
+    ? null
+    : Math.round(projectedRawScore);
+  const scoreChange = Number.isFinite(currentScore) && projectedScoreAfterPurchase != null
+    ? projectedScoreAfterPurchase - currentScore
+    : null;
 
   return {
     protectionLine: 100,
     purchasePrice: price,
     alreadyAccountedAmount: accounted,
-    incrementalImpact,
+    matchedPlannedAmount: matched,
+    unmatchedAmount: unmatched,
+    incrementalImpact: unmatched,
+    authoritativePlannedMatch: matched > 0,
     impactSource,
     impactLabel,
     impactKey,
+    requirementKey: requirementKey || null,
     targetDate,
     offsetUntil,
     currentScore: Number.isFinite(currentScore) ? currentScore : null,
     projectedScoreAfterPurchase,
-    scoreChange: Number.isFinite(currentScore) ? projectedScoreAfterPurchase - currentScore : null,
-    currentStatus: Number.isFinite(currentScore) ? statusForScore(currentScore) : null,
+    projectedRawScore,
+    scoreChange,
+    currentStatus: statusForScore(currentScore),
     projectedStatus: statusForScore(projectedScoreAfterPurchase),
-    requiredRunway,
-    currentScoreRoom,
-    projectedScoreRoom,
-    currentRoomUntilPayday,
-    projectedRoomAfterPurchase,
-    roomChange: projectedRoomAfterPurchase - currentRoomUntilPayday,
+    cycle100Anchor,
+    requiredRunway: cycle100Anchor,
+    currentWallBill,
+    projectedWallBill,
+    currentScoreRoom: currentWallBill,
+    projectedScoreRoom: projectedWallBill,
+    currentRoomUntilPayday: currentWallBill,
+    projectedRoomAfterPurchase: projectedWallBill,
+    roomChange: projectedWallBill - currentWallBill,
     purchaseSimulationApplied: true,
     crossesProtectionLine:
-      Number.isFinite(currentScore) && currentScore >= 100 && projectedScoreAfterPurchase < 100,
+      Number.isFinite(currentScore) &&
+      projectedScoreAfterPurchase != null &&
+      currentScore >= 100 &&
+      projectedScoreAfterPurchase < 100,
     cycleStartDate: snapshot.cycleStartDate || null,
     nextPayday: snapshot.cycleEndDate || snapshot.horizonDate || null,
     spendableMoney: availableNow,
     availableAfterPurchase,
-    upcomingCommitments,
-    upcomingCommitmentsAfterPurchase: upcomingCommitments,
+    remainingPlannedSpending,
+    remainingPlannedSpendingAfterPurchase,
+    upcomingCommitments: remainingPlannedSpending,
+    upcomingCommitmentsAfterPurchase: remainingPlannedSpendingAfterPurchase,
     breakdown: {
       debtAndObligations: Math.max(0, toNumber(snapshot.debtUpcoming)),
       savingsGoals: Math.max(0, toNumber(snapshot.savingsGoalUpcoming)),
@@ -287,13 +332,19 @@ function buildClaraPurchaseMetricImpact({
     (typeof window !== "undefined" ? window.__claraCanonicalMeansSnapshot__ : null);
   if (!snapshot || typeof snapshot !== "object" || !Object.keys(snapshot).length) return null;
   const candidate = choosePlannedCandidate({ item, assistantContext, snapshot, plannedCandidates });
+  const authoritativeMatch = Boolean(
+    candidate?.authoritativeMatch === true &&
+      clean(candidate?.requirementKey)
+  );
   return simulateMeansPurchaseImpact({
     snapshot,
     purchasePrice,
     alreadyAccountedAmount: candidate?.amount || 0,
-    impactSource: candidate?.source || "unplanned",
+    authoritativePlannedMatch: authoritativeMatch,
+    impactSource: authoritativeMatch ? candidate?.source || "planned" : "unplanned",
     impactLabel: candidate?.label || "",
     impactKey: candidate?.impactKey || "",
+    requirementKey: authoritativeMatch ? candidate?.requirementKey : null,
     targetDate: candidate?.targetDate || null,
     offsetUntil: candidate?.offsetUntil || null,
   });
@@ -307,15 +358,18 @@ function peso(value = 0) {
 }
 
 function formatClaraMetricImpactLine(impact = {}) {
-  if (!impact?.purchaseSimulationApplied || impact?.projectedScoreAfterPurchase == null) return "";
+  if (!impact?.purchaseSimulationApplied) return "";
   const before = Number.isFinite(Number(impact.currentScore)) ? Number(impact.currentScore) : null;
-  const after = Number(impact.projectedScoreAfterPurchase);
+  const after = Number.isFinite(Number(impact.projectedScoreAfterPurchase))
+    ? Number(impact.projectedScoreAfterPurchase)
+    : null;
   const price = Math.max(0, Number(impact.purchasePrice) || 0);
-  const accounted = Math.max(0, Number(impact.alreadyAccountedAmount) || 0);
-  const sourceLabel = impact.impactSource === "money_schedule_routine" ||
-    impact.impactSource === "money_schedule_event"
-    ? "Money Schedule"
-    : "your plan";
+  const matched = Math.max(0, Number(impact.matchedPlannedAmount) || 0);
+  const unmatched = Math.max(0, Number(impact.unmatchedAmount) || 0);
+
+  if (after == null) {
+    return `That ${peso(price)} can be checked against your Wallet and remaining plan, but your cycle has no resolved 100 anchor yet.`;
+  }
 
   const movement = before === null
     ? `put your Means Score at ${after}`
@@ -325,11 +379,15 @@ function formatClaraMetricImpactLine(impact = {}) {
         ? `move your Means Score from ${before} up to ${after}`
         : `keep your Means Score at ${after}`;
 
-  if (!(accounted > 0)) {
-    return `That ${peso(price)} would ${movement}.`;
+  if (!(matched > 0)) {
+    return `That ${peso(price)} is outside a confirmed planned requirement, so it would ${movement}.`;
   }
 
-  return `You planned ${peso(accounted)} for this in ${sourceLabel}. That plan stays in your 100, while the actual ${peso(price)} still leaves Wallet — so it would ${movement}.`;
+  if (!(unmatched > 0)) {
+    return `${peso(matched)} is confirmed against your plan. Wallet and Remaining Plan fall together, so it would ${movement}.`;
+  }
+
+  return `${peso(matched)} is confirmed against your plan and protected. Only the ${peso(unmatched)} outside that match reduces your real room, so it would ${movement}.`;
 }
 
 export {
