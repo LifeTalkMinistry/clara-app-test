@@ -26,18 +26,21 @@ test("ORB runtime delegates Means math to the canonical authority", async () => 
   assert.doesNotMatch(runtime, /resolveMeansCycleBaselineState/);
   assert.doesNotMatch(runtime, /plannedDebtPaidInsideCycle/);
   assert.doesNotMatch(runtime, /futureSavingsGoalAmount/);
+  assert.doesNotMatch(runtime, /function calculateMeansScore/);
 });
 
-test("canonical Means consumes protected-wallet truth without turning protections into baseline requirements", async () => {
+test("canonical Means consumes protected-wallet truth without turning protections into Plan Spending", async () => {
   const authority = await source("../src/lib/clara-means-authority.js");
 
   assert.match(authority, /getSavingsGoals/);
   assert.match(authority, /getEmergencyFund/);
   assert.match(authority, /getWalletProtectedAmounts/);
   assert.match(authority, /isMoneyLentWallet/);
-  assert.match(authority, /effectiveCurrentMoney = availableNow/);
-  assert.doesNotMatch(authority, /effectiveCurrentMoney\s*=\s*availableNow\s*-\s*assumedSpent/);
+  assert.match(authority, /const availableNow = walletState\.availableNow/);
+  assert.match(authority, /const remainingPlannedSpending = nonNegative\(baselineState\.remainingPlannedSpending\)/);
+  assert.match(authority, /const cycle100Anchor = nonNegative\(baselineState\.cycle100Anchor\)/);
   assert.match(authority, /calculateMeansScoreState\(\{/);
+  assert.match(authority, /wallBill: scoreState\.wallBill/);
   assert.match(authority, /savingsGoalUpcoming:\s*0/);
 });
 
@@ -47,6 +50,7 @@ test("Cross-Check remains a wallet-truth owner and does not reset a synthetic Me
   assert.match(reconciliation, /weekly_cross_check_adjustment/);
   assert.match(reconciliation, /Cross-Check Adjustment/);
   assert.doesNotMatch(reconciliation, /resetMeansAssumedSpent/);
+  assert.doesNotMatch(reconciliation, /cycle100Anchor/);
   assert.doesNotMatch(reconciliation, /requiredRunway/);
 });
 
@@ -65,5 +69,6 @@ test("Money Schedule and finance updates refresh the canonical snapshot without 
 
   assert.match(runtime, /CLARA_MONEY_ROUTINE_UPDATED_EVENT/);
   assert.match(runtime, /CLARA_MONEY_SCHEDULE_UPDATED_EVENT/);
+  assert.match(runtime, /FINANCE_DATA_UPDATED_EVENT/);
   assert.doesNotMatch(runtime, /setInterval\([^)]*refreshMeans/);
 });
