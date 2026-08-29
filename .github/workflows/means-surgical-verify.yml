@@ -6,10 +6,10 @@ on:
       - codex/means-score-final-surgical
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  verify-and-apply-runtime:
+  verify-final-tree:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
@@ -24,12 +24,8 @@ jobs:
         with:
           node-version: 22
 
-      - name: Apply remaining deterministic Means ownership patch
-        run: python3 scripts/apply_final_means_followup.py
-
       - name: Syntax checks
         run: |
-          python3 -m py_compile scripts/apply_final_means_followup.py
           node --check src/runtime/installClaraOrbGreeting.js
           node --check src/lib/clara-financial-day.js
           node --check src/lib/clara-means-cycle-baseline.js
@@ -56,17 +52,3 @@ jobs:
 
       - name: Build Android production bundle
         run: npm run build:android
-
-      - name: Commit verified final Means surgery
-        shell: bash
-        run: |
-          if git diff --quiet; then
-            echo "No generated Means changes to commit."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/lib/clara-means-authority.js
-          git add src/lib/debtObligationStore.js
-          git commit -m "Complete final Means ownership repair"
-          git push origin HEAD:codex/means-score-final-surgical
