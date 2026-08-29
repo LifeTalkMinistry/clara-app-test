@@ -1,4 +1,9 @@
-import { getExpenses, getWallets } from "@/lib/financeRepository";
+import {
+  getExpenses,
+  getTransfers,
+  getWallets,
+  getWalletTransactions,
+} from "@/lib/financeRepository";
 import { getIncomeSourceActivityLog, getIncomeSources } from "@/lib/incomeHubRepository";
 import {
   DEBT_OBLIGATION_STORE,
@@ -32,6 +37,7 @@ import {
   parseMeansBaseline,
   resolveAdaptiveMeansBaselineState,
 } from "@/lib/clara-means-cycle-baseline";
+import { getWalletBalance } from "@/utils/financialEngine";
 
 const INCOME_HUB_CASH_IN_TYPE = "add_money";
 const EPSILON = 0.000001;
@@ -59,15 +65,8 @@ function ownerIdentity(profile = {}) {
   ) || "local-user";
 }
 
-function walletBalance(wallet = {}) {
-  return signed(
-    wallet?.balance ??
-      wallet?.current_balance ??
-      wallet?.wallet_balance ??
-      wallet?.available_balance ??
-      wallet?.starting_balance ??
-      0
-  );
+function isDeletedFinanceRecord(record = {}) {
+  return Boolean(record?.deletedAt || record?.deleted_at);
 }
 
 export function isMeansNeutralMoneyLentWallet(wallet = {}) {
@@ -75,11 +74,28 @@ export function isMeansNeutralMoneyLentWallet(wallet = {}) {
   return ["money_lent", "money-lent", "lent", "receivable"].includes(type);
 }
 
-export function calculateMeansAvailableWalletMoney(wallets = []) {
-  return (Array.isArray(wallets) ? wallets : []).reduce(
-    (sum, wallet) => sum + (isMeansNeutralMoneyLentWallet(wallet) ? 0 : walletBalance(wallet)),
-    0
+export function calculateMeansAvailableWalletMoney(
+  wallets = [],
+  walletTransactions = [],
+  transfers = []
+) {
+  const safeTransactions = (Array.isArray(walletTransactions) ? walletTransactions : []).filter(
+    (record) => !isDeletedFinanceRecord(record)
   );
+  const safeTransfers = (Array.isArray(transfers) ? transfers : []).filter(
+    (record) => !isDeletedFinanceRecord(record)
+  );
+
+  return (Array.isArray(wallets) ? wallets : [])
+    .filter((wallet) => !isDeletedFinanceRecord(wallet))
+    .reduce(
+      (sum, wallet) =>
+        sum +
+        (isMeansNeutralMoneyLentWallet(wallet)
+          ? 0
+          : getWalletBalance(wallet, safeTransactions, safeTransfers)),
+      0
+    );
 }
 
 function sourceRecurrence(source = {}) {
@@ -545,9 +561,18 @@ function actualSpentForDisplay(expenses = [], cycleStart, today) {
 
 export async function buildCanonicalMeansSnapshot({ profile = {}, now = new Date() } = {}) {
   const owner = ownerIdentity(profile);
-  const [incomeSources, wallets, debtRecords, expenses] = await Promise.all([
+  const [
+    incomeSources,
+    wallets,
+    walletTransactions,
+    transfers,
+    debtRecords,
+    expenses,
+  ] = await Promise.all([
     getIncomeSources(owner).catch(() => []),
     getWallets(owner).catch(() => []),
+    getWalletTransactions(owner).catch(() => []),
+    getTransfers(owner).catch(() => []),
     readAllDebtRecords(owner),
     getExpenses(owner).catch(() => []),
   ]);
@@ -586,7 +611,11 @@ export async function buildCanonicalMeansSnapshot({ profile = {}, now = new Date
   });
   persistBaseline(owner, cycleStartDate, cycleEndDate, baselineState.baseline);
 
-  const availableNow = calculateMeansAvailableWalletMoney(wallets);
+  const availableNow = calculateMeansAvailableWalletMoney(
+    wallets,
+    walletTransactions,
+    transfers
+  );
   const assumedSpent = assumedSpentAfterCrossCheck(
     owner,
     cycleStartDate,
