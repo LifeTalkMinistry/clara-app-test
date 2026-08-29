@@ -105,11 +105,11 @@ jobs:
       - name: Full repository suite
         run: npm test
 
-      - name: Web production build
-        run: npm run build:web
-
       - name: Android production build
         run: npm run build:android
+
+      - name: Web production build
+        run: npm run build:web
 
       - name: Commit verified transfer hardening
         run: |
