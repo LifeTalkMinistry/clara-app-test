@@ -2,6 +2,12 @@ import {
   getClaraMoneyScheduleStorageKey,
   readClaraMoneyRoutine,
 } from "./clara-money-schedule-repository.js";
+import {
+  addFinancialDays,
+  financialDateKey,
+  financialWeekdayIndex,
+  normalizeFinancialDateKey,
+} from "./clara-financial-day.js";
 
 const STOP_WORDS = new Set([
   "a", "an", "and", "buy", "buying", "for", "get", "i", "item", "my", "of", "pay",
@@ -15,22 +21,6 @@ function clean(value = "") {
 function toNumber(value, fallback = 0) {
   const parsed = Number(String(value ?? "").replace(/[₱,\s]/g, ""));
   return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function localDateKey(value = new Date()) {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-function addDays(date, amount) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + amount);
-}
-
-function parseDateKey(value) {
-  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return null;
-  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
 }
 
 function normalizeToken(token = "") {
@@ -92,26 +82,34 @@ function routineCandidates({ item, assistantContext, snapshot }) {
   }
   if (!routine || routine.active === false || !Array.isArray(routine.days)) return [];
 
-  const today = new Date();
-  const horizon = parseDateKey(snapshot?.cycleEndDate || snapshot?.horizonDate) || addDays(today, 31);
+  const today = financialDateKey();
+  const horizon = normalizeFinancialDateKey(snapshot?.cycleEndDate || snapshot?.horizonDate) ||
+    addFinancialDays(today, 31);
   const candidates = [];
-  for (let cursor = new Date(today.getFullYear(), today.getMonth(), today.getDate()); cursor < horizon; cursor = addDays(cursor, 1)) {
-    const day = routine.days.find((entry) => Number(entry?.weekdayIndex ?? entry?.weekday_index) === cursor.getDay());
+
+  for (let cursor = today; cursor && cursor < horizon; cursor = addFinancialDays(cursor, 1)) {
+    const weekdayIndex = financialWeekdayIndex(cursor);
+    const day = routine.days.find(
+      (entry) => Number(entry?.weekdayIndex ?? entry?.weekday_index) === weekdayIndex
+    );
     if (!day || !Array.isArray(day.items)) continue;
+
     day.items.forEach((entry) => {
       const label = clean(entry?.label || entry?.title || entry?.name || entry?.category);
       const score = matchScore(item, label);
       const centavos = Number(entry?.amountCentavos ?? entry?.amount_centavos);
-      const amount = Number.isFinite(centavos) ? Math.max(0, centavos) / 100 : Math.max(0, toNumber(entry?.amount));
+      const amount = Number.isFinite(centavos)
+        ? Math.max(0, centavos) / 100
+        : Math.max(0, toNumber(entry?.amount));
       if (score < 0.72 || !(amount > 0)) return;
       candidates.push({
         source: "money_schedule_routine",
         label,
         amount,
         matchScore: score,
-        targetDate: localDateKey(cursor),
-        impactKey: clean(entry?.id) || `routine:${localDateKey(cursor)}:${normalizedPhrase(label)}`,
-        offsetUntil: snapshot?.cycleEndDate || snapshot?.horizonDate || localDateKey(horizon),
+        targetDate: cursor,
+        impactKey: clean(entry?.id) || `routine:${cursor}:${normalizedPhrase(label)}`,
+        offsetUntil: horizon,
       });
     });
   }
@@ -138,15 +136,19 @@ function scheduledEventCandidates({ item, assistantContext, snapshot }) {
     }
   }
 
-  const today = localDateKey();
-  const horizon = String(snapshot?.cycleEndDate || snapshot?.horizonDate || "9999-12-31").slice(0, 10);
+  const today = financialDateKey();
+  const horizon = normalizeFinancialDateKey(
+    snapshot?.cycleEndDate || snapshot?.horizonDate || "9999-12-31"
+  ) || "9999-12-31";
   return events.flatMap((event) => {
-    const date = String(event?.date || event?.start || "").slice(0, 10);
+    const date = normalizeFinancialDateKey(event?.date || event?.start);
     const direction = clean(event?.direction || "out").toLowerCase();
     const amount = Math.max(0, toNumber(event?.amount ?? event?.cost));
     const label = clean(event?.title || event?.name || event?.note || event?.type);
     const score = matchScore(item, `${label} ${event?.note || ""}`);
-    if (!date || date < today || date >= horizon || direction !== "out" || event?.affectsMoney === false) return [];
+    if (!date || date < today || date >= horizon || direction !== "out" || event?.affectsMoney === false) {
+      return [];
+    }
     if (!(amount > 0) || score < 0.72) return [];
     return [{
       source: "money_schedule_event",
@@ -204,7 +206,7 @@ function simulateMeansPurchaseImpact({
 
   const currentScore = Number(snapshot.score);
   const requiredRunway = Math.max(0, toNumber(snapshot.requiredRunway));
-  const availableNow = Math.max(0, toNumber(snapshot.availableNow));
+  const availableNow = toNumber(snapshot.availableNow);
   const upcomingCommitments = Math.max(0, toNumber(snapshot.upcoming));
   const currentRoomUntilPayday = Number.isFinite(Number(snapshot.projectedRoom))
     ? Number(snapshot.projectedRoom)
@@ -213,17 +215,21 @@ function simulateMeansPurchaseImpact({
     ? Number(snapshot.scoreRoom)
     : requiredRunway > 0 && Number.isFinite(currentScore)
       ? ((currentScore / 100) * requiredRunway) - requiredRunway
-      : currentRoomUntilPayday;
+      : availableNow - requiredRunway;
 
   const accounted = Math.max(0, toNumber(alreadyAccountedAmount));
-  const incrementalImpact = price - accounted;
-  const projectedScoreRoom = currentScoreRoom - incrementalImpact;
-  const projectedRoomAfterPurchase = currentRoomUntilPayday - incrementalImpact;
+
+  // A planned item is already represented on the denominator side. Buying it is still
+  // a real Wallet outflow, so the full actual purchase price changes the numerator.
+  const incrementalImpact = price;
+  const availableAfterPurchase = availableNow - price;
+  const projectedScoreRoom = currentScoreRoom - price;
+  const projectedRoomAfterPurchase = currentRoomUntilPayday - price;
   const projectedScoreAfterPurchase = requiredRunway > 0
-    ? Math.round(((requiredRunway + projectedScoreRoom) / requiredRunway) * 100)
+    ? Math.round((availableAfterPurchase / requiredRunway) * 100)
     : Number.isFinite(currentScore)
       ? currentScore
-      : availableNow > 0
+      : availableAfterPurchase > 0
         ? 100
         : 0;
 
@@ -254,9 +260,9 @@ function simulateMeansPurchaseImpact({
     cycleStartDate: snapshot.cycleStartDate || null,
     nextPayday: snapshot.cycleEndDate || snapshot.horizonDate || null,
     spendableMoney: availableNow,
-    availableAfterPurchase: availableNow - price,
+    availableAfterPurchase,
     upcomingCommitments,
-    upcomingCommitmentsAfterPurchase: Math.max(0, upcomingCommitments - accounted),
+    upcomingCommitmentsAfterPurchase: upcomingCommitments,
     breakdown: {
       debtAndObligations: Math.max(0, toNumber(snapshot.debtUpcoming)),
       savingsGoals: Math.max(0, toNumber(snapshot.savingsGoalUpcoming)),
@@ -270,8 +276,15 @@ function simulateMeansPurchaseImpact({
   };
 }
 
-function buildClaraPurchaseMetricImpact({ purchasePrice = 0, item = "", assistantContext = {}, snapshot: suppliedSnapshot = null, plannedCandidates = null } = {}) {
-  const snapshot = suppliedSnapshot || (typeof window !== "undefined" ? window.__claraCanonicalMeansSnapshot__ : null);
+function buildClaraPurchaseMetricImpact({
+  purchasePrice = 0,
+  item = "",
+  assistantContext = {},
+  snapshot: suppliedSnapshot = null,
+  plannedCandidates = null,
+} = {}) {
+  const snapshot = suppliedSnapshot ||
+    (typeof window !== "undefined" ? window.__claraCanonicalMeansSnapshot__ : null);
   if (!snapshot || typeof snapshot !== "object" || !Object.keys(snapshot).length) return null;
   const candidate = choosePlannedCandidate({ item, assistantContext, snapshot, plannedCandidates });
   return simulateMeansPurchaseImpact({
@@ -288,14 +301,9 @@ function buildClaraPurchaseMetricImpact({ purchasePrice = 0, item = "", assistan
 
 function peso(value = 0) {
   const amount = Math.abs(Number(value) || 0);
-  return `₱${amount.toLocaleString("en-PH", { maximumFractionDigits: amount % 1 === 0 ? 0 : 2 })}`;
-}
-
-function signedPoints(value = 0) {
-  const amount = Number(value) || 0;
-  if (amount > 0) return `+${amount}`;
-  if (amount < 0) return `−${Math.abs(amount)}`;
-  return "0";
+  return `₱${amount.toLocaleString("en-PH", {
+    maximumFractionDigits: amount % 1 === 0 ? 0 : 2,
+  })}`;
 }
 
 function formatClaraMetricImpactLine(impact = {}) {
@@ -304,8 +312,8 @@ function formatClaraMetricImpactLine(impact = {}) {
   const after = Number(impact.projectedScoreAfterPurchase);
   const price = Math.max(0, Number(impact.purchasePrice) || 0);
   const accounted = Math.max(0, Number(impact.alreadyAccountedAmount) || 0);
-  const incremental = Number(impact.incrementalImpact) || 0;
-  const sourceLabel = impact.impactSource === "money_schedule_routine" || impact.impactSource === "money_schedule_event"
+  const sourceLabel = impact.impactSource === "money_schedule_routine" ||
+    impact.impactSource === "money_schedule_event"
     ? "Money Schedule"
     : "your plan";
 
@@ -317,18 +325,11 @@ function formatClaraMetricImpactLine(impact = {}) {
         ? `move your Means Score from ${before} up to ${after}`
         : `keep your Means Score at ${after}`;
 
-  // Financial math stays deterministic, but the user should hear it as
-  // normal CLARA conversation — never as telemetry or a diagnostic row.
   if (!(accounted > 0)) {
     return `That ${peso(price)} would ${movement}.`;
   }
-  if (Math.abs(incremental) < 0.005) {
-    return `You already planned ${peso(accounted)} for this in ${sourceLabel}, so buying it at ${peso(price)} would ${movement}.`;
-  }
-  if (incremental > 0) {
-    return `You planned ${peso(accounted)} for this, so only the extra ${peso(incremental)} is new spending. That would ${movement}.`;
-  }
-  return `You planned ${peso(accounted)} for this, and at ${peso(price)} you're ${peso(Math.abs(incremental))} under plan. That would ${movement}.`;
+
+  return `You planned ${peso(accounted)} for this in ${sourceLabel}. That plan stays in your 100, while the actual ${peso(price)} still leaves Wallet — so it would ${movement}.`;
 }
 
 export {
