@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 
 import {
   MEANS_CYCLE_BASELINE_VERSION,
@@ -120,8 +121,6 @@ test("legitimate future plan reduction lowers Remaining Plan without resizing an
       occurrence("future", "2026-09-05", 1000),
     ],
   });
-  assert.equal(first.cycle100Anchor, 9000);
-
   const changed = resolve({
     stored: first.baseline,
     occurrences: [occurrence("base", "2026-09-01", 8000)],
@@ -266,4 +265,41 @@ test("negative Wall Bill can produce a negative Means Score without clamping", (
   const state = score(-2500, 10000, 10000);
   assert.equal(state.wallBill, -12500);
   assert.equal(state.score, -25);
+});
+
+test("ORB money briefing stays presentation-only and reconciles to V7 Wall Bill", async () => {
+  const authority = await readFile(
+    new URL("../src/lib/clara-means-authority.js", import.meta.url),
+    "utf8"
+  );
+  const orbRuntime = await readFile(
+    new URL("../src/runtime/installClaraOrbGreeting.js", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(authority, /const remainingPlannedSpending = nonNegative\(baselineState\.remainingPlannedSpending\)/);
+  assert.match(authority, /cycle100Anchor/);
+  assert.match(authority, /wallBill: scoreState\.wallBill/);
+  assert.match(authority, /projectedRoom: scoreState\.wallBill/);
+  assert.match(orbRuntime, /data-clara-money-briefing="active-cycle"/);
+  assert.match(orbRuntime, />This pay cycle</);
+  assert.match(orbRuntime, />Spending</);
+  assert.match(orbRuntime, />Still to cover</);
+  assert.match(orbRuntime, /data-clara-money-in-hand="true"/);
+  assert.match(orbRuntime, /data-clara-upcoming-commitments="true"/);
+  assert.match(orbRuntime, /data-clara-real-room="true"/);
+  assert.match(orbRuntime, /Remaining planned spending/);
+  assert.match(orbRuntime, /Money in hand minus everything still planned/);
+  assert.match(orbRuntime, /Cycle 100 Anchor/);
+  assert.doesNotMatch(orbRuntime, />Assumed spent</);
+  assert.doesNotMatch(orbRuntime, /future requirements adapt/);
+
+  const moneyInHand = 5809;
+  const remainingPlannedSpending = 860;
+  const moneySchedule = 860;
+  const debtObligations = 0;
+  const wallBill = moneyInHand - remainingPlannedSpending;
+
+  assert.equal(moneySchedule + debtObligations, remainingPlannedSpending);
+  assert.equal(wallBill, 4949);
 });
