@@ -44,6 +44,73 @@ jobs:
       - name: Preserve current Learning Hub regression owner
         run: git restore --source=HEAD -- tests/learning-hub-first-click.test.mjs
 
+      - name: Apply one-shot debt commitments display repair
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          authority = Path('src/lib/clara-means-authority.js')
+          source = authority.read_text(encoding='utf-8')
+
+          anchor = '''export function buildMeansDebtOccurrences(records = [], cycleStart, cycleEnd) {
+            return (Array.isArray(records) ? records : []).flatMap((record) => {
+              const id = debtRecordId(record);
+              const planned = nonNegative(getMonthlyDebtPayment(record));
+              if (!id || !(planned > 0)) return [];
+              return debtOccurrenceDates(record, cycleStart, cycleEnd)
+                .filter((dueDate) => shouldIncludeDebtOccurrence(record, dueDate, cycleStart))
+                .map((dueDate) => ({
+                  id: `debt:${id}:${dueDate}`,
+                  debtId: id,
+                  date: dueDate,
+                  kind: "debt",
+                  amount: planned,
+                  actualPaid: cumulativeActualForOccurrence(record, dueDate),
+                  source: "debt_obligation",
+                }));
+            });
+          }
+          '''
+          helper = anchor + '''
+          export function calculateMeansOutstandingDebtCommitments(
+            debtOccurrences = [],
+            carriedObligations = 0
+          ) {
+            const occurrenceRemaining = (Array.isArray(debtOccurrences) ? debtOccurrences : [])
+              .filter((entry) => entry?.kind === "debt")
+              .reduce((sum, entry) => {
+                const planned = nonNegative(entry?.amount);
+                const actualPaid = nonNegative(entry?.actualPaid ?? entry?.actual_paid);
+                return sum + Math.max(planned - actualPaid, 0);
+              }, 0);
+            return occurrenceRemaining + nonNegative(carriedObligations);
+          }
+          '''
+          if 'export function calculateMeansOutstandingDebtCommitments' not in source:
+              if anchor not in source:
+                  raise SystemExit('Debt occurrence anchor not found')
+              source = source.replace(anchor, helper, 1)
+
+          old = '''  const debtUpcoming = futureContributions
+            .filter((entry) => entry.kind === "debt")
+            .reduce((sum, entry) => sum + nonNegative(entry.amount), 0);
+          '''
+          new = '''  const debtUpcoming = calculateMeansOutstandingDebtCommitments(
+            debtOccurrences,
+            baselineState.carriedObligations
+          );
+          '''
+          if old in source:
+              source = source.replace(old, new, 1)
+          elif new not in source:
+              raise SystemExit('Debt upcoming anchor not found')
+
+          authority.write_text(source, encoding='utf-8')
+
+          test = Path('tests/means-score-debt-commitments-display-regression.test.mjs')
+          test.write_text('''import assert from "node:assert/strict";\nimport test from "node:test";\nimport fs from "node:fs";\nimport path from "node:path";\nimport vm from "node:vm";\nimport { fileURLToPath } from "node:url";\n\nconst __dirname = path.dirname(fileURLToPath(import.meta.url));\nconst authorityPath = path.join(__dirname, "../src/lib/clara-means-authority.js");\nconst source = fs.readFileSync(authorityPath, "utf8");\n\nfunction loadOutstandingDebtHelper() {\n  const start = source.indexOf("export function calculateMeansOutstandingDebtCommitments");\n  assert.notEqual(start, -1);\n  const end = source.indexOf("\\nfunction currentCycleFutureDebtActual", start);\n  assert.notEqual(end, -1);\n  const helperSource = source.slice(start, end).replace("export function", "function");\n  const context = { result: null };\n  vm.createContext(context);\n  vm.runInContext(`const nonNegative = (value) => { const parsed = Number(String(value ?? "").replace(/[^0-9.-]/g, "")); return Number.isFinite(parsed) ? Math.max(0, parsed) : 0; }; ${helperSource}; result = calculateMeansOutstandingDebtCommitments;`, context);\n  return context.result;\n}\n\ntest("ORB debt commitments include overdue/current-cycle unpaid remainder", () => {\n  const calculate = loadOutstandingDebtHelper();\n  assert.equal(calculate([\n    { kind: "debt", date: "2026-08-27", amount: 3000, actualPaid: 0 },\n    { kind: "debt", date: "2026-08-29", amount: 81, actualPaid: 30 },\n    { kind: "debt", date: "2026-09-05", amount: 500, actualPaid: 500 },\n    { kind: "money_schedule", date: "2026-09-01", amount: 9999, actualPaid: 0 },\n  ], 400), 3451);\n});\n\ntest("fully paid current-cycle debt leaves no remaining ORB debt commitment", () => {\n  const calculate = loadOutstandingDebtHelper();\n  assert.equal(calculate([{ kind: "debt", amount: 81, actualPaid: 81 }], 0), 0);\n});\n\ntest("snapshot no longer uses a future-only debt filter", () => {\n  assert.match(source, /const debtUpcoming = calculateMeansOutstandingDebtCommitments\\(\\s*debtOccurrences,\\s*baselineState\\.carriedObligations\\s*\\);/);\n  assert.doesNotMatch(source, /const debtUpcoming = futureContributions\\s*\\.filter\\(\\(entry\\) => entry\\.kind === "debt"\\)/);\n});\n''', encoding='utf-8')
+          PY
+
       - name: Syntax checks
         run: |
           python3 -m py_compile \
@@ -51,6 +118,7 @@ jobs:
             scripts/fix_remaining_full_suite_after_means_v1.py
           node --check src/runtime/installClaraOrbGreeting.js
           node --check src/runtime/installClaraPwaFreshness.js
+          node --check src/lib/clara-means-authority.js
           node --check src/lib/clara-means-cycle-baseline.js
           node --check src/lib/debtObligationStore.js
           node --check src/lib/clara-buy-check-wallet-engine.js
@@ -60,7 +128,9 @@ jobs:
 
       - name: Run focused financial regression tests
         run: |
+          node --test tests/means-score-debt-commitments-display-regression.test.mjs
           node --test tests/means-score-context-baseline-regression.test.mjs
+          node --test tests/means-score-final-acceptance-regression.test.mjs
           node --test tests/means-score-single-authority-regression.test.mjs
           node --test tests/buy-check-context-facts.test.mjs
           node --test tests/wallet-money-semantics.test.mjs
@@ -82,12 +152,13 @@ jobs:
             git add \
               src/runtime/installClaraOrbGreeting.js \
               src/runtime/installClaraPwaFreshness.js \
+              src/lib/clara-means-authority.js \
               src/lib/debtObligationStore.js \
               src/lib/clara-buy-check-wallet-engine.js \
               src/lib/clara-buy-check-income-runway-engine.js \
               src/lib/clara-wallet-money-semantics.js \
               tests
-            git commit -m "Restore financial integrity and regression contracts"
+            git commit -m "Show outstanding debt commitments in Means"
             git push origin HEAD:main
           fi
 
