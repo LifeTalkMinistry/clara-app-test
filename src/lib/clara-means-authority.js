@@ -247,7 +247,6 @@ function financialDayDistance(start, end) {
     (Date.UTC(ry, rm - 1, rd) - Date.UTC(ly, lm - 1, ld)) / 86400000
   );
 }
-
 function resolveRepeatingCustomCycle(customCycle, today) {
   if (!customCycle) return null;
   const lengthDays = financialDayDistance(customCycle.start, customCycle.end);
@@ -669,7 +668,7 @@ export async function buildCanonicalMeansSnapshot({ profile = {}, now = new Date
     savingsProtected: walletState.savingsProtected,
     otherProtected: walletState.otherProtected,
     projectedSpending: baselineState.requiredRunway,
-    projectedRoom: scoreState.scoreRoom,
+    projectedRoom: availableNow - upcoming,
     baselineContributions: baselineState.contributions,
     extraCurrentCycleActual: 0,
     carriedObligations: 0,
