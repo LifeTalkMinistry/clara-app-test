@@ -44,6 +44,7 @@ import {
   isActiveWalletForMoneySemantics,
   isMoneyLentWallet,
 } from "@/lib/clara-wallet-money-semantics";
+import { getEffectiveDemoFinanceLocalUserId } from "@/lib/demo/activeDemoProfile";
 import { getWalletBalance } from "@/utils/financialEngine";
 
 const INCOME_HUB_CASH_IN_TYPE = "add_money";
@@ -639,6 +640,7 @@ function applyExplicitScheduleFulfillment(occurrences = [], fulfillmentMap = new
 
 export async function buildCanonicalMeansSnapshot({ profile = {}, now = new Date() } = {}) {
   const owner = ownerIdentity(profile);
+  const debtOwner = getEffectiveDemoFinanceLocalUserId(owner);
   const [
     incomeSources,
     wallets,
@@ -655,7 +657,7 @@ export async function buildCanonicalMeansSnapshot({ profile = {}, now = new Date
     getTransfers(owner).catch(() => []),
     getSavingsGoals(owner).catch(() => []),
     getEmergencyFund(owner).catch(() => null),
-    readAllDebtRecords(owner),
+    readAllDebtRecords(debtOwner),
     getExpenses(owner).catch(() => []),
   ]);
   const payCycle = resolveMeansMasterPayCycle(incomeSources, now);
