@@ -1,4 +1,4 @@
-import { CreditCard, Edit3, Loader2, X } from "lucide-react";
+import { CheckCircle2, CreditCard, Edit3, Loader2, X } from "lucide-react";
 import { useState } from "react";
 
 import { fmt, getDebtTypeLabel } from "@/components/financial-carousel/cards/debt/logic/useDebtCardLogic";
@@ -19,7 +19,7 @@ import {
 } from "@/lib/clara-wallet-money-semantics";
 import { payDebtObligationFromWallet } from "@/lib/debtPaymentRepository";
 import { getDebtTitle } from "@/lib/debtObligationStore";
-import { getDebtOccurrenceState } from "@/lib/debtOccurrenceState";
+import { getDebtOccurrenceState, getPaidDebtOccurrenceDates } from "@/lib/debtOccurrenceState";
 import {
   estimateDebtPayoffMonths,
   getDebtBalance,
@@ -117,6 +117,33 @@ function getSuggestedPaymentAmount(record, dueDate) {
   return monthly;
 }
 
+function getLatestPaidOccurrenceMeta(record) {
+  const explicitPaidDates = getPaidDebtOccurrenceDates(record);
+  const monthly = Math.max(getObligationMonthly(record), 0);
+  const history = Array.isArray(record?.paymentHistory)
+    ? record.paymentHistory
+    : Array.isArray(record?.payment_history)
+      ? record.payment_history
+      : [];
+  const historyDates = [...new Set(
+    history
+      .map((entry) => String(entry?.dueDate || entry?.due_date || "").slice(0, 10))
+      .filter(Boolean)
+  )].filter((dueDate) => monthly > 0 && getOccurrencePaidAmount(record, dueDate) >= monthly);
+  const dueDate = [...new Set([...explicitPaidDates, ...historyDates])].sort().at(-1) || "";
+  if (!dueDate) return null;
+
+  const date = new Date(`${dueDate}T00:00:00`);
+  const label = Number.isNaN(date.getTime())
+    ? dueDate
+    : date.toLocaleDateString("en-PH", { month: "short", day: "numeric" });
+  return {
+    dueDate,
+    label,
+    paidAmount: getOccurrencePaidAmount(record, dueDate),
+  };
+}
+
 export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }) {
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentWallets, setPaymentWallets] = useState([]);
@@ -144,6 +171,14 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
     totalPositiveDebt
   );
   const dueMeta = getSafeDueMeta(record);
+  const latestPaidOccurrence = getLatestPaidOccurrenceMeta(record);
+  const currentOccurrencePaidAmount = getOccurrencePaidAmount(record, dueMeta.dueDate);
+  const currentOccurrenceExpected = Math.max(monthly, 0);
+  const hasPartialCurrentOccurrence =
+    Boolean(dueMeta.dueDate) &&
+    currentOccurrencePaidAmount > 0 &&
+    currentOccurrenceExpected > 0 &&
+    currentOccurrencePaidAmount < currentOccurrenceExpected;
   const amountMeta = getDebtAmountMeta({
     mode,
     balance,
@@ -289,6 +324,23 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
           valueClassName={monthly > 0 ? "text-cyan-100" : "text-white/42"}
           className="border-t border-white/[0.055]"
         />
+        {latestPaidOccurrence ? (
+          <div className="flex items-center justify-between gap-3 border-t border-white/[0.055] py-2.5">
+            <span className="text-[9px] font-black uppercase tracking-[0.16em] text-white/42">Last paid period</span>
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-black text-emerald-200">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {latestPaidOccurrence.label} · Paid
+            </span>
+          </div>
+        ) : null}
+        {hasPartialCurrentOccurrence ? (
+          <PremiumFinanceInfoRow
+            label="This period"
+            value={`${fmt(currentOccurrencePaidAmount)} of ${fmt(currentOccurrenceExpected)} paid`}
+            valueClassName="text-amber-200"
+            className="border-t border-white/[0.055]"
+          />
+        ) : null}
         {mode === "balance" && interest > 0 ? (
           <PremiumFinanceInfoRow
             label="Interest"
