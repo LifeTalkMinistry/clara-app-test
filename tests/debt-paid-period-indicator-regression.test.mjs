@@ -6,8 +6,9 @@ import { getDebtOccurrenceState } from "../src/lib/debtOccurrenceState.js";
 
 const referenceDate = new Date("2026-08-29T04:00:00.000Z");
 
-const recurringDebt = (paymentHistory) => ({
+const recurringDebt = (paymentHistory = []) => ({
   id: "debt_cash_insurance",
+  recordKind: "debt_obligation",
   title: "Cash Insurance",
   obligationMode: "recurring",
   obligation_mode: "recurring",
@@ -21,8 +22,13 @@ const recurringDebt = (paymentHistory) => ({
   payment_history: paymentHistory,
 });
 
-test("full structured payment history advances past the satisfied occurrence even without a paidOccurrences marker", () => {
+test("old paid periods do not make Pay Obligation crawl month-by-month through historical occurrences", () => {
   const record = recurringDebt([
+    {
+      amount: 81,
+      dueDate: "2026-01-27",
+      paidAt: "2026-01-28T01:00:00.000Z",
+    },
     {
       amount: 81,
       dueDate: "2026-02-27",
@@ -31,21 +37,35 @@ test("full structured payment history advances past the satisfied occurrence eve
   ]);
 
   const occurrence = getDebtOccurrenceState(record, referenceDate);
-  assert.equal(occurrence.dueDate, "2026-03-27");
+  assert.equal(occurrence.dueDate, "2026-08-27");
   assert.equal(occurrence.state, "overdue");
 });
 
-test("partial structured payment history keeps the same occurrence open", () => {
+test("full payment of the active period advances directly to the next scheduled period", () => {
   const record = recurringDebt([
     {
-      amount: 40,
-      dueDate: "2026-02-27",
-      paidAt: "2026-02-28T01:00:00.000Z",
+      amount: 81,
+      dueDate: "2026-08-27",
+      paidAt: "2026-08-28T01:00:00.000Z",
     },
   ]);
 
   const occurrence = getDebtOccurrenceState(record, referenceDate);
-  assert.equal(occurrence.dueDate, "2026-02-27");
+  assert.equal(occurrence.dueDate, "2026-09-27");
+  assert.equal(occurrence.state, "upcoming");
+});
+
+test("partial payment keeps the active period open until its indicated amount is fully satisfied", () => {
+  const record = recurringDebt([
+    {
+      amount: 40,
+      dueDate: "2026-08-27",
+      paidAt: "2026-08-28T01:00:00.000Z",
+    },
+  ]);
+
+  const occurrence = getDebtOccurrenceState(record, referenceDate);
+  assert.equal(occurrence.dueDate, "2026-08-27");
   assert.equal(occurrence.state, "overdue");
 });
 
