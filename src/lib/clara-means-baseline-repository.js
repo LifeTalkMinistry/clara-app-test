@@ -4,6 +4,7 @@ import {
   upsertLocalRecord,
 } from "@/lib/localFinanceStore";
 import {
+  legacyMeansCycleBaselineV6StorageKey,
   meansCycleBaselineStorageKey,
   parseMeansBaseline,
 } from "@/lib/clara-means-cycle-baseline";
@@ -19,17 +20,26 @@ function recordId(cycleStart, cycleEnd) {
   return `means-cycle-baseline:${dateKey(cycleStart)}:${dateKey(cycleEnd)}`;
 }
 
-function readLegacyLocalStorage(owner, cycleStart, cycleEnd) {
-  if (typeof window === "undefined" || !window.localStorage) return null;
+function readLocalStorageKey(key) {
+  if (typeof window === "undefined" || !window.localStorage || !key) return null;
   try {
-    return parseMeansBaseline(
-      window.localStorage.getItem(
-        meansCycleBaselineStorageKey(owner, cycleStart, cycleEnd)
-      )
-    );
+    return parseMeansBaseline(window.localStorage.getItem(key));
   } catch {
     return null;
   }
+}
+
+function readLegacyLocalStorage(owner, cycleStart, cycleEnd) {
+  const v7 = readLocalStorageKey(
+    meansCycleBaselineStorageKey(owner, cycleStart, cycleEnd)
+  );
+  if (v7) return v7;
+
+  // Preserve the old active-cycle evidence. V6 cannot be silently reinterpreted as
+  // a V7 Cycle 100 Anchor because its requiredRunway was adaptive.
+  return readLocalStorageKey(
+    legacyMeansCycleBaselineV6StorageKey(owner, cycleStart, cycleEnd)
+  );
 }
 
 function writeLegacyCache(owner, cycleStart, cycleEnd, baseline) {
@@ -63,15 +73,15 @@ export async function readMeansCycleBaseline({
     const durable = parseMeansBaseline(record?.baseline);
     if (durable) return durable;
   } catch {
-    // Fall through to the legacy cache so Means remains usable if IndexedDB is unavailable.
+    // Fall through to localStorage so Means remains usable if IndexedDB is unavailable.
   }
 
   const legacy = readLegacyLocalStorage(localUserId, start, end);
   if (!legacy) return null;
 
-  // One-way migration: older users may already have a valid v6 protected baseline in
-  // localStorage. Promote it into the per-user private finance store so account/device
-  // vault snapshots can carry the historical protection forward.
+  // Promote the exact baseline object without changing its schema/version. If this is V6,
+  // the V7 authority will explicitly report migration_unresolved rather than fabricating
+  // an immutable anchor from the old adaptive denominator.
   try {
     await persistMeansCycleBaseline({
       owner: localUserId,
@@ -80,7 +90,7 @@ export async function readMeansCycleBaseline({
       baseline: legacy,
     });
   } catch {
-    // The legacy value still protects the current browser until durable storage returns.
+    // The local value still protects the current browser until durable storage returns.
   }
 
   return legacy;
