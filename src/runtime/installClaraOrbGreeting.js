@@ -1,3 +1,4 @@
+import "./installClaraPwaFreshness";
 import "./installClaraOrbChatHandoff";
 import "./installClaraOrbCommandChatRouting";
 import "./installClaraBuyCheckKeyboardGuard";
