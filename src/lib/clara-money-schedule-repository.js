@@ -1,4 +1,8 @@
 import { getRecurringCashFlowOwnerId } from "./recurringCashFlowRepository.js";
+import {
+  financialDateKey,
+  normalizeFinancialDateKey,
+} from "./clara-financial-day.js";
 
 export const CLARA_SCHEDULE_CREATE_EVENT = "clara:schedule:create-event";
 export const CLARA_MONEY_SCHEDULE_UPDATED_EVENT = "clara:money-schedule-updated";
@@ -224,12 +228,29 @@ export function saveClaraMoneyRoutine({ user, days } = {}) {
   return routine;
 }
 
+export function isRetroactiveClaraMoneyScheduleDate(value, now = new Date()) {
+  const targetDate = normalizeFinancialDateKey(value);
+  const today = financialDateKey(now);
+  return Boolean(targetDate && today && targetDate < today);
+}
+
+export function assertClaraMoneyScheduleDateAllowed(value, now = new Date()) {
+  if (!isRetroactiveClaraMoneyScheduleDate(value, now)) return true;
+  const error = new Error(
+    "Past spending belongs in Log Expense. Money Schedule can only create plans for today or later."
+  );
+  error.code = "MONEY_SCHEDULE_RETROACTIVE_CREATE_BLOCKED";
+  throw error;
+}
+
 export function createClaraMoneyScheduleEvent(draft = {}) {
   const title = cleanText(draft.title);
   const date = cleanText(draft.date);
   if (!title || !date) {
     throw new Error("Money Schedule needs a title and date before it can be saved.");
   }
+
+  assertClaraMoneyScheduleDateAllowed(date);
 
   const direction = cleanText(draft.direction).toLowerCase() === "in" ? "in" : "out";
   const amountKnown = draft.amountKnown !== false;
