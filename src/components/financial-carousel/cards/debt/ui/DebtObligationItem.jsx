@@ -1,4 +1,5 @@
-import { CreditCard, Edit3 } from "lucide-react";
+import { CreditCard, Edit3, Loader2, X } from "lucide-react";
+import { useState } from "react";
 
 import { fmt, getDebtTypeLabel } from "@/components/financial-carousel/cards/debt/logic/useDebtCardLogic";
 import { getFinanceItemHierarchyTone } from "@/components/financial-carousel/shared/financeItemHierarchy";
@@ -7,6 +8,16 @@ import {
   PremiumFinanceInfoRow,
   PremiumFinanceItemSurface,
 } from "@/components/financial-carousel/shared/PremiumFinanceItemSurface";
+import {
+  buildCanonicalWalletState,
+  getWalletCurrentBalance,
+  getWalletId,
+  getWalletName,
+  getWalletSpendableBalance,
+  isActiveWalletForMoneySemantics,
+  isMoneyLentWallet,
+} from "@/lib/clara-wallet-money-semantics";
+import { payDebtObligationFromWallet } from "@/lib/debtPaymentRepository";
 import { getDebtTitle } from "@/lib/debtObligationStore";
 import { getDebtOccurrenceState } from "@/lib/debtOccurrenceState";
 import {
@@ -18,10 +29,14 @@ import {
   getDebtStatus,
   getMonthlyDebtPayment,
 } from "@/lib/debtObligationMath";
+import { financeRepository } from "@/lib/financeRepository";
 
 export const getObligationBalance = (record) => getDebtBalance(record);
 export const getObligationMonthly = (record) => getMonthlyDebtPayment(record);
 export const getObligationInterest = (record) => getDebtInterestRate(record);
+
+const paymentFieldClass =
+  "w-full rounded-xl border border-white/[0.08] bg-black/[0.20] px-3 py-2.5 text-sm font-bold text-white outline-none focus:border-emerald-300/30 focus:ring-2 focus:ring-emerald-300/10 disabled:opacity-45";
 
 const ordinal = (day) => {
   const value = Number(day) || 0;
@@ -31,6 +46,12 @@ const ordinal = (day) => {
   if (value % 10 === 2) return `${value}nd`;
   if (value % 10 === 3) return `${value}rd`;
   return `${value}th`;
+};
+
+const toMoneyNumber = (value) => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const parsed = Number(String(value ?? "").replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(parsed) ? parsed : 0;
 };
 
 function getSafeDueMeta(record) {
@@ -68,7 +89,43 @@ function getDebtAmountMeta({ mode, balance, monthly, interest, dueState, status 
   return { className: "text-white/94", label: "Outstanding balance", amount: balance };
 }
 
-export default function DebtObligationItem({ record, totalPositiveDebt, onEdit, onPay, paying = false }) {
+function getOccurrencePaidAmount(record, dueDate) {
+  if (!dueDate) return 0;
+  const history = Array.isArray(record?.paymentHistory)
+    ? record.paymentHistory
+    : Array.isArray(record?.payment_history)
+      ? record.payment_history
+      : [];
+
+  return history.reduce((sum, entry) => {
+    const entryDate = String(entry?.dueDate || entry?.due_date || "").slice(0, 10);
+    if (entryDate !== dueDate) return sum;
+    return sum + Math.max(toMoneyNumber(entry?.amount), 0);
+  }, 0);
+}
+
+function getSuggestedPaymentAmount(record, dueDate) {
+  const mode = getDebtObligationMode(record);
+  const balance = Math.max(getObligationBalance(record), 0);
+  const monthly = Math.max(getObligationMonthly(record), 0);
+  const expected = mode === "balance" ? Math.min(monthly || balance, balance) : monthly;
+  const paidForOccurrence = getOccurrencePaidAmount(record, dueDate);
+  const remainingOccurrence = Math.max(expected - paidForOccurrence, 0);
+
+  if (remainingOccurrence > 0) return remainingOccurrence;
+  if (mode === "balance") return Math.min(monthly || balance, balance);
+  return monthly;
+}
+
+export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }) {
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentWallets, setPaymentWallets] = useState([]);
+  const [paymentWalletId, setPaymentWalletId] = useState("");
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentNotice, setPaymentNotice] = useState("");
+  const [loadingWallets, setLoadingWallets] = useState(false);
+  const [paying, setPaying] = useState(false);
+
   const balance = getObligationBalance(record);
   const monthly = getObligationMonthly(record);
   const interest = getObligationInterest(record);
@@ -97,8 +154,87 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit, 
   });
   const canPay =
     !["paid", "completed", "closed"].includes(status) &&
-    monthly > 0 &&
-    Boolean(dueMeta.dueDate);
+    (monthly > 0 || (mode === "balance" && balance > 0));
+  const localUserId = String(record?.localUserId || record?.local_user_id || "").trim();
+  const selectedWallet = paymentWallets.find(
+    (wallet) => getWalletId(wallet) === paymentWalletId
+  );
+  const selectedSpendable = selectedWallet
+    ? getWalletSpendableBalance(selectedWallet)
+    : 0;
+
+  const openPayment = async () => {
+    if (!canPay || loadingWallets || paying) return;
+    setPaymentOpen(true);
+    setPaymentNotice("");
+    setPaymentAmount(String(getSuggestedPaymentAmount(record, dueMeta.dueDate) || ""));
+
+    if (!localUserId) {
+      setPaymentNotice("Unable to resolve the owner of this obligation.");
+      return;
+    }
+
+    setLoadingWallets(true);
+    try {
+      const [wallets, savingsGoals, emergencyFund] = await Promise.all([
+        financeRepository.getWallets(localUserId),
+        financeRepository.getSavingsGoals(localUserId),
+        financeRepository.getEmergencyFund(localUserId),
+      ]);
+      const { wallets: canonicalWallets } = buildCanonicalWalletState({
+        wallets: Array.isArray(wallets) ? wallets : [],
+        savingsGoals: Array.isArray(savingsGoals) ? savingsGoals : [],
+        emergencyFund: emergencyFund || null,
+      });
+      const availableWallets = canonicalWallets.filter(
+        (wallet) => isActiveWalletForMoneySemantics(wallet) && !isMoneyLentWallet(wallet)
+      );
+      setPaymentWallets(availableWallets);
+      const preferred =
+        availableWallets.find((wallet) => getWalletSpendableBalance(wallet) > 0) ||
+        availableWallets[0] ||
+        null;
+      setPaymentWalletId(preferred ? getWalletId(preferred) : "");
+      if (!availableWallets.length) {
+        setPaymentNotice("Add a spendable wallet before paying this obligation.");
+      }
+    } catch (error) {
+      setPaymentWallets([]);
+      setPaymentWalletId("");
+      setPaymentNotice(error?.message || "Unable to load your wallets.");
+    } finally {
+      setLoadingWallets(false);
+    }
+  };
+
+  const submitPayment = async () => {
+    const amount = Math.max(toMoneyNumber(paymentAmount), 0);
+    if (!localUserId) return setPaymentNotice("Unable to resolve the owner of this obligation.");
+    if (!paymentWalletId || !selectedWallet) return setPaymentNotice("Choose a wallet for this payment.");
+    if (amount <= 0) return setPaymentNotice("Enter a payment amount greater than zero.");
+    if (amount > selectedSpendable) {
+      return setPaymentNotice("That wallet does not have enough spendable money for this payment.");
+    }
+
+    setPaying(true);
+    setPaymentNotice("");
+    try {
+      await payDebtObligationFromWallet(localUserId, record.id, {
+        walletId: paymentWalletId,
+        amount,
+        maxSpendable: selectedSpendable,
+        dueDate: dueMeta.dueDate || null,
+        referenceDate: new Date(),
+      });
+      const walletLabel = getWalletName(selectedWallet) || "wallet";
+      setPaymentNotice(`${fmt(amount)} paid from ${walletLabel}.`);
+      setPaymentOpen(false);
+    } catch (error) {
+      setPaymentNotice(error?.message || "Unable to complete this payment.");
+    } finally {
+      setPaying(false);
+    }
+  };
 
   return (
     <PremiumFinanceItemSurface tone={tone} className="p-3.5">
@@ -175,15 +311,102 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit, 
             className="border-t border-white/[0.055]"
           />
         ) : null}
+
         {canPay ? (
           <button
             type="button"
-            disabled={paying}
-            onClick={() => onPay?.(record, dueMeta.dueDate)}
-            className="mt-3 flex min-h-[42px] w-full items-center justify-center rounded-xl border border-emerald-300/20 bg-emerald-400/[0.08] px-3 text-[11px] font-black text-emerald-200 disabled:opacity-45"
+            disabled={loadingWallets || paying}
+            onClick={openPayment}
+            className="mt-3 flex min-h-[42px] w-full items-center justify-center gap-2 rounded-xl border border-emerald-300/20 bg-emerald-400/[0.08] px-3 text-[11px] font-black text-emerald-200 disabled:opacity-45"
           >
-            {paying ? "Processing payment..." : "Pay Obligation"}
+            {loadingWallets ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            {loadingWallets ? "Loading wallets..." : "Pay Obligation"}
           </button>
+        ) : null}
+
+        {paymentOpen ? (
+          <div className="mt-3 rounded-2xl border border-emerald-300/14 bg-emerald-400/[0.045] p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black text-white/90">Pay {getDebtTitle(record)}</p>
+                <p className="mt-1 text-[10px] font-semibold text-white/45">
+                  Partial payments are allowed. CLARA will deduct only the amount you enter.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={paying}
+                onClick={() => setPaymentOpen(false)}
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-black/[0.15] text-white/60 disabled:opacity-45"
+                aria-label="Close payment"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            <div className="mt-3 space-y-2.5">
+              <div>
+                <label htmlFor={`debt-payment-wallet-${record.id}`} className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.14em] text-white/42">
+                  Pay from wallet
+                </label>
+                <select
+                  id={`debt-payment-wallet-${record.id}`}
+                  value={paymentWalletId}
+                  onChange={(event) => setPaymentWalletId(event.target.value)}
+                  disabled={paying || loadingWallets || !paymentWallets.length}
+                  className={paymentFieldClass}
+                >
+                  {!paymentWallets.length ? <option value="">No spendable wallets</option> : null}
+                  {paymentWallets.map((wallet) => {
+                    const walletId = getWalletId(wallet);
+                    const spendable = getWalletSpendableBalance(wallet);
+                    const current = getWalletCurrentBalance(wallet);
+                    return (
+                      <option key={walletId} value={walletId} disabled={spendable <= 0} className="bg-slate-950">
+                        {getWalletName(wallet) || "Wallet"} — {fmt(spendable)} available{current !== spendable ? ` of ${fmt(current)}` : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor={`debt-payment-amount-${record.id}`} className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.14em] text-white/42">
+                  Payment amount
+                </label>
+                <input
+                  id={`debt-payment-amount-${record.id}`}
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={paymentAmount}
+                  onChange={(event) => setPaymentAmount(event.target.value)}
+                  disabled={paying}
+                  className={paymentFieldClass}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+
+            {paymentNotice ? (
+              <p className="mt-2.5 text-[10px] font-semibold leading-5 text-white/58">{paymentNotice}</p>
+            ) : null}
+
+            <button
+              type="button"
+              disabled={paying || loadingWallets || !paymentWalletId || toMoneyNumber(paymentAmount) <= 0}
+              onClick={submitPayment}
+              className="mt-3 flex min-h-[40px] w-full items-center justify-center gap-2 rounded-xl border border-emerald-300/20 bg-emerald-400/[0.11] px-3 text-[11px] font-black text-emerald-100 disabled:opacity-40"
+            >
+              {paying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              {paying ? "Paying..." : "Confirm Payment"}
+            </button>
+          </div>
+        ) : null}
+
+        {!paymentOpen && paymentNotice ? (
+          <p className="mt-2.5 text-[10px] font-semibold leading-5 text-emerald-200/80">{paymentNotice}</p>
         ) : null}
       </div>
     </PremiumFinanceItemSurface>
