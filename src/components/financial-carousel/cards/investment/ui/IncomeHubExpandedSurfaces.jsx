@@ -8,6 +8,7 @@ import {
   PremiumFinanceItemSurface,
 } from "@/components/financial-carousel/shared/PremiumFinanceItemSurface";
 import { getIncomeSourceRemovalPlan } from "@/lib/incomeHubRepository";
+import { isIncomeSourceMasterPayCycle } from "@/lib/clara-master-pay-cycle-repository";
 
 const INCOME_MENU_WIDTH = 208;
 const INCOME_MENU_GAP = 8;
@@ -74,6 +75,7 @@ export function IncomeSourcePreviewRow({ source, tone, menuOpen, onToggleMenu })
   const initial = String(source?.name || "I").trim().slice(0, 1).toUpperCase() || "I";
   const isNegative = net < 0;
   const isZero = net === 0;
+  const isMaster = isIncomeSourceMasterPayCycle(source);
 
   return (
     <PremiumFinanceItemSurface tone={tone} glow={!isZero} className="p-3.5">
@@ -81,9 +83,16 @@ export function IncomeSourcePreviewRow({ source, tone, menuOpen, onToggleMenu })
         <PremiumFinanceIconTile tone={tone}>{initial}</PremiumFinanceIconTile>
 
         <div className="min-w-0 pt-0.5">
-          <p className="truncate text-[14px] font-black tracking-[-0.02em] text-white/92">
-            {source?.name || "Income Source"}
-          </p>
+          <div className="flex min-w-0 items-center gap-2">
+            <p className="truncate text-[14px] font-black tracking-[-0.02em] text-white/92">
+              {source?.name || "Income Source"}
+            </p>
+            {isMaster ? (
+              <span className="shrink-0 rounded-full border border-amber-200/20 bg-amber-300/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.12em] text-amber-100/88">
+                Master
+              </span>
+            ) : null}
+          </div>
           <p
             className="mt-1.5 truncate text-[20px] font-black leading-none tracking-[-0.04em]"
             style={{ color: isNegative ? "rgb(251 113 133)" : isZero ? "rgb(203 213 225 / 0.78)" : `rgb(${tone.rgb})` }}
@@ -362,8 +371,13 @@ export function EmptyIncomeSourcesPreview({ onCreateIncomeSource }) {
 export function IncomeSourceRemovalModal({ source, open, saving, error = "", onClose, onConfirm }) {
   if (!open || !source) return null;
   const removalPlan = getIncomeSourceRemovalPlan(source);
-  const isBlocked = removalPlan.type === "blocked_balance";
+  const isMaster = isIncomeSourceMasterPayCycle(source);
+  const isBlocked = removalPlan.type === "blocked_balance" || isMaster;
   const primaryLabel = isBlocked ? "Close" : removalPlan.primaryLabel;
+  const title = isMaster ? "Choose another Master first" : removalPlan.title;
+  const message = isMaster
+    ? "This income source controls CLARA's active financial cycle. Open another existing income source and make it the Master Pay Cycle before deleting this one."
+    : removalPlan.message;
 
   return (
     <div className="fixed inset-0 z-[160] flex min-h-[100svh] items-center justify-center bg-[radial-gradient(circle_at_50%_20%,rgba(15,23,42,0.45),rgba(2,6,23,0.78)_55%,rgba(2,6,23,0.92))] px-4 py-5 backdrop-blur-[16px]" onClick={() => { if (!saving) onClose?.(); }}>
@@ -371,17 +385,20 @@ export function IncomeSourceRemovalModal({ source, open, saving, error = "", onC
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/42">Income source safety</p>
-            <h3 className="mt-2 text-[25px] font-black leading-tight tracking-[-0.045em] text-white">{removalPlan.title}</h3>
+            <h3 className="mt-2 text-[25px] font-black leading-tight tracking-[-0.045em] text-white">{title}</h3>
           </div>
           <button type="button" onClick={onClose} disabled={saving} className="shrink-0 rounded-full border border-white/15 bg-white/[0.075] p-2.5 text-white/70 transition hover:bg-white/10 hover:text-white disabled:opacity-50" aria-label="Close modal">
             <X className="h-4.5 w-4.5" />
           </button>
         </div>
         <div className="mt-4 rounded-2xl border border-white/[0.08] bg-white/[0.045] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-          <p className="text-sm font-black text-white">{source.name}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-black text-white">{source.name}</p>
+            {isMaster ? <span className="rounded-full border border-amber-200/20 bg-amber-300/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.12em] text-amber-100">Master</span> : null}
+          </div>
           <p className="mt-1 text-xs font-semibold text-white/55">Current balance: {fmt(getSourceNet(source))}</p>
         </div>
-        <p className="mt-4 text-[13px] font-semibold leading-6 text-white/68">{removalPlan.message}</p>
+        <p className="mt-4 text-[13px] font-semibold leading-6 text-white/68">{message}</p>
         {error ? <p className="mt-3 rounded-2xl border border-rose-300/15 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100">{error}</p> : null}
         <div className="mt-5 grid grid-cols-[0.84fr_1.16fr] gap-2.5">
           <button type="button" onClick={onClose} disabled={saving} className="rounded-2xl border border-white/15 bg-white/[0.075] px-4 py-3 text-sm font-semibold text-white/76 transition hover:bg-white/[0.10] hover:text-white disabled:opacity-55">{removalPlan.secondaryLabel}</button>
