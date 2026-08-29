@@ -12,8 +12,8 @@ const source = fs.readFileSync(authorityPath, "utf8");
 function loadOutstandingDebtHelper() {
   const start = source.indexOf("export function calculateMeansOutstandingDebtCommitments");
   assert.notEqual(start, -1, "canonical Means authority must expose debt commitment display helper");
-  const end = source.indexOf("\nfunction currentCycleFutureDebtActual", start);
-  assert.notEqual(end, -1, "debt commitment helper must remain before future-debt actual logic");
+  const end = source.indexOf("\nasync function readAllDebtRecords", start);
+  assert.notEqual(end, -1, "debt commitment helper must remain isolated from data loading");
 
   const helperSource = source.slice(start, end).replace("export function", "function");
   const context = { result: null };
@@ -25,7 +25,7 @@ function loadOutstandingDebtHelper() {
   return context.result;
 }
 
-test("ORB debt commitments include overdue/current-cycle unpaid remainder", () => {
+test("ORB debt commitments include unpaid remainder for represented current-cycle occurrences", () => {
   const calculate = loadOutstandingDebtHelper();
   const result = calculate(
     [
@@ -37,7 +37,8 @@ test("ORB debt commitments include overdue/current-cycle unpaid remainder", () =
     400
   );
 
-  assert.equal(result, 3451);
+  // Legacy carry input is ignored: only represented active-cycle debt occurrences count.
+  assert.equal(result, 3051);
 });
 
 test("fully paid current-cycle debt leaves no remaining ORB debt commitment", () => {
@@ -45,13 +46,11 @@ test("fully paid current-cycle debt leaves no remaining ORB debt commitment", ()
   assert.equal(calculate([{ kind: "debt", amount: 81, actualPaid: 81 }], 0), 0);
 });
 
-test("canonical snapshot no longer uses a future-only debt filter", () => {
+test("canonical snapshot does not add carried obligations to debt commitments", () => {
   assert.match(
     source,
-    /const debtUpcoming = calculateMeansOutstandingDebtCommitments\(\s*debtOccurrences,\s*baselineState\.carriedObligations\s*\);/
+    /const debtUpcoming = calculateMeansOutstandingDebtCommitments\(debtOccurrences\);/
   );
-  assert.doesNotMatch(
-    source,
-    /const debtUpcoming = futureContributions\s*\.filter\(\(entry\) => entry\.kind === "debt"\)/
-  );
+  assert.doesNotMatch(source, /baselineState\.carriedObligations/);
+  assert.doesNotMatch(source, /confirmedCarriedDebt/);
 });
