@@ -1,7 +1,11 @@
 import { buildDebtObligationScheduleProjection } from "./financialCardScheduleProjection.js";
+import { financialDateKey, normalizeFinancialDateKey } from "./clara-financial-day.js";
 
 const text = (value) => String(value ?? "").trim();
-const dateKey = (value) => text(value).slice(0, 10);
+const dateKey = (value) =>
+  value instanceof Date
+    ? financialDateKey(value)
+    : normalizeFinancialDateKey(value) || financialDateKey(value);
 
 export function getPaidDebtOccurrenceDates(record = {}) {
   const raw =
@@ -33,19 +37,25 @@ export function isDebtOccurrencePaid(record = {}, dueDate = "") {
 }
 
 export function getDebtOccurrenceState(record = {}, referenceDate = new Date()) {
-  const today = dateKey(referenceDate instanceof Date ? referenceDate.toISOString() : referenceDate);
+  const today = financialDateKey(referenceDate);
   const events = buildDebtObligationScheduleProjection([record], { referenceDate })
     .filter((event) => text(event?.direction || "out").toLowerCase() === "out")
     .sort((a, b) => dateKey(a?.date).localeCompare(dateKey(b?.date)));
 
-  const latestDue = [...events].reverse().find((event) => dateKey(event?.date) <= today) || null;
-  if (latestDue && !isDebtOccurrencePaid(record, latestDue.date)) {
-    const dueDate = dateKey(latestDue.date);
+  // Pay Obligation always targets the earliest unpaid scheduled occurrence first.
+  const earliestDue =
+    events.find(
+      (event) =>
+        dateKey(event?.date) <= today &&
+        !isDebtOccurrencePaid(record, event?.date)
+    ) || null;
+  if (earliestDue) {
+    const dueDate = dateKey(earliestDue.date);
     return {
       state: dueDate < today ? "overdue" : "due_today",
       dueDate,
-      amount: Math.max(0, Number(latestDue?.amount || 0)),
-      event: latestDue,
+      amount: Math.max(0, Number(earliestDue?.amount || 0)),
+      event: earliestDue,
     };
   }
 
