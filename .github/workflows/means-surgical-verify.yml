@@ -48,32 +48,13 @@ jobs:
       - name: Run full regression suite
         run: npm test
 
-      - name: Build production bundle
-        shell: bash
-        run: |
-          set +e
-          npm run build > means-build-output.log 2>&1
-          status=$?
-          cat means-build-output.log
-          echo "MEANS_BUILD_STATUS=$status" >> "$GITHUB_ENV"
-          exit 0
+      - name: Build web production bundle
+        run: npm run build:web
 
-      - name: Commit build diagnostic when failing
-        if: env.MEANS_BUILD_STATUS != '0'
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add means-build-output.log
-          git commit -m "Capture Means build failure diagnostic"
-          git push origin HEAD:codex/means-score-final-surgical
-
-      - name: Fail verification when build failed
-        if: env.MEANS_BUILD_STATUS != '0'
-        run: exit 1
+      - name: Build Android production bundle
+        run: npm run build:android
 
       - name: Commit verified runtime surgery
-        if: env.MEANS_BUILD_STATUS == '0'
         shell: bash
         run: |
           if git diff --quiet; then
