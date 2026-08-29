@@ -7,6 +7,15 @@ const dateKey = (value) =>
     ? financialDateKey(value)
     : normalizeFinancialDateKey(value) || financialDateKey(value);
 
+function hasStructuredPaymentHistory(record = {}) {
+  const history = Array.isArray(record?.paymentHistory)
+    ? record.paymentHistory
+    : Array.isArray(record?.payment_history)
+      ? record.payment_history
+      : [];
+  return history.length > 0;
+}
+
 export function getPaidDebtOccurrenceDates(record = {}) {
   const raw =
     record?.paidOccurrences ||
@@ -31,7 +40,13 @@ export function isDebtOccurrencePaid(record = {}, dueDate = "") {
   );
   if (explicit && explicit === target) return true;
 
-  // Backward compatibility for older records that only stored a payment timestamp.
+  // Modern records own occurrence truth through paymentHistory + paidOccurrences.
+  // A partial payment still updates lastPaidAt for audit/history, so using that
+  // timestamp as a paid-occurrence signal would incorrectly skip the remainder.
+  // Keep the timestamp fallback only for genuinely old records that predate
+  // structured per-occurrence payment history.
+  if (hasStructuredPaymentHistory(record)) return false;
+
   const legacyPaid = dateKey(record?.lastPaidAt || record?.last_paid_at || record?.paidAt || record?.paid_at);
   return Boolean(legacyPaid && legacyPaid >= target);
 }
