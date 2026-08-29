@@ -106,7 +106,7 @@ function getOccurrencePaidAmount(record, dueDate) {
 }
 
 function getSuggestedPaymentAmount(record, dueDate) {
-  const mode = getDebtObligationMode(effectiveRecord);
+  const mode = getDebtObligationMode(record);
   const balance = Math.max(getObligationBalance(record), 0);
   const monthly = Math.max(getObligationMonthly(record), 0);
   const expected = mode === "balance" ? Math.min(monthly || balance, balance) : monthly;
@@ -172,7 +172,7 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
   const balance = getObligationBalance(effectiveRecord);
   const monthly = getObligationMonthly(effectiveRecord);
   const interest = getObligationInterest(effectiveRecord);
-  const mode = getDebtObligationMode(record);
+  const mode = getDebtObligationMode(effectiveRecord);
   const status = getDebtStatus(effectiveRecord);
   const payoffMonths =
     mode === "balance"
