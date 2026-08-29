@@ -247,6 +247,7 @@ function financialDayDistance(start, end) {
     (Date.UTC(ry, rm - 1, rd) - Date.UTC(ly, lm - 1, ld)) / 86400000
   );
 }
+
 function resolveRepeatingCustomCycle(customCycle, today) {
   if (!customCycle) return null;
   const lengthDays = financialDayDistance(customCycle.start, customCycle.end);
@@ -340,8 +341,11 @@ function buildRoutineOccurrences(owner, cycleStart, cycleEnd) {
   return enumerateFinancialDates(cycleStart, cycleEnd)
     .map((date) => ({
       id: `money-routine:${routineId}:${date}`,
+      requirementKey: `money-routine:${routineId}:${date}`,
+      sourceId: routineId,
       date,
       kind: "money_schedule",
+      sourceType: "money_schedule",
       amount: byWeekday.get(financialWeekdayIndex(date)) || 0,
       source: "money_routine",
     }))
@@ -372,10 +376,14 @@ function buildOneOffMoneyScheduleOccurrences(owner, cycleStart, cycleEnd) {
       if (direction !== "out" || event?.affectsMoney === false || amount <= 0) return null;
       if (isDerivedNonMeansScheduleEvent(event)) return null;
       if (source && source !== lower(CLARA_MONEY_SCHEDULE_SOURCE)) return null;
+      const requirementKey = `money-schedule:${id}:${date}`;
       return {
-        id: `money-schedule:${id}:${date}`,
+        id: requirementKey,
+        requirementKey,
+        sourceId: id,
         date,
         kind: "money_schedule",
+        sourceType: "money_schedule",
         amount,
         source: "money_schedule_event",
       };
@@ -473,15 +481,22 @@ export function buildMeansDebtOccurrences(records = [], cycleStart, cycleEnd) {
     if (!id || !(planned > 0)) return [];
     return debtOccurrenceDates(record, cycleStart, cycleEnd)
       .filter((dueDate) => shouldIncludeDebtOccurrence(record, dueDate, cycleStart))
-      .map((dueDate) => ({
-        id: `debt:${id}:${dueDate}`,
-        debtId: id,
-        date: dueDate,
-        kind: "debt",
-        amount: planned,
-        actualPaid: cumulativeActualForOccurrence(record, dueDate),
-        source: "debt_obligation",
-      }));
+      .map((dueDate) => {
+        const requirementKey = `debt:${id}:${dueDate}`;
+        return {
+          id: requirementKey,
+          requirementKey,
+          debtId: id,
+          sourceId: id,
+          date: dueDate,
+          kind: "debt",
+          sourceType: "debt",
+          amount: planned,
+          actualPaid: cumulativeActualForOccurrence(record, dueDate),
+          fulfilledBeforeCycle: amountPaidBeforeCycle(record, dueDate, cycleStart),
+          source: "debt_obligation",
+        };
+      });
   });
 }
 
@@ -553,6 +568,75 @@ function actualSpentForDisplay(expenses = [], cycleStart, today) {
   }, 0);
 }
 
+function explicitRequirementKey(record = {}) {
+  return clean(
+    record?.meansRequirementKey ||
+      record?.means_requirement_key ||
+      record?.plannedRequirementKey ||
+      record?.planned_requirement_key ||
+      record?.requirementKey ||
+      record?.requirement_key
+  );
+}
+
+function transactionDate(transaction = {}) {
+  return financialDateKey(
+    transaction?.transaction_date ||
+      transaction?.transactionDate ||
+      transaction?.date ||
+      transaction?.created_at ||
+      transaction?.createdAt
+  );
+}
+
+function buildExplicitExpenseFulfillmentMap(
+  expenses = [],
+  walletTransactions = [],
+  cycleStart = "",
+  cycleEnd = ""
+) {
+  const expenseById = new Map(
+    (Array.isArray(expenses) ? expenses : [])
+      .filter((expense) => !isDeletedFinanceRecord(expense))
+      .map((expense) => [clean(expense?.id), expense])
+      .filter(([id]) => Boolean(id))
+  );
+  const totals = new Map();
+  const seenExpenseIds = new Set();
+
+  (Array.isArray(walletTransactions) ? walletTransactions : []).forEach((transaction) => {
+    if (isDeletedFinanceRecord(transaction)) return;
+    const expenseId = clean(transaction?.expense_id || transaction?.expenseId);
+    if (!expenseId || seenExpenseIds.has(expenseId)) return;
+    const expense = expenseById.get(expenseId);
+    if (!expense) return;
+    const requirementKey = explicitRequirementKey(expense) || explicitRequirementKey(transaction);
+    if (!requirementKey) return;
+    const date = transactionDate(transaction) || expenseDate(expense);
+    if (!date || date < cycleStart || date >= cycleEnd) return;
+    const amount = Math.abs(signed(transaction?.amount));
+    if (!(amount > 0)) return;
+
+    seenExpenseIds.add(expenseId);
+    totals.set(requirementKey, (totals.get(requirementKey) || 0) + amount);
+  });
+
+  return totals;
+}
+
+function applyExplicitScheduleFulfillment(occurrences = [], fulfillmentMap = new Map()) {
+  return (Array.isArray(occurrences) ? occurrences : []).map((occurrence) => {
+    const requirementKey = clean(occurrence?.requirementKey || occurrence?.id);
+    const explicitMatched = nonNegative(fulfillmentMap.get(requirementKey));
+    if (!(explicitMatched > 0)) return occurrence;
+    return {
+      ...occurrence,
+      actualPaid: nonNegative(occurrence?.actualPaid) + explicitMatched,
+      explicitMatchedFulfillment: explicitMatched,
+    };
+  });
+}
+
 export async function buildCanonicalMeansSnapshot({ profile = {}, now = new Date() } = {}) {
   const owner = ownerIdentity(profile);
   const [
@@ -580,10 +664,15 @@ export async function buildCanonicalMeansSnapshot({ profile = {}, now = new Date
   const today = financialDateKey(now);
   const cycleStartDate = payCycle.start;
   const cycleEndDate = payCycle.end;
-  const moneyScheduleOccurrences = buildMeansMoneyScheduleOccurrences(
-    owner,
+  const explicitFulfillment = buildExplicitExpenseFulfillmentMap(
+    expenses,
+    walletTransactions,
     cycleStartDate,
     cycleEndDate
+  );
+  const moneyScheduleOccurrences = applyExplicitScheduleFulfillment(
+    buildMeansMoneyScheduleOccurrences(owner, cycleStartDate, cycleEndDate),
+    explicitFulfillment
   );
   const debtOccurrences = buildMeansDebtOccurrences(
     debtRecords,
@@ -603,12 +692,15 @@ export async function buildCanonicalMeansSnapshot({ profile = {}, now = new Date
     today,
     occurrences,
   });
-  await persistMeansCycleBaseline({
-    owner,
-    cycleStart: cycleStartDate,
-    cycleEnd: cycleEndDate,
-    baseline: baselineState.baseline,
-  }).catch(() => null);
+
+  if (baselineState.shouldPersist) {
+    await persistMeansCycleBaseline({
+      owner,
+      cycleStart: cycleStartDate,
+      cycleEnd: cycleEndDate,
+      baseline: baselineState.baseline,
+    }).catch(() => null);
+  }
 
   const walletState = calculateMeansAvailableWalletState(
     wallets,
@@ -617,23 +709,28 @@ export async function buildCanonicalMeansSnapshot({ profile = {}, now = new Date
     { emergencyFund, savingsGoals }
   );
   const availableNow = walletState.availableNow;
+  const remainingPlannedSpending = nonNegative(baselineState.remainingPlannedSpending);
+  const cycle100Anchor = nonNegative(baselineState.cycle100Anchor);
 
   const assumedSpent = 0;
   const assumedToday = 0;
   const effectiveCurrentMoney = availableNow;
   const scoreState = calculateMeansScoreState({
-    effectiveCurrentMoney,
-    requiredRunway: baselineState.requiredRunway,
+    availableWalletMoney: availableNow,
+    remainingPlannedSpending,
+    cycle100Anchor,
   });
 
-  const futureContributions = baselineState.contributions.filter(
-    (entry) => normalizeFinancialDateKey(entry?.date) > today
-  );
-  const moneyScheduleUpcoming = futureContributions
+  const requirements = Array.isArray(baselineState.requirements)
+    ? baselineState.requirements
+    : [];
+  const moneyScheduleUpcoming = requirements
     .filter((entry) => entry.kind === "money_schedule")
-    .reduce((sum, entry) => sum + nonNegative(entry.amount), 0);
-  const debtUpcoming = calculateMeansOutstandingDebtCommitments(debtOccurrences);
-  const upcoming = moneyScheduleUpcoming + debtUpcoming;
+    .reduce((sum, entry) => sum + nonNegative(entry.remainingAmount), 0);
+  const debtUpcoming = requirements
+    .filter((entry) => entry.kind === "debt")
+    .reduce((sum, entry) => sum + nonNegative(entry.remainingAmount), 0);
+  const upcoming = remainingPlannedSpending;
   const income = incomeReceivedForDisplay(incomeSources, cycleStartDate, cycleEndDate);
   const spent = actualSpentForDisplay(expenses, cycleStartDate, today);
 
@@ -644,32 +741,58 @@ export async function buildCanonicalMeansSnapshot({ profile = {}, now = new Date
     customCycle: Boolean(payCycle.customCycle),
     cycleLengthDays: payCycle.cycleLengthDays || null,
     score: scoreState.score,
+    meansScore: scoreState.score,
+    rawMeansScore: scoreState.rawScore,
+    meansScoreResolved: scoreState.anchorResolved,
+    meansScoreState: scoreState.coverageState,
+    meansScoreUnavailableReason: baselineState.migrationUnresolved
+      ? "legacy_anchor_migration_unresolved"
+      : scoreState.anchorResolved
+        ? null
+        : "cycle_100_anchor_unresolved",
+    anchorState: baselineState.anchorState,
+    migrationUnresolved: Boolean(baselineState.migrationUnresolved),
+    legacyMeansVersion: baselineState.legacyVersion || null,
     income,
     spent,
     assumedSpent,
     assumedToday,
     upcoming,
+    remainingPlannedSpending,
     savingsGoalUpcoming: 0,
     debtUpcoming,
     moneyScheduleUpcoming,
-    otherScheduledUpcoming: 0,
+    otherScheduledUpcoming: Math.max(
+      remainingPlannedSpending - debtUpcoming - moneyScheduleUpcoming,
+      0
+    ),
     cycleStartDate,
     cycleEndDate,
     horizonDate: cycleEndDate,
     availableNow,
+    availableWalletMoney: availableNow,
     grossWalletMoney: walletState.grossWalletMoney,
     effectiveCurrentMoney,
     financialRunway: effectiveCurrentMoney,
-    requiredRunway: baselineState.requiredRunway,
-    scoreRoom: scoreState.scoreRoom,
+    cycle100Anchor,
+    // Compatibility alias: requiredRunway now means the fixed V7 Cycle 100 Anchor only.
+    requiredRunway: cycle100Anchor,
+    wallBill: scoreState.wallBill,
+    openingWallBill: scoreState.wallBill,
+    closingWallBill: scoreState.wallBill,
+    scoreRoom: scoreState.wallBill,
     plannedAssumedSinceLock: 0,
     moneyLentUnavailable: walletState.moneyLentUnavailable,
     emergencyProtected: walletState.emergencyProtected,
     savingsProtected: walletState.savingsProtected,
     otherProtected: walletState.otherProtected,
-    projectedSpending: baselineState.requiredRunway,
-    projectedRoom: availableNow - upcoming,
-    baselineContributions: baselineState.contributions,
+    projectedSpending: remainingPlannedSpending,
+    projectedRoom: scoreState.wallBill,
+    baselineContributions: requirements,
+    planRequirements: requirements,
+    explicitMatchedFulfillment: [...explicitFulfillment.entries()].map(
+      ([requirementKey, amount]) => ({ requirementKey, amount })
+    ),
     extraCurrentCycleActual: 0,
     carriedObligations: 0,
   };
