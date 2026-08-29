@@ -1,7 +1,20 @@
 import { buildDebtObligationScheduleProjection } from "./financialCardScheduleProjection.js";
+import { financialDateKey, normalizeFinancialDateKey } from "./clara-financial-day.js";
 
 const text = (value) => String(value ?? "").trim();
-const dateKey = (value) => text(value).slice(0, 10);
+const dateKey = (value) =>
+  value instanceof Date
+    ? financialDateKey(value)
+    : normalizeFinancialDateKey(value) || financialDateKey(value);
+
+function hasStructuredPaymentHistory(record = {}) {
+  const history = Array.isArray(record?.paymentHistory)
+    ? record.paymentHistory
+    : Array.isArray(record?.payment_history)
+      ? record.payment_history
+      : [];
+  return history.length > 0;
+}
 
 export function getPaidDebtOccurrenceDates(record = {}) {
   const raw =
@@ -27,25 +40,37 @@ export function isDebtOccurrencePaid(record = {}, dueDate = "") {
   );
   if (explicit && explicit === target) return true;
 
-  // Backward compatibility for older records that only stored a payment timestamp.
+  // Modern records own occurrence truth through paymentHistory + paidOccurrences.
+  // A partial payment still updates lastPaidAt for audit/history, so using that
+  // timestamp as a paid-occurrence signal would incorrectly skip the remainder.
+  // Keep the timestamp fallback only for genuinely old records that predate
+  // structured per-occurrence payment history.
+  if (hasStructuredPaymentHistory(record)) return false;
+
   const legacyPaid = dateKey(record?.lastPaidAt || record?.last_paid_at || record?.paidAt || record?.paid_at);
   return Boolean(legacyPaid && legacyPaid >= target);
 }
 
 export function getDebtOccurrenceState(record = {}, referenceDate = new Date()) {
-  const today = dateKey(referenceDate instanceof Date ? referenceDate.toISOString() : referenceDate);
+  const today = financialDateKey(referenceDate);
   const events = buildDebtObligationScheduleProjection([record], { referenceDate })
     .filter((event) => text(event?.direction || "out").toLowerCase() === "out")
     .sort((a, b) => dateKey(a?.date).localeCompare(dateKey(b?.date)));
 
-  const latestDue = [...events].reverse().find((event) => dateKey(event?.date) <= today) || null;
-  if (latestDue && !isDebtOccurrencePaid(record, latestDue.date)) {
-    const dueDate = dateKey(latestDue.date);
+  // Pay Obligation always targets the earliest unpaid scheduled occurrence first.
+  const earliestDue =
+    events.find(
+      (event) =>
+        dateKey(event?.date) <= today &&
+        !isDebtOccurrencePaid(record, event?.date)
+    ) || null;
+  if (earliestDue) {
+    const dueDate = dateKey(earliestDue.date);
     return {
       state: dueDate < today ? "overdue" : "due_today",
       dueDate,
-      amount: Math.max(0, Number(latestDue?.amount || 0)),
-      event: latestDue,
+      amount: Math.max(0, Number(earliestDue?.amount || 0)),
+      event: earliestDue,
     };
   }
 

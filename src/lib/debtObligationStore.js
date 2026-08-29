@@ -216,24 +216,68 @@ export async function markDebtOccurrencePaid(localUserId, id, options = {}) {
   if (!dueDate) throw new Error("There is no due occurrence to mark as paid.");
 
   const mode = getDebtObligationMode(current);
+  const plannedOccurrenceAmount = Math.max(
+    0,
+    Number(getMonthlyDebtPayment(current) || occurrence?.amount || 0)
+  );
   const paymentAmount = Math.max(
     0,
-    Number(options.amount || getMonthlyDebtPayment(current) || occurrence?.amount || 0)
+    Number(options.amount || plannedOccurrenceAmount || 0)
   );
   const currentBalance = getDebtBalance(current);
   const nextBalance = mode === "balance" ? Math.max(currentBalance - paymentAmount, 0) : currentBalance;
   const completed = mode === "balance" && nextBalance <= 0;
   const now = new Date().toISOString();
-  const paidOccurrences = appendPaidDebtOccurrence(current, dueDate);
+  const priorHistory = Array.isArray(current.paymentHistory)
+    ? current.paymentHistory
+    : Array.isArray(current.payment_history)
+      ? current.payment_history
+      : [];
+  const paymentEntry = {
+    id: `legacy_debt_payment_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+    amount: paymentAmount,
+    dueDate,
+    due_date: dueDate,
+    paidAt: now,
+    paid_at: now,
+    source: "legacy_mark_paid",
+  };
+  const paymentHistory = [...priorHistory, paymentEntry];
+  const occurrencePaidAmount = paymentHistory.reduce((sum, entry) => {
+    const entryDueDate = normalizeString(entry?.dueDate || entry?.due_date).slice(0, 10);
+    const amount = Math.max(0, Number(entry?.amount || 0));
+    return entryDueDate === dueDate ? sum + amount : sum;
+  }, 0);
+  const expectedOccurrenceAmount =
+    mode === "balance"
+      ? Math.min(plannedOccurrenceAmount || currentBalance, currentBalance)
+      : plannedOccurrenceAmount;
+  const occurrenceSatisfied =
+    completed ||
+    (expectedOccurrenceAmount > 0 && occurrencePaidAmount >= expectedOccurrenceAmount);
+  const existingPaidOccurrences = Array.isArray(current.paidOccurrences)
+    ? current.paidOccurrences
+    : Array.isArray(current.paid_occurrences)
+      ? current.paid_occurrences
+      : [];
+  const paidOccurrences = occurrenceSatisfied
+    ? appendPaidDebtOccurrence(current, dueDate)
+    : existingPaidOccurrences;
 
   const record = {
     ...current,
     id: safeId,
     localUserId: safeLocalUserId,
+    paymentHistory,
+    payment_history: paymentHistory,
     paidOccurrences,
     paid_occurrences: paidOccurrences,
-    lastPaidOccurrenceDate: dueDate,
-    last_paid_occurrence_date: dueDate,
+    lastPaidOccurrenceDate: occurrenceSatisfied
+      ? dueDate
+      : current.lastPaidOccurrenceDate || current.last_paid_occurrence_date || null,
+    last_paid_occurrence_date: occurrenceSatisfied
+      ? dueDate
+      : current.last_paid_occurrence_date || current.lastPaidOccurrenceDate || null,
     lastPaymentAmount: paymentAmount,
     last_payment_amount: paymentAmount,
     lastPaidAt: now,

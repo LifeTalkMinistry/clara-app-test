@@ -2,6 +2,7 @@ import {
   LOCAL_FINANCE_STORES,
   runLocalFinanceTransaction,
 } from "@/lib/localFinanceStore";
+import { resetMeansAssumedSpent } from "@/lib/clara-means-authority";
 
 const WALLET_STORE = LOCAL_FINANCE_STORES.wallets;
 const WALLET_TRANSACTION_STORE = LOCAL_FINANCE_STORES.walletTransactions;
@@ -62,6 +63,9 @@ function emitFinanceUpdates(localUserId, reconciliationId) {
  * One IndexedDB transaction owns every wallet adjustment and its matching audit
  * row. If any wallet changed after the check started, the whole reconciliation
  * aborts so a legitimate newer transaction can never be overwritten.
+ *
+ * A successful Cross-Check also resets Means Assumed Spent. That reset happens
+ * only after wallet truth is known to be valid; it never changes the 100 baseline.
  */
 export async function reconcileWeeklyMoneyCheckWallets(
   localUserId,
@@ -94,6 +98,7 @@ export async function reconcileWeeklyMoneyCheckWallets(
     `weekly-money-check-${Date.now()}`;
 
   if (!candidates.length) {
+    resetMeansAssumedSpent(safeLocalUserId, { completedAt: new Date() });
     return {
       reconciliationId,
       adjustedWallets: 0,
@@ -161,12 +166,12 @@ export async function reconcileWeeklyMoneyCheckWallets(
           signed_amount: adjustment,
           signedAmount: adjustment,
           type: "weekly_cross_check_adjustment",
-          category: "Weekly Cross-Check",
+          category: "Cross-Check Adjustment",
           source_type: "weekly_cross_check_reconciliation",
           sourceType: "weekly_cross_check_reconciliation",
           tag: "weekly_cross_check_adjustment",
-          title: `Weekly Cross-Check — ${snapshot.walletName}`,
-          name: `Weekly Cross-Check — ${snapshot.walletName}`,
+          title: `Cross-Check Adjustment — ${snapshot.walletName}`,
+          name: `Cross-Check Adjustment — ${snapshot.walletName}`,
           notes: `Balance reconciled from ${currentBalance} to ${snapshot.actualBalance}. Explanation: ${explanationText(snapshot)}.`,
           previous_balance: currentBalance,
           previousBalance: currentBalance,
@@ -201,6 +206,7 @@ export async function reconcileWeeklyMoneyCheckWallets(
     }
   );
 
+  resetMeansAssumedSpent(safeLocalUserId, { completedAt: new Date() });
   emitFinanceUpdates(safeLocalUserId, reconciliationId);
   return result;
 }
