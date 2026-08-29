@@ -29,6 +29,10 @@ jobs:
         run: |
           node --check src/lib/clara-means-cycle-baseline.js
           node --check src/lib/clara-means-authority.js
+          node --check src/lib/clara-means-baseline-repository.js
+          node --check src/lib/clara-master-pay-cycle-repository.js
+          node --check src/lib/clara-money-schedule-repository.js
+          node --check src/lib/scheduleEventOwnership.js
           node --check src/lib/clara-buy-check-metric-impact.js
           node --check src/lib/weeklyMoneyCheckReconciliationRepository.js
           node --check src/runtime/installClaraOrbGreeting.js
@@ -44,6 +48,8 @@ jobs:
           node --test tests/buy-check-metric-impact.test.mjs
           node --test tests/means-authority-wallet-protection-source.test.mjs
           node --test tests/means-master-cycle-authority.test.mjs
+          node --test tests/means-no-retroactive-plan-source.test.mjs
+          node --test tests/means-baseline-durability-regression.test.mjs
           node --test tests/means-score-plan-actual-separation.test.mjs
           node --test tests/means-authority-no-legacy-repair-workflow.test.mjs
 
