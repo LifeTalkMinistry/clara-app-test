@@ -1,0 +1,63 @@
+name: One-shot harden device transfer full context v2
+
+on:
+  push:
+    paths:
+      - .github/workflows/one-shot-harden-device-transfer-full-context-v2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  harden-transfer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
+
+      - name: Apply full-context transfer hardening
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          workflow = Path('.github/workflows/one-shot-harden-device-transfer-full-context.yml').read_text()
+          marker = "          python3 - <<'PY'\n"
+          start = workflow.index(marker) + len(marker)
+          end = workflow.index("\n          PY", start)
+          script = workflow[start:end]
+          script = "\n".join(line[10:] if line.startswith("          ") else line for line in script.splitlines())
+          exec(compile(script, 'device-transfer-hardening.py', 'exec'))
+          PY
+
+      - name: Focused transfer regression tests
+        run: node --test tests/device-transfer-safety.test.mjs tests/cloud-vault-sync.test.mjs tests/local-data-export.test.mjs tests/retired-context-system.test.mjs
+
+      - name: Full repository suite
+        run: npm test
+
+      - name: Android production build
+        run: npm run build:android
+
+      - name: Web production build
+        run: npm run build:web
+
+      - name: Commit verified transfer hardening
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/cloud-vault-snapshot.js src/lib/device-transfer-vault.js src/components/device-transfer/DeviceTransferPanel.jsx tests/device-transfer-safety.test.mjs
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "Verify full device transfer context"
+          git push origin main
