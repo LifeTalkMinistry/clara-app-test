@@ -79,4 +79,6 @@ test("debt card keeps a persistent paid-period indicator in the expanded obligat
   assert.match(source, /getPaidDebtOccurrenceDates/);
   assert.match(source, /latestPaidOccurrence\.label/);
   assert.match(source, /This period/);
+  assert.match(source, /const effectiveRecord =/);
+  assert.match(source, /setLocalRecord\(paymentResult\.debt\)/);
 });

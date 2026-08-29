@@ -1,5 +1,5 @@
 import { CheckCircle2, CreditCard, Edit3, Loader2, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { fmt, getDebtTypeLabel } from "@/components/financial-carousel/cards/debt/logic/useDebtCardLogic";
 import { getFinanceItemHierarchyTone } from "@/components/financial-carousel/shared/financeItemHierarchy";
@@ -106,7 +106,7 @@ function getOccurrencePaidAmount(record, dueDate) {
 }
 
 function getSuggestedPaymentAmount(record, dueDate) {
-  const mode = getDebtObligationMode(record);
+  const mode = getDebtObligationMode(effectiveRecord);
   const balance = Math.max(getObligationBalance(record), 0);
   const monthly = Math.max(getObligationMonthly(record), 0);
   const expected = mode === "balance" ? Math.min(monthly || balance, balance) : monthly;
@@ -146,6 +146,18 @@ function getLatestPaidOccurrenceMeta(record) {
 }
 
 export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }) {
+  const [localRecord, setLocalRecord] = useState(null);
+  const recordVersion = String(record?.updatedAt || record?.updated_at || "");
+
+  useEffect(() => {
+    setLocalRecord(null);
+  }, [record?.id, recordVersion]);
+
+  const effectiveRecord =
+    localRecord && String(localRecord?.id || "") === String(record?.id || "")
+      ? localRecord
+      : record;
+
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentWallets, setPaymentWallets] = useState([]);
   const [paymentWalletId, setPaymentWalletId] = useState("");
@@ -157,11 +169,11 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
   const [loadingWallets, setLoadingWallets] = useState(false);
   const [paying, setPaying] = useState(false);
 
-  const balance = getObligationBalance(record);
-  const monthly = getObligationMonthly(record);
-  const interest = getObligationInterest(record);
+  const balance = getObligationBalance(effectiveRecord);
+  const monthly = getObligationMonthly(effectiveRecord);
+  const interest = getObligationInterest(effectiveRecord);
   const mode = getDebtObligationMode(record);
-  const status = getDebtStatus(record);
+  const status = getDebtStatus(effectiveRecord);
   const payoffMonths =
     mode === "balance"
       ? estimateDebtPayoffMonths({
@@ -174,9 +186,9 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
     mode === "balance" ? balance : monthly,
     totalPositiveDebt
   );
-  const dueMeta = getSafeDueMeta(record);
-  const latestPaidOccurrence = getLatestPaidOccurrenceMeta(record);
-  const currentOccurrencePaidAmount = getOccurrencePaidAmount(record, dueMeta.dueDate);
+  const dueMeta = getSafeDueMeta(effectiveRecord);
+  const latestPaidOccurrence = getLatestPaidOccurrenceMeta(effectiveRecord);
+  const currentOccurrencePaidAmount = getOccurrencePaidAmount(effectiveRecord, dueMeta.dueDate);
   const currentOccurrenceExpected = Math.max(monthly, 0);
   const hasPartialCurrentOccurrence =
     Boolean(dueMeta.dueDate) &&
@@ -194,7 +206,7 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
   const canPay =
     !["paid", "completed", "closed"].includes(status) &&
     (monthly > 0 || (mode === "balance" && balance > 0));
-  const localUserId = String(record?.localUserId || record?.local_user_id || "").trim();
+  const localUserId = String(effectiveRecord?.localUserId || effectiveRecord?.local_user_id || "").trim();
   const selectedWallet = paymentWallets.find(
     (wallet) => getWalletId(wallet) === paymentWalletId
   );
@@ -212,7 +224,7 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
     setPaymentMode("now");
     setPaymentDate(paymentDateMax);
     setWalletAlreadyReflectsPayment(true);
-    setPaymentAmount(String(getSuggestedPaymentAmount(record, dueMeta.dueDate) || ""));
+    setPaymentAmount(String(getSuggestedPaymentAmount(effectiveRecord, dueMeta.dueDate) || ""));
 
     if (!localUserId) {
       setPaymentNotice("Unable to resolve the owner of this obligation.");
@@ -265,7 +277,7 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
     setPaying(true);
     setPaymentNotice("");
     try {
-      await payDebtObligationFromWallet(localUserId, record.id, {
+      const paymentResult = await payDebtObligationFromWallet(localUserId, effectiveRecord.id, {
         walletId: paymentWalletId,
         amount,
         maxSpendable: selectedSpendable,
@@ -279,6 +291,9 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
           isHistoricalPayment && walletAlreadyReflectsPayment,
         deductWallet: requiresWalletDeduction,
       });
+      if (paymentResult?.debt) {
+        setLocalRecord(paymentResult.debt);
+      }
       const walletLabel = getWalletName(selectedWallet) || "wallet";
       if (isHistoricalPayment && walletAlreadyReflectsPayment) {
         setPaymentNotice(`${fmt(amount)} recorded as already paid. ${walletLabel} was not deducted again.`);
@@ -304,7 +319,7 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
 
         <div className="min-w-0 pt-0.5">
           <p className="truncate text-[14px] font-black tracking-[-0.02em] text-white/92">
-            {getDebtTitle(record)}
+            {getDebtTitle(effectiveRecord)}
           </p>
           <p className={`mt-1.5 truncate text-[20px] font-black leading-none tracking-[-0.04em] ${amountMeta.className}`}>
             {fmt(amountMeta.amount)}
@@ -316,9 +331,9 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
 
         <button
           type="button"
-          onClick={() => onEdit(record)}
+          onClick={() => onEdit(effectiveRecord)}
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/18 bg-white/[0.055] text-white/78 transition hover:border-white/28 hover:bg-white/[0.10] hover:text-white"
-          aria-label={`Edit ${getDebtTitle(record)}`}
+          aria-label={`Edit ${getDebtTitle(effectiveRecord)}`}
         >
           <Edit3 className="h-3.5 w-3.5" />
         </button>
@@ -331,7 +346,7 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
         />
         <PremiumFinanceInfoRow
           label="Debt type"
-          value={getDebtTypeLabel(record.debtType || record.type)}
+          value={getDebtTypeLabel(effectiveRecord.debtType || effectiveRecord.type)}
           className="border-t border-white/[0.055]"
         />
         {dueMeta.label ? (
@@ -404,7 +419,7 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
           <div className="mt-3 rounded-2xl border border-emerald-300/14 bg-emerald-400/[0.045] p-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-black text-white/90">Pay {getDebtTitle(record)}</p>
+                <p className="text-xs font-black text-white/90">Pay {getDebtTitle(effectiveRecord)}</p>
                 <p className="mt-1 text-[10px] font-semibold leading-4 text-white/45">
                   {isHistoricalPayment
                     ? "Already paid it in real life? Log it here without paying twice."
