@@ -77,20 +77,26 @@ export function getDebtOccurrenceState(record = {}, referenceDate = new Date()) 
     .filter((event) => text(event?.direction || "out").toLowerCase() === "out")
     .sort((a, b) => dateKey(a?.date).localeCompare(dateKey(b?.date)));
 
-  // Pay Obligation always targets the earliest unpaid scheduled occurrence first.
-  const earliestDue =
-    events.find(
-      (event) =>
-        dateKey(event?.date) <= today &&
-        !isDebtOccurrencePaid(record, event?.date, event?.amount)
-    ) || null;
-  if (earliestDue) {
-    const dueDate = dateKey(earliestDue.date);
+  // A recurring obligation represents one active period at a time. Do not walk
+  // backward through every older unpaid calendar occurrence when the user taps
+  // Pay Obligation. The active period is the latest scheduled occurrence on or
+  // before today. Older periods remain historical data unless the user explicitly
+  // records/corrects them through the historical-payment flow.
+  const currentDue =
+    [...events]
+      .reverse()
+      .find((event) => dateKey(event?.date) <= today) || null;
+
+  if (
+    currentDue &&
+    !isDebtOccurrencePaid(record, currentDue?.date, currentDue?.amount)
+  ) {
+    const dueDate = dateKey(currentDue.date);
     return {
       state: dueDate < today ? "overdue" : "due_today",
       dueDate,
-      amount: Math.max(0, Number(earliestDue?.amount || 0)),
-      event: earliestDue,
+      amount: Math.max(0, Number(currentDue?.amount || 0)),
+      event: currentDue,
     };
   }
 
