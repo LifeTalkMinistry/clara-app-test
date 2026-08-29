@@ -69,11 +69,15 @@ export function parseMeansBaseline(value) {
 }
 
 /**
- * Final Means baseline lifecycle:
- * - today/past occurrences are protected at the amount first observed for that day
+ * Governing Means baseline lifecycle:
+ * - today/past occurrences are protected at the planned amount first observed for that day
  * - future occurrences are recalculated from the current legitimate plan
- * - protected debt requirements may expand upward to cumulative actual payment
+ * - actual spending/payment never expands, shrinks, or reconstructs the denominator
  * - protected occurrences remain represented even if later deleted from the live plan
+ *
+ * extraCurrentCycleActual and carriedObligations remain accepted only for backwards-compatible
+ * diagnostics. They are intentionally excluded from requiredRunway because realized money and
+ * out-of-cycle carry are not current-cycle planned requirements under the Means authority.
  *
  * Old v1-v5 scalar locks are intentionally ignored. They mixed obsolete product rules
  * (including globally frozen same-cycle totals and stale Savings/Emergency/Lent effects)
@@ -120,19 +124,16 @@ export function resolveAdaptiveMeansBaselineState({
     }
 
     const protectedEntry = protectedOccurrences[entry.id];
-    const plannedFloor = protectedEntry ? money(protectedEntry.amount) : entry.amount;
-    const effectiveAmount = entry.kind === "debt"
-      ? Math.max(plannedFloor, entry.actualPaid)
-      : plannedFloor;
+    const plannedAmount = protectedEntry ? money(protectedEntry.amount) : entry.amount;
 
     contributions.push({
       id: entry.id,
       date: entry.date,
       kind: entry.kind,
       protected: Boolean(protectedEntry),
-      plannedAmount: plannedFloor,
+      plannedAmount,
       actualPaid: entry.actualPaid,
-      amount: effectiveAmount,
+      amount: plannedAmount,
     });
   });
 
@@ -154,9 +155,9 @@ export function resolveAdaptiveMeansBaselineState({
   });
 
   const plannedRequired = contributions.reduce((sum, entry) => sum + money(entry.amount), 0);
-  const actualityOutsidePlan = money(extraCurrentCycleActual);
-  const confirmedCarry = money(carriedObligations);
-  const requiredRunway = plannedRequired + actualityOutsidePlan + confirmedCarry;
+  const ignoredActualOutsidePlan = money(extraCurrentCycleActual);
+  const ignoredCarriedObligations = money(carriedObligations);
+  const requiredRunway = plannedRequired;
   const next = {
     version: MEANS_CYCLE_BASELINE_VERSION,
     cycleStart: start,
@@ -173,8 +174,9 @@ export function resolveAdaptiveMeansBaselineState({
     protectedOccurrences,
     contributions,
     plannedRequired,
-    extraCurrentCycleActual: actualityOutsidePlan,
-    carriedObligations: confirmedCarry,
+    extraCurrentCycleActual: ignoredActualOutsidePlan,
+    carriedObligations: ignoredCarriedObligations,
+    ignoredNonPlanBaselineInputs: ignoredActualOutsidePlan + ignoredCarriedObligations,
     shouldPersist: true,
   };
 }
