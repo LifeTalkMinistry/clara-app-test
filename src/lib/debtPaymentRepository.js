@@ -34,6 +34,22 @@ const walletBalance = (wallet = {}) =>
       0
   );
 
+function normalizePaidAt(value, fallback) {
+  const raw = clean(value);
+  if (!raw) return fallback;
+
+  // A date-only value comes from the historical-payment date picker. Anchor it
+  // at Manila noon so the chosen calendar date cannot shift on devices in a
+  // different timezone.
+  const candidate = /^\d{4}-\d{2}-\d{2}$/.test(raw)
+    ? new Date(`${raw}T12:00:00+08:00`)
+    : new Date(raw);
+  if (Number.isNaN(candidate.getTime())) {
+    throw new Error("Choose a valid payment date.");
+  }
+  return candidate.toISOString();
+}
+
 function emitPaymentUpdates(localUserId) {
   if (typeof window === "undefined") return;
 
@@ -75,12 +91,18 @@ function sumOccurrencePayments(history, dueDate) {
 }
 
 /**
- * Atomically pays a Debt / Obligation from a CLARA wallet.
+ * Atomically records a Debt / Obligation payment.
  *
- * One IndexedDB transaction owns all three mutations:
+ * Normal payment:
  * - wallet balance decreases
  * - debt/obligation payment state updates
- * - wallet transaction history receives a linked debt-payment audit record
+ * - Transaction Hub receives the linked audit record
+ *
+ * Historical "already paid" correction:
+ * - debt/obligation payment state still updates
+ * - Transaction Hub receives the payment on its real payment date
+ * - when the user confirms the current wallet already reflects that payment,
+ *   the wallet is deliberately NOT deducted again
  */
 export async function payDebtObligationFromWallet(localUserId, debtId, options = {}) {
   const safeLocalUserId = clean(localUserId);
@@ -88,12 +110,24 @@ export async function payDebtObligationFromWallet(localUserId, debtId, options =
   const walletId = clean(options.walletId || options.wallet_id);
   const paymentAmount = Math.max(toNumber(options.amount), 0);
   const maxSpendable = Math.max(toNumber(options.maxSpendable), 0);
+  const historical = Boolean(
+    options.historical || options.isHistorical || options.historical_payment
+  );
+  const walletAlreadyReflectsPayment = Boolean(
+    options.walletAlreadyReflectsPayment ||
+      options.wallet_already_reflects_payment ||
+      options.alreadyReflected
+  );
+  const deductWallet =
+    typeof options.deductWallet === "boolean"
+      ? options.deductWallet
+      : !walletAlreadyReflectsPayment;
 
   if (!safeLocalUserId) throw new Error("localUserId is required for a debt payment.");
   if (!safeDebtId) throw new Error("Debt obligation id is required.");
   if (!walletId) throw new Error("Choose a wallet for this payment.");
   if (paymentAmount <= 0) throw new Error("Payment amount must be greater than zero.");
-  if (maxSpendable > 0 && paymentAmount > maxSpendable) {
+  if (deductWallet && maxSpendable > 0 && paymentAmount > maxSpendable) {
     throw new Error("That wallet does not have enough spendable money for this payment.");
   }
 
@@ -108,7 +142,7 @@ export async function payDebtObligationFromWallet(localUserId, debtId, options =
       if (!wallet) throw new Error("Wallet could not be found.");
 
       const currentWalletBalance = walletBalance(wallet);
-      if (currentWalletBalance < paymentAmount) {
+      if (deductWallet && currentWalletBalance < paymentAmount) {
         throw new Error("That wallet no longer has enough balance for this payment.");
       }
 
@@ -124,7 +158,11 @@ export async function payDebtObligationFromWallet(localUserId, debtId, options =
       }
 
       const now = tx.nowIso();
-      const occurrence = getDebtOccurrenceState(debt, options.referenceDate || new Date());
+      const actualPaidAt = normalizePaidAt(
+        options.paidAt || options.paid_at || options.paymentDate || options.payment_date,
+        now
+      );
+      const occurrence = getDebtOccurrenceState(debt, options.referenceDate || new Date(actualPaidAt));
       const dueDate = clean(options.dueDate || occurrence?.dueDate).slice(0, 10);
       const paymentId = tx.createId(WALLET_TRANSACTION_STORE);
       const title = getDebtTitle(debt);
@@ -136,8 +174,16 @@ export async function payDebtObligationFromWallet(localUserId, debtId, options =
         wallet_id: walletId,
         dueDate: dueDate || null,
         due_date: dueDate || null,
-        paidAt: now,
-        paid_at: now,
+        paidAt: actualPaidAt,
+        paid_at: actualPaidAt,
+        recordedAt: now,
+        recorded_at: now,
+        historical,
+        historical_payment: historical,
+        walletBalanceAlreadyReflected: historical && walletAlreadyReflectsPayment,
+        wallet_balance_already_reflected: historical && walletAlreadyReflectsPayment,
+        deductedFromWallet: deductWallet,
+        deducted_from_wallet: deductWallet,
       };
       const paymentHistory = [...priorHistory, paymentEntry];
 
@@ -183,10 +229,10 @@ export async function payDebtObligationFromWallet(localUserId, debtId, options =
         last_payment_amount: paymentAmount,
         lastPaymentWalletId: walletId,
         last_payment_wallet_id: walletId,
-        lastPaidAt: now,
-        last_paid_at: now,
-        paidAt: completed ? now : debt.paidAt || debt.paid_at || null,
-        paid_at: completed ? now : debt.paid_at || debt.paidAt || null,
+        lastPaidAt: actualPaidAt,
+        last_paid_at: actualPaidAt,
+        paidAt: completed ? actualPaidAt : debt.paidAt || debt.paid_at || null,
+        paid_at: completed ? actualPaidAt : debt.paid_at || debt.paidAt || null,
         totalDebt: nextBalance,
         balance: nextBalance,
         amount: nextBalance,
@@ -198,18 +244,29 @@ export async function payDebtObligationFromWallet(localUserId, debtId, options =
       };
       await tx.putRaw(DEBT_OBLIGATION_STORE, debtRecord);
 
-      const walletRecord = {
-        ...wallet,
-        balance: currentWalletBalance - paymentAmount,
-        updatedAt: now,
-        updated_at: now,
-        syncStatus: "local_only",
-        source: "local",
-      };
-      await tx.putRaw(WALLET_STORE, walletRecord);
+      const walletRecord = deductWallet
+        ? {
+            ...wallet,
+            balance: currentWalletBalance - paymentAmount,
+            updatedAt: now,
+            updated_at: now,
+            syncStatus: "local_only",
+            source: "local",
+          }
+        : wallet;
 
-      // This is an audit record. The Debt flow owns the balance mutation, so the
-      // Transaction Hub must not independently reverse/edit this row like a normal expense.
+      if (deductWallet) {
+        await tx.putRaw(WALLET_STORE, walletRecord);
+      }
+
+      const transactionNotes = historical
+        ? deductWallet
+          ? `Historical payment toward ${title}; wallet balance corrected when logged in CLARA.`
+          : `Historical payment toward ${title}; current wallet balance already reflected this payment, so CLARA did not deduct it again.`
+        : `Payment toward ${title}`;
+
+      // This is an audit record. The Debt flow owns any wallet balance mutation,
+      // so Transaction Hub must not independently reverse/edit this row like a normal expense.
       const transactionRecord = tx.makeRecord(WALLET_TRANSACTION_STORE, {
         id: paymentId,
         wallet_id: walletId,
@@ -221,18 +278,30 @@ export async function payDebtObligationFromWallet(localUserId, debtId, options =
         source_type: "expense_debt_payment",
         sourceType: "expense_debt_payment",
         tag: "debt_payment",
-        title: `Debt payment — ${title}`,
-        name: `Debt payment — ${title}`,
-        notes: `Payment toward ${title}`,
+        title: historical ? `Debt payment logged — ${title}` : `Debt payment — ${title}`,
+        name: historical ? `Debt payment logged — ${title}` : `Debt payment — ${title}`,
+        notes: transactionNotes,
         debt_obligation_id: safeDebtId,
         debtObligationId: safeDebtId,
         debt_payment_id: paymentId,
         debtPaymentId: paymentId,
         non_editable: true,
         nonEditable: true,
+        historical,
+        historical_payment: historical,
+        wallet_balance_already_reflected: historical && walletAlreadyReflectsPayment,
+        walletBalanceAlreadyReflected: historical && walletAlreadyReflectsPayment,
+        deducted_from_wallet: deductWallet,
+        deductedFromWallet: deductWallet,
+        wallet_balance_effect: deductWallet ? "deducted" : "already_reflected",
+        walletBalanceEffect: deductWallet ? "deducted" : "already_reflected",
         due_date: dueDate || null,
         dueDate: dueDate || null,
-        created_at: now,
+        paid_at: actualPaidAt,
+        paidAt: actualPaidAt,
+        transaction_date: actualPaidAt.slice(0, 10),
+        transactionDate: actualPaidAt.slice(0, 10),
+        created_at: actualPaidAt,
         updated_at: now,
         deletedAt: null,
         syncStatus: "local_only",
@@ -246,6 +315,10 @@ export async function payDebtObligationFromWallet(localUserId, debtId, options =
         completed,
         mode,
         dueDate: dueDate || null,
+        paidAt: actualPaidAt,
+        historical,
+        walletAlreadyReflectsPayment: historical && walletAlreadyReflectsPayment,
+        deductedFromWallet: deductWallet,
         debt: debtRecord,
         wallet: walletRecord,
         transaction: transactionRecord,
