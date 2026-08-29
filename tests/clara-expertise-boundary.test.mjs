@@ -7,12 +7,21 @@ import {
 } from "../src/lib/clara-expertise-boundary.js";
 
 function meansSnapshot(score) {
+  const cycle100Anchor = 10000;
+  const remainingPlannedSpending = 10000;
+  const availableWalletMoney = (score / 100) * cycle100Anchor;
+  const wallBill = availableWalletMoney - remainingPlannedSpending;
   return {
     score,
-    requiredRunway: 10000,
-    availableNow: (score / 100) * 10000,
-    upcoming: 0,
-    projectedRoom: ((score / 100) * 10000),
+    cycle100Anchor,
+    requiredRunway: cycle100Anchor,
+    availableNow: availableWalletMoney,
+    availableWalletMoney,
+    remainingPlannedSpending,
+    upcoming: remainingPlannedSpending,
+    wallBill,
+    scoreRoom: wallBill,
+    projectedRoom: wallBill,
     cycleStartDate: "2026-08-15",
     cycleEndDate: "2026-08-30",
   };
