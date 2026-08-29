@@ -22,16 +22,30 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
+          node-version: 22
 
       - name: Apply deterministic ORB runtime surgery
-        run: python scripts/apply_final_means_runtime.py
+        run: python3 scripts/apply_final_means_runtime.py
+
+      - name: Syntax checks
+        run: |
+          python3 -m py_compile scripts/apply_final_means_runtime.py
+          node --check src/runtime/installClaraOrbGreeting.js
+          node --check src/lib/clara-financial-day.js
+          node --check src/lib/clara-means-cycle-baseline.js
+          node --check src/lib/clara-means-authority.js
+          node --check src/lib/debtOccurrenceState.js
+          node --check src/lib/weeklyMoneyCheckReconciliationRepository.js
+
+      - name: Run focused Means regressions
+        run: |
+          node --test tests/means-score-context-baseline-regression.test.mjs
+          node --test tests/means-score-single-authority-regression.test.mjs
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
 
-      - name: Run regression suite
+      - name: Run full regression suite
         run: npm test
 
       - name: Build production bundle
