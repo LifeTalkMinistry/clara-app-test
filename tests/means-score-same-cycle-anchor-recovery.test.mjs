@@ -6,7 +6,7 @@ import {
   resolveAdaptiveMeansBaselineState,
 } from "../src/lib/clara-means-cycle-baseline.js";
 
-test("same-cycle legacy scalar anchors cannot overwrite the live protected v6 plan", () => {
+test("same-cycle legacy scalar state cannot be fabricated into a V7 Cycle 100 Anchor", () => {
   const state = resolveAdaptiveMeansBaselineState({
     stored: {
       version: 5,
@@ -24,14 +24,19 @@ test("same-cycle legacy scalar anchors cannot overwrite the live protected v6 pl
     ],
   });
 
-  assert.equal(state.requiredRunway, 10400);
-  assert.equal(state.baseline.version, 6);
+  assert.equal(state.cycle100Anchor, 0);
+  assert.equal(state.requiredRunway, 0);
+  assert.equal(state.remainingPlannedSpending, 10400);
+  assert.equal(state.anchorState, "migration_unresolved");
+  assert.equal(state.migrationUnresolved, true);
+  assert.equal(state.shouldPersist, false);
 
   const score = calculateMeansScoreState({
-    effectiveCurrentMoney: 5569,
-    requiredRunway: state.requiredRunway,
-  }).score;
+    availableWalletMoney: 5569,
+    remainingPlannedSpending: state.remainingPlannedSpending,
+    cycle100Anchor: state.cycle100Anchor,
+  });
 
-  assert.equal(score, 54);
-  assert.notEqual(score, 306);
+  assert.equal(score.score, null);
+  assert.equal(score.coverageState, "no_anchor");
 });
