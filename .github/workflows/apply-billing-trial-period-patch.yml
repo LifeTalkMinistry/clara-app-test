@@ -1,0 +1,101 @@
+name: Apply Billing Trial Period Patch
+
+on:
+  push:
+    branches:
+      - fix/billing-p1w-trial-period
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Apply CLARA billing P1W trial detection patch
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          java_path = Path('android/app/src/main/java/com/clara/lifeos/app/ClaraBillingPlugin.java')
+          js_path = Path('src/lib/google-play-billing.js')
+
+          java = java_path.read_text()
+          old_java = '''    private boolean isSevenDayFreeTrialPhase(ProductDetails.PricingPhase phase) {
+        return phase != null
+                && phase.getPriceAmountMicros() == 0
+                && "P7D".equalsIgnoreCase(phase.getBillingPeriod());
+    }
+'''
+          new_java = '''    private boolean isSevenDayBillingPeriod(String billingPeriod) {
+        if (billingPeriod == null) return false;
+        String normalized = billingPeriod.trim().toUpperCase();
+        return "P7D".equals(normalized) || "P1W".equals(normalized);
+    }
+
+    private boolean isSevenDayFreeTrialPhase(ProductDetails.PricingPhase phase) {
+        return phase != null
+                && phase.getPriceAmountMicros() == 0
+                && isSevenDayBillingPeriod(phase.getBillingPeriod());
+    }
+'''
+          if old_java not in java and 'private boolean isSevenDayBillingPeriod(String billingPeriod)' not in java:
+              raise SystemExit('Expected Java P7D-only trial phase block was not found.')
+          java = java.replace(old_java, new_java)
+          java = java.replace('''        item.put("billingPeriod", phase.getBillingPeriod());
+        item.put("recurrenceMode", phase.getRecurrenceMode());''', '''        item.put("billingPeriod", phase.getBillingPeriod());
+        item.put("isSevenDayBillingPeriod", isSevenDayBillingPeriod(phase.getBillingPeriod()));
+        item.put("recurrenceMode", phase.getRecurrenceMode());''')
+          java = java.replace('selected offer is not a free P7D trial', 'selected offer is not a free P7D/P1W trial')
+          java_path.write_text(java)
+
+          js = js_path.read_text()
+          old_js = '''function isSevenDayFreePhase(phase = {}) {
+  const billingPeriod = normalize(phase.billingPeriod || phase.billing_period).toUpperCase();
+  const priceAmountMicros = Number(phase.priceAmountMicros ?? phase.price_amount_micros ?? NaN);
+  const formattedPrice = normalizeLower(phase.formattedPrice || phase.formatted_price || phase.price);
+  const isFree = priceAmountMicros === 0 || formattedPrice === "free" || formattedPrice.includes("free");
+  return isFree && billingPeriod === "P7D";
+}
+'''
+          new_js = '''function isSevenDayBillingPeriod(billingPeriod) {
+  const normalized = normalize(billingPeriod).toUpperCase();
+  return normalized === "P7D" || normalized === "P1W";
+}
+
+function isSevenDayFreePhase(phase = {}) {
+  const billingPeriod = normalize(phase.billingPeriod || phase.billing_period).toUpperCase();
+  const priceAmountMicros = Number(phase.priceAmountMicros ?? phase.price_amount_micros ?? NaN);
+  const formattedPrice = normalizeLower(phase.formattedPrice || phase.formatted_price || phase.price);
+  const isFree = priceAmountMicros === 0 || formattedPrice === "free" || formattedPrice.includes("free");
+  return isFree && isSevenDayBillingPeriod(billingPeriod);
+}
+'''
+          if old_js not in js and 'function isSevenDayBillingPeriod(billingPeriod)' not in js:
+              raise SystemExit('Expected JS P7D-only trial phase block was not found.')
+          js = js.replace(old_js, new_js)
+          js = js.replace('free P7D pricing phase', 'free P7D/P1W pricing phase')
+          js_path.write_text(js)
+          PY
+      - name: Validate build and Java compile
+        run: |
+          npm ci
+          npm run build
+          cd android
+          chmod +x ./gradlew
+          ./gradlew :app:compileDebugJavaWithJavac
+      - name: Remove temporary workflow
+        run: rm -f .github/workflows/apply-billing-trial-period-patch.yml
+      - name: Commit validated patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add android/app/src/main/java/com/clara/lifeos/app/ClaraBillingPlugin.java src/lib/google-play-billing.js .github/workflows/apply-billing-trial-period-patch.yml
+          git commit -m "Fix Google Play P1W trial offer detection"
+          git push
+
+# trigger: second push
