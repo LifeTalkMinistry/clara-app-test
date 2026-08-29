@@ -137,18 +137,28 @@ function ensureStyles() {
     #${BANNER_ID} button{min-height:42px;border-radius:15px;border:1px solid rgba(255,255,255,.10);font:800 12px/1 inherit;cursor:pointer}
     #${BANNER_ID} .cwc-primary{background:linear-gradient(135deg,#1769ff,#0d52c9);color:#fff;border-color:rgba(107,180,255,.35);box-shadow:0 10px 22px rgba(23,105,255,.18)}
     #${BANNER_ID} .cwc-later{padding:0 16px;background:rgba(255,255,255,.035);color:rgba(255,255,255,.72)}
-    #${SETUP_ID}{position:fixed;inset:0;z-index:2147482800;display:flex;align-items:flex-end;justify-content:center;padding:18px max(16px,env(safe-area-inset-right)) max(18px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));background:rgba(0,5,18,.72);backdrop-filter:blur(12px);font-family:inherit;color:#fff}
-    #${SETUP_ID} .cwc-setup-card{width:min(100%,420px);border-radius:28px;border:1px solid rgba(113,211,255,.22);background:linear-gradient(155deg,rgba(7,29,64,.995),rgba(5,15,37,.995));padding:20px;box-shadow:0 28px 80px rgba(0,0,0,.58),inset 0 1px 0 rgba(255,255,255,.08)}
-    #${SETUP_ID} .cwc-setup-kicker{font-size:10px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:rgba(179,236,255,.64)}
-    #${SETUP_ID} h2{margin:7px 0 0;font-size:21px;line-height:1.2;font-weight:900}
-    #${SETUP_ID} p{margin:8px 0 0;font-size:12px;line-height:1.55;font-weight:650;color:rgba(235,244,255,.62)}
-    #${SETUP_ID} .cwc-days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:18px}
-    #${SETUP_ID} .cwc-day{min-width:0;min-height:52px;padding:0 2px;background:rgba(255,255,255,.035);color:rgba(255,255,255,.62);border:1px solid rgba(255,255,255,.09);border-radius:14px;font-weight:900;font-size:10px}
-    #${SETUP_ID} .cwc-day[aria-pressed="true"]{background:rgba(42,181,238,.14);border-color:rgba(103,232,249,.42);color:#eafcff;box-shadow:0 0 18px rgba(34,211,238,.12)}
-    #${SETUP_ID} .cwc-save{width:100%;min-height:48px;margin-top:16px;border-radius:17px;border:1px solid rgba(107,180,255,.34);background:linear-gradient(135deg,#1769ff,#0d52c9);color:#fff;font-weight:900;font-size:12px;opacity:.4}
-    #${SETUP_ID} .cwc-save:not(:disabled){opacity:1;cursor:pointer}
+
+    #${SETUP_ID}{position:fixed;inset:0;z-index:2147482800;display:flex;align-items:flex-end;justify-content:center;box-sizing:border-box;padding:24px max(16px,env(safe-area-inset-right)) max(22px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));background:radial-gradient(circle at 50% 72%,rgba(21,83,170,.18),transparent 42%),rgba(0,5,18,.78);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);font-family:inherit;color:#fff}
+    #${SETUP_ID} .cwc-setup-card{position:relative;isolation:isolate;overflow:hidden;box-sizing:border-box;width:min(100%,430px);border-radius:30px;border:1px solid rgba(104,204,255,.28);background:linear-gradient(160deg,rgba(8,31,68,.995) 0%,rgba(5,19,45,.995) 58%,rgba(3,13,32,.995) 100%);padding:24px 22px 22px;box-shadow:0 30px 90px rgba(0,0,0,.62),0 0 0 1px rgba(38,137,255,.04),inset 0 1px 0 rgba(255,255,255,.09)}
+    #${SETUP_ID} .cwc-setup-card::before{content:"";position:absolute;z-index:-1;left:15%;right:15%;top:-46px;height:90px;border-radius:999px;background:rgba(35,125,255,.18);filter:blur(28px);pointer-events:none}
+    #${SETUP_ID} .cwc-setup-kicker{display:flex;align-items:center;gap:8px;font-size:10px;line-height:1;font-weight:900;letter-spacing:.17em;text-transform:uppercase;color:rgba(178,232,255,.72)}
+    #${SETUP_ID} .cwc-setup-kicker::before{content:"";width:7px;height:7px;border-radius:999px;background:#69dcff;box-shadow:0 0 14px rgba(105,220,255,.55);flex:0 0 auto}
+    #${SETUP_ID} h2{margin:12px 0 0;max-width:350px;font-size:23px;line-height:1.14;letter-spacing:-.025em;font-weight:900;color:#fff;text-wrap:balance}
+    #${SETUP_ID} p{margin:10px 0 0;max-width:365px;font-size:12.5px;line-height:1.55;font-weight:600;color:rgba(229,240,255,.67)}
+    #${SETUP_ID} .cwc-days-label{margin-top:22px;font-size:10px;line-height:1;font-weight:850;letter-spacing:.08em;text-transform:uppercase;color:rgba(218,236,255,.48)}
+    #${SETUP_ID} .cwc-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;width:100%;margin-top:10px}
+    #${SETUP_ID} .cwc-day{appearance:none;-webkit-appearance:none;box-sizing:border-box;min-width:0;width:100%;min-height:48px;padding:0 2px;margin:0;background:rgba(255,255,255,.035);color:rgba(236,245,255,.58);border:1px solid rgba(255,255,255,.09);border-radius:14px;font:850 10px/1 inherit;text-align:center;cursor:pointer;transition:transform .16s ease,border-color .16s ease,background .16s ease,color .16s ease,box-shadow .16s ease}
+    #${SETUP_ID} .cwc-day:hover{border-color:rgba(126,206,255,.22);background:rgba(255,255,255,.055);color:rgba(255,255,255,.82)}
+    #${SETUP_ID} .cwc-day:focus-visible{outline:2px solid rgba(105,220,255,.82);outline-offset:2px}
+    #${SETUP_ID} .cwc-day[aria-pressed="true"]{transform:translateY(-1px);background:linear-gradient(180deg,rgba(31,130,255,.26),rgba(22,91,191,.18));border-color:rgba(105,220,255,.62);color:#f4fcff;box-shadow:0 8px 22px rgba(14,107,230,.18),inset 0 1px 0 rgba(255,255,255,.08)}
+    #${SETUP_ID} .cwc-save{appearance:none;-webkit-appearance:none;box-sizing:border-box;display:flex;width:100%;max-width:none;min-width:0;min-height:50px;margin:18px 0 0;padding:0 18px;align-items:center;justify-content:center;border-radius:17px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.045);color:rgba(231,241,255,.34);font:900 12.5px/1 inherit;text-align:center;white-space:nowrap;overflow:hidden;cursor:not-allowed;box-shadow:none;transition:transform .16s ease,background .16s ease,border-color .16s ease,color .16s ease,box-shadow .16s ease,opacity .16s ease}
+    #${SETUP_ID} .cwc-save:not(:disabled){cursor:pointer;background:linear-gradient(135deg,#1c78ff 0%,#0d55d2 100%);border-color:rgba(112,188,255,.42);color:#fff;box-shadow:0 13px 30px rgba(13,85,210,.25),inset 0 1px 0 rgba(255,255,255,.13)}
+    #${SETUP_ID} .cwc-save:not(:disabled):active{transform:translateY(1px);box-shadow:0 8px 20px rgba(13,85,210,.20),inset 0 1px 0 rgba(255,255,255,.10)}
+    #${SETUP_ID} .cwc-save:focus-visible{outline:2px solid rgba(105,220,255,.82);outline-offset:3px}
     @keyframes claraWeeklyReminderIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
-    @media (min-width:640px){#${SETUP_ID}{align-items:center}}
+    @media (max-width:370px){#${SETUP_ID}{padding-left:12px;padding-right:12px}#${SETUP_ID} .cwc-setup-card{padding:22px 18px 19px}#${SETUP_ID} .cwc-days{gap:4px}#${SETUP_ID} .cwc-day{min-height:46px;border-radius:12px;font-size:9px}}
+    @media (min-width:640px){#${SETUP_ID}{align-items:center}#${SETUP_ID} .cwc-setup-card{padding:26px 24px 24px}}
+    @media (prefers-reduced-motion:reduce){#${SETUP_ID} .cwc-day,#${SETUP_ID} .cwc-save,#${BANNER_ID}{transition:none;animation:none}}
   `;
   document.head.appendChild(style);
 }
@@ -169,12 +179,13 @@ function showSetup(pair) {
   root.id = SETUP_ID;
   root.setAttribute("role", "presentation");
   root.innerHTML = `
-    <section class="cwc-setup-card" role="dialog" aria-modal="true" aria-labelledby="cwc-setup-title">
+    <section class="cwc-setup-card" role="dialog" aria-modal="true" aria-labelledby="cwc-setup-title" aria-describedby="cwc-setup-description">
       <div class="cwc-setup-kicker">Weekly Cross-Check</div>
       <h2 id="cwc-setup-title">When should CLARA check in with you?</h2>
-      <p>Choose one day. This becomes your recurring Weekly Cross-Check day. If you miss it, CLARA will keep the reminder visible on future app opens until you complete that week’s check.</p>
+      <p id="cwc-setup-description">Pick one day for your weekly check-in. If you miss it, CLARA keeps the reminder visible until that week’s Cross-Check is complete.</p>
+      <div class="cwc-days-label">Choose your day</div>
       <div class="cwc-days" aria-label="Choose your weekly cross-check day"></div>
-      <button class="cwc-save" type="button" disabled>Save weekly day</button>
+      <button class="cwc-save" type="button" disabled>Set weekly check-in</button>
     </section>
   `;
 
