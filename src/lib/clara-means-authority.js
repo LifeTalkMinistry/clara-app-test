@@ -386,6 +386,20 @@ export function buildMeansDebtOccurrences(records = [], cycleStart, cycleEnd) {
   });
 }
 
+export function calculateMeansOutstandingDebtCommitments(
+  debtOccurrences = [],
+  carriedObligations = 0
+) {
+  const occurrenceRemaining = (Array.isArray(debtOccurrences) ? debtOccurrences : [])
+    .filter((entry) => entry?.kind === "debt")
+    .reduce((sum, entry) => {
+      const planned = nonNegative(entry?.amount);
+      const actualPaid = nonNegative(entry?.actualPaid ?? entry?.actual_paid);
+      return sum + Math.max(planned - actualPaid, 0);
+    }, 0);
+  return occurrenceRemaining + nonNegative(carriedObligations);
+}
+
 function currentCycleFutureDebtActual(records = [], cycleStart, cycleEnd) {
   return (Array.isArray(records) ? records : []).reduce((total, record) =>
     total + readDebtPayments(record).reduce((sum, payment) => {
@@ -640,9 +654,10 @@ export async function buildCanonicalMeansSnapshot({ profile = {}, now = new Date
   const moneyScheduleUpcoming = futureContributions
     .filter((entry) => entry.kind === "money_schedule")
     .reduce((sum, entry) => sum + nonNegative(entry.amount), 0);
-  const debtUpcoming = futureContributions
-    .filter((entry) => entry.kind === "debt")
-    .reduce((sum, entry) => sum + nonNegative(entry.amount), 0);
+  const debtUpcoming = calculateMeansOutstandingDebtCommitments(
+    debtOccurrences,
+    baselineState.carriedObligations
+  );
   const upcoming = moneyScheduleUpcoming + debtUpcoming;
   const income = incomeReceivedForDisplay(incomeSources, cycleStartDate, cycleEndDate);
   const spent = actualSpentForDisplay(expenses, cycleStartDate, today);
