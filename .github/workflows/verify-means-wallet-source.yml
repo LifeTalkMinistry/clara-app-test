@@ -1,0 +1,50 @@
+name: Verify Means Wallet Source
+
+on:
+  push:
+    branches:
+      - fix-means-wallet-source-20260829
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Syntax check
+        run: |
+          node --check src/lib/clara-means-authority.js
+          node --check src/utils/financialEngine.js
+
+      - name: Focused Means regressions
+        run: |
+          node --test tests/means-wallet-source-of-truth-regression.test.mjs
+          node --test tests/means-score-final-acceptance-regression.test.mjs
+          node --test tests/means-score-context-baseline-regression.test.mjs
+          node --test tests/means-score-single-authority-regression.test.mjs
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
+
+      - name: Full regression suite
+        run: npm test
+
+      - name: Web production build
+        run: npm run build:web
+        env:
+          VITE_GEMINI_MODEL: gemini-3.6-flash
+          VITE_CLARA_RUNTIME_MODE: local_only
+          VITE_CLARA_AUTH_ENABLED: "false"
+          VITE_CLARA_LOCAL_MODE_ENABLED: "true"
+
+      - name: Android production build
+        run: npm run build:android
