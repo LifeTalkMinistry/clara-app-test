@@ -24,23 +24,29 @@ jobs:
         with:
           node-version: 22
 
-      - name: Apply deterministic ORB runtime surgery
-        run: python3 scripts/apply_final_means_runtime.py
+      - name: Apply deterministic final Means surgery
+        run: |
+          python3 scripts/apply_final_means_runtime.py
+          python3 scripts/apply_final_means_followup.py
 
       - name: Syntax checks
         run: |
           python3 -m py_compile scripts/apply_final_means_runtime.py
+          python3 -m py_compile scripts/apply_final_means_followup.py
           node --check src/runtime/installClaraOrbGreeting.js
           node --check src/lib/clara-financial-day.js
           node --check src/lib/clara-means-cycle-baseline.js
           node --check src/lib/clara-means-authority.js
           node --check src/lib/debtOccurrenceState.js
+          node --check src/lib/debtObligationStore.js
+          node --check src/lib/debtPaymentRepository.js
           node --check src/lib/weeklyMoneyCheckReconciliationRepository.js
 
       - name: Run focused Means regressions
         run: |
           node --test tests/means-score-context-baseline-regression.test.mjs
           node --test tests/means-score-single-authority-regression.test.mjs
+          node --test tests/means-score-final-acceptance-regression.test.mjs
 
       - name: Install dependencies
         run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
@@ -54,15 +60,17 @@ jobs:
       - name: Build Android production bundle
         run: npm run build:android
 
-      - name: Commit verified runtime surgery
+      - name: Commit verified final Means surgery
         shell: bash
         run: |
           if git diff --quiet; then
-            echo "No generated runtime changes to commit."
+            echo "No generated Means changes to commit."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/runtime/installClaraOrbGreeting.js
-          git commit -m "Wire ORB to final Means Score authority"
+          git add src/lib/clara-means-authority.js
+          git add src/lib/debtObligationStore.js
+          git commit -m "Complete final Means ownership repair"
           git push origin HEAD:codex/means-score-final-surgical
