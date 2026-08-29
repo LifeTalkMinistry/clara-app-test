@@ -39,9 +39,14 @@ function SummaryGrid({ summary = {} }) {
   const rows = [
     ["Budget", summary.budgets],
     ["Wallets", summary.wallets],
+    ["Transactions", summary.walletTransactions],
+    ["Transfers", summary.transfers],
     ["Expenses", summary.expenses],
     ["Savings goals", summary.savingsGoals],
     ["Emergency fund", summary.emergencyFunds],
+    ["Debt / obligations", summary.debts],
+    ["Life profile", summary.lifeProfiles],
+    ["Money Schedule", summary.moneySchedule],
     ["Streak days", summary.streakDays],
   ].filter(([, value]) => Number(value || 0) > 0);
 

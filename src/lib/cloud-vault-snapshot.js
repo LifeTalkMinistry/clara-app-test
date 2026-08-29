@@ -158,10 +158,47 @@ export function sanitizeCloudIndexedDb(indexedDbExport = {}, context = {}) {
   return { supported: true, databases, errors: [] };
 }
 
+function collectTransferSourceIntegrityErrors(fullExport = {}) {
+  const errors = [];
+  const skippedLocalStorage = Array.isArray(fullExport?.skipped?.localStorage)
+    ? fullExport.skipped.localStorage
+    : [];
+  skippedLocalStorage.forEach((entry) => {
+    errors.push(
+      `localStorage ${text(entry?.key) || "entry"}: ${text(entry?.reason) || "could not be read"}`
+    );
+  });
+
+  const indexedDb = fullExport?.data?.indexedDB || {};
+  if (indexedDb.supported === false) {
+    errors.push("IndexedDB is unavailable, so CLARA financial context cannot be verified.");
+    return errors;
+  }
+
+  const financeDatabase = (indexedDb.databases || []).find(
+    (database) => database?.name === "clara_local_finance"
+  );
+  if (!financeDatabase) {
+    errors.push("clara_local_finance could not be read.");
+    return errors;
+  }
+
+  (financeDatabase.errors || []).forEach((message) => {
+    errors.push(`clara_local_finance: ${text(message) || "read error"}`);
+  });
+  Object.entries(financeDatabase.stores || {}).forEach(([storeName, store]) => {
+    if (store?.error) {
+      errors.push(`${storeName}: ${text(store.error) || "read error"}`);
+    }
+  });
+  return errors;
+}
+
 export async function buildClaraCloudVaultSnapshot({
   user,
   profile,
   includeDeviceOnly = false,
+  requireCompleteExport = false,
 } = {}) {
   const accountId = text(getBackendAccountId(user));
   const sourceVaultId = text(getActiveLocalVaultId());
@@ -169,6 +206,18 @@ export async function buildClaraCloudVaultSnapshot({
   if (!sourceVaultId) throw new Error("The active CLARA local vault is unavailable.");
 
   const fullExport = await buildClaraLocalDataExport({ user, profile });
+  if (requireCompleteExport) {
+    const integrityErrors = collectTransferSourceIntegrityErrors(fullExport);
+    if (integrityErrors.length > 0) {
+      const error = new Error(
+        `CLARA stopped the transfer because the source device could not verify all active context: ${integrityErrors[0]}`
+      );
+      error.code = "CLARA_TRANSFER_SOURCE_INCOMPLETE";
+      error.integrityErrors = integrityErrors;
+      throw error;
+    }
+  }
+
   return {
     app: "CLARA",
     type: CLOUD_VAULT_SNAPSHOT_TYPE,

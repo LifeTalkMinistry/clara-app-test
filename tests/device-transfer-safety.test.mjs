@@ -82,3 +82,32 @@ test("a lost cleanup acknowledgement cannot turn a verified local import into a 
   assert.match(clientSource, /status: "consumed"/);
   assert.match(clientSource, /completionPending: true/);
 });
+
+
+test("device transfer verifies the full active CLARA context instead of trusting one total count", () => {
+  assert.match(vaultSource, /requireCompleteExport: true/);
+  assert.match(vaultSource, /assertFinanceTransferIntegrity\(transferPrepared, newVaultId\)/);
+  assert.match(vaultSource, /stableTransferJson\(actualRecord\) !== stableTransferJson\(expectedRecord\)/);
+  assert.match(vaultSource, /verifyTransferredStorage\(transferPrepared\)/);
+  assert.match(vaultSource, /verifiedFinancialRecords: actualRecords/);
+  assert.match(vaultSource, /verifiedStorageKeys/);
+  assert.match(vaultSource, /walletTransactions: storeCount\(snapshot, "wallet_transactions"\)/);
+  assert.match(vaultSource, /lifeProfiles: storeCount\(snapshot, "life_profile"\)/);
+  assert.match(vaultSource, /privatePreferences: storeCount\(snapshot, "private_preferences"\)/);
+  assert.match(vaultSource, /clara_money_schedule_routine_v1/);
+  assert.match(panelSource, /Debt \/ obligations/);
+  assert.match(panelSource, /Life profile/);
+  assert.match(panelSource, /Money Schedule/);
+});
+
+test("device transfer refuses to package a source vault that could not be read completely", async () => {
+  const snapshotSource = await fs.readFile(
+    new URL("../src/lib/cloud-vault-snapshot.js", import.meta.url),
+    "utf8"
+  );
+  assert.match(snapshotSource, /collectTransferSourceIntegrityErrors/);
+  assert.match(snapshotSource, /requireCompleteExport = false/);
+  assert.match(snapshotSource, /CLARA_TRANSFER_SOURCE_INCOMPLETE/);
+  assert.match(snapshotSource, /source device could not verify all active context/);
+  assert.match(snapshotSource, /clara_local_finance could not be read/);
+});

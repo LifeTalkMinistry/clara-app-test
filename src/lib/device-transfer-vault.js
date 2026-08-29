@@ -183,9 +183,18 @@ export function buildDeviceTransferSummary(snapshot) {
     total: counts.total,
     budgets: storeCount(snapshot, "budgets"),
     wallets: storeCount(snapshot, "wallets"),
+    walletTransactions: storeCount(snapshot, "wallet_transactions"),
+    transfers: storeCount(snapshot, "transfers"),
     expenses: storeCount(snapshot, "expenses"),
     savingsGoals: storeCount(snapshot, "savings_goals"),
     emergencyFunds: storeCount(snapshot, "emergency_fund"),
+    lifeProfiles: storeCount(snapshot, "life_profile"),
+    privatePreferences: storeCount(snapshot, "private_preferences"),
+    moneySchedule: Object.keys(snapshot?.data?.localStorage || {}).filter(
+      (key) =>
+        key.startsWith("clara_schedule_events_v2") ||
+        key.startsWith("clara_money_schedule_routine_v1")
+    ).length,
     debts: preferences.filter((record) =>
       /debt|obligation/i.test(
         `${record?.recordKind || ""} ${record?.kind || ""} ${record?.id || ""}`
@@ -200,6 +209,7 @@ export async function createDeviceTransferSnapshot({ user, profile } = {}) {
     user,
     profile,
     includeDeviceOnly: true,
+    requireCompleteExport: true,
   });
   const snapshot = withoutNotificationDatabase(fullSnapshot);
   return {
@@ -315,6 +325,76 @@ async function actualFinanceRecordCount(localVaultId) {
   return total;
 }
 
+function stableTransferValue(value) {
+  if (Array.isArray(value)) return value.map(stableTransferValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, stableTransferValue(value[key])])
+    );
+  }
+  return value;
+}
+
+function stableTransferJson(value) {
+  return JSON.stringify(stableTransferValue(value));
+}
+
+async function assertFinanceTransferIntegrity(prepared, localVaultId) {
+  const database = getFinanceDatabase(prepared);
+  for (const storeName of LOCAL_FINANCE_PRIVATE_STORES) {
+    const expected = normalizeStoreRecords(database?.stores?.[storeName]);
+    const actual = await getLocalRecordsByUser(storeName, {
+      localUserId: localVaultId,
+      includeDeleted: true,
+    });
+    const actualRecords = Array.isArray(actual) ? actual : [];
+
+    if (actualRecords.length !== expected.length) {
+      throw new Error(
+        `Transfer validation failed in ${storeName}. Expected ${expected.length} records but found ${actualRecords.length}.`
+      );
+    }
+
+    const actualById = new Map(actualRecords.map((record) => [text(record?.id), record]));
+    for (const expectedRecord of expected) {
+      const recordId = text(expectedRecord?.id);
+      const actualRecord = actualById.get(recordId);
+      if (!recordId || !actualRecord) {
+        throw new Error(`Transfer validation failed in ${storeName}: a record is missing.`);
+      }
+      if (stableTransferJson(actualRecord) !== stableTransferJson(expectedRecord)) {
+        throw new Error(
+          `Transfer validation failed in ${storeName}: record ${recordId} changed during transfer.`
+        );
+      }
+    }
+  }
+  return true;
+}
+
+function storageValueMatches(actual, expected) {
+  if (typeof expected === "string") return actual === expected;
+  if (actual == null) return false;
+  try {
+    return stableTransferJson(JSON.parse(actual)) === stableTransferJson(expected);
+  } catch {
+    return false;
+  }
+}
+
+function verifyTransferredStorage(prepared) {
+  const entries = storageEntries(prepared);
+  for (const [key, expected] of Object.entries(entries)) {
+    const actual = window.localStorage.getItem(key);
+    if (!storageValueMatches(actual, expected)) {
+      throw new Error(`Transfer validation failed while verifying ${key}.`);
+    }
+  }
+  return Object.keys(entries).length;
+}
+
 function restoreErrors(result) {
   return result?.errors || result?.summary?.restoreErrors || [];
 }
@@ -418,6 +498,7 @@ export async function importDeviceTransferIntoNewVault(snapshot, { user, profile
         `Transfer validation failed. Expected ${expectedRecords} financial records but found ${actualRecords}.`
       );
     }
+    await assertFinanceTransferIntegrity(transferPrepared, newVaultId);
 
     switchAccountVault({
       accountId,
@@ -437,6 +518,7 @@ export async function importDeviceTransferIntoNewVault(snapshot, { user, profile
         finalErrors[0] || "Transfer validation failed while applying device settings."
       );
     }
+    const verifiedStorageKeys = verifyTransferredStorage(transferPrepared);
 
     const metadata = {
       recoveryId,
@@ -445,6 +527,8 @@ export async function importDeviceTransferIntoNewVault(snapshot, { user, profile
       newVaultId,
       createdAt: new Date().toISOString(),
       transferredKeys,
+      verifiedStorageKeys,
+      verifiedFinancialRecords: actualRecords,
     };
     writeLastTransferMetadata(metadata);
     await saveRecoveryRecord({
@@ -459,6 +543,7 @@ export async function importDeviceTransferIntoNewVault(snapshot, { user, profile
       recoveryId,
       expectedRecords,
       actualRecords,
+      verifiedStorageKeys,
       restoreResult: storageResult,
     };
   } catch (error) {
