@@ -98,7 +98,7 @@ function isTimingCandidate(source = {}) {
     return false;
   }
   if (source?.useForBudgetTiming === false || source?.use_for_budget_timing === false) return false;
-  return Boolean(sourceRecurrence(source));
+  return Boolean(sourceRecurrence(source) || readExplicitCustomCycle(source));
 }
 
 function isExplicitMaster(source = {}) {
@@ -112,6 +112,37 @@ function isExplicitMaster(source = {}) {
   );
 }
 
+function readExplicitCustomCycle(source = {}) {
+  const config =
+    source?.customMasterPayCycle ||
+    source?.custom_master_pay_cycle ||
+    source?.masterPayCycleConfig ||
+    source?.master_pay_cycle_config ||
+    source?.customCycle ||
+    source?.custom_cycle ||
+    {};
+  const start = normalizeFinancialDateKey(
+    source?.customCycleStart ||
+      source?.custom_cycle_start ||
+      source?.masterCycleStart ||
+      source?.master_cycle_start ||
+      config?.start ||
+      config?.cycleStart ||
+      config?.cycle_start
+  );
+  const end = normalizeFinancialDateKey(
+    source?.customCycleEnd ||
+      source?.custom_cycle_end ||
+      source?.masterCycleEnd ||
+      source?.master_cycle_end ||
+      config?.end ||
+      config?.cycleEnd ||
+      config?.cycle_end
+  );
+  if (!start || !end || start >= end) return null;
+  return { start, end };
+}
+
 export function resolveMeansMasterPayCycle(incomeSources = [], now = new Date()) {
   const today = financialDateKey(now);
   if (!today) return null;
@@ -123,8 +154,23 @@ export function resolveMeansMasterPayCycle(incomeSources = [], now = new Date())
   const cycles = [];
 
   ordered.forEach((source, index) => {
+    const customCycle = readExplicitCustomCycle(source);
+    if (customCycle && customCycle.start <= today && today < customCycle.end) {
+      cycles.push({
+        start: customCycle.start,
+        end: customCycle.end,
+        sourceId: clean(source?.id),
+        explicitMaster: isExplicitMaster(source),
+        customCycle: true,
+        sourceOrder: index,
+      });
+      return;
+    }
+
+    const recurrence = sourceRecurrence(source);
+    if (!recurrence) return;
     const occurrences = getRecurrenceOccurrences(
-      sourceRecurrence(source),
+      recurrence,
       searchStart,
       searchEnd,
       { kind: "income" }
