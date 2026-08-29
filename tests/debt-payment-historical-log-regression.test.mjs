@@ -30,9 +30,11 @@ test("already-reflected historical payment cannot deduct the wallet a second tim
 
 test("normal obligation payment still deducts the selected wallet", async () => {
   const payment = await source("../src/lib/debtPaymentRepository.js");
+  const card = await source("../src/components/financial-carousel/cards/debt/ui/DebtObligationItem.jsx");
 
   assert.match(payment, /balance: currentWalletBalance - paymentAmount/);
-  assert.match(payment, /deductWallet: requiresWalletDeduction/);
+  assert.match(card, /const requiresWalletDeduction = !isHistoricalPayment \|\| !walletAlreadyReflectsPayment/);
+  assert.match(card, /deductWallet: requiresWalletDeduction/);
 });
 
 test("historical payment records the real payment date instead of pretending it happened today", async () => {
