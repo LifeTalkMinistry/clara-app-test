@@ -1,0 +1,125 @@
+name: One-shot harden device transfer full context
+
+on:
+  push:
+    paths:
+      - .github/workflows/one-shot-harden-device-transfer-full-context.yml
+
+permissions:
+  contents: write
+
+jobs:
+  harden-transfer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Harden source and destination transfer integrity
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text, old, new, label):
+              if new in text:
+                  return text
+              if old not in text:
+                  raise SystemExit(f"Patch marker not found: {label}")
+              return text.replace(old, new, 1)
+
+          snapshot_path = Path("src/lib/cloud-vault-snapshot.js")
+          snapshot = snapshot_path.read_text()
+
+          helper_marker = '''export async function buildClaraCloudVaultSnapshot({\n  user,\n  profile,\n  includeDeviceOnly = false,\n} = {}) {'''
+          helper_replacement = '''function collectTransferSourceIntegrityErrors(fullExport = {}) {\n  const errors = [];\n  const skippedLocalStorage = Array.isArray(fullExport?.skipped?.localStorage)\n    ? fullExport.skipped.localStorage\n    : [];\n  skippedLocalStorage.forEach((entry) => {\n    errors.push(\n      `localStorage ${text(entry?.key) || "entry"}: ${text(entry?.reason) || "could not be read"}`\n    );\n  });\n\n  const indexedDb = fullExport?.data?.indexedDB || {};\n  if (indexedDb.supported === false) {\n    errors.push("IndexedDB is unavailable, so CLARA financial context cannot be verified.");\n    return errors;\n  }\n\n  const financeDatabase = (indexedDb.databases || []).find(\n    (database) => database?.name === "clara_local_finance"\n  );\n  if (!financeDatabase) {\n    errors.push("clara_local_finance could not be read.");\n    return errors;\n  }\n\n  (financeDatabase.errors || []).forEach((message) => {\n    errors.push(`clara_local_finance: ${text(message) || "read error"}`);\n  });\n  Object.entries(financeDatabase.stores || {}).forEach(([storeName, store]) => {\n    if (store?.error) {\n      errors.push(`${storeName}: ${text(store.error) || "read error"}`);\n    }\n  });\n  return errors;\n}\n\nexport async function buildClaraCloudVaultSnapshot({\n  user,\n  profile,\n  includeDeviceOnly = false,\n  requireCompleteExport = false,\n} = {}) {'''
+          snapshot = replace_once(snapshot, helper_marker, helper_replacement, "cloud snapshot strict source helper")
+
+          export_marker = '''  const fullExport = await buildClaraLocalDataExport({ user, profile });\n  return {'''
+          export_replacement = '''  const fullExport = await buildClaraLocalDataExport({ user, profile });\n  if (requireCompleteExport) {\n    const integrityErrors = collectTransferSourceIntegrityErrors(fullExport);\n    if (integrityErrors.length > 0) {\n      const error = new Error(\n        `CLARA stopped the transfer because the source device could not verify all active context: ${integrityErrors[0]}`\n      );\n      error.code = "CLARA_TRANSFER_SOURCE_INCOMPLETE";\n      error.integrityErrors = integrityErrors;\n      throw error;\n    }\n  }\n\n  return {'''
+          snapshot = replace_once(snapshot, export_marker, export_replacement, "cloud snapshot strict source gate")
+          snapshot_path.write_text(snapshot)
+
+          vault_path = Path("src/lib/device-transfer-vault.js")
+          vault = vault_path.read_text()
+
+          vault = replace_once(
+              vault,
+              '''  const fullSnapshot = await buildClaraCloudVaultSnapshot({\n    user,\n    profile,\n    includeDeviceOnly: true,\n  });''',
+              '''  const fullSnapshot = await buildClaraCloudVaultSnapshot({\n    user,\n    profile,\n    includeDeviceOnly: true,\n    requireCompleteExport: true,\n  });''',
+              "strict source snapshot",
+          )
+
+          count_marker = '''async function actualFinanceRecordCount(localVaultId) {\n  let total = 0;\n  for (const storeName of LOCAL_FINANCE_PRIVATE_STORES) {\n    const records = await getLocalRecordsByUser(storeName, {\n      localUserId: localVaultId,\n      includeDeleted: true,\n    });\n    total += Array.isArray(records) ? records.length : 0;\n  }\n  return total;\n}\n\nfunction restoreErrors(result) {'''
+          count_replacement = '''async function actualFinanceRecordCount(localVaultId) {\n  let total = 0;\n  for (const storeName of LOCAL_FINANCE_PRIVATE_STORES) {\n    const records = await getLocalRecordsByUser(storeName, {\n      localUserId: localVaultId,\n      includeDeleted: true,\n    });\n    total += Array.isArray(records) ? records.length : 0;\n  }\n  return total;\n}\n\nfunction stableTransferValue(value) {\n  if (Array.isArray(value)) return value.map(stableTransferValue);\n  if (value && typeof value === "object") {\n    return Object.fromEntries(\n      Object.keys(value)\n        .sort()\n        .map((key) => [key, stableTransferValue(value[key])])\n    );\n  }\n  return value;\n}\n\nfunction stableTransferJson(value) {\n  return JSON.stringify(stableTransferValue(value));\n}\n\nasync function assertFinanceTransferIntegrity(prepared, localVaultId) {\n  const database = getFinanceDatabase(prepared);\n  for (const storeName of LOCAL_FINANCE_PRIVATE_STORES) {\n    const expected = normalizeStoreRecords(database?.stores?.[storeName]);\n    const actual = await getLocalRecordsByUser(storeName, {\n      localUserId: localVaultId,\n      includeDeleted: true,\n    });\n    const actualRecords = Array.isArray(actual) ? actual : [];\n\n    if (actualRecords.length !== expected.length) {\n      throw new Error(\n        `Transfer validation failed in ${storeName}. Expected ${expected.length} records but found ${actualRecords.length}.`\n      );\n    }\n\n    const actualById = new Map(actualRecords.map((record) => [text(record?.id), record]));\n    for (const expectedRecord of expected) {\n      const recordId = text(expectedRecord?.id);\n      const actualRecord = actualById.get(recordId);\n      if (!recordId || !actualRecord) {\n        throw new Error(`Transfer validation failed in ${storeName}: a record is missing.`);\n      }\n      if (stableTransferJson(actualRecord) !== stableTransferJson(expectedRecord)) {\n        throw new Error(\n          `Transfer validation failed in ${storeName}: record ${recordId} changed during transfer.`\n        );\n      }\n    }\n  }\n  return true;\n}\n\nfunction storageValueMatches(actual, expected) {\n  if (typeof expected === "string") return actual === expected;\n  if (actual == null) return false;\n  try {\n    return stableTransferJson(JSON.parse(actual)) === stableTransferJson(expected);\n  } catch {\n    return false;\n  }\n}\n\nfunction verifyTransferredStorage(prepared) {\n  const entries = storageEntries(prepared);\n  for (const [key, expected] of Object.entries(entries)) {\n    const actual = window.localStorage.getItem(key);\n    if (!storageValueMatches(actual, expected)) {\n      throw new Error(`Transfer validation failed while verifying ${key}.`);\n    }\n  }\n  return Object.keys(entries).length;\n}\n\nfunction restoreErrors(result) {'''
+          vault = replace_once(vault, count_marker, count_replacement, "exact finance and storage integrity helpers")
+
+          staged_marker = '''    const expectedRecords = expectedFinanceRecordCount(transferPrepared);\n    const actualRecords = await actualFinanceRecordCount(newVaultId);\n    if (actualRecords !== expectedRecords) {\n      throw new Error(\n        `Transfer validation failed. Expected ${expectedRecords} financial records but found ${actualRecords}.`\n      );\n    }'''
+          staged_replacement = '''    const expectedRecords = expectedFinanceRecordCount(transferPrepared);\n    const actualRecords = await actualFinanceRecordCount(newVaultId);\n    if (actualRecords !== expectedRecords) {\n      throw new Error(\n        `Transfer validation failed. Expected ${expectedRecords} financial records but found ${actualRecords}.`\n      );\n    }\n    await assertFinanceTransferIntegrity(transferPrepared, newVaultId);'''
+          vault = replace_once(vault, staged_marker, staged_replacement, "exact finance verification call")
+
+          storage_marker = '''    if (finalErrors.length > 0 || storageRestoreSkipped(storageResult) > 0) {\n      throw new Error(\n        finalErrors[0] || "Transfer validation failed while applying device settings."\n      );\n    }\n\n    const metadata = {'''
+          storage_replacement = '''    if (finalErrors.length > 0 || storageRestoreSkipped(storageResult) > 0) {\n      throw new Error(\n        finalErrors[0] || "Transfer validation failed while applying device settings."\n      );\n    }\n    const verifiedStorageKeys = verifyTransferredStorage(transferPrepared);\n\n    const metadata = {'''
+          vault = replace_once(vault, storage_marker, storage_replacement, "exact localStorage verification call")
+
+          metadata_marker = '''      transferredKeys,\n    };'''
+          metadata_replacement = '''      transferredKeys,\n      verifiedStorageKeys,\n      verifiedFinancialRecords: actualRecords,\n    };'''
+          vault = replace_once(vault, metadata_marker, metadata_replacement, "verified transfer metadata")
+
+          return_marker = '''      expectedRecords,\n      actualRecords,\n      restoreResult: storageResult,'''
+          return_replacement = '''      expectedRecords,\n      actualRecords,\n      verifiedStorageKeys,\n      restoreResult: storageResult,'''
+          vault = replace_once(vault, return_marker, return_replacement, "verified storage return value")
+
+          summary_marker = '''    budgets: storeCount(snapshot, "budgets"),\n    wallets: storeCount(snapshot, "wallets"),\n    expenses: storeCount(snapshot, "expenses"),\n    savingsGoals: storeCount(snapshot, "savings_goals"),\n    emergencyFunds: storeCount(snapshot, "emergency_fund"),'''
+          summary_replacement = '''    budgets: storeCount(snapshot, "budgets"),\n    wallets: storeCount(snapshot, "wallets"),\n    walletTransactions: storeCount(snapshot, "wallet_transactions"),\n    transfers: storeCount(snapshot, "transfers"),\n    expenses: storeCount(snapshot, "expenses"),\n    savingsGoals: storeCount(snapshot, "savings_goals"),\n    emergencyFunds: storeCount(snapshot, "emergency_fund"),\n    lifeProfiles: storeCount(snapshot, "life_profile"),\n    privatePreferences: storeCount(snapshot, "private_preferences"),\n    moneySchedule: Object.keys(snapshot?.data?.localStorage || {}).filter(\n      (key) =>\n        key.startsWith("clara_schedule_events_v2") ||\n        key.startsWith("clara_money_schedule_routine_v1")\n    ).length,'''
+          vault = replace_once(vault, summary_marker, summary_replacement, "full transfer preview summary")
+          vault_path.write_text(vault)
+
+          panel_path = Path("src/components/device-transfer/DeviceTransferPanel.jsx")
+          panel = panel_path.read_text()
+          rows_marker = '''    ["Budget", summary.budgets],\n    ["Wallets", summary.wallets],\n    ["Expenses", summary.expenses],\n    ["Savings goals", summary.savingsGoals],\n    ["Emergency fund", summary.emergencyFunds],\n    ["Streak days", summary.streakDays],'''
+          rows_replacement = '''    ["Budget", summary.budgets],\n    ["Wallets", summary.wallets],\n    ["Transactions", summary.walletTransactions],\n    ["Transfers", summary.transfers],\n    ["Expenses", summary.expenses],\n    ["Savings goals", summary.savingsGoals],\n    ["Emergency fund", summary.emergencyFunds],\n    ["Debt / obligations", summary.debts],\n    ["Life profile", summary.lifeProfiles],\n    ["Money Schedule", summary.moneySchedule],\n    ["Streak days", summary.streakDays],'''
+          panel = replace_once(panel, rows_marker, rows_replacement, "full context preview rows")
+          panel_path.write_text(panel)
+
+          test_path = Path("tests/device-transfer-safety.test.mjs")
+          tests = test_path.read_text()
+          test_append = '''\n\ntest("device transfer verifies the full active CLARA context instead of trusting one total count", () => {\n  assert.match(vaultSource, /requireCompleteExport: true/);\n  assert.match(vaultSource, /assertFinanceTransferIntegrity\(transferPrepared, newVaultId\)/);\n  assert.match(vaultSource, /stableTransferJson\(actualRecord\) !== stableTransferJson\(expectedRecord\)/);\n  assert.match(vaultSource, /verifyTransferredStorage\(transferPrepared\)/);\n  assert.match(vaultSource, /verifiedFinancialRecords: actualRecords/);\n  assert.match(vaultSource, /verifiedStorageKeys/);\n  assert.match(vaultSource, /walletTransactions: storeCount\(snapshot, "wallet_transactions"\)/);\n  assert.match(vaultSource, /lifeProfiles: storeCount\(snapshot, "life_profile"\)/);\n  assert.match(vaultSource, /privatePreferences: storeCount\(snapshot, "private_preferences"\)/);\n  assert.match(vaultSource, /clara_money_schedule_routine_v1/);\n  assert.match(panelSource, /Debt \/ obligations/);\n  assert.match(panelSource, /Life profile/);\n  assert.match(panelSource, /Money Schedule/);\n});\n\ntest("device transfer refuses to package a source vault that could not be read completely", async () => {\n  const snapshotSource = await fs.readFile(\n    new URL("../src/lib/cloud-vault-snapshot.js", import.meta.url),\n    "utf8"\n  );\n  assert.match(snapshotSource, /collectTransferSourceIntegrityErrors/);\n  assert.match(snapshotSource, /requireCompleteExport = false/);\n  assert.match(snapshotSource, /CLARA_TRANSFER_SOURCE_INCOMPLETE/);\n  assert.match(snapshotSource, /source device could not verify all active context/);\n  assert.match(snapshotSource, /clara_local_finance could not be read/);\n});\n'''
+          if 'full active CLARA context instead of trusting one total count' not in tests:
+              tests += test_append
+          test_path.write_text(tests)
+          PY
+
+      - name: Focused transfer regression tests
+        run: node --test tests/device-transfer-safety.test.mjs tests/cloud-vault-sync.test.mjs tests/local-data-export.test.mjs tests/retired-context-system.test.mjs
+
+      - name: Full repository suite
+        run: npm test
+
+      - name: Web production build
+        run: npm run build:web
+
+      - name: Android production build
+        run: npm run build:android
+
+      - name: Commit verified transfer hardening
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/cloud-vault-snapshot.js src/lib/device-transfer-vault.js src/components/device-transfer/DeviceTransferPanel.jsx tests/device-transfer-safety.test.mjs
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "Verify full device transfer context"
+          git push origin main
