@@ -98,7 +98,6 @@ text, count = helper_pattern.subn(authority_block, text, count=1)
 if count != 1:
     raise SystemExit(f"Expected to replace one legacy Means helper/authority span, replaced {count}.")
 
-# Remove obsolete metric rows that falsely imply tracking/reference systems participate in Means.
 obsolete_rows = [
     '      <span style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;padding-left:9px;font-size:9.5px;color:rgba(255,255,255,.31)"><span>↳ Savings goals</span><strong style="color:rgba(255,255,255,.58)">${money(snapshot.savingsGoalUpcoming)}</strong></span>\n',
     '      <span style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;padding-left:9px;font-size:9.5px;color:rgba(255,255,255,.31)"><span>↳ Other scheduled events</span><strong style="color:rgba(255,255,255,.58)">${money(snapshot.otherScheduledUpcoming)}</strong></span>\n',
@@ -121,13 +120,6 @@ info_pattern = re.compile(
     r'<span data-clara-means-info-copy="true" style="([^"]*)">.*?</span>',
     re.S,
 )
-info_copy = (
-    '<span data-clara-means-info-copy="true" style="\\1">'
-    'This score compares your effective Wallet money with the protected and currently applicable requirements of this pay cycle. '
-    'Past and today stay protected; future requirements adapt. Money Schedule days may be assumed spent until a successful Cross-Check confirms fresh Wallet truth. '
-    'Savings Goal, Emergency Fund, and Money Lent tracking do not directly affect the Means Score.'</n    'span>'
-)
-# Build the replacement without relying on adjacent literal parsing tricks.
 info_copy = '<span data-clara-means-info-copy="true" style="\\1">This score compares your effective Wallet money with the protected and currently applicable requirements of this pay cycle. Past and today stay protected; future requirements adapt. Money Schedule days may be assumed spent until a successful Cross-Check confirms fresh Wallet truth. Savings Goal, Emergency Fund, and Money Lent tracking do not directly affect the Means Score.</span>'
 text, count = info_pattern.subn(info_copy, text, count=1)
 if count != 1:
