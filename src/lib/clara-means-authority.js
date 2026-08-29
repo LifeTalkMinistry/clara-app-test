@@ -33,10 +33,12 @@ import {
 } from "@/lib/clara-financial-day";
 import {
   calculateMeansScoreState,
-  meansCycleBaselineStorageKey,
-  parseMeansBaseline,
   resolveAdaptiveMeansBaselineState,
 } from "@/lib/clara-means-cycle-baseline";
+import {
+  readMeansCycleBaseline,
+  persistMeansCycleBaseline,
+} from "@/lib/clara-means-baseline-repository";
 import {
   getWalletProtectedAmounts,
   isActiveWalletForMoneySemantics,
@@ -113,7 +115,6 @@ export function calculateMeansAvailableWalletState(
     (totals, wallet) => {
       const balance = signed(wallet?.currentBalance ?? wallet?.balance);
 
-      // Entire reserve containers are intentionally unavailable to Means.
       if (wallet?.isEmergencyReserveWallet || wallet?.protected_reserve) {
         return {
           ...totals,
@@ -308,7 +309,7 @@ export function resolveMeansMasterPayCycle(incomeSources = [], now = new Date())
   if (!cycles.length) return null;
   if (explicitMasters.length) return cycles[0];
 
-  // Migration compatibility only. Product UI still needs to persist one explicit Master Pay Cycle.
+  // Migration compatibility only. Product UI persists an explicit Master for new/edited setups.
   return cycles.sort((left, right) =>
     left.end.localeCompare(right.end) || left.sourceOrder - right.sourceOrder
   )[0];
@@ -459,8 +460,6 @@ function shouldIncludeDebtOccurrence(record, dueDate, cycleStart) {
   if (paidBeforeCycle + EPSILON >= planned) return false;
   if (isActiveDebtObligation(record)) return true;
 
-  // Completed obligations remain represented in the cycle where the requirement existed.
-  // Payment history is used only to preserve occurrence identity, never to size the baseline.
   return readDebtPayments(record).some((payment) => {
     if (paymentDueDate(payment) !== dueDate) return false;
     const actualDate = paymentActualDate(payment);
@@ -512,29 +511,6 @@ async function readAllDebtRecords(owner) {
     );
   } catch {
     return getDebtObligations(owner).catch(() => []);
-  }
-}
-
-function readStoredBaseline(owner, cycleStart, cycleEnd) {
-  if (typeof window === "undefined" || !window.localStorage) return null;
-  try {
-    return parseMeansBaseline(
-      window.localStorage.getItem(meansCycleBaselineStorageKey(owner, cycleStart, cycleEnd))
-    );
-  } catch {
-    return null;
-  }
-}
-
-function persistBaseline(owner, cycleStart, cycleEnd, baseline) {
-  if (typeof window === "undefined" || !window.localStorage) return;
-  try {
-    window.localStorage.setItem(
-      meansCycleBaselineStorageKey(owner, cycleStart, cycleEnd),
-      JSON.stringify(baseline)
-    );
-  } catch {
-    // Means remains usable when browser storage is temporarily unavailable.
   }
 }
 
@@ -616,7 +592,11 @@ export async function buildCanonicalMeansSnapshot({ profile = {}, now = new Date
     cycleEndDate
   );
   const occurrences = [...moneyScheduleOccurrences, ...debtOccurrences];
-  const stored = readStoredBaseline(owner, cycleStartDate, cycleEndDate);
+  const stored = await readMeansCycleBaseline({
+    owner,
+    cycleStart: cycleStartDate,
+    cycleEnd: cycleEndDate,
+  });
   const baselineState = resolveAdaptiveMeansBaselineState({
     stored,
     cycleStart: cycleStartDate,
@@ -624,7 +604,12 @@ export async function buildCanonicalMeansSnapshot({ profile = {}, now = new Date
     today,
     occurrences,
   });
-  persistBaseline(owner, cycleStartDate, cycleEndDate, baselineState.baseline);
+  await persistMeansCycleBaseline({
+    owner,
+    cycleStart: cycleStartDate,
+    cycleEnd: cycleEndDate,
+    baseline: baselineState.baseline,
+  }).catch(() => null);
 
   const walletState = calculateMeansAvailableWalletState(
     wallets,
@@ -634,8 +619,6 @@ export async function buildCanonicalMeansSnapshot({ profile = {}, now = new Date
   );
   const availableNow = walletState.availableNow;
 
-  // Time passing does not spend money. Money Schedule stays on the plan/baseline side;
-  // only an explicit money-side action may change available Wallet money.
   const assumedSpent = 0;
   const assumedToday = 0;
   const effectiveCurrentMoney = availableNow;
