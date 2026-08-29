@@ -1,5 +1,7 @@
 import {
+  getEmergencyFund,
   getExpenses,
+  getSavingsGoals,
   getTransfers,
   getWallets,
   getWalletTransactions,
@@ -13,7 +15,6 @@ import {
 import {
   DEBT_OBLIGATION_RECORD_KIND,
   getDebtDueDay,
-  getDebtObligationMode,
   isActiveDebtObligation,
 } from "@/lib/debtObligationMath";
 import { getLocalRecords } from "@/lib/localFinanceStore";
@@ -32,11 +33,15 @@ import {
 } from "@/lib/clara-financial-day";
 import {
   calculateMeansScoreState,
-  meansCrossCheckAnchorStorageKey,
   meansCycleBaselineStorageKey,
   parseMeansBaseline,
   resolveAdaptiveMeansBaselineState,
 } from "@/lib/clara-means-cycle-baseline";
+import {
+  getWalletProtectedAmounts,
+  isActiveWalletForMoneySemantics,
+  isMoneyLentWallet,
+} from "@/lib/clara-wallet-money-semantics";
 import { getWalletBalance } from "@/utils/financialEngine";
 
 const INCOME_HUB_CASH_IN_TYPE = "add_money";
@@ -70,15 +75,10 @@ function isDeletedFinanceRecord(record = {}) {
 }
 
 export function isMeansNeutralMoneyLentWallet(wallet = {}) {
-  const type = lower(wallet?.type || wallet?.wallet_type || wallet?.walletType);
-  return ["money_lent", "money-lent", "lent", "receivable"].includes(type);
+  return isMoneyLentWallet(wallet);
 }
 
-export function calculateMeansAvailableWalletMoney(
-  wallets = [],
-  walletTransactions = [],
-  transfers = []
-) {
+function resolvedWalletRows(wallets = [], walletTransactions = [], transfers = []) {
   const safeTransactions = (Array.isArray(walletTransactions) ? walletTransactions : []).filter(
     (record) => !isDeletedFinanceRecord(record)
   );
@@ -88,14 +88,91 @@ export function calculateMeansAvailableWalletMoney(
 
   return (Array.isArray(wallets) ? wallets : [])
     .filter((wallet) => !isDeletedFinanceRecord(wallet))
-    .reduce(
-      (sum, wallet) =>
-        sum +
-        (isMeansNeutralMoneyLentWallet(wallet)
-          ? 0
-          : getWalletBalance(wallet, safeTransactions, safeTransfers)),
-      0
-    );
+    .map((wallet) => {
+      const resolvedBalance = getWalletBalance(wallet, safeTransactions, safeTransfers);
+      return {
+        ...wallet,
+        balance: resolvedBalance,
+        currentBalance: resolvedBalance,
+        current_balance: resolvedBalance,
+        wallet_balance: resolvedBalance,
+        available_balance: resolvedBalance,
+      };
+    });
+}
+
+export function calculateMeansAvailableWalletState(
+  wallets = [],
+  walletTransactions = [],
+  transfers = [],
+  { emergencyFund = null, savingsGoals = [] } = {}
+) {
+  const rows = resolvedWalletRows(wallets, walletTransactions, transfers);
+
+  return rows.reduce(
+    (totals, wallet) => {
+      const balance = signed(wallet?.currentBalance ?? wallet?.balance);
+
+      // Entire reserve containers are intentionally unavailable to Means.
+      if (wallet?.isEmergencyReserveWallet || wallet?.protected_reserve) {
+        return {
+          ...totals,
+          emergencyProtected: totals.emergencyProtected + Math.max(balance, 0),
+        };
+      }
+
+      if (!isActiveWalletForMoneySemantics(wallet)) return totals;
+
+      if (isMoneyLentWallet(wallet)) {
+        return {
+          ...totals,
+          moneyLentUnavailable: totals.moneyLentUnavailable + Math.max(balance, 0),
+        };
+      }
+
+      const protectedAmounts = getWalletProtectedAmounts({
+        wallet,
+        emergencyFund,
+        savingsGoals,
+        wallets: rows,
+      });
+      const availableContribution = balance - nonNegative(protectedAmounts.totalProtectedAmount);
+
+      return {
+        availableNow: totals.availableNow + availableContribution,
+        grossWalletMoney: totals.grossWalletMoney + balance,
+        moneyLentUnavailable: totals.moneyLentUnavailable,
+        emergencyProtected:
+          totals.emergencyProtected + nonNegative(protectedAmounts.emergencyProtectedAmount),
+        savingsProtected:
+          totals.savingsProtected + nonNegative(protectedAmounts.savingsProtectedAmount),
+        otherProtected:
+          totals.otherProtected + nonNegative(protectedAmounts.otherProtectedAmount),
+      };
+    },
+    {
+      availableNow: 0,
+      grossWalletMoney: 0,
+      moneyLentUnavailable: 0,
+      emergencyProtected: 0,
+      savingsProtected: 0,
+      otherProtected: 0,
+    }
+  );
+}
+
+export function calculateMeansAvailableWalletMoney(
+  wallets = [],
+  walletTransactions = [],
+  transfers = [],
+  options = {}
+) {
+  return calculateMeansAvailableWalletState(
+    wallets,
+    walletTransactions,
+    transfers,
+    options
+  ).availableNow;
 }
 
 function sourceRecurrence(source = {}) {
@@ -105,26 +182,6 @@ function sourceRecurrence(source = {}) {
     source?.recurrenceRule ||
     source?.recurrence_rule ||
     null
-  );
-}
-
-function isTimingCandidate(source = {}) {
-  if (lower(source?.stability) !== "stable") return false;
-  if (source?.usualIncomeDateEnabled === false || source?.usual_income_date_enabled === false) {
-    return false;
-  }
-  if (source?.useForBudgetTiming === false || source?.use_for_budget_timing === false) return false;
-  return Boolean(sourceRecurrence(source) || readExplicitCustomCycle(source));
-}
-
-function isExplicitMaster(source = {}) {
-  return Boolean(
-    source?.isMasterPayCycle === true ||
-      source?.is_master_pay_cycle === true ||
-      source?.masterPayCycle === true ||
-      source?.master_pay_cycle === true ||
-      source?.isMaster === true ||
-      source?.is_master === true
   );
 }
 
@@ -159,6 +216,50 @@ function readExplicitCustomCycle(source = {}) {
   return { start, end };
 }
 
+function isTimingCandidate(source = {}) {
+  if (lower(source?.stability) !== "stable") return false;
+  if (source?.usualIncomeDateEnabled === false || source?.usual_income_date_enabled === false) {
+    return false;
+  }
+  if (source?.useForBudgetTiming === false || source?.use_for_budget_timing === false) return false;
+  return Boolean(sourceRecurrence(source) || readExplicitCustomCycle(source));
+}
+
+function isExplicitMaster(source = {}) {
+  return Boolean(
+    source?.isMasterPayCycle === true ||
+      source?.is_master_pay_cycle === true ||
+      source?.masterPayCycle === true ||
+      source?.master_pay_cycle === true ||
+      source?.isMaster === true ||
+      source?.is_master === true
+  );
+}
+
+function financialDayDistance(start, end) {
+  const left = normalizeFinancialDateKey(start);
+  const right = normalizeFinancialDateKey(end);
+  if (!left || !right) return 0;
+  const [ly, lm, ld] = left.split("-").map(Number);
+  const [ry, rm, rd] = right.split("-").map(Number);
+  return Math.round(
+    (Date.UTC(ry, rm - 1, rd) - Date.UTC(ly, lm - 1, ld)) / 86400000
+  );
+}
+
+function resolveRepeatingCustomCycle(customCycle, today) {
+  if (!customCycle) return null;
+  const lengthDays = financialDayDistance(customCycle.start, customCycle.end);
+  if (!(lengthDays > 0)) return null;
+  if (today < customCycle.start) return null;
+
+  const elapsedDays = Math.max(0, financialDayDistance(customCycle.start, today));
+  const cycleIndex = Math.floor(elapsedDays / lengthDays);
+  const start = addFinancialDays(customCycle.start, cycleIndex * lengthDays);
+  const end = addFinancialDays(start, lengthDays);
+  return start <= today && today < end ? { start, end, lengthDays } : null;
+}
+
 export function resolveMeansMasterPayCycle(incomeSources = [], now = new Date()) {
   const today = financialDateKey(now);
   if (!today) return null;
@@ -170,11 +271,12 @@ export function resolveMeansMasterPayCycle(incomeSources = [], now = new Date())
   const cycles = [];
 
   ordered.forEach((source, index) => {
-    const customCycle = readExplicitCustomCycle(source);
-    if (customCycle && customCycle.start <= today && today < customCycle.end) {
+    const repeatingCustom = resolveRepeatingCustomCycle(readExplicitCustomCycle(source), today);
+    if (repeatingCustom) {
       cycles.push({
-        start: customCycle.start,
-        end: customCycle.end,
+        start: repeatingCustom.start,
+        end: repeatingCustom.end,
+        cycleLengthDays: repeatingCustom.lengthDays,
         sourceId: clean(source?.id),
         explicitMaster: isExplicitMaster(source),
         customCycle: true,
@@ -206,8 +308,7 @@ export function resolveMeansMasterPayCycle(incomeSources = [], now = new Date())
   if (!cycles.length) return null;
   if (explicitMasters.length) return cycles[0];
 
-  // Backward compatibility until every existing account has an explicit Master Pay Cycle:
-  // preserve the established next-payday behavior, but once a master flag exists only it wins.
+  // Migration compatibility only. Product UI still needs to persist one explicit Master Pay Cycle.
   return cycles.sort((left, right) =>
     left.end.localeCompare(right.end) || left.sourceOrder - right.sourceOrder
   )[0];
@@ -358,8 +459,8 @@ function shouldIncludeDebtOccurrence(record, dueDate, cycleStart) {
   if (paidBeforeCycle + EPSILON >= planned) return false;
   if (isActiveDebtObligation(record)) return true;
 
-  // Completed obligations remain visible to the cycle in which their payment happened,
-  // so an early/current payment cannot make a represented requirement disappear.
+  // Completed obligations remain represented in the cycle where the requirement existed.
+  // Payment history is used only to preserve occurrence identity, never to size the baseline.
   return readDebtPayments(record).some((payment) => {
     if (paymentDueDate(payment) !== dueDate) return false;
     const actualDate = paymentActualDate(payment);
@@ -388,50 +489,15 @@ export function buildMeansDebtOccurrences(records = [], cycleStart, cycleEnd) {
 
 export function calculateMeansOutstandingDebtCommitments(
   debtOccurrences = [],
-  carriedObligations = 0
+  _legacyCarriedObligations = 0
 ) {
-  const occurrenceRemaining = (Array.isArray(debtOccurrences) ? debtOccurrences : [])
+  return (Array.isArray(debtOccurrences) ? debtOccurrences : [])
     .filter((entry) => entry?.kind === "debt")
     .reduce((sum, entry) => {
       const planned = nonNegative(entry?.amount);
       const actualPaid = nonNegative(entry?.actualPaid ?? entry?.actual_paid);
       return sum + Math.max(planned - actualPaid, 0);
     }, 0);
-  return occurrenceRemaining + nonNegative(carriedObligations);
-}
-
-function currentCycleFutureDebtActual(records = [], cycleStart, cycleEnd) {
-  return (Array.isArray(records) ? records : []).reduce((total, record) =>
-    total + readDebtPayments(record).reduce((sum, payment) => {
-      const actualDate = paymentActualDate(payment);
-      const dueDate = paymentDueDate(payment);
-      if (!actualDate || !dueDate) return sum;
-      if (actualDate < cycleStart || actualDate >= cycleEnd) return sum;
-      if (dueDate < cycleEnd) return sum;
-      return sum + nonNegative(payment?.amount);
-    }, 0), 0);
-}
-
-function confirmedCarriedDebt(records = [], cycleStart) {
-  return (Array.isArray(records) ? records : []).reduce((total, record) => {
-    const source = Array.isArray(record?.carriedOccurrences)
-      ? record.carriedOccurrences
-      : Array.isArray(record?.carried_occurrences)
-        ? record.carried_occurrences
-        : [];
-    return total + source.reduce((sum, entry) => {
-      const targetCycle = normalizeFinancialDateKey(
-        entry?.cycleStart || entry?.cycle_start || entry?.carriedIntoCycle || entry?.carried_into_cycle
-      );
-      const status = lower(entry?.status || entry?.resolution);
-      if (targetCycle !== cycleStart || !["confirmed", "still_unpaid", "carried"].includes(status)) {
-        return sum;
-      }
-      return sum + nonNegative(
-        entry?.remainingAmount ?? entry?.remaining_amount ?? entry?.amount
-      );
-    }, 0);
-  }, 0);
 }
 
 async function readAllDebtRecords(owner) {
@@ -470,67 +536,6 @@ function persistBaseline(owner, cycleStart, cycleEnd, baseline) {
   } catch {
     // Means remains usable when browser storage is temporarily unavailable.
   }
-}
-
-export function readMeansCrossCheckAnchor(owner) {
-  if (typeof window === "undefined" || !window.localStorage) return null;
-  try {
-    const parsed = JSON.parse(
-      window.localStorage.getItem(meansCrossCheckAnchorStorageKey(owner)) || "null"
-    );
-    return parsed && typeof parsed === "object" ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-export function resetMeansAssumedSpent(owner, { completedAt = new Date() } = {}) {
-  const safeOwner = clean(owner) || "local-user";
-  const financialDate = financialDateKey(completedAt);
-  const anchor = {
-    version: 1,
-    completedAt: completedAt instanceof Date ? completedAt.toISOString() : new Date(completedAt).toISOString(),
-    financialDate,
-  };
-  if (typeof window !== "undefined" && window.localStorage) {
-    try {
-      window.localStorage.setItem(meansCrossCheckAnchorStorageKey(safeOwner), JSON.stringify(anchor));
-    } catch {
-      // A successful wallet reconciliation remains valid even if this convenience cache is blocked.
-    }
-    window.dispatchEvent(
-      new CustomEvent("clara:means-assumed-spent-reset", {
-        detail: { ownerId: safeOwner, financialDate },
-      })
-    );
-  }
-  return anchor;
-}
-
-function assumedSpentAfterCrossCheck(owner, cycleStart, today, contributions = []) {
-  const anchor = readMeansCrossCheckAnchor(owner);
-  const anchorDate = normalizeFinancialDateKey(anchor?.financialDate);
-  const resetThrough = anchorDate && anchorDate >= cycleStart
-    ? anchorDate
-    : addFinancialDays(cycleStart, -1);
-
-  return contributions.reduce((sum, entry) => {
-    if (entry?.kind !== "money_schedule") return sum;
-    const date = normalizeFinancialDateKey(entry?.date);
-    if (!date || date <= resetThrough || date > today) return sum;
-    return sum + nonNegative(entry?.plannedAmount ?? entry?.amount);
-  }, 0);
-}
-
-function amountScheduledTodayAfterReset(owner, cycleStart, today, contributions = []) {
-  const anchor = readMeansCrossCheckAnchor(owner);
-  const anchorDate = normalizeFinancialDateKey(anchor?.financialDate);
-  if (anchorDate && anchorDate >= today) return 0;
-  return contributions.reduce((sum, entry) =>
-    entry?.kind === "money_schedule" && normalizeFinancialDateKey(entry?.date) === today
-      ? sum + nonNegative(entry?.plannedAmount ?? entry?.amount)
-      : sum,
-  0);
 }
 
 function activityDate(activity = {}) {
@@ -580,6 +585,8 @@ export async function buildCanonicalMeansSnapshot({ profile = {}, now = new Date
     wallets,
     walletTransactions,
     transfers,
+    savingsGoals,
+    emergencyFund,
     debtRecords,
     expenses,
   ] = await Promise.all([
@@ -587,6 +594,8 @@ export async function buildCanonicalMeansSnapshot({ profile = {}, now = new Date
     getWallets(owner).catch(() => []),
     getWalletTransactions(owner).catch(() => []),
     getTransfers(owner).catch(() => []),
+    getSavingsGoals(owner).catch(() => []),
+    getEmergencyFund(owner).catch(() => null),
     readAllDebtRecords(owner),
     getExpenses(owner).catch(() => []),
   ]);
@@ -607,12 +616,6 @@ export async function buildCanonicalMeansSnapshot({ profile = {}, now = new Date
     cycleEndDate
   );
   const occurrences = [...moneyScheduleOccurrences, ...debtOccurrences];
-  const extraCurrentCycleActual = currentCycleFutureDebtActual(
-    debtRecords,
-    cycleStartDate,
-    cycleEndDate
-  );
-  const carriedObligations = confirmedCarriedDebt(debtRecords, cycleStartDate);
   const stored = readStoredBaseline(owner, cycleStartDate, cycleEndDate);
   const baselineState = resolveAdaptiveMeansBaselineState({
     stored,
@@ -620,29 +623,22 @@ export async function buildCanonicalMeansSnapshot({ profile = {}, now = new Date
     cycleEnd: cycleEndDate,
     today,
     occurrences,
-    extraCurrentCycleActual,
-    carriedObligations,
   });
   persistBaseline(owner, cycleStartDate, cycleEndDate, baselineState.baseline);
 
-  const availableNow = calculateMeansAvailableWalletMoney(
+  const walletState = calculateMeansAvailableWalletState(
     wallets,
     walletTransactions,
-    transfers
+    transfers,
+    { emergencyFund, savingsGoals }
   );
-  const assumedSpent = assumedSpentAfterCrossCheck(
-    owner,
-    cycleStartDate,
-    today,
-    baselineState.contributions
-  );
-  const assumedToday = amountScheduledTodayAfterReset(
-    owner,
-    cycleStartDate,
-    today,
-    baselineState.contributions
-  );
-  const effectiveCurrentMoney = availableNow - assumedSpent;
+  const availableNow = walletState.availableNow;
+
+  // Time passing does not spend money. Money Schedule stays on the plan/baseline side;
+  // only an explicit money-side action may change available Wallet money.
+  const assumedSpent = 0;
+  const assumedToday = 0;
+  const effectiveCurrentMoney = availableNow;
   const scoreState = calculateMeansScoreState({
     effectiveCurrentMoney,
     requiredRunway: baselineState.requiredRunway,
@@ -654,10 +650,7 @@ export async function buildCanonicalMeansSnapshot({ profile = {}, now = new Date
   const moneyScheduleUpcoming = futureContributions
     .filter((entry) => entry.kind === "money_schedule")
     .reduce((sum, entry) => sum + nonNegative(entry.amount), 0);
-  const debtUpcoming = calculateMeansOutstandingDebtCommitments(
-    debtOccurrences,
-    baselineState.carriedObligations
-  );
+  const debtUpcoming = calculateMeansOutstandingDebtCommitments(debtOccurrences);
   const upcoming = moneyScheduleUpcoming + debtUpcoming;
   const income = incomeReceivedForDisplay(incomeSources, cycleStartDate, cycleEndDate);
   const spent = actualSpentForDisplay(expenses, cycleStartDate, today);
@@ -665,6 +658,9 @@ export async function buildCanonicalMeansSnapshot({ profile = {}, now = new Date
   return {
     hasIncomePayCycle: true,
     masterPayCycleSourceId: payCycle.sourceId || null,
+    masterPayCycleExplicit: Boolean(payCycle.explicitMaster),
+    customCycle: Boolean(payCycle.customCycle),
+    cycleLengthDays: payCycle.cycleLengthDays || null,
     score: scoreState.score,
     income,
     spent,
@@ -679,19 +675,20 @@ export async function buildCanonicalMeansSnapshot({ profile = {}, now = new Date
     cycleEndDate,
     horizonDate: cycleEndDate,
     availableNow,
+    grossWalletMoney: walletState.grossWalletMoney,
     effectiveCurrentMoney,
     financialRunway: effectiveCurrentMoney,
     requiredRunway: baselineState.requiredRunway,
     scoreRoom: scoreState.scoreRoom,
     plannedAssumedSinceLock: 0,
-    moneyLentUnavailable: 0,
-    emergencyProtected: 0,
-    savingsProtected: 0,
-    otherProtected: 0,
+    moneyLentUnavailable: walletState.moneyLentUnavailable,
+    emergencyProtected: walletState.emergencyProtected,
+    savingsProtected: walletState.savingsProtected,
+    otherProtected: walletState.otherProtected,
     projectedSpending: baselineState.requiredRunway,
     projectedRoom: scoreState.scoreRoom,
     baselineContributions: baselineState.contributions,
-    extraCurrentCycleActual: baselineState.extraCurrentCycleActual,
-    carriedObligations: baselineState.carriedObligations,
+    extraCurrentCycleActual: 0,
+    carriedObligations: 0,
   };
 }

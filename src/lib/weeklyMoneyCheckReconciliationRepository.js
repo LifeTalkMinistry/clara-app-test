@@ -2,7 +2,6 @@ import {
   LOCAL_FINANCE_STORES,
   runLocalFinanceTransaction,
 } from "@/lib/localFinanceStore";
-import { resetMeansAssumedSpent } from "@/lib/clara-means-authority";
 
 const WALLET_STORE = LOCAL_FINANCE_STORES.wallets;
 const WALLET_TRANSACTION_STORE = LOCAL_FINANCE_STORES.walletTransactions;
@@ -64,8 +63,8 @@ function emitFinanceUpdates(localUserId, reconciliationId) {
  * row. If any wallet changed after the check started, the whole reconciliation
  * aborts so a legitimate newer transaction can never be overwritten.
  *
- * A successful Cross-Check also resets Means Assumed Spent. That reset happens
- * only after wallet truth is known to be valid; it never changes the 100 baseline.
+ * Cross-Check owns wallet truth only. It must not create a second Means-side
+ * deduction/reset layer and it never mutates the protected 100 baseline.
  */
 export async function reconcileWeeklyMoneyCheckWallets(
   localUserId,
@@ -98,7 +97,6 @@ export async function reconcileWeeklyMoneyCheckWallets(
     `weekly-money-check-${Date.now()}`;
 
   if (!candidates.length) {
-    resetMeansAssumedSpent(safeLocalUserId, { completedAt: new Date() });
     return {
       reconciliationId,
       adjustedWallets: 0,
@@ -206,7 +204,6 @@ export async function reconcileWeeklyMoneyCheckWallets(
     }
   );
 
-  resetMeansAssumedSpent(safeLocalUserId, { completedAt: new Date() });
   emitFinanceUpdates(safeLocalUserId, reconciliationId);
   return result;
 }

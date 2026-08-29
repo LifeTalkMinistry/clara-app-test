@@ -1,0 +1,59 @@
+name: CLARA Means authority verification
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-means-authority:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source exactly as committed
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
+
+      - name: Syntax checks
+        run: |
+          node --check src/lib/clara-means-cycle-baseline.js
+          node --check src/lib/clara-means-authority.js
+          node --check src/lib/clara-buy-check-metric-impact.js
+          node --check src/lib/weeklyMoneyCheckReconciliationRepository.js
+          node --check src/runtime/installClaraOrbGreeting.js
+
+      - name: Means authority regressions
+        run: |
+          node --test tests/means-score-context-baseline-regression.test.mjs
+          node --test tests/means-score-final-acceptance-regression.test.mjs
+          node --test tests/means-score-single-authority-regression.test.mjs
+          node --test tests/means-score-debt-commitments-display-regression.test.mjs
+          node --test tests/means-score-same-cycle-anchor-recovery.test.mjs
+          node --test tests/means-score-owner-key-migration-regression.test.mjs
+          node --test tests/buy-check-metric-impact.test.mjs
+          node --test tests/means-authority-wallet-protection-source.test.mjs
+          node --test tests/means-master-cycle-authority.test.mjs
+          node --test tests/means-score-plan-actual-separation.test.mjs
+          node --test tests/means-authority-no-legacy-repair-workflow.test.mjs
+
+      - name: Existing application regression suite
+        run: npm test
+
+      - name: Production build
+        run: npm run build:web
+        env:
+          VITE_GEMINI_MODEL: gemini-3.6-flash
+          VITE_CLARA_RUNTIME_MODE: local_only
+          VITE_CLARA_AUTH_ENABLED: "false"
+          VITE_CLARA_LOCAL_MODE_ENABLED: "true"

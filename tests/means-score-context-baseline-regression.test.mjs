@@ -29,7 +29,7 @@ function score(effectiveCurrentMoney, requiredRunway) {
   return calculateMeansScoreState({ effectiveCurrentMoney, requiredRunway }).score;
 }
 
-test("v6 is the final adaptive protected baseline schema", () => {
+test("v6 remains the adaptive protected baseline schema", () => {
   assert.equal(MEANS_CYCLE_BASELINE_VERSION, 6);
 });
 
@@ -99,58 +99,46 @@ test("today and past requirements are protected against later edit or delete", (
   assert.equal(deleted.requiredRunway, 1000);
 });
 
-test("planned debt payment never shrinks its protected baseline contribution", () => {
+test("planned debt payment never shrinks or expands its protected baseline contribution", () => {
   const planned = resolve({
     occurrences: [occurrence("debt:bike:2026-08-28", "2026-08-28", 1000, { kind: "debt" })],
-  });
-  const paid = resolve({
-    stored: planned.baseline,
-    occurrences: [
-      occurrence("debt:bike:2026-08-28", "2026-08-28", 1000, {
-        kind: "debt",
-        actualPaid: 1000,
-      }),
-    ],
-  });
-  assert.equal(paid.requiredRunway, 1000);
-  assert.equal(score(12000, planned.requiredRunway), 1200);
-  assert.equal(score(11000, paid.requiredRunway), 1100);
-});
-
-test("partial debt payment below plan does not reduce 100; excess expands only by the excess", () => {
-  const planned = resolve({
-    occurrences: [occurrence("debt:carlo:2026-08-28", "2026-08-28", 1000, { kind: "debt" })],
   });
   const partial = resolve({
     stored: planned.baseline,
     occurrences: [
-      occurrence("debt:carlo:2026-08-28", "2026-08-28", 1000, {
+      occurrence("debt:bike:2026-08-28", "2026-08-28", 1000, {
         kind: "debt",
         actualPaid: 400,
       }),
     ],
   });
-  assert.equal(partial.requiredRunway, 1000);
-
-  const over = resolve({
+  const overpaid = resolve({
     stored: partial.baseline,
     occurrences: [
-      occurrence("debt:carlo:2026-08-28", "2026-08-28", 1000, {
+      occurrence("debt:bike:2026-08-28", "2026-08-28", 1000, {
         kind: "debt",
         actualPaid: 1400,
       }),
     ],
   });
-  assert.equal(over.requiredRunway, 1400);
+
+  assert.equal(planned.requiredRunway, 1000);
+  assert.equal(partial.requiredRunway, 1000);
+  assert.equal(overpaid.requiredRunway, 1000);
+  assert.equal(score(12000, planned.requiredRunway), 1200);
+  assert.equal(score(10600, overpaid.requiredRunway), 1060);
 });
 
-test("explicit future-cycle actual and confirmed carry are additive baseline facts", () => {
+test("future-cycle actual payments and overdue carry cannot enter the current 100", () => {
   const state = resolve({
     occurrences: [occurrence("plan", "2026-09-01", 8000)],
     extra: 750,
     carry: 500,
   });
-  assert.equal(state.requiredRunway, 9250);
+  assert.equal(state.requiredRunway, 8000);
+  assert.equal(state.extraCurrentCycleActual, 750);
+  assert.equal(state.carriedObligations, 500);
+  assert.equal(state.ignoredNonPlanBaselineInputs, 1250);
 });
 
 test("negative effective current money produces a negative Means Score", () => {

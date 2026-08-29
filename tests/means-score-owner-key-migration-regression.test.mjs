@@ -2,61 +2,31 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  calculateMeansScoreState,
-  repairMalformedMeansBaselineStorage,
+  meansCycleBaselineStorageKey,
+  resolveAdaptiveMeansBaselineState,
 } from "../src/lib/clara-means-cycle-baseline.js";
 
-class MemoryStorage {
-  constructor(entries = {}) {
-    this.values = new Map(Object.entries(entries));
-  }
-  get length() {
-    return this.values.size;
-  }
-  key(index) {
-    return [...this.values.keys()][index] ?? null;
-  }
-  getItem(key) {
-    return this.values.has(key) ? this.values.get(key) : null;
-  }
-  setItem(key, value) {
-    this.values.set(key, String(value));
-  }
-}
-
-test("restores same-cycle v3 fixed 100 even when owner storage key changed", () => {
+test("v6 owner key is deterministic and does not reconstruct 100 from another owner's legacy scalar", () => {
   const cycleStart = "2026-08-25";
   const cycleEnd = "2026-09-10";
-  const currentKey = `clara:means-cycle-baseline:v5:authenticated-user:${cycleStart}:${cycleEnd}`;
-  const legacyKey = `clara:means-cycle-baseline:v3:local-user:${cycleStart}:${cycleEnd}`;
-  const storage = new MemoryStorage({
-    [currentKey]: JSON.stringify({
-      version: 5,
-      requiredRunway: 1820,
-      assumedSpentAtLock: 280,
-      cycleStart,
-      cycleEnd,
-      refreshReason: "new_cycle_or_stale_baseline",
-    }),
-    [legacyKey]: JSON.stringify({
+  const key = meansCycleBaselineStorageKey("authenticated-user", cycleStart, cycleEnd);
+  assert.match(key, /clara:means-cycle-baseline:v6:authenticated-user:2026-08-25:2026-09-10$/);
+
+  const state = resolveAdaptiveMeansBaselineState({
+    stored: {
       version: 3,
       requiredRunway: 10403,
-      assumedSpentAtLock: 0,
       cycleStart,
       cycleEnd,
-    }),
+    },
+    cycleStart,
+    cycleEnd,
+    today: "2026-08-28",
+    occurrences: [
+      { id: "current-plan", kind: "money_schedule", date: "2026-09-01", amount: 8000 },
+    ],
   });
 
-  assert.equal(repairMalformedMeansBaselineStorage(storage), 1);
-
-  const repaired = JSON.parse(storage.getItem(currentKey));
-  assert.equal(repaired.requiredRunway, 10403);
-  assert.equal(repaired.restoredFromStorageKey, legacyKey);
-
-  const score = calculateMeansScoreState({
-    financialRunway: 5569,
-    requiredRunway: repaired.requiredRunway,
-  }).score;
-  assert.equal(score, 54);
-  assert.notEqual(score, 306);
+  assert.equal(state.requiredRunway, 8000);
+  assert.equal(state.baseline.version, 6);
 });
