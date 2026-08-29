@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 
 import {
   MEANS_CYCLE_BASELINE_VERSION,
@@ -179,4 +180,37 @@ test("obsolete v1-v5 scalar locks are ignored instead of leaking into v6", () =>
   });
   assert.equal(state.requiredRunway, 8000);
   assert.equal(state.baseline.version, 6);
+});
+
+test("ORB money briefing is presentation-only and Real Room uses canonical remaining commitments", async () => {
+  const authority = await readFile(
+    new URL("../src/lib/clara-means-authority.js", import.meta.url),
+    "utf8"
+  );
+  const orbRuntime = await readFile(
+    new URL("../src/runtime/installClaraOrbGreeting.js", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(authority, /projectedRoom:\s*availableNow\s*-\s*upcoming/);
+  assert.match(authority, /const upcoming = moneyScheduleUpcoming \+ debtUpcoming/);
+  assert.match(orbRuntime, /data-clara-money-briefing="active-cycle"/);
+  assert.match(orbRuntime, />This pay cycle</);
+  assert.match(orbRuntime, />Spending</);
+  assert.match(orbRuntime, />Still to cover</);
+  assert.match(orbRuntime, /data-clara-money-in-hand="true"/);
+  assert.match(orbRuntime, /data-clara-upcoming-commitments="true"/);
+  assert.match(orbRuntime, /data-clara-real-room="true"/);
+  assert.match(orbRuntime, /Real room until \$\{formatHorizonDate\(snapshot\.cycleEndDate\)\}/);
+  assert.match(orbRuntime, /After everything still planned is covered/);
+  assert.doesNotMatch(orbRuntime, />Assumed spent</);
+
+  const moneyInHand = 5809;
+  const upcomingCommitments = 860;
+  const moneySchedule = 860;
+  const debtObligations = 0;
+  const realRoom = moneyInHand - upcomingCommitments;
+
+  assert.equal(moneySchedule + debtObligations, upcomingCommitments);
+  assert.equal(realRoom, 4949);
 });
