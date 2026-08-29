@@ -14,6 +14,11 @@ import {
   upsertIncomeSource,
 } from "@/lib/incomeHubRepository";
 import {
+  getIncomeSourceMasterCycleConfig,
+  isIncomeSourceMasterPayCycle,
+  setIncomeSourceAsMasterPayCycle,
+} from "@/lib/clara-master-pay-cycle-repository";
+import {
   normalizeRecurrenceRule,
   toLocalDateKey,
 } from "@/lib/recurringCashFlowRepository";
@@ -52,6 +57,10 @@ const createEmptyForm = () => ({
   dayOfMonth: "30",
   customDates: "",
   useForBudgetTiming: isStableIncome(DEFAULT_STABILITY),
+  isMasterPayCycle: false,
+  masterCycleMode: "income_schedule",
+  customCycleStart: todayKey(),
+  customCycleEnd: "",
 });
 
 const createFormFromSource = (source) => {
@@ -66,6 +75,7 @@ const createFormFromSource = (source) => {
       source?.expectedAmount ??
       source?.expected_amount
   );
+  const masterConfig = getIncomeSourceMasterCycleConfig(source);
 
   return {
     name: source?.name || "",
@@ -83,6 +93,10 @@ const createFormFromSource = (source) => {
     useForBudgetTiming:
       stable ||
       (enabled && (source?.useForBudgetTiming === true || source?.use_for_budget_timing === true)),
+    isMasterPayCycle: isIncomeSourceMasterPayCycle(source),
+    masterCycleMode: masterConfig.mode,
+    customCycleStart: masterConfig.start || todayKey(),
+    customCycleEnd: masterConfig.end || "",
   };
 };
 
@@ -125,6 +139,10 @@ function TimingToggle({ checked, onChange, title, helper, disabled = false }) {
   );
 }
 
+function sameRecurrence(left, right) {
+  return JSON.stringify(left || null) === JSON.stringify(right || null);
+}
+
 export default function IncomeSourceCreateModalBase({ open = false, source = null, onClose }) {
   const { user } = useAuth();
   const localUserId = useMemo(() => getIncomeHubLocalUserId(user), [user]);
@@ -132,9 +150,11 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [stableIncomeError, setStableIncomeError] = useState("");
+  const [impactConfirmation, setImpactConfirmation] = useState(null);
   const timingTouchedRef = useRef(false);
   const isEditing = Boolean(source?.id);
   const stable = isStableIncome(form.stability);
+  const sourceIsCurrentMaster = Boolean(isEditing && isIncomeSourceMasterPayCycle(source));
 
   useEffect(() => {
     if (!open) return undefined;
@@ -143,23 +163,27 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
     setForm(isEditing ? createFormFromSource(source) : createEmptyForm());
     setError("");
     setStableIncomeError("");
+    setImpactConfirmation(null);
 
-    if (!isEditing) {
-      getIncomeSources(localUserId)
-        .then((sources) => {
-          if (cancelled || timingTouchedRef.current) return;
-          const alreadyHasBudgetTiming = (sources || []).some(
+    getIncomeSources(localUserId)
+      .then((sources) => {
+        if (cancelled) return;
+        const activeSources = Array.isArray(sources) ? sources : [];
+        if (!isEditing && !timingTouchedRef.current) {
+          const alreadyHasBudgetTiming = activeSources.some(
             (item) =>
               (item?.usualIncomeDateEnabled === true || item?.usual_income_date_enabled === true) &&
               (item?.useForBudgetTiming === true || item?.use_for_budget_timing === true)
           );
+          const alreadyHasMaster = activeSources.some(isIncomeSourceMasterPayCycle);
           setForm((current) => ({
             ...current,
             useForBudgetTiming: isStableIncome(current.stability) ? true : !alreadyHasBudgetTiming,
+            isMasterPayCycle: !alreadyHasMaster,
           }));
-        })
-        .catch(() => {});
-    }
+        }
+      })
+      .catch(() => {});
 
     return () => {
       cancelled = true;
@@ -169,21 +193,43 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
   useEffect(() => {
     if (!open || typeof window === "undefined") return undefined;
     const handleEscape = (event) => {
-      if (event.key === "Escape" && !saving) onClose?.();
+      if (event.key === "Escape" && !saving) {
+        if (impactConfirmation) setImpactConfirmation(null);
+        else onClose?.();
+      }
     };
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [onClose, open, saving]);
+  }, [impactConfirmation, onClose, open, saving]);
 
   const closeModal = () => {
     if (saving) return;
     setForm(createEmptyForm());
     setError("");
     setStableIncomeError("");
+    setImpactConfirmation(null);
     onClose?.();
   };
 
-  const saveSource = async () => {
+  const validateMasterCycle = (recurrence) => {
+    if (!form.isMasterPayCycle) return true;
+    if (form.masterCycleMode === "custom") {
+      const start = toLocalDateKey(form.customCycleStart);
+      const end = toLocalDateKey(form.customCycleEnd);
+      if (!start || !end || start >= end) {
+        setError("Choose a valid custom cycle start and end date. The end date must be after the start date.");
+        return false;
+      }
+      return true;
+    }
+    if (!recurrence) {
+      setError("The Master Pay Cycle needs either a usual income schedule or a custom cycle.");
+      return false;
+    }
+    return true;
+  };
+
+  const saveSource = async (confirmedImpact = false) => {
     const sourceName = form.name.trim();
     if (!sourceName) {
       setError("Source name is required.");
@@ -201,8 +247,45 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
       return;
     }
 
-    const timestamp = new Date().toISOString();
     const recurrence = buildRecurrence(form);
+    if (!validateMasterCycle(recurrence)) return;
+
+    let sources = [];
+    try {
+      sources = await getIncomeSources(localUserId);
+    } catch {
+      sources = [];
+    }
+
+    const currentMaster = (sources || []).find(isIncomeSourceMasterPayCycle) || null;
+    const proposedMasterChange = Boolean(
+      form.isMasterPayCycle &&
+      currentMaster &&
+      String(currentMaster.id) !== String(source?.id || "")
+    );
+    const currentConfig = sourceIsCurrentMaster ? getIncomeSourceMasterCycleConfig(source) : null;
+    const customChanged = Boolean(
+      sourceIsCurrentMaster &&
+      (currentConfig?.mode !== form.masterCycleMode ||
+        (form.masterCycleMode === "custom" &&
+          (currentConfig?.start !== toLocalDateKey(form.customCycleStart) ||
+            currentConfig?.end !== toLocalDateKey(form.customCycleEnd))))
+    );
+    const recurrenceChanged = Boolean(
+      sourceIsCurrentMaster &&
+      form.masterCycleMode === "income_schedule" &&
+      !sameRecurrence(recurrenceFromSource(source), recurrence)
+    );
+
+    if (!confirmedImpact && (proposedMasterChange || customChanged || recurrenceChanged)) {
+      setImpactConfirmation({
+        currentMasterName: currentMaster?.name || source?.name || "Current Master",
+        proposedMasterName: sourceName,
+      });
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
     const activityLog = appendIncomeSourceActivity(source || {}, {
       type: isEditing ? "source_updated" : "source_created",
       sourceName,
@@ -213,7 +296,9 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
       setSaving(true);
       setError("");
       setStableIncomeError("");
+      setImpactConfirmation(null);
 
+      const keepExistingMaster = sourceIsCurrentMaster;
       const saved = await upsertIncomeSource(localUserId, {
         ...(source || {}),
         id: source?.id,
@@ -238,6 +323,12 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
         income_recurrence: recurrence,
         useForBudgetTiming: stable || (form.usualIncomeDateEnabled && form.useForBudgetTiming),
         use_for_budget_timing: stable || (form.usualIncomeDateEnabled && form.useForBudgetTiming),
+        isMasterPayCycle: keepExistingMaster,
+        is_master_pay_cycle: keepExistingMaster,
+        masterPayCycle: keepExistingMaster,
+        master_pay_cycle: keepExistingMaster,
+        isMaster: keepExistingMaster,
+        is_master: keepExistingMaster,
         incomeActivityLog: activityLog,
         income_activity_log: activityLog,
         lastActivityAt: isEditing ? source?.lastActivityAt || source?.last_activity_at || timestamp : timestamp,
@@ -245,6 +336,14 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
         createdAt: source?.createdAt || source?.created_at,
         created_at: source?.created_at || source?.createdAt,
       });
+
+      if (form.isMasterPayCycle) {
+        await setIncomeSourceAsMasterPayCycle(localUserId, saved.id, {
+          mode: form.masterCycleMode,
+          customCycleStart: form.customCycleStart,
+          customCycleEnd: form.customCycleEnd,
+        });
+      }
 
       try {
         syncStableIncomeTimingSource(localUserId, saved);
@@ -256,7 +355,7 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
       onClose?.();
     } catch (saveError) {
       console.error("CLARA income source save error:", saveError);
-      setError(isEditing ? "Unable to update source. Please try again." : "Unable to create source. Please try again.");
+      setError(saveError?.message || (isEditing ? "Unable to update source. Please try again." : "Unable to create source. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -276,7 +375,7 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            saveSource();
+            saveSource(false);
           }}
           className="flex max-h-[calc(100svh-1.25rem)] min-h-0 w-full flex-col overflow-visible"
         >
@@ -437,7 +536,7 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
 
                 {form.recurrenceType === "custom" ? (
                   <FinanceField label="Custom dates" helper="Use YYYY-MM-DD, separated by commas.">
-                    <input type="text" value={form.customDates} onChange={(event) => setForm((prev) => ({ ...prev, customDates: event.target.value }))} placeholder="2026-07-15, 2026-07-30" className={financeInputClassName} />
+                    <input type="text" value={form.customDates} onChange={(event) => setForm((prev) => ({ ...prev, customDates: event.target.value }))} placeholder="2026-09-15, 2026-09-30" className={financeInputClassName} />
                   </FinanceField>
                 ) : null}
 
@@ -451,11 +550,70 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
                   title="Use this income for budget timing"
                   helper={stable
                     ? "Required for Stable income so CLARA can measure days until this expected payday."
-                    : "CLARA can measure the current cycle and days until the next expected income."}
+                    : "CLARA can remember this source's expected timing."}
                   disabled={saving || stable}
                 />
               </div>
             ) : null}
+
+            <div className="space-y-3 rounded-[22px] border border-cyan-200/15 bg-cyan-400/[0.045] p-3">
+              <TimingToggle
+                checked={form.isMasterPayCycle}
+                onChange={(checked) => {
+                  if (sourceIsCurrentMaster && !checked) return;
+                  setForm((prev) => ({ ...prev, isMasterPayCycle: checked }));
+                  if (error) setError("");
+                }}
+                title="Master Pay Cycle"
+                helper={sourceIsCurrentMaster
+                  ? "This is the active Master. To change it, open another income source and make that source the Master."
+                  : "Controls CLARA's active financial timeframe. The income amount itself does not enter the Means Score."}
+                disabled={saving || sourceIsCurrentMaster}
+              />
+
+              {form.isMasterPayCycle ? (
+                <>
+                  <FinanceField label="Cycle authority" helper="Choose the dates CLARA should use for the active financial cycle.">
+                    <select
+                      value={form.masterCycleMode}
+                      onChange={(event) => setForm((prev) => ({ ...prev, masterCycleMode: event.target.value }))}
+                      className={financeInputClassName}
+                    >
+                      <option value="income_schedule">Use usual income schedule</option>
+                      <option value="custom">Customize Cycle</option>
+                    </select>
+                  </FinanceField>
+
+                  {form.masterCycleMode === "custom" ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <FinanceField label="Cycle start">
+                        <input
+                          type="date"
+                          value={form.customCycleStart}
+                          onChange={(event) => setForm((prev) => ({ ...prev, customCycleStart: event.target.value }))}
+                          className={financeInputClassName}
+                        />
+                      </FinanceField>
+                      <FinanceField label="Cycle end">
+                        <input
+                          type="date"
+                          value={form.customCycleEnd}
+                          min={form.customCycleStart || undefined}
+                          onChange={(event) => setForm((prev) => ({ ...prev, customCycleEnd: event.target.value }))}
+                          className={financeInputClassName}
+                        />
+                      </FinanceField>
+                    </div>
+                  ) : null}
+
+                  <p className="rounded-2xl border border-white/[0.07] bg-black/10 px-3 py-2 text-[11px] font-semibold leading-5 text-white/48">
+                    {form.masterCycleMode === "custom"
+                      ? "CLARA will repeat this same cycle length for future cycles until you change it."
+                      : "CLARA will use the interval between this source's expected paydays as the active cycle."}
+                  </p>
+                </>
+              ) : null}
+            </div>
           </div>
 
           <div className="shrink-0 border-t border-white/10 bg-[#071120]/92 px-5 pb-[calc(0.65rem+env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-xl">
@@ -469,6 +627,42 @@ export default function IncomeSourceCreateModalBase({ open = false, source = nul
             </div>
           </div>
         </form>
+
+        {impactConfirmation ? (
+          <div className="absolute inset-0 z-[260] flex items-center justify-center rounded-[34px] bg-[#030712]/88 p-4 backdrop-blur-xl">
+            <div className="w-full rounded-[28px] border border-amber-200/20 bg-[linear-gradient(145deg,rgba(40,30,10,0.98),rgba(9,16,35,0.99))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-200/72">Master Pay Cycle impact</p>
+              <h4 className="mt-2 text-xl font-black tracking-[-0.03em] text-white">Change the active financial cycle?</h4>
+              <p className="mt-3 text-[13px] font-semibold leading-6 text-white/68">
+                Changing the Master Pay Cycle can change the current 100 and Means Score because different planned requirements may fall inside the new cycle. Historical transactions and actual due dates will not be rewritten.
+              </p>
+              <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/62">
+                {impactConfirmation.currentMasterName} → {impactConfirmation.proposedMasterName}
+              </div>
+              {form.masterCycleMode === "custom" ? (
+                <p className="mt-2 text-xs font-semibold text-white/48">New cycle: {form.customCycleStart} → {form.customCycleEnd}</p>
+              ) : null}
+              <div className="mt-5 grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setImpactConfirmation(null)}
+                  disabled={saving}
+                  className="rounded-2xl border border-white/15 bg-white/[0.075] px-4 py-3 text-sm font-semibold text-white/76"
+                >
+                  Keep Current
+                </button>
+                <button
+                  type="button"
+                  onClick={() => saveSource(true)}
+                  disabled={saving}
+                  className="rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-3 text-sm font-black text-[#201303] shadow-[0_10px_30px_rgba(251,191,36,0.20)]"
+                >
+                  {saving ? "Saving..." : "Confirm Change"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
