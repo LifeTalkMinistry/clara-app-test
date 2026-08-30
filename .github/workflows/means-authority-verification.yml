@@ -57,7 +57,9 @@ jobs:
           node --test tests/means-authority-no-legacy-repair-workflow.test.mjs
 
       - name: Full financial migration lifecycle A-M
-        run: node --test tests/device-transfer-financial-context-integration.test.mjs
+        run: |
+          node --test tests/device-transfer-financial-context-integration.test.mjs
+          node --test tests/device-transfer-historical-identity-scope.test.mjs
 
       - name: Existing application regression suite
         run: npm test
