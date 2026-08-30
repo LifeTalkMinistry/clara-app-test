@@ -1,6 +1,7 @@
 import {
   LOCAL_FINANCE_STORES,
   getLocalRecordById,
+  hardDeleteLocalRecord,
   upsertLocalRecord,
 } from "@/lib/localFinanceStore";
 import {
@@ -11,13 +12,18 @@ import {
 
 const STORE_NAME = LOCAL_FINANCE_STORES.privatePreferences;
 const RECORD_KIND = "means_cycle_baseline";
-const RECORD_VERSION = 1;
+const RECORD_VERSION = 2;
 
 const clean = (value) => String(value ?? "").trim();
 const dateKey = (value) => clean(value).slice(0, 10);
 
-function recordId(cycleStart, cycleEnd) {
+function legacyRecordId(cycleStart, cycleEnd) {
   return `means-cycle-baseline:${dateKey(cycleStart)}:${dateKey(cycleEnd)}`;
+}
+
+export function meansCycleBaselineRecordId(owner, cycleStart, cycleEnd) {
+  const localUserId = encodeURIComponent(clean(owner));
+  return `means-cycle-baseline:${localUserId}:${dateKey(cycleStart)}:${dateKey(cycleEnd)}`;
 }
 
 function readLocalStorageKey(key) {
@@ -64,14 +70,36 @@ export async function readMeansCycleBaseline({
   const end = dateKey(cycleEnd);
   if (!localUserId || !start || !end) return null;
 
+  const canonicalId = meansCycleBaselineRecordId(localUserId, start, end);
   try {
     const record = await getLocalRecordById(
       STORE_NAME,
-      recordId(start, end),
+      canonicalId,
       localUserId
     );
     const durable = parseMeansBaseline(record?.baseline);
     if (durable) return durable;
+
+    // Compatibility with pre-owner-scoped durable records. Promote only a record
+    // that is actually owned by this vault, then retire the old global ID so two
+    // rollback-preserved vaults can coexist without key collisions.
+    const legacyId = legacyRecordId(start, end);
+    const legacyRecord = await getLocalRecordById(
+      STORE_NAME,
+      legacyId,
+      localUserId
+    );
+    const legacyDurable = parseMeansBaseline(legacyRecord?.baseline);
+    if (legacyDurable) {
+      await persistMeansCycleBaseline({
+        owner: localUserId,
+        cycleStart: start,
+        cycleEnd: end,
+        baseline: legacyDurable,
+      });
+      await hardDeleteLocalRecord(STORE_NAME, legacyId, localUserId).catch(() => false);
+      return legacyDurable;
+    }
   } catch {
     // Fall through to localStorage so Means remains usable if IndexedDB is unavailable.
   }
@@ -109,7 +137,7 @@ export async function persistMeansCycleBaseline({
   if (!localUserId || !start || !end || !parsedBaseline) return null;
 
   const record = {
-    id: recordId(start, end),
+    id: meansCycleBaselineRecordId(localUserId, start, end),
     kind: RECORD_KIND,
     recordKind: RECORD_KIND,
     recordType: RECORD_KIND,
