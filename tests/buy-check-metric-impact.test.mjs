@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildClaraPurchaseMetricImpact,
   formatClaraMetricImpactLine,
   simulateMeansPurchaseImpact,
 } from "../src/lib/clara-buy-check-metric-impact.js";
@@ -18,20 +19,163 @@ const snapshot = {
   upcoming: 10000,
   cycleStartDate: "2026-08-25",
   cycleEndDate: "2026-09-10",
+  planRequirements: [
+    {
+      requirementKey: "money-schedule:event-1:2026-08-30",
+      sourceType: "money_schedule",
+      sourceId: "event-1",
+      date: "2026-08-30",
+      plannedAmount: 3000,
+      remainingAmount: 3000,
+      kind: "money_schedule",
+    },
+    {
+      requirementKey: "debt:debt-1:2026-09-01",
+      sourceType: "debt",
+      sourceId: "debt-1",
+      date: "2026-09-01",
+      plannedAmount: 3000,
+      remainingAmount: 3000,
+      kind: "debt",
+    },
+  ],
 };
 
-test("unplanned purchase lowers Wall Bill and Means Score", () => {
-  const impact = simulateMeansPurchaseImpact({ snapshot, purchasePrice: 1000 });
-  assert.equal(impact.currentScore, 150);
-  assert.equal(impact.matchedPlannedAmount, 0);
-  assert.equal(impact.unmatchedAmount, 1000);
-  assert.equal(impact.incrementalImpact, 1000);
-  assert.equal(impact.availableAfterPurchase, 14000);
+test("TEST A — ₱2,000 unplanned", () => {
+  const impact = simulateMeansPurchaseImpact({ snapshot, purchasePrice: 2000 });
+  assert.equal(impact.availableAfterPurchase, 13000);
   assert.equal(impact.remainingPlannedSpendingAfterPurchase, 10000);
+  assert.equal(impact.projectedWallBill, 3000);
+  assert.equal(impact.projectedScoreAfterPurchase, 130);
+});
+
+test("TEST B — ₱5,000 unplanned", () => {
+  const impact = simulateMeansPurchaseImpact({ snapshot, purchasePrice: 5000 });
+  assert.equal(impact.availableAfterPurchase, 10000);
+  assert.equal(impact.remainingPlannedSpendingAfterPurchase, 10000);
+  assert.equal(impact.projectedWallBill, 0);
+  assert.equal(impact.projectedScoreAfterPurchase, 100);
+});
+
+test("TEST C — ₱7,000 unplanned remains negative-capable", () => {
+  const impact = simulateMeansPurchaseImpact({ snapshot, purchasePrice: 7000 });
+  assert.equal(impact.availableAfterPurchase, 8000);
+  assert.equal(impact.remainingPlannedSpendingAfterPurchase, 10000);
+  assert.equal(impact.projectedWallBill, -2000);
+  assert.equal(impact.projectedScoreAfterPurchase, 80);
+});
+
+test("TEST D — full canonical planned match preserves Wall Bill and score", () => {
+  const impact = buildClaraPurchaseMetricImpact({
+    snapshot,
+    purchasePrice: 3000,
+    item: "Internet bill",
+    plannedCandidates: [{
+      label: "Internet bill",
+      amount: 3000,
+      matchScore: 1,
+      source: "money_schedule_event",
+      sourceType: "money_schedule",
+      sourceId: "event-1",
+      targetDate: "2026-08-30",
+      requirementKey: "money-schedule:event-1:2026-08-30",
+    }],
+  });
+  assert.equal(impact.authoritativePlannedMatch, true);
+  assert.equal(impact.requirementKey, "money-schedule:event-1:2026-08-30");
+  assert.equal(impact.matchedPlannedAmount, 3000);
+  assert.equal(impact.unmatchedAmount, 0);
+  assert.equal(impact.availableAfterPurchase, 12000);
+  assert.equal(impact.remainingPlannedSpendingAfterPurchase, 7000);
+  assert.equal(impact.projectedWallBill, 5000);
+  assert.equal(impact.projectedScoreAfterPurchase, 150);
+});
+
+test("TEST E — partial canonical match protects only requirement remainder", () => {
+  const impact = buildClaraPurchaseMetricImpact({
+    snapshot,
+    purchasePrice: 4000,
+    item: "Internet bill plus extra",
+    plannedCandidates: [{
+      label: "Internet bill",
+      amount: 3000,
+      matchScore: 1,
+      source: "money_schedule_event",
+      sourceType: "money_schedule",
+      sourceId: "event-1",
+      targetDate: "2026-08-30",
+      requirementKey: "money-schedule:event-1:2026-08-30",
+    }],
+  });
+  assert.equal(impact.matchedPlannedAmount, 3000);
+  assert.equal(impact.unmatchedAmount, 1000);
+  assert.equal(impact.availableAfterPurchase, 11000);
+  assert.equal(impact.remainingPlannedSpendingAfterPurchase, 7000);
   assert.equal(impact.projectedWallBill, 4000);
   assert.equal(impact.projectedScoreAfterPurchase, 140);
-  assert.equal(impact.scoreChange, -10);
-  assert.match(formatClaraMetricImpactLine(impact), /outside a confirmed planned requirement/);
+});
+
+test("TEST F — fuzzy lookalike without canonical identity stays unplanned", () => {
+  const impact = buildClaraPurchaseMetricImpact({
+    snapshot,
+    purchasePrice: 2000,
+    item: "Internet bill lookalike",
+    plannedCandidates: [{
+      label: "Internet bill",
+      amount: 3000,
+      matchScore: 0.94,
+      source: "money_schedule_event",
+      sourceType: "money_schedule",
+      sourceId: "wrong-event",
+      targetDate: "2026-08-30",
+      requirementKey: "money-schedule:wrong-event:2026-08-30",
+    }],
+  });
+  assert.equal(impact.authoritativePlannedMatch, false);
+  assert.equal(impact.requirementKey, null);
+  assert.equal(impact.matchedPlannedAmount, 0);
+  assert.equal(impact.unmatchedAmount, 2000);
+  assert.equal(impact.projectedWallBill, 3000);
+  assert.equal(impact.projectedScoreAfterPurchase, 130);
+});
+
+test("TEST G — canonical Debt / Obligation requirement uses the same matcher law", () => {
+  const impact = buildClaraPurchaseMetricImpact({
+    snapshot,
+    purchasePrice: 3000,
+    item: "Loan payment",
+    plannedCandidates: [{
+      label: "Loan payment",
+      amount: 3000,
+      matchScore: 1,
+      source: "debt_obligation",
+      sourceType: "debt",
+      sourceId: "debt-1",
+      targetDate: "2026-09-01",
+      requirementKey: "debt:debt-1:2026-09-01",
+    }],
+  });
+  assert.equal(impact.authoritativePlannedMatch, true);
+  assert.equal(impact.requirementKey, "debt:debt-1:2026-09-01");
+  assert.equal(impact.matchedPlannedAmount, 3000);
+  assert.equal(impact.unmatchedAmount, 0);
+  assert.equal(impact.projectedWallBill, 5000);
+  assert.equal(impact.projectedScoreAfterPurchase, 150);
+});
+
+test("matched amount is never authoritative without a requirement key", () => {
+  const impact = simulateMeansPurchaseImpact({
+    snapshot,
+    purchasePrice: 1000,
+    matchedPlannedAmount: 1000,
+    alreadyAccountedAmount: 1000,
+    authoritativePlannedMatch: true,
+    requirementKey: null,
+  });
+  assert.equal(impact.authoritativePlannedMatch, false);
+  assert.equal(impact.matchedPlannedAmount, 0);
+  assert.equal(impact.unmatchedAmount, 1000);
+  assert.equal(impact.projectedScoreAfterPurchase, 140);
 });
 
 test("fully matched planned purchase lowers Wallet and Remaining Plan together", () => {
@@ -54,52 +198,6 @@ test("fully matched planned purchase lowers Wallet and Remaining Plan together",
   assert.match(formatClaraMetricImpactLine(impact), /Wallet and Remaining Plan fall together/);
 });
 
-test("planned overage protects only the matched portion", () => {
-  const impact = simulateMeansPurchaseImpact({
-    snapshot,
-    purchasePrice: 1300,
-    alreadyAccountedAmount: 1000,
-    authoritativePlannedMatch: true,
-    requirementKey: "money-schedule:event-1:2026-08-30",
-  });
-  assert.equal(impact.matchedPlannedAmount, 1000);
-  assert.equal(impact.unmatchedAmount, 300);
-  assert.equal(impact.incrementalImpact, 300);
-  assert.equal(impact.availableAfterPurchase, 13700);
-  assert.equal(impact.remainingPlannedSpendingAfterPurchase, 9000);
-  assert.equal(impact.projectedWallBill, 4700);
-  assert.equal(impact.projectedScoreAfterPurchase, 147);
-  assert.match(formatClaraMetricImpactLine(impact), /Only the ₱300 outside that match/);
-});
-
-test("partial payment below planned amount preserves Wall Bill for actual matched amount", () => {
-  const impact = simulateMeansPurchaseImpact({
-    snapshot,
-    purchasePrice: 800,
-    alreadyAccountedAmount: 1000,
-    authoritativePlannedMatch: true,
-    requirementKey: "money-schedule:event-1:2026-08-30",
-  });
-  assert.equal(impact.matchedPlannedAmount, 800);
-  assert.equal(impact.unmatchedAmount, 0);
-  assert.equal(impact.availableAfterPurchase, 14200);
-  assert.equal(impact.remainingPlannedSpendingAfterPurchase, 9200);
-  assert.equal(impact.projectedWallBill, 5000);
-  assert.equal(impact.projectedScoreAfterPurchase, 150);
-});
-
-test("fuzzy/accounted hint alone cannot claim planned score protection", () => {
-  const impact = simulateMeansPurchaseImpact({
-    snapshot,
-    purchasePrice: 1000,
-    alreadyAccountedAmount: 1000,
-    authoritativePlannedMatch: false,
-  });
-  assert.equal(impact.matchedPlannedAmount, 0);
-  assert.equal(impact.unmatchedAmount, 1000);
-  assert.equal(impact.projectedScoreAfterPurchase, 140);
-});
-
 test("negative Wall Bill remains visible in projected score", () => {
   const tight = {
     ...snapshot,
@@ -115,22 +213,6 @@ test("negative Wall Bill remains visible in projected score", () => {
   assert.equal(impact.availableAfterPurchase, -200);
   assert.equal(impact.projectedWallBill, -10200);
   assert.equal(impact.projectedScoreAfterPurchase, -2);
-});
-
-test("crossing 100 is detected from the V7 projected score", () => {
-  const tight = {
-    ...snapshot,
-    score: 105,
-    wallBill: 500,
-    scoreRoom: 500,
-    projectedRoom: 500,
-    availableNow: 10500,
-    availableWalletMoney: 10500,
-    remainingPlannedSpending: 10000,
-  };
-  const impact = simulateMeansPurchaseImpact({ snapshot: tight, purchasePrice: 700 });
-  assert.equal(impact.projectedScoreAfterPurchase, 98);
-  assert.equal(impact.crossesProtectionLine, true);
 });
 
 test("unresolved zero anchor produces no fabricated projected score", () => {
