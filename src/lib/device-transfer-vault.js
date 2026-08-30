@@ -21,6 +21,16 @@ import {
   getLocalRecordsByUser,
 } from "./localFinanceStore";
 import { restoreClaraLocalDataFromFile } from "./local-data-export";
+import {
+  MEANS_BASELINE_RECORD_KIND,
+  meansCycleBaselineRecordId,
+} from "./clara-means-baseline-repository";
+import {
+  assertSuccessfulFinancialContextMigration,
+  buildFinancialContextMigrationSnapshot,
+  normalizePreparedFinancialContext,
+  reconcileFinancialContextMigration,
+} from "./clara-financial-context-migration";
 
 const RECOVERY_DB_NAME = "clara_device_transfer_recovery";
 const RECOVERY_DB_VERSION = 1;
@@ -29,6 +39,10 @@ const LAST_TRANSFER_KEY = "clara_last_device_transfer_v1";
 
 function text(value) {
   return String(value ?? "").trim();
+}
+
+function dateKey(value) {
+  return text(value).slice(0, 10);
 }
 
 function requestToPromise(request) {
@@ -87,9 +101,7 @@ async function getRecoveryRecord(id) {
   try {
     const transaction = db.transaction(RECOVERY_STORE, "readonly");
     const completed = transactionToPromise(transaction);
-    const value = await requestToPromise(
-      transaction.objectStore(RECOVERY_STORE).get(id)
-    );
+    const value = await requestToPromise(transaction.objectStore(RECOVERY_STORE).get(id));
     await completed;
     return value || null;
   } finally {
@@ -139,9 +151,7 @@ function storeCount(snapshot, storeName) {
 }
 
 function preferenceRecords(snapshot) {
-  return normalizeStoreRecords(
-    getFinanceDatabase(snapshot)?.stores?.private_preferences
-  );
+  return normalizeStoreRecords(getFinanceDatabase(snapshot)?.stores?.private_preferences);
 }
 
 function streakDaysFromSnapshot(snapshot) {
@@ -211,7 +221,18 @@ export async function createDeviceTransferSnapshot({ user, profile } = {}) {
     includeDeviceOnly: true,
     requireCompleteExport: true,
   });
-  const snapshot = withoutNotificationDatabase(fullSnapshot);
+  const activeVaultId = text(getActiveLocalVaultId());
+  const financialContext = await buildFinancialContextMigrationSnapshot({
+    profile,
+    vaultId: activeVaultId,
+  });
+  const snapshot = {
+    ...withoutNotificationDatabase(fullSnapshot),
+    financial_context: {
+      ...financialContext,
+      accountId: text(getBackendAccountId(user)) || null,
+    },
+  };
   return {
     snapshot,
     summary: buildDeviceTransferSummary(snapshot),
@@ -240,23 +261,48 @@ function rewriteRecordReferences(value, idMap, orderedIds) {
   return value;
 }
 
+function isMeansBaselineRecord(storeName, record = {}) {
+  if (storeName !== "private_preferences") return false;
+  const kind = text(record?.recordKind || record?.recordType || record?.kind);
+  return kind === MEANS_BASELINE_RECORD_KIND || text(record?.id).startsWith("means-cycle-baseline:");
+}
+
+function transferredFinanceRecordId(storeName, record, targetVaultId) {
+  const oldId = text(record?.id);
+  if (!oldId) return "";
+  if (!isMeansBaselineRecord(storeName, record)) {
+    return `transfer:${targetVaultId}:${oldId}`;
+  }
+
+  const cycleStart = dateKey(record?.cycleStart || record?.cycle_start || record?.baseline?.cycleStart);
+  const cycleEnd = dateKey(record?.cycleEnd || record?.cycle_end || record?.baseline?.cycleEnd);
+  if (!cycleStart || !cycleEnd) {
+    throw new Error("A transferred Means baseline is missing its deterministic cycle identity.");
+  }
+  return meansCycleBaselineRecordId(targetVaultId, cycleStart, cycleEnd);
+}
+
 function namespaceTransferredFinanceRecordIds(prepared, targetVaultId) {
   const financeDatabase = getFinanceDatabase(prepared);
   if (!financeDatabase) return prepared;
 
-  const records = Object.entries(financeDatabase.stores || {}).flatMap(
+  const recordEntries = Object.entries(financeDatabase.stores || {}).flatMap(
     ([storeName, store]) =>
-      storeName === "metadata" ? [] : normalizeStoreRecords(store)
+      storeName === "metadata"
+        ? []
+        : normalizeStoreRecords(store).map((record) => ({ storeName, record }))
   );
   const idMap = new Map(
-    records
-      .map((record) => text(record?.id))
+    recordEntries
+      .map(({ storeName, record }) => {
+        const oldId = text(record?.id);
+        return oldId
+          ? [oldId, transferredFinanceRecordId(storeName, record, targetVaultId)]
+          : null;
+      })
       .filter(Boolean)
-      .map((oldId) => [oldId, `transfer:${targetVaultId}:${oldId}`])
   );
-  const orderedIds = [...idMap.keys()].sort(
-    (left, right) => right.length - left.length
-  );
+  const orderedIds = [...idMap.keys()].sort((left, right) => right.length - left.length);
 
   return {
     ...prepared,
@@ -445,6 +491,7 @@ export async function importDeviceTransferIntoNewVault(snapshot, { user, profile
   }
 
   validateClaraCloudSnapshot(snapshot, accountId);
+  const sourceFinancialSnapshot = snapshot?.financial_context || null;
   const newVaultId = createLocalVaultId();
   const recoveryId = `device-transfer-recovery:${accountId}:${Date.now()}`;
   const recoverySnapshot = await buildClaraCloudVaultSnapshot({
@@ -457,8 +504,9 @@ export async function importDeviceTransferIntoNewVault(snapshot, { user, profile
     targetVaultId: newVaultId,
     includeDeviceOnly: true,
   });
+  const normalization = normalizePreparedFinancialContext(basePrepared);
   const transferPrepared = namespaceTransferredFinanceRecordIds(
-    basePrepared,
+    normalization.prepared,
     newVaultId
   );
   const recoveryPrepared = prepareCloudSnapshotForRestore(recoverySnapshot, {
@@ -479,6 +527,11 @@ export async function importDeviceTransferIntoNewVault(snapshot, { user, profile
     createdAt: new Date().toISOString(),
     recoverySnapshot,
     transferredKeys,
+    sourceFinancialSnapshot,
+    normalization: {
+      normalized: normalization.normalized,
+      unresolved: normalization.unresolved,
+    },
     status: "staging",
   });
 
@@ -500,14 +553,9 @@ export async function importDeviceTransferIntoNewVault(snapshot, { user, profile
     }
     await assertFinanceTransferIntegrity(transferPrepared, newVaultId);
 
-    switchAccountVault({
-      accountId,
-      accountEmail: user?.email || null,
-      vaultId: newVaultId,
-      previousMapping,
-    });
-    vaultSwitched = true;
-
+    // Stage device-owned context before activation so Money Schedule / Income Hub / baseline
+    // compatibility keys are available to the canonical financial engine. Rollback restores
+    // the receiving vault's original storage if any later verification fails.
     storageWriteStarted = true;
     const storageResult = await restoreClaraLocalDataFromFile(
       restoreFileLike(storageOnly(transferPrepared))
@@ -520,6 +568,32 @@ export async function importDeviceTransferIntoNewVault(snapshot, { user, profile
     }
     const verifiedStorageKeys = verifyTransferredStorage(transferPrepared);
 
+    const destinationFinancialSnapshot = await buildFinancialContextMigrationSnapshot({
+      profile,
+      vaultId: newVaultId,
+    });
+    const migrationResult = reconcileFinancialContextMigration({
+      source: sourceFinancialSnapshot,
+      destination: destinationFinancialSnapshot,
+      unresolved: [
+        ...normalization.unresolved,
+        ...(!sourceFinancialSnapshot ? [{ code: "missing_source_financial_context" }] : []),
+      ],
+      sourceVaultId: sourceFinancialSnapshot?.localVaultId || snapshot?.source_vault_id || null,
+      destinationVaultId: newVaultId,
+    });
+    assertSuccessfulFinancialContextMigration(migrationResult);
+
+    // Permanent account activation is the final step, after record, storage, and canonical
+    // financial semantic reconciliation have all passed.
+    switchAccountVault({
+      accountId,
+      accountEmail: user?.email || null,
+      vaultId: newVaultId,
+      previousMapping,
+    });
+    vaultSwitched = true;
+
     const metadata = {
       recoveryId,
       accountId,
@@ -529,12 +603,16 @@ export async function importDeviceTransferIntoNewVault(snapshot, { user, profile
       transferredKeys,
       verifiedStorageKeys,
       verifiedFinancialRecords: actualRecords,
+      financialMigration: migrationResult,
+      normalizedLegacyRelationships: normalization.normalized.length,
     };
     writeLastTransferMetadata(metadata);
     await saveRecoveryRecord({
       ...(await getRecoveryRecord(recoveryId)),
       status: "completed",
       completedAt: new Date().toISOString(),
+      destinationFinancialSnapshot,
+      financialMigration: migrationResult,
     });
 
     return {
@@ -544,6 +622,7 @@ export async function importDeviceTransferIntoNewVault(snapshot, { user, profile
       expectedRecords,
       actualRecords,
       verifiedStorageKeys,
+      migrationResult,
       restoreResult: storageResult,
     };
   } catch (error) {
@@ -568,6 +647,7 @@ export async function importDeviceTransferIntoNewVault(snapshot, { user, profile
         status: "rolled_back_after_failure",
         failedAt: new Date().toISOString(),
         failureMessage: error?.message || "Transfer failed.",
+        financialMigration: error?.migrationResult || null,
       });
     } catch (rollbackError) {
       error.rollbackError = rollbackError;
