@@ -3,6 +3,7 @@ import { addBuyCheckExpense } from "@/lib/clara-buy-check-expense-repository";
 import { saveAvoidedSpendingDecision } from "@/lib/clara-buy-check-impact-ledger";
 import { buildClaraBuyCheckPaymentImpact } from "@/lib/clara-buy-check-payment-impact";
 import { buildClaraInstallmentObligationPayload } from "@/lib/clara-buy-check-installment-obligation";
+import { payDebtObligationFromWallet } from "@/lib/debtPaymentRepository";
 import { upsertDebtObligation } from "@/lib/debtObligationStore";
 import { getEffectiveDemoFinanceLocalUserId } from "@/lib/demo/activeDemoProfile";
 import useClaraBuyCheckBudgetFlow from "./useClaraBuyCheckBudgetFlow.js";
@@ -58,6 +59,12 @@ function paymentStructureFromEvidence(evidence = {}) {
     frequency: clean(evidence.frequency || "monthly") || "monthly",
     fees: Math.max(0, Number(evidence.fees) || 0),
   };
+}
+
+function debtRequirementIdentity(requirementKey = "") {
+  const match = clean(requirementKey).match(/^debt:(.+):(\d{4}-\d{2}-\d{2})$/);
+  if (!match) return null;
+  return { debtId: match[1], dueDate: match[2] };
 }
 
 function decisionPanelState({
@@ -329,43 +336,55 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
         const requirementKey = hasAuthoritativePlannedMatch
           ? clean(metricImpact?.requirementKey)
           : null;
+        const debtIdentity = debtRequirementIdentity(requirementKey);
 
-        await addBuyCheckExpense(localUserId, {
-          item: purchase.item,
-          reason: purchase.reason,
-          amount,
-          category: purchase.category,
-          wallet_id: wallet.id,
-          date: getPHDateString(),
-          notes: purchase.reason,
-          need_type: normalizeNeedType(purchase.reason, purchase.category),
-          planning_status: planningStatus,
-          unplanned_reason:
-            unmatchedAmount > 0
-              ? `Ask Before You Spend — ${purchase.reason}`
-              : null,
-          budget_id: purchase.budgetId || null,
-          budget_name: purchase.budgetName || null,
-          budget_category: purchase.category,
-          source: "local",
-          syncStatus: "local_only",
-          means_requirement_key: requirementKey,
-          means_matched_planned_amount: matchedPlannedAmount,
-          means_unmatched_amount: unmatchedAmount,
-          // Legacy diagnostic fields are retained, but they now mirror the authoritative
-          // event result instead of fuzzy discovery.
-          means_accounted_amount: matchedPlannedAmount,
-          means_incremental_impact: unmatchedAmount,
-          means_accounted_source: metricImpact?.impactSource || "unplanned",
-          means_accounted_key: metricImpact?.impactKey || null,
-          means_accounted_target_date: metricImpact?.targetDate || null,
-          means_accounted_until: metricImpact?.offsetUntil || null,
-          means_metric_score_before: metricImpact?.currentScore ?? null,
-          means_metric_score_after:
-            metricImpact?.projectedScoreAfterPurchase ?? null,
-        }, {
-          budgetId: "",
-        });
+        if (debtIdentity) {
+          await payDebtObligationFromWallet(localUserId, debtIdentity.debtId, {
+            walletId: wallet.id,
+            amount,
+            dueDate: debtIdentity.dueDate,
+            meansRequirementKey: requirementKey,
+            meansMatchedPlannedAmount: matchedPlannedAmount,
+            meansUnmatchedAmount: unmatchedAmount,
+          });
+        } else {
+          await addBuyCheckExpense(localUserId, {
+            item: purchase.item,
+            reason: purchase.reason,
+            amount,
+            category: purchase.category,
+            wallet_id: wallet.id,
+            date: getPHDateString(),
+            notes: purchase.reason,
+            need_type: normalizeNeedType(purchase.reason, purchase.category),
+            planning_status: planningStatus,
+            unplanned_reason:
+              unmatchedAmount > 0
+                ? `Ask Before You Spend — ${purchase.reason}`
+                : null,
+            budget_id: purchase.budgetId || null,
+            budget_name: purchase.budgetName || null,
+            budget_category: purchase.category,
+            source: "local",
+            syncStatus: "local_only",
+            means_requirement_key: requirementKey,
+            means_matched_planned_amount: matchedPlannedAmount,
+            means_unmatched_amount: unmatchedAmount,
+            // Legacy diagnostic fields are retained, but they now mirror the authoritative
+            // event result instead of fuzzy discovery.
+            means_accounted_amount: matchedPlannedAmount,
+            means_incremental_impact: unmatchedAmount,
+            means_accounted_source: metricImpact?.impactSource || "unplanned",
+            means_accounted_key: metricImpact?.impactKey || null,
+            means_accounted_target_date: metricImpact?.targetDate || null,
+            means_accounted_until: metricImpact?.offsetUntil || null,
+            means_metric_score_before: metricImpact?.currentScore ?? null,
+            means_metric_score_after:
+              metricImpact?.projectedScoreAfterPurchase ?? null,
+          }, {
+            budgetId: "",
+          });
+        }
 
         const memoryPayload = {
           source: "buy_check_buy",
@@ -398,8 +417,10 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
           error: "",
           result: {
             choice: "buy",
-            title: "Expense logged",
-            message: `${purchase.item} was added to your transactions and deducted from ${wallet.name}.`,
+            title: debtIdentity ? "Debt payment logged" : "Expense logged",
+            message: debtIdentity
+              ? `${purchase.item} was recorded against the matched Debt / Obligation and deducted from ${wallet.name}.`
+              : `${purchase.item} was added to your transactions and deducted from ${wallet.name}.`,
           },
         }));
         return true;
