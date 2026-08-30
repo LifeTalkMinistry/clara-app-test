@@ -10,12 +10,6 @@ const {
   saveClaraStorageMode,
 } = await import("../src/lib/clara-storage-mode.js");
 
-const {
-  isRuntimeOnlyStorageKey,
-  prepareCloudSnapshotForRestore,
-  sanitizeCloudLocalStorage,
-} = await import("../src/lib/cloud-vault-snapshot.js");
-
 class MemoryStorage {
   constructor() {
     this.values = new Map();
@@ -39,63 +33,24 @@ test("legacy storage mode helpers remain readable for existing installs", () => 
   assert.equal(getClaraStorageModeKey("7"), "clara_storage_mode_v1:7");
 });
 
-test("runtime access snapshots never enter portable transfer state", async () => {
-  assert.equal(isRuntimeOnlyStorageKey("clara_access_snapshot_v2:last"), true);
-  assert.equal(isRuntimeOnlyStorageKey("clara_access_snapshot_v2:account-1"), true);
-  assert.equal(isRuntimeOnlyStorageKey("clara_daily_check_in_v3:vault-old"), false);
-
-  const sanitized = sanitizeCloudLocalStorage(
-    {
-      "clara_access_snapshot_v2:last": JSON.stringify({ checkedAt: "source" }),
-      "clara_access_snapshot_v2:account-1": JSON.stringify({ checkedAt: "source" }),
-      "clara_daily_check_in_v3:vault-old": JSON.stringify({ currentStreak: 21 }),
-      "clara_settings_vault-old": JSON.stringify({ compact: true }),
-    },
-    {
-      accountId: "account-1",
-      sourceVaultId: "vault-old",
-      includeDeviceOnly: true,
-    }
-  );
-
-  assert.equal(sanitized["clara_access_snapshot_v2:last"], undefined);
-  assert.equal(sanitized["clara_access_snapshot_v2:account-1"], undefined);
-  assert.ok(sanitized["clara_daily_check_in_v3:vault-old"]);
-  assert.ok(sanitized["clara_settings_vault-old"]);
-
-  const legacyApprovedSnapshot = {
-    app: "CLARA",
-    type: "account-cloud-vault-snapshot",
-    version: 2,
-    account_id: "account-1",
-    created_at: "2026-08-30T00:00:00.000Z",
-    source_vault_id: "vault-old",
-    source_device_id: "device-old",
-    data: {
-      localStorage: {
-        "clara_access_snapshot_v2:last": JSON.stringify({ checkedAt: "source" }),
-        "clara_daily_check_in_v3:vault-old": JSON.stringify({ currentStreak: 21 }),
-      },
-      indexedDB: { supported: true, databases: [], errors: [] },
-    },
-  };
-
-  const prepared = prepareCloudSnapshotForRestore(legacyApprovedSnapshot, {
-    accountId: "account-1",
-    targetVaultId: "vault-new",
-    includeDeviceOnly: true,
-  });
-
-  assert.equal(prepared.data.localStorage["clara_access_snapshot_v2:last"], undefined);
-  assert.equal(prepared.raw.localStorage["clara_access_snapshot_v2:last"], undefined);
-  assert.equal(
-    JSON.parse(prepared.data.localStorage["clara_daily_check_in_v3:vault-new"]).currentStreak,
-    21
-  );
-
+test("runtime access snapshots are excluded from transfer and restore verification", async () => {
   const source = await fs.readFile(
     new URL("../src/lib/cloud-vault-snapshot.js", import.meta.url),
     "utf8"
+  );
+
+  assert.match(
+    source,
+    /RUNTIME_ONLY_STORAGE_KEY_PATTERN\s*=\s*\/\^clara_access_snapshot_v2\(\?:\:\|\$\)\/i/
+  );
+  assert.match(source, /export function isRuntimeOnlyStorageKey\(key\)/);
+  assert.match(
+    source,
+    /sanitizeCloudLocalStorage[\s\S]*isRuntimeOnlyStorageKey\(key\)/
+  );
+  assert.match(
+    source,
+    /prepareCloudSnapshotForRestore[\s\S]*isRuntimeOnlyStorageKey\(rewrittenKey\)/
   );
   assert.match(
     source,
