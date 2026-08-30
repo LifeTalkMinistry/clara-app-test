@@ -110,6 +110,17 @@ export async function payDebtObligationFromWallet(localUserId, debtId, options =
   const walletId = clean(options.walletId || options.wallet_id);
   const paymentAmount = Math.max(toNumber(options.amount), 0);
   const maxSpendable = Math.max(toNumber(options.maxSpendable), 0);
+  const meansRequirementKey = clean(
+    options.meansRequirementKey || options.means_requirement_key
+  );
+  const meansMatchedPlannedAmount = Math.max(
+    toNumber(options.meansMatchedPlannedAmount ?? options.means_matched_planned_amount),
+    0
+  );
+  const meansUnmatchedAmount = Math.max(
+    toNumber(options.meansUnmatchedAmount ?? options.means_unmatched_amount),
+    0
+  );
   const historical = Boolean(
     options.historical || options.isHistorical || options.historical_payment
   );
@@ -174,6 +185,12 @@ export async function payDebtObligationFromWallet(localUserId, debtId, options =
         wallet_id: walletId,
         dueDate: dueDate || null,
         due_date: dueDate || null,
+        meansRequirementKey: meansRequirementKey || null,
+        means_requirement_key: meansRequirementKey || null,
+        meansMatchedPlannedAmount,
+        means_matched_planned_amount: meansMatchedPlannedAmount,
+        meansUnmatchedAmount,
+        means_unmatched_amount: meansUnmatchedAmount,
         paidAt: actualPaidAt,
         paid_at: actualPaidAt,
         recordedAt: now,
@@ -285,6 +302,12 @@ export async function payDebtObligationFromWallet(localUserId, debtId, options =
         debtObligationId: safeDebtId,
         debt_payment_id: paymentId,
         debtPaymentId: paymentId,
+        meansRequirementKey: meansRequirementKey || null,
+        means_requirement_key: meansRequirementKey || null,
+        meansMatchedPlannedAmount,
+        means_matched_planned_amount: meansMatchedPlannedAmount,
+        meansUnmatchedAmount,
+        means_unmatched_amount: meansUnmatchedAmount,
         non_editable: true,
         nonEditable: true,
         historical,
