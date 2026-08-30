@@ -30,6 +30,8 @@ jobs:
           node --check src/lib/clara-means-cycle-baseline.js
           node --check src/lib/clara-means-authority.js
           node --check src/lib/clara-means-baseline-repository.js
+          node --check src/lib/clara-financial-context-migration.js
+          node --check src/lib/device-transfer-vault.js
           node --check src/lib/clara-master-pay-cycle-repository.js
           node --check src/lib/clara-money-schedule-repository.js
           node --check src/lib/scheduleEventOwnership.js
@@ -53,6 +55,9 @@ jobs:
           node --test tests/means-baseline-durability-regression.test.mjs
           node --test tests/means-score-plan-actual-separation.test.mjs
           node --test tests/means-authority-no-legacy-repair-workflow.test.mjs
+
+      - name: Full financial migration lifecycle A-M
+        run: node --test tests/device-transfer-financial-context-integration.test.mjs
 
       - name: Existing application regression suite
         run: npm test
