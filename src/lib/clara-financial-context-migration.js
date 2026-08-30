@@ -321,10 +321,9 @@ export async function buildFinancialContextMigrationSnapshot({
   const owner = text(vaultId);
   if (!owner) throw new Error("A vault id is required for financial migration reconciliation.");
 
-  const [meansAuthority, financeRepository, financeStore, financialEngine] = await Promise.all([
+  const [meansAuthority, financeRepository, financialEngine] = await Promise.all([
     import("./clara-means-authority.js"),
     import("./financeRepository.js"),
-    import("./localFinanceStore.js"),
     import("../utils/financialEngine.js"),
   ]);
 
@@ -415,10 +414,13 @@ function equalNullableNumber(left, right, epsilon) {
 
 function sameCycle(left, right) {
   if (!left || !right) return !left && !right;
+  // Finance record IDs are deliberately namespaced per destination vault so the
+  // rollback-preserved source and staged destination can coexist in the same global
+  // IndexedDB key space. The financial-cycle invariant is the authoritative period;
+  // the physical source record ID is diagnostic metadata and may legitimately differ.
   return (
     dateKey(left.cycleStart) === dateKey(right.cycleStart) &&
-    dateKey(left.cycleEnd) === dateKey(right.cycleEnd) &&
-    text(left.sourceId) === text(right.sourceId)
+    dateKey(left.cycleEnd) === dateKey(right.cycleEnd)
   );
 }
 
