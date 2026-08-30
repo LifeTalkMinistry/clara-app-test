@@ -179,9 +179,6 @@ function routineCandidates({ item, assistantContext, snapshot }) {
         targetDate: cursor,
         impactKey: clean(entry?.id) || `routine:${cursor}:${normalizedPhrase(label)}`,
         offsetUntil: horizon,
-        // Discovery remains fuzzy. This key is only a canonical lookup hint; it is not
-        // authoritative until it is found in snapshot.planRequirements and matched by
-        // matchMeansOutflowToRequirement().
         authoritativeMatch: false,
         requirementKey: `money-routine:${routineId}:${cursor}`,
       });
@@ -235,8 +232,6 @@ function scheduledEventCandidates({ item, assistantContext, snapshot }) {
       targetDate: date,
       impactKey: eventId || `event:${date}:${normalizedPhrase(label)}`,
       offsetUntil: date,
-      // Fuzzy discovery is never fulfillment authority. The key below must resolve to
-      // a live canonical plan requirement before any matched amount is protected.
       authoritativeMatch: false,
       requirementKey: eventId ? `money-schedule:${eventId}:${date}` : null,
     }];
@@ -307,7 +302,7 @@ function choosePlannedCandidate(args = {}) {
 }
 
 function statusForScore(score) {
-  if (!Number.isFinite(Number(score))) return null;
+  if (score == null || !Number.isFinite(Number(score))) return null;
   const value = Number(score);
   if (value >= 10000) return "Diamond";
   if (value >= 5000) return "Gold";
@@ -339,7 +334,7 @@ function simulateMeansPurchaseImpact({
   const price = Math.max(0, toNumber(purchasePrice));
   if (!(price > 0) || !snapshot || typeof snapshot !== "object") return null;
 
-  const currentScore = Number(snapshot.score);
+  const currentScore = snapshot.score == null ? NaN : Number(snapshot.score);
   const cycle100Anchor = Math.max(
     0,
     toNumber(snapshot.cycle100Anchor ?? snapshot.requiredRunway)
@@ -495,8 +490,11 @@ function peso(value = 0) {
 
 function formatClaraMetricImpactLine(impact = {}) {
   if (!impact?.purchaseSimulationApplied) return "";
-  const before = Number.isFinite(Number(impact.currentScore)) ? Number(impact.currentScore) : null;
-  const after = Number.isFinite(Number(impact.projectedScoreAfterPurchase))
+  const before = impact.currentScore != null && Number.isFinite(Number(impact.currentScore))
+    ? Number(impact.currentScore)
+    : null;
+  const after = impact.projectedScoreAfterPurchase != null &&
+      Number.isFinite(Number(impact.projectedScoreAfterPurchase))
     ? Number(impact.projectedScoreAfterPurchase)
     : null;
   const price = Math.max(0, Number(impact.purchasePrice) || 0);
