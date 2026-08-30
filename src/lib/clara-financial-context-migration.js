@@ -343,6 +343,30 @@ export function normalizePreparedFinancialContext(prepared) {
     return transaction;
   });
 
+  // If there is no exact active-cycle evidence in the package, preserve the older
+  // conservative behavior: any legacy plan-shaped expense without stable identity
+  // remains unresolved. This keeps unknown-cycle transfers fail-closed while allowing
+  // exact V7 cycle evidence to safely ignore genuinely historical ambiguity.
+  if (!activeCycle) {
+    normalizeStoreRecords(stores.expenses).forEach((expense) => {
+      if (explicitRequirementKey(expense) || !hasLegacyPlanIdentitySignal(expense)) return;
+      const eventId = text(
+        expense?.moneyScheduleEventId ||
+          expense?.money_schedule_event_id ||
+          expense?.scheduleEventId ||
+          expense?.schedule_event_id
+      );
+      pushUnresolved({
+        code: eventId && scheduleDateConflicts.has(eventId)
+          ? "ambiguous_schedule_occurrence"
+          : "legacy_requirement_identity_unresolved",
+        storeName: "expenses",
+        recordId: text(expense?.id),
+        ...(eventId && scheduleDateConflicts.has(eventId) ? { sourceId: eventId } : {}),
+      });
+    });
+  }
+
   stores.expenses = {
     ...stores.expenses,
     records: normalizeStoreRecords(stores.expenses).map((record) =>
