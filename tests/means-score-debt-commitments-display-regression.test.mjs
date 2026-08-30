@@ -47,9 +47,12 @@ test("fully paid current-cycle debt leaves no remaining ORB debt commitment", ()
 });
 
 test("canonical snapshot does not add carried obligations to debt commitments", () => {
+  // The live snapshot breakdown now comes directly from the same canonical
+  // requirement rows that own Remaining Planned Spending. Do not force it back
+  // to a parallel occurrence-derived display total.
   assert.match(
     source,
-    /const debtUpcoming = calculateMeansOutstandingDebtCommitments\(debtOccurrences\);/
+    /const debtUpcoming = requirements\s*\.filter\(\(entry\) => entry\.kind === "debt"\)\s*\.reduce\(\(sum, entry\) => sum \+ nonNegative\(entry\.remainingAmount\), 0\);/
   );
   assert.doesNotMatch(source, /baselineState\.carriedObligations/);
   assert.doesNotMatch(source, /confirmedCarriedDebt/);
