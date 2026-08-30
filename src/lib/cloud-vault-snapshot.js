@@ -22,12 +22,17 @@ const FORBIDDEN_STORAGE_KEYS = new Set([
 ]);
 const SECRET_KEY_PATTERN = /(access[_-]?token|refresh[_-]?token|password|jwt|auth[_-]?session|admin[_-]?session)/i;
 const DEVICE_ONLY_STORAGE_KEY_PATTERN = /^clara_daily_check_in_/i;
+const RUNTIME_ONLY_STORAGE_KEY_PATTERN = /^clara_access_snapshot_v2(?::|$)/i;
 const CLOUD_RESTORE_CLEAR_PATTERN = /^(clara_(?!backend_|local_vault_id_v1$|active_local_vault_v1$|account_vault_directory_v1$|sync_device_id_v1$)|life_profile|money|wallet|budget|expense|transaction|savings|emergency|finance|daily_tip|guide|onboarding|learning_hub|game_progress)/i;
 
 const text = (value) => String(value ?? "").trim();
 
 export function isDeviceOnlyStorageKey(key) {
   return DEVICE_ONLY_STORAGE_KEY_PATTERN.test(text(key));
+}
+
+export function isRuntimeOnlyStorageKey(key) {
+  return RUNTIME_ONLY_STORAGE_KEY_PATTERN.test(text(key));
 }
 
 function randomId() {
@@ -89,6 +94,7 @@ export function sanitizeCloudLocalStorage(
       !key ||
       FORBIDDEN_STORAGE_KEYS.has(key) ||
       SECRET_KEY_PATTERN.test(key) ||
+      isRuntimeOnlyStorageKey(key) ||
       (!includeDeviceOnly && isDeviceOnlyStorageKey(key))
     ) return;
     if (
@@ -164,8 +170,10 @@ function collectTransferSourceIntegrityErrors(fullExport = {}) {
     ? fullExport.skipped.localStorage
     : [];
   skippedLocalStorage.forEach((entry) => {
+    const key = text(entry?.key);
+    if (isRuntimeOnlyStorageKey(key)) return;
     errors.push(
-      `localStorage ${text(entry?.key) || "entry"}: ${text(entry?.reason) || "could not be read"}`
+      `localStorage ${key || "entry"}: ${text(entry?.reason) || "could not be read"}`
     );
   });
 
@@ -357,7 +365,6 @@ export function mergeClaraCloudSnapshots(localSnapshot, remoteSnapshot) {
       ),
     });
   });
-
   return {
     ...newer,
     created_at: new Date().toISOString(),
@@ -413,6 +420,7 @@ export function prepareCloudSnapshotForRestore(
     if (
       FORBIDDEN_STORAGE_KEYS.has(rewrittenKey) ||
       SECRET_KEY_PATTERN.test(rewrittenKey) ||
+      isRuntimeOnlyStorageKey(rewrittenKey) ||
       (!includeDeviceOnly && isDeviceOnlyStorageKey(rewrittenKey))
     ) return;
     localStorageEntries[rewrittenKey] = replaceVaultText(value, sourceVaultId, target);
@@ -461,6 +469,7 @@ function clearCloudRestoreStorage(
     if (
       FORBIDDEN_STORAGE_KEYS.has(key) ||
       SECRET_KEY_PATTERN.test(key) ||
+      isRuntimeOnlyStorageKey(key) ||
       (!includeDeviceOnly && isDeviceOnlyStorageKey(key)) ||
       !CLOUD_RESTORE_CLEAR_PATTERN.test(key)
     ) {
