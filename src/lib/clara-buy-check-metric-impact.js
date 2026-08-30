@@ -8,6 +8,7 @@ import {
   financialWeekdayIndex,
   normalizeFinancialDateKey,
 } from "./clara-financial-day.js";
+import { matchMeansOutflowToRequirement } from "./clara-means-cycle-baseline.js";
 
 const STOP_WORDS = new Set([
   "a", "an", "and", "buy", "buying", "for", "get", "i", "item", "my", "of", "pay",
@@ -70,6 +71,71 @@ function ownerFromContext(context = {}) {
   );
 }
 
+function planRequirements(snapshot = {}) {
+  return Array.isArray(snapshot?.planRequirements)
+    ? snapshot.planRequirements
+    : Array.isArray(snapshot?.baselineContributions)
+      ? snapshot.baselineContributions
+      : [];
+}
+
+function requirementIdentity(requirement = {}) {
+  return clean(
+    requirement?.requirementKey ||
+      requirement?.requirement_key ||
+      requirement?.id
+  );
+}
+
+function requirementSourceId(requirement = {}) {
+  return clean(requirement?.sourceId || requirement?.source_id);
+}
+
+function requirementDate(requirement = {}) {
+  return normalizeFinancialDateKey(
+    requirement?.date || requirement?.dueDate || requirement?.due_date
+  );
+}
+
+function resolveCanonicalRequirement(candidate = null, snapshot = {}) {
+  if (!candidate) return null;
+  const requirements = planRequirements(snapshot);
+  if (!requirements.length) return null;
+
+  const suppliedKey = clean(candidate?.requirementKey);
+  if (suppliedKey) {
+    const exact = requirements.find(
+      (requirement) => requirementIdentity(requirement) === suppliedKey
+    );
+    if (exact) return exact;
+  }
+
+  const sourceId = clean(candidate?.sourceId);
+  const date = normalizeFinancialDateKey(candidate?.targetDate);
+  const sourceType = clean(candidate?.sourceType || candidate?.kind).toLowerCase();
+  if (!sourceId) return null;
+
+  const sameSource = requirements.filter((requirement) => {
+    if (requirementSourceId(requirement) !== sourceId) return false;
+    if (sourceType) {
+      const requirementType = clean(
+        requirement?.sourceType || requirement?.source_type || requirement?.kind
+      ).toLowerCase();
+      if (requirementType && requirementType !== sourceType) return false;
+    }
+    return true;
+  });
+
+  if (date) {
+    const exactDate = sameSource.find(
+      (requirement) => requirementDate(requirement) === date
+    );
+    if (exactDate) return exactDate;
+  }
+
+  return sameSource.length === 1 ? sameSource[0] : null;
+}
+
 function routineCandidates({ item, assistantContext, snapshot }) {
   if (typeof window === "undefined") return [];
   let routine = assistantContext?.moneyRoutine || assistantContext?.moneyScheduleRoutine || null;
@@ -86,6 +152,7 @@ function routineCandidates({ item, assistantContext, snapshot }) {
   const horizon = normalizeFinancialDateKey(snapshot?.cycleEndDate || snapshot?.horizonDate) ||
     addFinancialDays(today, 31);
   const candidates = [];
+  const routineId = clean(routine?.id) || "routine";
 
   for (let cursor = today; cursor && cursor < horizon; cursor = addFinancialDays(cursor, 1)) {
     const weekdayIndex = financialWeekdayIndex(cursor);
@@ -104,15 +171,19 @@ function routineCandidates({ item, assistantContext, snapshot }) {
       if (score < 0.72 || !(amount > 0)) return;
       candidates.push({
         source: "money_schedule_routine",
+        sourceType: "money_schedule",
+        sourceId: routineId,
         label,
         amount,
         matchScore: score,
         targetDate: cursor,
         impactKey: clean(entry?.id) || `routine:${cursor}:${normalizedPhrase(label)}`,
         offsetUntil: horizon,
-        // Fuzzy item similarity is useful context, but it is not authoritative fulfillment.
+        // Discovery remains fuzzy. This key is only a canonical lookup hint; it is not
+        // authoritative until it is found in snapshot.planRequirements and matched by
+        // matchMeansOutflowToRequirement().
         authoritativeMatch: false,
-        requirementKey: null,
+        requirementKey: `money-routine:${routineId}:${cursor}`,
       });
     });
   }
@@ -156,17 +227,67 @@ function scheduledEventCandidates({ item, assistantContext, snapshot }) {
     const eventId = clean(event?.id);
     return [{
       source: "money_schedule_event",
+      sourceType: "money_schedule",
+      sourceId: eventId,
       label,
       amount,
       matchScore: score,
       targetDate: date,
       impactKey: eventId || `event:${date}:${normalizedPhrase(label)}`,
       offsetUntil: date,
-      // Discovery by fuzzy text is not enough to claim fulfillment. The caller must
-      // explicitly confirm/persist this requirement identity before score protection.
+      // Fuzzy discovery is never fulfillment authority. The key below must resolve to
+      // a live canonical plan requirement before any matched amount is protected.
       authoritativeMatch: false,
       requirementKey: eventId ? `money-schedule:${eventId}:${date}` : null,
     }];
+  });
+}
+
+function debtCandidates({ item, assistantContext, snapshot }) {
+  const supplied =
+    assistantContext?.debtObligations ||
+    assistantContext?.obligations ||
+    assistantContext?.debts ||
+    assistantContext?.debtRecords ||
+    [];
+  if (!Array.isArray(supplied) || !supplied.length) return [];
+
+  const requirements = planRequirements(snapshot).filter((requirement) =>
+    clean(requirement?.sourceType || requirement?.source_type || requirement?.kind)
+      .toLowerCase() === "debt"
+  );
+
+  return supplied.flatMap((record) => {
+    const sourceId = clean(
+      record?.id || record?.debtId || record?.debt_id || record?.obligationId || record?.obligation_id
+    );
+    const label = clean(
+      record?.title || record?.name || record?.label || record?.creditor ||
+      record?.debtName || record?.debt_name || record?.description
+    );
+    const score = matchScore(item, label);
+    if (!sourceId || !label || score < 0.72) return [];
+
+    return requirements
+      .filter((requirement) =>
+        requirementSourceId(requirement) === sourceId &&
+        toNumber(requirement?.remainingAmount ?? requirement?.remaining_amount ?? requirement?.amount) > 0
+      )
+      .map((requirement) => ({
+        source: "debt_obligation",
+        sourceType: "debt",
+        sourceId,
+        label,
+        amount: toNumber(
+          requirement?.remainingAmount ?? requirement?.remaining_amount ?? requirement?.amount
+        ),
+        matchScore: score,
+        targetDate: requirementDate(requirement),
+        impactKey: sourceId,
+        offsetUntil: requirementDate(requirement),
+        authoritativeMatch: false,
+        requirementKey: requirementIdentity(requirement),
+      }));
   });
 }
 
@@ -175,6 +296,7 @@ function choosePlannedCandidate(args = {}) {
   const candidates = supplied || [
     ...routineCandidates(args),
     ...scheduledEventCandidates(args),
+    ...debtCandidates(args),
   ];
   return candidates
     .filter((candidate) => Number(candidate?.amount) > 0)
@@ -240,11 +362,14 @@ function simulateMeansPurchaseImpact({
       : availableNow - remainingPlannedSpending;
 
   const accounted = Math.max(0, toNumber(alreadyAccountedAmount));
+  const hasRequirementIdentity = Boolean(clean(requirementKey));
   const explicitMatch = matchedPlannedAmount == null
-    ? authoritativePlannedMatch
+    ? authoritativePlannedMatch && hasRequirementIdentity
       ? accounted
       : 0
-    : Math.max(0, toNumber(matchedPlannedAmount));
+    : authoritativePlannedMatch && hasRequirementIdentity
+      ? Math.max(0, toNumber(matchedPlannedAmount))
+      : 0;
   const matched = Math.min(price, remainingPlannedSpending, explicitMatch);
   const unmatched = Math.max(price - matched, 0);
 
@@ -272,11 +397,11 @@ function simulateMeansPurchaseImpact({
     matchedPlannedAmount: matched,
     unmatchedAmount: unmatched,
     incrementalImpact: unmatched,
-    authoritativePlannedMatch: matched > 0,
+    authoritativePlannedMatch: matched > 0 && hasRequirementIdentity,
     impactSource,
     impactLabel,
     impactKey,
-    requirementKey: requirementKey || null,
+    requirementKey: matched > 0 && hasRequirementIdentity ? clean(requirementKey) : null,
     targetDate,
     offsetUntil,
     currentScore: Number.isFinite(currentScore) ? currentScore : null,
@@ -331,22 +456,33 @@ function buildClaraPurchaseMetricImpact({
   const snapshot = suppliedSnapshot ||
     (typeof window !== "undefined" ? window.__claraCanonicalMeansSnapshot__ : null);
   if (!snapshot || typeof snapshot !== "object" || !Object.keys(snapshot).length) return null;
+
   const candidate = choosePlannedCandidate({ item, assistantContext, snapshot, plannedCandidates });
+  const requirement = resolveCanonicalRequirement(candidate, snapshot);
+  const requirementKey = requirementIdentity(requirement);
+  const match = matchMeansOutflowToRequirement({
+    actualOutflowAmount: purchasePrice,
+    requirement,
+    requirementKey,
+  });
   const authoritativeMatch = Boolean(
-    candidate?.authoritativeMatch === true &&
-      clean(candidate?.requirementKey)
+    requirementKey && Number(match?.matchedPlannedAmount || 0) > 0
   );
+
   return simulateMeansPurchaseImpact({
     snapshot,
     purchasePrice,
     alreadyAccountedAmount: candidate?.amount || 0,
+    matchedPlannedAmount: match?.matchedPlannedAmount || 0,
     authoritativePlannedMatch: authoritativeMatch,
-    impactSource: authoritativeMatch ? candidate?.source || "planned" : "unplanned",
+    impactSource: authoritativeMatch
+      ? clean(requirement?.sourceType || requirement?.source_type || candidate?.source || "planned")
+      : "unplanned",
     impactLabel: candidate?.label || "",
     impactKey: candidate?.impactKey || "",
-    requirementKey: authoritativeMatch ? candidate?.requirementKey : null,
-    targetDate: candidate?.targetDate || null,
-    offsetUntil: candidate?.offsetUntil || null,
+    requirementKey: authoritativeMatch ? requirementKey : null,
+    targetDate: requirementDate(requirement) || candidate?.targetDate || null,
+    offsetUntil: candidate?.offsetUntil || requirementDate(requirement) || null,
   });
 }
 
