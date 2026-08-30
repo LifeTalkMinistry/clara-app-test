@@ -215,6 +215,7 @@ export default function ClaraWalletOverlayV2({
   const [lentAmountInput, setLentAmountInput] = useState("");
   const [lentPromisedDateInput, setLentPromisedDateInput] = useState("");
   const [draftLentPerson, setDraftLentPerson] = useState("");
+  const [draftLentOrigin, setDraftLentOrigin] = useState("");
   const [draftLentSourceWalletId, setDraftLentSourceWalletId] = useState("");
   const [draftLentAmount, setDraftLentAmount] = useState(0);
   const [draftLentPromisedDate, setDraftLentPromisedDate] = useState("");
@@ -305,6 +306,7 @@ export default function ClaraWalletOverlayV2({
     setLentAmountInput("");
     setLentPromisedDateInput("");
     setDraftLentPerson("");
+    setDraftLentOrigin("");
     setDraftLentSourceWalletId("");
     setDraftLentAmount(0);
     setDraftLentPromisedDate("");
@@ -361,10 +363,20 @@ export default function ClaraWalletOverlayV2({
     setDraftLentPerson(person);
     setLentPersonInput("");
     setError("");
-    setPhase("lent_source");
+    setPhase("lent_origin");
+  };
+
+  const selectLentOrigin = (origin) => {
+    const nextOrigin = origin === "standalone" ? "standalone" : "wallet";
+    setDraftLentOrigin(nextOrigin);
+    setDraftLentSourceWalletId("");
+    setLentAmountInput("");
+    setError("");
+    setPhase(nextOrigin === "wallet" ? "lent_source" : "lent_amount");
   };
 
   const selectLentSourceWallet = (walletId) => {
+    setDraftLentOrigin("wallet");
     setDraftLentSourceWalletId(String(walletId));
     setLentAmountInput("");
     setError("");
@@ -377,13 +389,19 @@ export default function ClaraWalletOverlayV2({
       setError("Enter an amount greater than zero.");
       return;
     }
-    if (!selectedLentSourceWallet) {
-      setError("Choose the wallet where this money came from.");
-      setPhase("lent_source");
-      return;
-    }
-    if (amount > selectedLentSourceWallet.spendableBalance) {
-      setError(`${selectedLentSourceWallet.name} only has ${money(selectedLentSourceWallet.spendableBalance)} spendable.`);
+    if (draftLentOrigin === "wallet") {
+      if (!selectedLentSourceWallet) {
+        setError("Choose the wallet where this money came from.");
+        setPhase("lent_source");
+        return;
+      }
+      if (amount > selectedLentSourceWallet.spendableBalance) {
+        setError(`${selectedLentSourceWallet.name} only has ${money(selectedLentSourceWallet.spendableBalance)} spendable.`);
+        return;
+      }
+    } else if (draftLentOrigin !== "standalone") {
+      setError("Choose whether this Money Lent came from one of your wallets or should stand alone.");
+      setPhase("lent_origin");
       return;
     }
     setDraftLentAmount(amount);
@@ -436,8 +454,15 @@ export default function ClaraWalletOverlayV2({
   };
 
   const createMoneyLentWallet = async () => {
-    if (busy || !draftLentPerson || !selectedLentSourceWallet?.id || draftLentAmount <= 0 || !draftLentPromisedDate) return;
-    if (draftLentAmount > selectedLentSourceWallet.spendableBalance) {
+    const isStandaloneLent = draftLentOrigin === "standalone";
+    if (
+      busy ||
+      !draftLentPerson ||
+      draftLentAmount <= 0 ||
+      !draftLentPromisedDate ||
+      (!isStandaloneLent && !selectedLentSourceWallet?.id)
+    ) return;
+    if (!isStandaloneLent && draftLentAmount > selectedLentSourceWallet.spendableBalance) {
       setError(`${selectedLentSourceWallet.name} only has ${money(selectedLentSourceWallet.spendableBalance)} spendable.`);
       return;
     }
@@ -453,16 +478,27 @@ export default function ClaraWalletOverlayV2({
         name: draftLentPerson,
         type: "money_lent",
         wallet_type: "money_lent",
-        balance: 0,
-        current_balance: 0,
-        starting_balance: 0,
+        balance: isStandaloneLent ? draftLentAmount : 0,
+        current_balance: isStandaloneLent ? draftLentAmount : 0,
+        starting_balance: isStandaloneLent ? draftLentAmount : 0,
         borrower_name: draftLentPerson,
         lent_amount: draftLentAmount,
         original_lent_amount: draftLentAmount,
         promised_payment_date: draftLentPromisedDate,
         promisedPaymentDate: draftLentPromisedDate,
-        source_wallet_id: selectedLentSourceWallet.id,
-        source_wallet_name: selectedLentSourceWallet.name,
+        ...(isStandaloneLent
+          ? {
+              receivable_origin: "standalone",
+              receivableOrigin: "standalone",
+              declared_existing_receivable: true,
+              declaredExistingReceivable: true,
+            }
+          : {
+              source_wallet_id: selectedLentSourceWallet.id,
+              source_wallet_name: selectedLentSourceWallet.name,
+              receivable_origin: "wallet_transfer",
+              receivableOrigin: "wallet_transfer",
+            }),
         other_protected_amount: draftLentAmount,
         otherProtectedAmount: draftLentAmount,
         is_spendable: false,
@@ -472,7 +508,9 @@ export default function ClaraWalletOverlayV2({
         spendability_block_reason: "Money Lent is owned by you but currently held by someone else.",
         spendabilityBlockReason: "Money Lent is owned by you but currently held by someone else.",
         status: "outstanding",
-        source: "wallet_chat_money_lent",
+        source: isStandaloneLent
+          ? "wallet_chat_money_lent_standalone"
+          : "wallet_chat_money_lent",
         created_at: now,
         updated_at: now,
       });
@@ -480,23 +518,28 @@ export default function ClaraWalletOverlayV2({
       const lentWalletId = getWalletId(created);
       if (!lentWalletId) throw new Error("CLARA created the record but could not identify the Money Lent wallet.");
 
-      await transferBetweenWallets(localUserId, {
-        from_wallet_id: selectedLentSourceWallet.id,
-        to_wallet_id: lentWalletId,
-        amount: draftLentAmount,
-        notes: `Money lent to ${draftLentPerson}. Promised payment: ${draftLentPromisedDate}.`,
-        transfer_purpose: "money_lent",
-        borrower_name: draftLentPerson,
-        promised_payment_date: draftLentPromisedDate,
-        created_at: now,
-      });
+      if (!isStandaloneLent) {
+        await transferBetweenWallets(localUserId, {
+          from_wallet_id: selectedLentSourceWallet.id,
+          to_wallet_id: lentWalletId,
+          amount: draftLentAmount,
+          notes: `Money lent to ${draftLentPerson}. Promised payment: ${draftLentPromisedDate}.`,
+          transfer_purpose: "money_lent",
+          borrower_name: draftLentPerson,
+          promised_payment_date: draftLentPromisedDate,
+          created_at: now,
+        });
+      }
 
       dispatchWalletRefresh();
       setPhase("lent_created");
+      const readyAction = isStandaloneLent
+        ? "money_lent_standalone_created"
+        : "money_lent_created";
       if (typeof window !== "undefined") {
-        window.setTimeout(() => onWalletReady?.({ wallet: created, action: "money_lent_created" }), 260);
+        window.setTimeout(() => onWalletReady?.({ wallet: created, action: readyAction }), 260);
       } else {
-        onWalletReady?.({ wallet: created, action: "money_lent_created" });
+        onWalletReady?.({ wallet: created, action: readyAction });
       }
     } catch (nextError) {
       if (created) {
@@ -641,6 +684,22 @@ export default function ClaraWalletOverlayV2({
             </>
           ) : null}
 
+          {phase === "lent_origin" ? (
+            <>
+              <Bubble role="user">{draftLentPerson}</Bubble>
+              <Bubble>How should I record this Money Lent?</Bubble>
+              <div className="grid gap-2.5">
+                <ChoiceButton onClick={() => selectLentOrigin("wallet")}>
+                  From one of my wallets · Deduct it there
+                </ChoiceButton>
+                <ChoiceButton onClick={() => selectLentOrigin("standalone")}>
+                  Standalone Money Lent · Don’t deduct another wallet
+                </ChoiceButton>
+                <ChoiceButton onClick={() => setPhase("lent_person")} secondary>Back</ChoiceButton>
+              </div>
+            </>
+          ) : null}
+
           {phase === "lent_source" ? (
             <>
               <Bubble role="user">{draftLentPerson}</Bubble>
@@ -652,12 +711,15 @@ export default function ClaraWalletOverlayV2({
                       {entry.name} · {money(entry.spendableBalance)} spendable
                     </ChoiceButton>
                   ))}
-                  <ChoiceButton onClick={() => setPhase("lent_person")} secondary>Back</ChoiceButton>
+                  <ChoiceButton onClick={() => setPhase("lent_origin")} secondary>Back</ChoiceButton>
                 </div>
               ) : (
                 <>
                   <Bubble>I can’t find a wallet with spendable money to lend from.</Bubble>
-                  <ChoiceButton onClick={() => setPhase("create_type")} secondary>Back</ChoiceButton>
+                  <div className="grid gap-2.5">
+                    <ChoiceButton onClick={() => selectLentOrigin("standalone")}>Create standalone Money Lent instead</ChoiceButton>
+                    <ChoiceButton onClick={() => setPhase("lent_origin")} secondary>Back</ChoiceButton>
+                  </div>
                 </>
               )}
             </>
@@ -665,7 +727,11 @@ export default function ClaraWalletOverlayV2({
 
           {phase === "lent_amount" ? (
             <>
-              <Bubble role="user">{selectedLentSourceWallet?.name || "Wallet"}</Bubble>
+              <Bubble role="user">
+                {draftLentOrigin === "standalone"
+                  ? "Standalone · No source wallet"
+                  : selectedLentSourceWallet?.name || "Wallet"}
+              </Bubble>
               <Bubble>How much did {draftLentPerson} borrow from you?</Bubble>
               <div className="mt-auto pt-3">
                 <Composer value={lentAmountInput} onChange={setLentAmountInput} onSubmit={submitLentAmount} placeholder="Amount lent" inputMode="decimal" disabled={busy} />
@@ -687,7 +753,9 @@ export default function ClaraWalletOverlayV2({
             <>
               <Bubble role="user">{formatPromisedDate(draftLentPromisedDate)}</Bubble>
               <Bubble>
-                Record {money(draftLentAmount)} as money lent to {draftLentPerson}, taken from {selectedLentSourceWallet?.name || "the selected wallet"}, promised back on {formatPromisedDate(draftLentPromisedDate)}?
+                {draftLentOrigin === "standalone"
+                  ? `Record ${money(draftLentAmount)} as standalone Money Lent to ${draftLentPerson}, promised back on ${formatPromisedDate(draftLentPromisedDate)}? No other wallet will be deducted.`
+                  : `Record ${money(draftLentAmount)} as money lent to ${draftLentPerson}, taken from ${selectedLentSourceWallet?.name || "the selected wallet"}, promised back on ${formatPromisedDate(draftLentPromisedDate)}?`}
               </Bubble>
               <div className="grid grid-cols-2 gap-2.5">
                 <ChoiceButton onClick={createMoneyLentWallet} disabled={busy}>{busy ? "Recording..." : "Record money lent"}</ChoiceButton>
@@ -699,7 +767,9 @@ export default function ClaraWalletOverlayV2({
           {phase === "lent_created" ? (
             <>
               <Bubble>
-                Recorded. {draftLentPerson} has {money(draftLentAmount)} of your money, promised back on {formatPromisedDate(draftLentPromisedDate)}. CLARA will not count it as spendable while it is lent out.
+                {draftLentOrigin === "standalone"
+                  ? `Recorded. ${draftLentPerson} owes you ${money(draftLentAmount)}, promised back on ${formatPromisedDate(draftLentPromisedDate)}. No other wallet was reduced, and CLARA will not count this Money Lent as spendable.`
+                  : `Recorded. ${draftLentPerson} has ${money(draftLentAmount)} of your money, promised back on ${formatPromisedDate(draftLentPromisedDate)}. CLARA will not count it as spendable while it is lent out.`}
               </Bubble>
               <div className="grid gap-2.5">
                 <ChoiceButton onClick={startWalletCreation}>Create another wallet</ChoiceButton>
