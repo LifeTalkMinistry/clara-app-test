@@ -227,14 +227,17 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
       paymentStructure,
       assistantContext,
     });
-    const plannedByMetric = Number(metricImpact?.alreadyAccountedAmount || 0) > 0;
+    const hasAuthoritativePlannedMatch = Boolean(
+      Number(metricImpact?.matchedPlannedAmount || 0) > 0 &&
+      clean(metricImpact?.requirementKey),
+    );
     const purchase = {
       item: clean(base.state?.item),
       price: amount,
       reason: conversationReason,
       purchaseType: paymentStructure ? "installment" : "one_time",
       totalCommitment: paymentStructure?.totalCommitment || amount,
-      planningStatus: plannedByMetric ? "planned" : "unplanned",
+      planningStatus: hasAuthoritativePlannedMatch ? "planned" : "unplanned",
       category: normalizeExpenseCategory(
         `${base.state?.item || ""} ${conversationReason}`,
       ),
@@ -319,6 +322,13 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
         );
         const planningStatus =
           purchase.planningStatus === "planned" ? "planned" : "unplanned";
+        const matchedPlannedAmount = hasAuthoritativePlannedMatch
+          ? Number(metricImpact?.matchedPlannedAmount || 0)
+          : 0;
+        const unmatchedAmount = Number(metricImpact?.unmatchedAmount ?? amount);
+        const requirementKey = hasAuthoritativePlannedMatch
+          ? clean(metricImpact?.requirementKey)
+          : null;
 
         await addBuyCheckExpense(localUserId, {
           item: purchase.item,
@@ -331,7 +341,7 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
           need_type: normalizeNeedType(purchase.reason, purchase.category),
           planning_status: planningStatus,
           unplanned_reason:
-            planningStatus === "unplanned"
+            unmatchedAmount > 0
               ? `Ask Before You Spend — ${purchase.reason}`
               : null,
           budget_id: purchase.budgetId || null,
@@ -339,12 +349,13 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
           budget_category: purchase.category,
           source: "local",
           syncStatus: "local_only",
-          means_accounted_amount: Number(
-            metricImpact?.alreadyAccountedAmount || 0,
-          ),
-          means_incremental_impact: Number(
-            metricImpact?.incrementalImpact ?? amount,
-          ),
+          means_requirement_key: requirementKey,
+          means_matched_planned_amount: matchedPlannedAmount,
+          means_unmatched_amount: unmatchedAmount,
+          // Legacy diagnostic fields are retained, but they now mirror the authoritative
+          // event result instead of fuzzy discovery.
+          means_accounted_amount: matchedPlannedAmount,
+          means_incremental_impact: unmatchedAmount,
           means_accounted_source: metricImpact?.impactSource || "unplanned",
           means_accounted_key: metricImpact?.impactKey || null,
           means_accounted_target_date: metricImpact?.targetDate || null,
@@ -367,6 +378,9 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
           wallet_id: wallet.id,
           wallet_name: wallet.name,
           purchase,
+          means_requirement_key: requirementKey,
+          means_matched_planned_amount: matchedPlannedAmount,
+          means_unmatched_amount: unmatchedAmount,
           created_at: createdAt,
         };
         saveLocalList("clara_buy_check_buy_explanations", memoryPayload);
