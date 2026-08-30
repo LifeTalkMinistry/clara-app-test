@@ -46,6 +46,7 @@ jobs:
           node --test tests/means-score-same-cycle-anchor-recovery.test.mjs
           node --test tests/means-score-owner-key-migration-regression.test.mjs
           node --test tests/buy-check-metric-impact.test.mjs
+          node --test tests/buy-check-preview-commit-consistency.test.mjs
           node --test tests/means-authority-wallet-protection-source.test.mjs
           node --test tests/means-master-cycle-authority.test.mjs
           node --test tests/means-no-retroactive-plan-source.test.mjs
