@@ -1,3 +1,5 @@
+import { financialDateKey, normalizeFinancialDateKey } from "./clara-financial-day.js";
+
 export const CLARA_FINANCIAL_CONTEXT_MIGRATION_VERSION = 1;
 export const CLARA_FINANCIAL_RECONCILIATION_EPSILON = 0.000001;
 
@@ -139,11 +141,71 @@ function withRequirementKey(record, key, evidence) {
   };
 }
 
+function activeCycleFromPrepared(prepared) {
+  const database = financeDatabase(prepared);
+  const today = financialDateKey(new Date());
+  const preferenceRows = normalizeStoreRecords(database?.stores?.private_preferences);
+
+  for (const record of preferenceRows) {
+    const kind = lower(record?.recordKind || record?.recordType || record?.kind);
+    const id = text(record?.id);
+    if (kind !== "means_cycle_baseline" && !id.startsWith("means-cycle-baseline:")) continue;
+
+    const baseline = record?.baseline && typeof record.baseline === "object"
+      ? record.baseline
+      : {};
+    const cycleStart = normalizeFinancialDateKey(
+      record?.cycleStart || record?.cycle_start || baseline?.cycleStart || baseline?.cycle_start
+    );
+    const cycleEnd = normalizeFinancialDateKey(
+      record?.cycleEnd || record?.cycle_end || baseline?.cycleEnd || baseline?.cycle_end
+    );
+    if (cycleStart && cycleEnd && today >= cycleStart && today < cycleEnd) {
+      return { cycleStart, cycleEnd };
+    }
+  }
+
+  return null;
+}
+
+function expenseFinancialDate(expense = {}) {
+  return financialDateKey(
+    expense?.date ||
+      expense?.transaction_date ||
+      expense?.createdAt ||
+      expense?.created_at ||
+      expense?.updatedAt ||
+      expense?.updated_at
+  );
+}
+
+function transactionFinancialDate(transaction = {}) {
+  return financialDateKey(
+    transaction?.transaction_date ||
+      transaction?.transactionDate ||
+      transaction?.date ||
+      transaction?.created_at ||
+      transaction?.createdAt
+  );
+}
+
+function canParticipateInActiveFulfillment(transaction = {}, expense = null, activeCycle = null) {
+  // Without exact active-cycle evidence, fail closed rather than silently relaxing identity rules.
+  if (!activeCycle) return true;
+  if (!expense) return false;
+
+  const date = transactionFinancialDate(transaction) || expenseFinancialDate(expense);
+  if (!date || date < activeCycle.cycleStart || date >= activeCycle.cycleEnd) return false;
+  return Math.abs(signed(transaction?.amount)) > 0;
+}
+
 /**
  * Converts only deterministic legacy requirement representations into the current
  * stable requirement-key contract. It never uses titles, amounts, or planning status
- * as identity. Ambiguous relationships are returned as unresolved and must block
- * transfer activation.
+ * as identity. Ambiguous relationships block activation only when they can participate
+ * in active-cycle fulfillment. Historical ambiguity is preserved byte-for-byte but is
+ * not allowed to veto a migration when the canonical engine would ignore it for the
+ * current cycle.
  */
 export function normalizePreparedFinancialContext(prepared) {
   const database = financeDatabase(prepared);
@@ -152,9 +214,18 @@ export function normalizePreparedFinancialContext(prepared) {
   }
 
   const { byId: scheduleDates, conflicts: scheduleDateConflicts } = scheduleEventDates(prepared);
+  const activeCycle = activeCycleFromPrepared(prepared);
   const normalized = [];
   const unresolved = [];
+  const unresolvedKeys = new Set();
   const stores = {};
+
+  const pushUnresolved = (item) => {
+    const key = [item?.code, item?.storeName, item?.recordId, item?.expenseId].map(text).join("|");
+    if (unresolvedKeys.has(key)) return;
+    unresolvedKeys.add(key);
+    unresolved.push(item);
+  };
 
   for (const [storeName, store] of Object.entries(database.stores || {})) {
     const rows = normalizeStoreRecords(store).map((record) => ({ ...record }));
@@ -176,27 +247,6 @@ export function normalizePreparedFinancialContext(prepared) {
         evidence: derived.evidence,
       });
       return withRequirementKey(record, derived.key, derived.evidence);
-    }
-
-    const eventId = text(
-      record?.moneyScheduleEventId ||
-        record?.money_schedule_event_id ||
-        record?.scheduleEventId ||
-        record?.schedule_event_id
-    );
-    if (eventId && scheduleDateConflicts.has(eventId)) {
-      unresolved.push({
-        code: "ambiguous_schedule_occurrence",
-        storeName,
-        recordId: text(record?.id),
-        sourceId: eventId,
-      });
-    } else if (hasLegacyPlanIdentitySignal(record)) {
-      unresolved.push({
-        code: "legacy_requirement_identity_unresolved",
-        storeName,
-        recordId: text(record?.id),
-      });
     }
     return record;
   };
@@ -221,17 +271,54 @@ export function normalizePreparedFinancialContext(prepared) {
     const expense = expensesById.get(expenseId);
     if (!expense) return transaction;
 
+    const affectsActiveFulfillment = canParticipateInActiveFulfillment(
+      transaction,
+      expense,
+      activeCycle
+    );
     const expenseKey = explicitRequirementKey(expense);
     const transactionKey = explicitRequirementKey(transaction);
+
+    if (affectsActiveFulfillment) {
+      const inspectLegacyAmbiguity = (record, storeName) => {
+        if (explicitRequirementKey(record)) return;
+        const eventId = text(
+          record?.moneyScheduleEventId ||
+            record?.money_schedule_event_id ||
+            record?.scheduleEventId ||
+            record?.schedule_event_id
+        );
+        if (eventId && scheduleDateConflicts.has(eventId)) {
+          pushUnresolved({
+            code: "ambiguous_schedule_occurrence",
+            storeName,
+            recordId: text(record?.id),
+            sourceId: eventId,
+          });
+        } else if (hasLegacyPlanIdentitySignal(record)) {
+          pushUnresolved({
+            code: "legacy_requirement_identity_unresolved",
+            storeName,
+            recordId: text(record?.id),
+          });
+        }
+      };
+
+      inspectLegacyAmbiguity(expense, "expenses");
+      inspectLegacyAmbiguity(transaction, "wallet_transactions");
+    }
+
     if (expenseKey && transactionKey && expenseKey !== transactionKey) {
-      unresolved.push({
-        code: "conflicting_linked_requirement_identity",
-        storeName: "wallet_transactions",
-        recordId: text(transaction?.id),
-        expenseId,
-        expenseRequirementKey: expenseKey,
-        transactionRequirementKey: transactionKey,
-      });
+      if (affectsActiveFulfillment) {
+        pushUnresolved({
+          code: "conflicting_linked_requirement_identity",
+          storeName: "wallet_transactions",
+          recordId: text(transaction?.id),
+          expenseId,
+          expenseRequirementKey: expenseKey,
+          transactionRequirementKey: transactionKey,
+        });
+      }
       return transaction;
     }
     if (!transactionKey && expenseKey) {
@@ -489,9 +576,11 @@ export function reconcileFinancialContextMigration({
 
 export function assertSuccessfulFinancialContextMigration(result) {
   if (result?.status === "success") return result;
+  const firstUnresolvedCode = text(result?.unresolved?.[0]?.code);
+  const unresolvedSuffix = firstUnresolvedCode ? ` (${firstUnresolvedCode})` : "";
   const error = new Error(
     result?.status === "unresolved"
-      ? "Financial migration is unresolved and cannot activate this destination vault safely."
+      ? `Financial migration is unresolved and cannot activate this destination vault safely.${unresolvedSuffix}`
       : "Financial migration reconciliation failed. The destination vault was not activated."
   );
   error.code =
