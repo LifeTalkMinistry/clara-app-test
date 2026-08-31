@@ -68,6 +68,13 @@ function setNativeInputValue(input, value) {
   return true;
 }
 
+function isSilentBinaryUserRow(entry) {
+  if (!(entry instanceof HTMLElement)) return false;
+  const text = clean(entry.textContent);
+  const isUserBubble = String(entry.className || "").includes("justify-end");
+  return isUserBubble && /^(yes|no)$/i.test(text);
+}
+
 export default function ClaraAiEnvironmentOverlayV2(props) {
   const { isActive = false, layoutVariant = "default" } = props || {};
   const guidePreview = layoutVariant === "guide-preview";
@@ -83,6 +90,7 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
   const [observedAssistantText, setObservedAssistantText] = useState("");
   const [settledAssistantText, setSettledAssistantText] = useState("");
   const [interactionMode, setInteractionMode] = useState("text");
+  const [binarySubmitting, setBinarySubmitting] = useState(false);
 
   useEffect(() => {
     if (!isActive) {
@@ -95,6 +103,7 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
       setObservedAssistantText("");
       setSettledAssistantText("");
       setInteractionMode("text");
+      setBinarySubmitting(false);
       if (typingTimerRef.current) window.clearInterval(typingTimerRef.current);
       if (interactionTimerRef.current) window.clearTimeout(interactionTimerRef.current);
       typingTimerRef.current = null;
@@ -113,9 +122,20 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
       const question = root.querySelector('[data-clara-buy-check-active-question="true"]');
       const stack = root.querySelector('[data-clara-ai-message-stack="true"]');
       const stackChildren = stack ? Array.from(stack.children) : [];
+
+      stackChildren.forEach((entry) => {
+        if (!(entry instanceof HTMLElement)) return;
+        if (isSilentBinaryUserRow(entry)) {
+          entry.setAttribute("data-clara-buy-check-silent-binary-choice", "true");
+        } else {
+          entry.removeAttribute("data-clara-buy-check-silent-binary-choice");
+        }
+      });
+
       const lastMessageRow = [...stackChildren].reverse().find((entry) => {
         if (!(entry instanceof HTMLElement)) return false;
         if (entry.hasAttribute("data-clara-buy-check-result-focus")) return false;
+        if (isSilentBinaryUserRow(entry)) return false;
         return Boolean(clean(entry.textContent));
       });
 
@@ -145,8 +165,10 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
   useEffect(() => {
     if (interactionTimerRef.current) window.clearTimeout(interactionTimerRef.current);
     interactionTimerRef.current = window.setTimeout(() => {
+      const nextMode = classifyInteraction(observedAssistantText);
       setSettledAssistantText(observedAssistantText);
-      setInteractionMode(classifyInteraction(observedAssistantText));
+      setInteractionMode(nextMode);
+      if (nextMode !== "binary") setBinarySubmitting(false);
       interactionTimerRef.current = null;
     }, observedAssistantText ? 320 : 0);
 
@@ -255,11 +277,12 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
   };
 
   const submitChoice = (answer) => {
-    if (interactionMode !== "binary") return;
+    if (interactionMode !== "binary" || binarySubmitting) return;
     const root = rootRef.current;
     const form = root?.querySelector('[data-clara-buy-check-react-form="true"]');
     const input = form?.querySelector("input");
     if (!form || !input) return;
+    setBinarySubmitting(true);
     setNativeInputValue(input, answer);
     window.requestAnimationFrame(() => form.requestSubmit?.());
   };
@@ -300,7 +323,7 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
     messageViewport,
   );
   const binaryControlsVisible = Boolean(
-    isActive && !guidePreview && chatReady && conversationStarted && interactionMode === "binary" && messageViewport,
+    isActive && !guidePreview && chatReady && conversationStarted && interactionMode === "binary" && !binarySubmitting && messageViewport,
   );
   const setupPromptVisible = Boolean(
     isActive && !guidePreview && chatReady && conversationStarted && interactionMode === "setup" && messageViewport,
@@ -329,7 +352,8 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
         .clara-buy-check-ready-gate[data-clara-buy-check-interaction-mode="setup"] [data-clara-buy-check-react-form="true"] {
           display: none !important;
         }
-        .clara-buy-check-ready-gate [data-clara-buy-check-setup-replaced="true"] {
+        .clara-buy-check-ready-gate [data-clara-buy-check-setup-replaced="true"],
+        .clara-buy-check-ready-gate [data-clara-buy-check-silent-binary-choice="true"] {
           display: none !important;
         }
       `}</style>
@@ -383,14 +407,16 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
           <button
             type="button"
             onClick={() => submitChoice("Yes")}
-            className="min-h-12 rounded-full border border-blue-300/28 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] px-5 text-[13px] font-black text-white shadow-[0_10px_26px_rgba(23,105,255,0.24)] active:scale-[0.98]"
+            disabled={binarySubmitting}
+            className="min-h-12 rounded-full border border-blue-300/28 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] px-5 text-[13px] font-black text-white shadow-[0_10px_26px_rgba(23,105,255,0.24)] active:scale-[0.98] disabled:opacity-55"
           >
             Yes
           </button>
           <button
             type="button"
             onClick={() => submitChoice("No")}
-            className="min-h-12 rounded-full border border-white/14 bg-white/[0.055] px-5 text-[13px] font-black text-white/92 active:scale-[0.98]"
+            disabled={binarySubmitting}
+            className="min-h-12 rounded-full border border-white/14 bg-white/[0.055] px-5 text-[13px] font-black text-white/92 active:scale-[0.98] disabled:opacity-55"
           >
             No
           </button>
