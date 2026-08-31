@@ -197,7 +197,7 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
       const nextMode = classifyInteraction(observedAssistantText);
       setSettledAssistantText(observedAssistantText);
       setInteractionMode(nextMode);
-      if (nextMode !== "binary") setBinarySubmitting(false);
+      setBinarySubmitting(false);
       interactionTimerRef.current = null;
     }, observedAssistantText ? 320 : 0);
 
