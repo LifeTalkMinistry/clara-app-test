@@ -38,7 +38,7 @@ function classifyInteraction(text = "") {
     /reply yes or no/i.test(source) ||
     /please reply yes or no/i.test(source) ||
     /is that the exact item\?/i.test(source) ||
-    /would you mind telling me why/i.test(source) ||
+    /would you (?:mind telling|like to tell) me why/i.test(source) ||
     /is that correct\?/i.test(source)
   ) {
     return "binary";
