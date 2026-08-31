@@ -3,19 +3,86 @@ import { createPortal } from "react-dom";
 import ClaraAiEnvironmentOverlayCore from "./ClaraAiEnvironmentOverlayCore.jsx";
 
 const READY_PROMPT = "Ready to chat now?";
-const FIRST_GREETING = "Hi! What are you thinking about buying?";
+const FIRST_GREETING = "Hi! What exact item are you thinking about buying? Type the exact name of the item.";
+const GENERIC_MEANS_FAILURE = "I have the amount, but I can’t verify the Means impact right now.";
+const FINANCIAL_SETUP_EVENT = "clara:start-financial-setup";
+
+function clean(value = "") {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function currentMeansSnapshot() {
+  if (typeof window === "undefined") return null;
+  const snapshot = window.__claraCanonicalMeansSnapshot__;
+  return snapshot && typeof snapshot === "object" ? snapshot : null;
+}
+
+function financialSetupIsMissing() {
+  const snapshot = currentMeansSnapshot();
+  if (!snapshot || !Object.keys(snapshot).length) return true;
+  const anchor = Number(snapshot.cycle100Anchor ?? snapshot.requiredRunway ?? 0);
+  const hasCycle = Boolean(snapshot.cycleStartDate || snapshot.cycleEndDate || snapshot.horizonDate);
+  const hasScore = snapshot.score != null && Number.isFinite(Number(snapshot.score));
+  return !(anchor > 0) || !hasCycle || !hasScore;
+}
+
+function classifyInteraction(text = "") {
+  const source = clean(text);
+  if (!source) return "text";
+
+  if (source.includes(GENERIC_MEANS_FAILURE) && financialSetupIsMissing()) {
+    return "setup";
+  }
+
+  if (
+    /reply yes or no/i.test(source) ||
+    /please reply yes or no/i.test(source) ||
+    /is that the exact item\?/i.test(source) ||
+    /would you (?:mind telling|like to tell) me why/i.test(source) ||
+    /is that correct\?/i.test(source)
+  ) {
+    return "binary";
+  }
+
+  if (/how much will you actually pay/i.test(source)) return "numeric";
+  return "text";
+}
+
+function placeholderForConversation(text = "", mode = "text", conversationStarted = false) {
+  const source = clean(text);
+  if (!conversationStarted) return "Type the exact item name";
+  if (mode === "numeric") return "Enter amount";
+  if (/why do you want or need/i.test(source)) return "Type your reason";
+  if (/type the exact item again/i.test(source)) return "Type the exact item name";
+  if (/payment structure/i.test(source)) return "Type the payment structure";
+  return "Type your answer";
+}
+
+function setNativeInputValue(input, value) {
+  if (!input) return false;
+  const descriptor = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value");
+  const setter = descriptor?.set;
+  if (typeof setter === "function") setter.call(input, value);
+  else input.value = value;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  return true;
+}
 
 export default function ClaraAiEnvironmentOverlayV2(props) {
   const { isActive = false, layoutVariant = "default" } = props || {};
   const guidePreview = layoutVariant === "guide-preview";
   const rootRef = useRef(null);
   const typingTimerRef = useRef(null);
+  const interactionTimerRef = useRef(null);
   const [entryAnimationDone, setEntryAnimationDone] = useState(false);
   const [readyText, setReadyText] = useState("");
   const [chatReady, setChatReady] = useState(guidePreview);
   const [openingBoard, setOpeningBoard] = useState(null);
   const [messageViewport, setMessageViewport] = useState(null);
   const [conversationStarted, setConversationStarted] = useState(false);
+  const [observedAssistantText, setObservedAssistantText] = useState("");
+  const [settledAssistantText, setSettledAssistantText] = useState("");
+  const [interactionMode, setInteractionMode] = useState("text");
 
   useEffect(() => {
     if (!isActive) {
@@ -25,8 +92,13 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
       setOpeningBoard(null);
       setMessageViewport(null);
       setConversationStarted(false);
+      setObservedAssistantText("");
+      setSettledAssistantText("");
+      setInteractionMode("text");
       if (typingTimerRef.current) window.clearInterval(typingTimerRef.current);
+      if (interactionTimerRef.current) window.clearTimeout(interactionTimerRef.current);
       typingTimerRef.current = null;
+      interactionTimerRef.current = null;
     }
   }, [guidePreview, isActive]);
 
@@ -40,10 +112,17 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
       const viewport = root.querySelector('[data-clara-ai-message-viewport="true"]');
       const question = root.querySelector('[data-clara-buy-check-active-question="true"]');
       const stack = root.querySelector('[data-clara-ai-message-stack="true"]');
+      const stackChildren = stack ? Array.from(stack.children) : [];
+      const lastMessageRow = [...stackChildren].reverse().find((entry) => {
+        if (!(entry instanceof HTMLElement)) return false;
+        if (entry.hasAttribute("data-clara-buy-check-result-focus")) return false;
+        return Boolean(clean(entry.textContent));
+      });
 
       setOpeningBoard((current) => current === board ? current : board);
       setMessageViewport((current) => current === viewport ? current : viewport);
       setConversationStarted(Boolean(stack));
+      setObservedAssistantText(clean(lastMessageRow?.textContent || ""));
 
       if (!chatReady && question?.className?.includes("opacity-100")) {
         setEntryAnimationDone(true);
@@ -55,12 +134,27 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
     observer.observe(rootRef.current, {
       subtree: true,
       childList: true,
+      characterData: true,
       attributes: true,
       attributeFilter: ["class"],
     });
 
     return () => observer.disconnect();
   }, [chatReady, guidePreview, isActive]);
+
+  useEffect(() => {
+    if (interactionTimerRef.current) window.clearTimeout(interactionTimerRef.current);
+    interactionTimerRef.current = window.setTimeout(() => {
+      setSettledAssistantText(observedAssistantText);
+      setInteractionMode(classifyInteraction(observedAssistantText));
+      interactionTimerRef.current = null;
+    }, observedAssistantText ? 320 : 0);
+
+    return () => {
+      if (interactionTimerRef.current) window.clearTimeout(interactionTimerRef.current);
+      interactionTimerRef.current = null;
+    };
+  }, [observedAssistantText]);
 
   useEffect(() => {
     if (!entryAnimationDone || chatReady || guidePreview) return undefined;
@@ -84,22 +178,111 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
   }, [chatReady, entryAnimationDone, guidePreview]);
 
   useEffect(() => {
-    if (!chatReady || guidePreview || conversationStarted) return undefined;
+    if (!chatReady || guidePreview) return undefined;
     const frame = window.requestAnimationFrame(() => {
       const root = rootRef.current;
       const input = root?.querySelector('[data-clara-buy-check-react-form="true"] input');
       if (!input) return;
-      input.setAttribute("placeholder", "Type the item you want to buy");
-      input.setAttribute("aria-label", "Type the item you want to buy");
-      input.focus?.({ preventScroll: true });
+
+      const placeholder = placeholderForConversation(
+        settledAssistantText,
+        interactionMode,
+        conversationStarted,
+      );
+      input.setAttribute("placeholder", placeholder);
+      input.setAttribute("aria-label", placeholder);
+
+      if (interactionMode === "numeric") {
+        input.setAttribute("inputmode", "decimal");
+        input.setAttribute("pattern", "[0-9.,]*");
+      } else {
+        input.setAttribute("inputmode", "text");
+        input.removeAttribute("pattern");
+      }
+
+      if (interactionMode === "binary" || interactionMode === "setup") {
+        input.blur?.();
+      } else if (!conversationStarted || interactionMode === "numeric") {
+        input.focus?.({ preventScroll: true });
+      }
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [chatReady, conversationStarted, guidePreview]);
+  }, [chatReady, conversationStarted, guidePreview, interactionMode, settledAssistantText]);
+
+  useEffect(() => {
+    if (!chatReady || guidePreview || interactionMode !== "numeric") return undefined;
+    const root = rootRef.current;
+    if (!root) return undefined;
+
+    const blockLetters = (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      if (!target.closest('[data-clara-buy-check-react-form="true"]')) return;
+      if (event.type === "beforeinput") {
+        const data = String(event.data || "");
+        if (data && !/^[0-9.,]+$/.test(data)) event.preventDefault();
+      }
+      if (event.type === "paste") {
+        const pasted = String(event.clipboardData?.getData("text") || "");
+        if (pasted && !/^[0-9.,\s₱]+$/.test(pasted)) event.preventDefault();
+      }
+    };
+
+    root.addEventListener("beforeinput", blockLetters, true);
+    root.addEventListener("paste", blockLetters, true);
+    return () => {
+      root.removeEventListener("beforeinput", blockLetters, true);
+      root.removeEventListener("paste", blockLetters, true);
+    };
+  }, [chatReady, guidePreview, interactionMode]);
+
+  useEffect(() => {
+    if (interactionMode !== "setup") return undefined;
+    const root = rootRef.current;
+    const stack = root?.querySelector('[data-clara-ai-message-stack="true"]');
+    if (!stack) return undefined;
+    const row = [...stack.children].reverse().find((entry) =>
+      entry instanceof HTMLElement && clean(entry.textContent).includes(GENERIC_MEANS_FAILURE)
+    );
+    row?.setAttribute("data-clara-buy-check-setup-replaced", "true");
+    return () => row?.removeAttribute("data-clara-buy-check-setup-replaced");
+  }, [interactionMode, settledAssistantText]);
 
   const startChat = () => {
     if (!entryAnimationDone) return;
     setChatReady(true);
     setReadyText(READY_PROMPT);
+  };
+
+  const submitChoice = (answer) => {
+    if (interactionMode !== "binary") return;
+    const root = rootRef.current;
+    const form = root?.querySelector('[data-clara-buy-check-react-form="true"]');
+    const input = form?.querySelector("input");
+    if (!form || !input) return;
+    setNativeInputValue(input, answer);
+    window.requestAnimationFrame(() => form.requestSubmit?.());
+  };
+
+  const openIncomeHub = () => {
+    const locateAndOpen = () => {
+      const slide = document.querySelector('[data-card-key="investmentFund"]');
+      if (!(slide instanceof HTMLElement)) return false;
+      slide.scrollIntoView?.({ behavior: "smooth", block: "center", inline: "center" });
+      if (slide.getAttribute("data-expanded") !== "true") {
+        const toggle = slide.querySelector('[data-clara-finance-expand-toggle="true"]');
+        if (toggle instanceof HTMLElement) toggle.click();
+      }
+      return true;
+    };
+
+    window.dispatchEvent(new CustomEvent(FINANCIAL_SETUP_EVENT, {
+      detail: { startAt: "investmentFund", source: "ask-before-you-spend" },
+    }));
+    props?.onClose?.();
+    window.setTimeout(() => {
+      if (!locateAndOpen()) window.setTimeout(locateAndOpen, 500);
+    }, 180);
   };
 
   const gateVisible = Boolean(
@@ -116,6 +299,12 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
     !conversationStarted &&
     messageViewport,
   );
+  const binaryControlsVisible = Boolean(
+    isActive && !guidePreview && chatReady && conversationStarted && interactionMode === "binary" && messageViewport,
+  );
+  const setupPromptVisible = Boolean(
+    isActive && !guidePreview && chatReady && conversationStarted && interactionMode === "setup" && messageViewport,
+  );
 
   if (guidePreview) return <ClaraAiEnvironmentOverlayCore {...props} />;
 
@@ -123,6 +312,7 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
     <div
       ref={rootRef}
       data-clara-buy-check-ready-gate={chatReady ? "chat" : "intro"}
+      data-clara-buy-check-interaction-mode={interactionMode}
       className="clara-buy-check-ready-gate"
     >
       <style>{`
@@ -133,6 +323,13 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
           display: none !important;
         }
         .clara-buy-check-ready-gate[data-clara-buy-check-ready-gate="chat"] [data-clara-buy-check-opening-board="true"] {
+          display: none !important;
+        }
+        .clara-buy-check-ready-gate[data-clara-buy-check-interaction-mode="binary"] [data-clara-buy-check-react-form="true"],
+        .clara-buy-check-ready-gate[data-clara-buy-check-interaction-mode="setup"] [data-clara-buy-check-react-form="true"] {
+          display: none !important;
+        }
+        .clara-buy-check-ready-gate [data-clara-buy-check-setup-replaced="true"] {
           display: none !important;
         }
       `}</style>
@@ -173,6 +370,53 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
               {FIRST_GREETING}
             </div>
           </div>
+        </div>,
+        messageViewport,
+      ) : null}
+
+      {binaryControlsVisible ? createPortal(
+        <div
+          data-clara-buy-check-binary-controls="true"
+          className="sticky bottom-2 z-50 mx-2 mt-4 grid grid-cols-2 gap-3 rounded-[24px] border border-blue-200/14 bg-[#040b1a]/96 p-3 shadow-[0_16px_44px_rgba(0,0,0,0.42)] backdrop-blur-2xl"
+          aria-label="Choose Yes or No"
+        >
+          <button
+            type="button"
+            onClick={() => submitChoice("Yes")}
+            className="min-h-12 rounded-full border border-blue-300/28 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] px-5 text-[13px] font-black text-white shadow-[0_10px_26px_rgba(23,105,255,0.24)] active:scale-[0.98]"
+          >
+            Yes
+          </button>
+          <button
+            type="button"
+            onClick={() => submitChoice("No")}
+            className="min-h-12 rounded-full border border-white/14 bg-white/[0.055] px-5 text-[13px] font-black text-white/92 active:scale-[0.98]"
+          >
+            No
+          </button>
+        </div>,
+        messageViewport,
+      ) : null}
+
+      {setupPromptVisible ? createPortal(
+        <div
+          data-clara-buy-check-financial-setup-prompt="true"
+          className="mx-2 mt-3 rounded-[26px] border border-blue-200/18 border-l-2 border-l-[#ffd84a]/55 bg-[#07152d]/96 px-5 py-5 text-left shadow-[0_18px_48px_rgba(0,0,0,0.40)] backdrop-blur-2xl"
+          aria-live="polite"
+        >
+          <p className="text-[14px] font-bold leading-6 text-white/92">
+            Before I can calculate how this purchase affects your Means Score, we need to set up your financial picture first.
+          </p>
+          <p className="mt-2 text-[12px] font-semibold leading-5 text-blue-100/70">
+            Let’s start with Income Hub. Add your income source first, then continue your financial setup from there.
+          </p>
+          <button
+            type="button"
+            onClick={openIncomeHub}
+            className="mt-4 min-h-12 w-full rounded-full border border-blue-300/28 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] px-5 text-[12px] font-black text-white shadow-[0_12px_30px_rgba(23,105,255,0.24)] active:scale-[0.99]"
+          >
+            Start financial setup
+          </button>
         </div>,
         messageViewport,
       ) : null}
