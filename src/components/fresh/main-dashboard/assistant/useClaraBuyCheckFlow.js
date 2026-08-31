@@ -1,8 +1,9 @@
 import useClaraBuyCheckFlowV5 from "./useClaraBuyCheckFlowV5.js";
 
-// Ask Before You Spend remains available to every CLARA user. Only successful
-// Gemini conversation replies use the server-owned daily AI allowance; the
-// user's financial tools, data, and post-choice save actions are never gated.
+// Ask Before You Spend is application-owned. Item, reason permission, reason,
+// payment capture, confirmation, Means impact, and post-choice recording stay
+// local. Gemini is optional and can run at most once, only after the user chose
+// to share a reason, to offer one practical alternative before the final choice.
 export default function useClaraBuyCheckFlow({ assistantContext = {} } = {}) {
   return useClaraBuyCheckFlowV5({ assistantContext });
 }
