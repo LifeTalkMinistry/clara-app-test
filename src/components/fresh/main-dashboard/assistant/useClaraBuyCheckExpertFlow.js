@@ -160,13 +160,13 @@ function paymentConfirmationText(evidence = {}) {
       const future = remaining > 0
         ? `, then ${remaining} more ${source.frequency || "monthly"} payment${remaining === 1 ? "" : "s"} of ₱${payment.toLocaleString("en-PH")}`
         : "";
-      return `Just to confirm: ₱${dueNow.toLocaleString("en-PH")} is due now${future}, for ₱${total.toLocaleString("en-PH")} total. Is that correct?`;
+      return `Just to confirm: ₱${dueNow.toLocaleString("en-PH")} is due now${future}, for ₱${total.toLocaleString("en-PH")} total. Reply Yes or No.`;
     }
   }
 
   const amount = Number(source.price || source.priceCandidate || 0);
   return amount > 0
-    ? `₱${amount.toLocaleString("en-PH")} total. Is that correct?`
+    ? `₱${amount.toLocaleString("en-PH")} total. Is that correct? Reply Yes or No.`
     : "Please type the exact amount you will actually pay.";
 }
 
@@ -354,7 +354,7 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
         evidence,
         intakeStep: INTAKE_STEP.CONFIRM_ITEM,
         conversationTurns: snapshot.conversationTurns + 1,
-        messages: [...snapshot.messages, userMessage, createMessage("clara", `Got it — ${answer}. Is that the exact item?`)],
+        messages: [...snapshot.messages, userMessage, createMessage("clara", `Got it — ${answer}. Is that the exact item? Reply Yes or No.`)],
       });
       return true;
     }
@@ -365,7 +365,7 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
           ...snapshot,
           intakeStep: INTAKE_STEP.REASON_PERMISSION,
           conversationTurns: snapshot.conversationTurns + 1,
-          messages: [...snapshot.messages, userMessage, createMessage("clara", "Great. Would you like to tell me why you want or need it?")],
+          messages: [...snapshot.messages, userMessage, createMessage("clara", "Great. Would you mind telling me why you want or need it? Reply Yes or No.")],
         });
       } else if (no(answer)) {
         setState({
@@ -379,7 +379,7 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
       } else {
         setState({
           ...snapshot,
-          messages: [...snapshot.messages, userMessage, createMessage("clara", "Use the Yes or No buttons so I can lock the item first.")],
+          messages: [...snapshot.messages, userMessage, createMessage("clara", "Please reply Yes or No so I can lock the item first.")],
         });
       }
       return true;
@@ -405,7 +405,7 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
       } else {
         setState({
           ...snapshot,
-          messages: [...snapshot.messages, userMessage, createMessage("clara", "Use the Yes or No buttons. Sharing the reason is optional.")],
+          messages: [...snapshot.messages, userMessage, createMessage("clara", "Please reply Yes or No. Sharing the reason is optional.")],
         });
       }
       return true;
@@ -462,7 +462,7 @@ export default function useClaraBuyCheckExpertFlow({ assistantContext = {} } = {
       if (!yes(answer)) {
         setState({
           ...snapshot,
-          messages: [...snapshot.messages, userMessage, createMessage("clara", "Use the Yes or No buttons so I can confirm the amount before calculating the impact.")],
+          messages: [...snapshot.messages, userMessage, createMessage("clara", "Please reply Yes or No so I can confirm the amount before calculating the impact.")],
         });
         return true;
       }
