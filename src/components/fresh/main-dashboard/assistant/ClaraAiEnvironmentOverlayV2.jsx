@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import ClaraAiEnvironmentOverlayCore from "./ClaraAiEnvironmentOverlayCore.jsx";
 
@@ -75,6 +75,28 @@ function isSilentBinaryUserRow(entry) {
   return isUserBubble && /^(yes|no)$/i.test(text);
 }
 
+function syncIntroComposerGate(root, introActive) {
+  const form = root?.querySelector?.('[data-clara-buy-check-react-form="true"]');
+  if (!(form instanceof HTMLElement)) return;
+
+  if (introActive) {
+    form.dataset.claraBuyCheckIntroSuppressed = "true";
+    form.style.setProperty("display", "none", "important");
+    form.setAttribute("aria-hidden", "true");
+    form.setAttribute("inert", "");
+    const input = form.querySelector("input");
+    input?.blur?.();
+    return;
+  }
+
+  if (form.dataset.claraBuyCheckIntroSuppressed === "true") {
+    delete form.dataset.claraBuyCheckIntroSuppressed;
+    form.style.removeProperty("display");
+    form.removeAttribute("aria-hidden");
+    form.removeAttribute("inert");
+  }
+}
+
 export default function ClaraAiEnvironmentOverlayV2(props) {
   const { isActive = false, layoutVariant = "default" } = props || {};
   const guidePreview = layoutVariant === "guide-preview";
@@ -111,12 +133,19 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
     }
   }, [guidePreview, isActive]);
 
+  useLayoutEffect(() => {
+    if (!isActive || guidePreview) return undefined;
+    syncIntroComposerGate(rootRef.current, !chatReady);
+    return undefined;
+  }, [chatReady, guidePreview, isActive]);
+
   useEffect(() => {
     if (!isActive || guidePreview) return undefined;
 
     const scan = () => {
       const root = rootRef.current;
       if (!root) return;
+      syncIntroComposerGate(root, !chatReady);
       const board = root.querySelector('[data-clara-buy-check-opening-board="true"]');
       const viewport = root.querySelector('[data-clara-ai-message-viewport="true"]');
       const question = root.querySelector('[data-clara-buy-check-active-question="true"]');
@@ -336,11 +365,14 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
       ref={rootRef}
       data-clara-buy-check-ready-gate={chatReady ? "chat" : "intro"}
       data-clara-buy-check-interaction-mode={interactionMode}
+      data-clara-buy-check-runtime="v2-hard-intro-gate"
       className="clara-buy-check-ready-gate"
     >
       <style>{`
         .clara-buy-check-ready-gate[data-clara-buy-check-ready-gate="intro"] [data-clara-buy-check-react-form="true"] {
           display: none !important;
+          visibility: hidden !important;
+          pointer-events: none !important;
         }
         .clara-buy-check-ready-gate [data-clara-buy-check-active-question="true"] {
           display: none !important;
