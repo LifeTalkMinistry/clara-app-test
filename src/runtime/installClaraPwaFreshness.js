@@ -1,5 +1,53 @@
 const RUNTIME_KEY = "__claraPwaFreshnessRuntime__";
-const SERVICE_WORKER_PATH = `${import.meta.env.BASE_URL || "/"}clara-task-reminder-sw.js`;
+const BASE_URL = import.meta.env.BASE_URL || "/";
+const SERVICE_WORKER_PATH = `${BASE_URL}clara-task-reminder-sw.js`;
+const BUILD_INFO_PATH = `${BASE_URL}build-info.json`;
+const BUILD_QUERY = "__clara_build";
+const LAST_FORCED_BUILD_KEY = "clara_last_forced_browser_build";
+
+async function fetchLatestBuildInfo() {
+  try {
+    const response = await fetch(`${BUILD_INFO_PATH}?t=${Date.now()}`, {
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: {
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+      },
+    });
+    if (!response.ok) return null;
+    const payload = await response.json();
+    const commit = String(payload?.commit || "").trim();
+    return commit ? { ...payload, commit } : null;
+  } catch {
+    return null;
+  }
+}
+
+function forceLatestDocument(build) {
+  if (!build || typeof window === "undefined") return false;
+
+  try {
+    const currentUrl = new URL(window.location.href);
+    const currentBuild = currentUrl.searchParams.get(BUILD_QUERY) || "";
+    const lastForcedBuild = sessionStorage.getItem(LAST_FORCED_BUILD_KEY) || "";
+
+    if (currentBuild === build) {
+      sessionStorage.setItem(LAST_FORCED_BUILD_KEY, build);
+      return false;
+    }
+
+    if (lastForcedBuild === build) return false;
+
+    sessionStorage.setItem(LAST_FORCED_BUILD_KEY, build);
+    currentUrl.searchParams.set(BUILD_QUERY, build);
+    currentUrl.searchParams.set("__clara_fresh", String(Date.now()));
+    window.location.replace(currentUrl.href);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 async function refreshWorkerRegistration() {
   if (
@@ -24,17 +72,31 @@ async function refreshWorkerRegistration() {
   }
 }
 
+async function refreshBrowserDocument() {
+  const latest = await fetchLatestBuildInfo();
+  if (!latest?.commit) return;
+  forceLatestDocument(latest.commit);
+}
+
+async function checkForFreshBuild() {
+  await refreshWorkerRegistration();
+  await refreshBrowserDocument();
+}
+
 export function installClaraPwaFreshness() {
   if (typeof window === "undefined" || window[RUNTIME_KEY]) return;
   window[RUNTIME_KEY] = true;
 
-  const check = () => void refreshWorkerRegistration();
+  const check = () => void checkForFreshBuild();
 
   if (document.readyState === "complete") check();
   else window.addEventListener("load", check, { once: true });
 
   window.addEventListener("pageshow", check);
   window.addEventListener("online", check);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) check();
+  });
 }
 
 installClaraPwaFreshness();
