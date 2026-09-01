@@ -120,6 +120,12 @@ function ClaraImpactBoard({ impact, onClose }) {
   );
 }
 
+function introAnimationIsDone(board) {
+  if (!(board instanceof HTMLElement)) return false;
+  const question = board.querySelector('[data-clara-buy-check-active-question="true"]');
+  return Boolean(question?.className?.includes("opacity-100"));
+}
+
 export default function ClaraBuyCheckImpactPortal({
   isActive = false,
   disabled = false,
@@ -129,11 +135,13 @@ export default function ClaraBuyCheckImpactPortal({
   const [open, setOpen] = useState(false);
   const [targets, setTargets] = useState({ board: null, host: null });
   const [impact, setImpact] = useState(() => previewImpact || getCurrentMonthImpact());
+  const [entryAnimationDone, setEntryAnimationDone] = useState(false);
 
   useEffect(() => {
     if (!isActive || disabled) {
       setOpen(false);
       setTargets({ board: null, host: null });
+      setEntryAnimationDone(false);
       return undefined;
     }
 
@@ -141,12 +149,18 @@ export default function ClaraBuyCheckImpactPortal({
       const board = document.querySelector('[data-clara-pause-entry-board="true"]');
       const host = board?.parentElement || null;
       setTargets((current) => (current.board === board && current.host === host ? current : { board, host }));
+      setEntryAnimationDone(introAnimationIsDone(board));
       if (!board || !host) setOpen(false);
     };
 
     syncTargets();
     const observer = new MutationObserver(syncTargets);
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class"],
+    });
     return () => observer.disconnect();
   }, [disabled, isActive]);
 
@@ -199,7 +213,7 @@ export default function ClaraBuyCheckImpactPortal({
 
   return (
     <>
-      {createPortal(
+      {entryAnimationDone ? createPortal(
         <ImpactTrigger
           open={open}
           impact={impact}
@@ -207,7 +221,7 @@ export default function ClaraBuyCheckImpactPortal({
           onToggle={() => setOpen((current) => !current)}
         />,
         targets.board,
-      )}
+      ) : null}
       {open ? createPortal(<ClaraImpactBoard impact={impact} onClose={() => setOpen(false)} />, targets.host) : null}
     </>
   );
