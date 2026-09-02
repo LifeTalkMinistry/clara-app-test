@@ -36,6 +36,41 @@ function measurableRect(element) {
   };
 }
 
+function isVisibleElement(element) {
+  if (!(element instanceof HTMLElement)) return false;
+  if (element.hidden) return false;
+  const style = window.getComputedStyle?.(element);
+  if (style?.display === "none" || style?.visibility === "hidden") return false;
+  const rect = measurableRect(element);
+  return Boolean(rect && (rect.height > 0 || rect.width > 0));
+}
+
+function resolveElement(ref, mode = "self") {
+  const owner = ref?.current;
+  if (!(owner instanceof HTMLElement)) return null;
+
+  if (mode === "last-child") {
+    const children = Array.from(owner.children);
+    for (let index = children.length - 1; index >= 0; index -= 1) {
+      const child = children[index];
+      if (isVisibleElement(child)) return child;
+    }
+    return null;
+  }
+
+  if (mode === "latest-assistant") {
+    const children = Array.from(owner.children);
+    for (let index = children.length - 1; index >= 0; index -= 1) {
+      const child = children[index];
+      if (!(child instanceof HTMLElement) || !isVisibleElement(child)) continue;
+      if (child.classList.contains("justify-start")) return child;
+    }
+    return null;
+  }
+
+  return owner;
+}
+
 /**
  * Canonical CLARA conversation viewport authority.
  *
@@ -43,11 +78,18 @@ function measurableRect(element) {
  * actionable. The hook then performs at most one layout-time reveal for that key.
  * Passive renders, typewriter ticks, keyboard geometry changes, and DOM mutations
  * do not authorize additional transcript movement.
+ *
+ * For large conversation owners that already render transcript rows and controls
+ * as direct children of one stack, the optional ref modes let that stack remain
+ * the only ref wiring: `latest-assistant` resolves the newest completed CLARA row
+ * and `last-child` resolves the currently mounted action region.
  */
 export default function useClaraConversationReveal({
   viewportRef,
   assistantRef,
   actionRef = null,
+  assistantRefMode = "self",
+  actionRefMode = "self",
   revealKey,
   enabled = true,
   requireAction = false,
@@ -63,8 +105,8 @@ export default function useClaraConversationReveal({
 
     const frame = window.requestAnimationFrame(() => {
       const viewport = viewportRef?.current;
-      const assistant = assistantRef?.current;
-      const action = actionRef?.current || null;
+      const assistant = resolveElement(assistantRef, assistantRefMode);
+      const action = actionRef ? resolveElement(actionRef, actionRefMode) : null;
 
       if (!(viewport instanceof HTMLElement) || !(assistant instanceof HTMLElement)) return;
       if (requireAction && !(action instanceof HTMLElement)) return;
@@ -108,7 +150,9 @@ export default function useClaraConversationReveal({
     return () => window.cancelAnimationFrame(frame);
   }, [
     actionRef,
+    actionRefMode,
     assistantRef,
+    assistantRefMode,
     behavior,
     enabled,
     requireAction,
