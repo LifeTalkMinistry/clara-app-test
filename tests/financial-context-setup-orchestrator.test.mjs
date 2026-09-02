@@ -171,32 +171,39 @@ test("existing-user migration is account-age based, idempotent by persisted reco
   assert.doesNotMatch(setup, /getDebtObligations|getIncomeSources|getWallets|readClaraMoneyRoutine/);
 });
 
-test("Clear Data fresh vault restarts Financial Context Setup even for a grandfathered account", async () => {
+test("Clear Data fresh session restarts Financial Context Setup before ORB, including admin testing", async () => {
   const setup = await source(repositoryPath);
+  const community = await source(communityPath);
   const reset = await source("../src/lib/clear-clara-device-data.js");
   const syncPolicy = await source("../src/lib/cloud-sync-policy.js");
 
   assert.match(reset, /pauseOnlineSyncAfterDeviceReset\(\{ freshVaultId \}\)/);
   assert.match(syncPolicy, /getResetFreshLocalVaultId/);
-  assert.match(setup, /getResetFreshLocalVaultId/);
-  assert.match(setup, /isResetFreshFinancialContextVault\(owner\)/);
+  assert.match(community, /getResetFreshLocalVaultId/);
+  assert.match(community, /getActiveLocalVaultId/);
+  assert.match(community, /resetFreshVaultId === activeLocalVaultId/);
+  assert.match(community, /financialSetupAppliesToUser = !isAdmin \|\| resetFreshSession/);
+  assert.match(community, /forceFresh: resetFreshSession/);
+  assert.match(setup, /forceFresh = false/);
 
-  const resetBranch = setup.indexOf("if (isResetFreshFinancialContextVault(owner))");
+  const freshBranch = setup.indexOf("if (forceFresh)");
   const grandfatherBranch = setup.indexOf("if (shouldGrandfatherFinancialContextSetup(accountCreatedAt))");
-  assert.ok(resetBranch >= 0, "reset-fresh vault branch must exist");
-  assert.ok(grandfatherBranch > resetBranch, "Clear Data must override pre-feature grandfathering");
+  assert.ok(freshBranch >= 0, "reset-fresh setup branch must exist");
+  assert.ok(grandfatherBranch > freshBranch, "Clear Data must override pre-feature grandfathering");
   assert.match(
-    setup.slice(resetBranch, grandfatherBranch),
+    setup.slice(freshBranch, grandfatherBranch),
     /createInitialFinancialContextSetupState\(\)/
   );
 });
 
-test("multi-account and device-transfer safety follow the authenticated local vault private-preference authority", async () => {
+test("setup gate and coordinator use the same canonical finance owner while vault reset remains device-scoped", async () => {
   const community = await source(communityPath);
+  const coordinator = await source(coordinatorPath);
   const setup = await source(repositoryPath);
   const transfer = await source("../src/lib/device-transfer-vault.js");
 
-  assert.match(community, /appUser\?\.local_vault_id \|\| appUser\?\.id/);
+  assert.match(community, /getIncomeHubLocalUserId\(settingsUser\)/);
+  assert.match(coordinator, /getIncomeHubLocalUserId\(user\)/);
   assert.match(setup, /encodeURIComponent\(owner\)/);
   assert.match(setup, /LOCAL_FINANCE_STORES\.privatePreferences/);
   assert.match(transfer, /LOCAL_FINANCE_PRIVATE_STORES/);
