@@ -5,7 +5,7 @@ import {
 } from "@/lib/localFinanceStore";
 
 export const FINANCIAL_CONTEXT_SETUP_VERSION = 1;
-export const FINANCIAL_CONTEXT_SETUP_ROLLOUT_AT = "2026-09-02T20:34:00.000Z";
+export const FINANCIAL_CONTEXT_SETUP_ROLLOUT_AT = "2026-09-02T22:32:47.000Z";
 export const FINANCIAL_CONTEXT_SETUP_UPDATED_EVENT = "clara-financial-context-setup-updated";
 
 export const FINANCIAL_CONTEXT_SETUP_STEPS = Object.freeze([
