@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import {
   DEBT_OBLIGATION_RECORD_KIND,
   estimateDebtPayoffMonths,
@@ -94,4 +95,36 @@ test("monthly due dates roll forward and debt expenses remain identifiable", () 
     ),
     false,
   );
+});
+
+test("Debt / Obligations primary selector reflects normal worker commitments while legacy debt types remain readable", async () => {
+  const logic = await readFile(
+    new URL("../src/components/financial-carousel/cards/debt/logic/useDebtCardLogic.js", import.meta.url),
+    "utf8",
+  );
+  const overlay = await readFile(
+    new URL("../src/components/fresh/main-dashboard/assistant/ClaraDebtObligationOverlay.jsx", import.meta.url),
+    "utf8",
+  );
+
+  for (const label of [
+    "Housing / Rent",
+    "Utilities",
+    "Family Support",
+    "Transportation",
+    "Insurance",
+    "Education",
+    "Loan / Debt",
+    "Other",
+  ]) {
+    assert.match(logic, new RegExp(label.replace("/", "\\/")));
+  }
+
+  assert.match(logic, /export const DEBT_TYPES = OBLIGATION_TYPES/);
+  assert.match(logic, /LEGACY_DEBT_TYPES/);
+  assert.match(logic, /Credit Card/);
+  assert.match(logic, /Installment/);
+  assert.match(logic, /Mortgage/);
+  assert.match(logic, /Personal Debt/);
+  assert.match(overlay, /DEBT_TYPES\.map/);
 });
