@@ -227,3 +227,74 @@ test("unresolved zero anchor produces no fabricated projected score", () => {
   assert.equal(impact.projectedRawScore, null);
   assert.match(formatClaraMetricImpactLine(impact), /no resolved 100 anchor/);
 });
+
+test("rolling Means preview cannot jump from upcoming-limited 98 back to isolated current-cycle 395", () => {
+  const cycle100Anchor = 2497 / 3.05;
+  const rollingSnapshot = {
+    ...snapshot,
+    score: 98,
+    wallBill: 2497,
+    scoreRoom: 2497,
+    projectedRoom: 2497,
+    availableNow: 3317,
+    availableWalletMoney: 3317,
+    remainingPlannedSpending: 820,
+    upcoming: 820,
+    cycle100Anchor,
+    requiredRunway: cycle100Anchor,
+    currentCycleMeansScore: 405,
+    currentCycleRawMeansScore: 405,
+    upcomingCycleResolved: true,
+    upcomingCycleRequirement: 15820,
+    lowestExpectedIncome: 13000,
+    upcomingCoverageScore: 98,
+  };
+
+  const impact = simulateMeansPurchaseImpact({
+    snapshot: rollingSnapshot,
+    purchasePrice: 100,
+  });
+
+  assert.equal(impact.currentScore, 98);
+  assert.equal(impact.projectedWallBill, 2397);
+  assert.equal(impact.projectedScoreAfterPurchase, 97);
+  assert.equal(impact.projectedMeansLimitingWindow, "upcoming");
+  assert.ok(Number(impact.projectedCurrentCycleRawScore) > 300);
+  assert.ok(Number(impact.projectedUpcomingCoverageRawScore) < 100);
+});
+
+test("rolling Means preview preserves 98 for a fully matched current-cycle payment", () => {
+  const cycle100Anchor = 2497 / 3.05;
+  const rollingSnapshot = {
+    ...snapshot,
+    score: 98,
+    wallBill: 2497,
+    scoreRoom: 2497,
+    projectedRoom: 2497,
+    availableNow: 3317,
+    availableWalletMoney: 3317,
+    remainingPlannedSpending: 820,
+    upcoming: 820,
+    cycle100Anchor,
+    requiredRunway: cycle100Anchor,
+    currentCycleMeansScore: 405,
+    currentCycleRawMeansScore: 405,
+    upcomingCycleResolved: true,
+    upcomingCycleRequirement: 15820,
+    lowestExpectedIncome: 13000,
+    upcomingCoverageScore: 98,
+  };
+
+  const impact = simulateMeansPurchaseImpact({
+    snapshot: rollingSnapshot,
+    purchasePrice: 100,
+    matchedPlannedAmount: 100,
+    alreadyAccountedAmount: 100,
+    authoritativePlannedMatch: true,
+    requirementKey: "money-schedule:event-1:2026-08-30",
+  });
+
+  assert.equal(impact.projectedWallBill, 2497);
+  assert.equal(impact.projectedScoreAfterPurchase, 98);
+  assert.equal(impact.scoreChange, 0);
+});
