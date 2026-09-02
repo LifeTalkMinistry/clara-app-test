@@ -32,10 +32,13 @@ import {
   getStoredBackendToken,
   getStoredBackendUser,
 } from "@/lib/clara-backend-client";
+import { getResetFreshLocalVaultId } from "@/lib/cloud-sync-policy";
 import {
   isFinancialContextSetupComplete,
   resolveFinancialContextSetupState,
 } from "@/lib/financialContextSetupRepository";
+import { getIncomeHubLocalUserId } from "@/lib/incomeHubRepository";
+import { getActiveLocalVaultId } from "@/lib/localVaultIdentity";
 import { consumeSupportConversationTarget } from "@/lib/support-conversation-navigation";
 
 const VALID_VIEWS = new Set([
@@ -296,9 +299,17 @@ export default function Community() {
     !isAdmin &&
     !hasProductAccess &&
     activeView !== "settings";
-  const financialSetupLocalUserId = String(
-    appUser?.local_vault_id || appUser?.id || ""
-  ).trim();
+  const resetFreshVaultId = String(getResetFreshLocalVaultId() || "").trim();
+  const activeLocalVaultId = String(getActiveLocalVaultId() || "").trim();
+  const resetFreshSession = Boolean(
+    resetFreshVaultId &&
+    activeLocalVaultId &&
+    resetFreshVaultId === activeLocalVaultId
+  );
+  const financialSetupAppliesToUser = !isAdmin || resetFreshSession;
+  const financialSetupLocalUserId = settingsUser
+    ? String(getIncomeHubLocalUserId(settingsUser) || "").trim()
+    : "";
   const accountCreatedAt =
     backendUser?.created_at ||
     backendUser?.createdAt ||
@@ -307,7 +318,7 @@ export default function Community() {
     "";
   const financialSetupComplete = isFinancialContextSetupComplete(financialSetupState);
   const financialSetupGateActive =
-    !isAdmin &&
+    financialSetupAppliesToUser &&
     hasProductAccess &&
     (checkingFinancialSetup || !financialSetupLocalUserId || !financialSetupComplete);
 
@@ -350,7 +361,7 @@ export default function Community() {
   useEffect(() => {
     let cancelled = false;
 
-    if (isAdmin || !hasProductAccess) {
+    if (!financialSetupAppliesToUser || !hasProductAccess) {
       setCheckingFinancialSetup(false);
       setFinancialSetupError("");
       setFinancialSetupState(null);
@@ -370,6 +381,7 @@ export default function Community() {
     resolveFinancialContextSetupState({
       localUserId: financialSetupLocalUserId,
       accountCreatedAt,
+      forceFresh: resetFreshSession,
     })
       .then((state) => {
         if (cancelled) return;
@@ -391,10 +403,11 @@ export default function Community() {
     };
   }, [
     accountCreatedAt,
+    financialSetupAppliesToUser,
     financialSetupLocalUserId,
     financialSetupRetryNonce,
     hasProductAccess,
-    isAdmin,
+    resetFreshSession,
   ]);
 
   useEffect(() => {
