@@ -201,6 +201,16 @@
   outline-offset: 2px;
 }
 
+/* Chat composers already have a persistent outer container, caret, and send action.
+ * Suppress the shell-wide focus rectangle on the editable field itself so typing
+ * does not draw a second cyan/blue box inside the composer. */
+.clara-community-root form[data-clara-buy-check-react-form="true"] :is(input, textarea):focus,
+.clara-community-root form[data-clara-buy-check-react-form="true"] :is(input, textarea):focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+}
+
 /* The entire shell uses one discreet scrollbar treatment. */
 .clara-community-root * {
   scrollbar-width: thin;
