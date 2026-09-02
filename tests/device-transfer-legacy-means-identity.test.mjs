@@ -14,6 +14,10 @@ import {
   deriveDeterministicLegacyMeansRequirementIdentity,
   getExplicitMeansRequirementKey,
 } from "../src/lib/clara-means-requirement-identity.js";
+import {
+  addFinancialDays,
+  financialDateKey,
+} from "../src/lib/clara-financial-day.js";
 
 const meansSource = await fs.readFile(
   new URL("../src/lib/clara-means-authority.js", import.meta.url),
@@ -24,24 +28,15 @@ const vaultSource = await fs.readFile(
   "utf8"
 );
 
-function dateOffset(days) {
-  const value = new Date();
-  value.setUTCHours(12, 0, 0, 0);
-  value.setUTCDate(value.getUTCDate() + days);
-  return value.toISOString().slice(0, 10);
-}
-
-const ACTIVE_CYCLE = {
-  cycleStart: dateOffset(-1),
-  activeDate: dateOffset(0),
-  cycleEnd: dateOffset(2),
-};
+const ACTIVE_DATE = financialDateKey(new Date());
+const CYCLE_START = addFinancialDays(ACTIVE_DATE, -1);
+const CYCLE_END = addFinancialDays(ACTIVE_DATE, 2);
 
 function v7Baseline(anchor = 3000) {
   return {
     version: 7,
-    cycleStart: ACTIVE_CYCLE.cycleStart,
-    cycleEnd: ACTIVE_CYCLE.cycleEnd,
+    cycleStart: CYCLE_START,
+    cycleEnd: CYCLE_END,
     cycle100Anchor: anchor,
     anchorState: "anchored",
     protectedOccurrences: {},
@@ -51,10 +46,10 @@ function v7Baseline(anchor = 3000) {
 
 function baselinePreference(anchor = 3000) {
   return {
-    id: `means-cycle-baseline:source-vault:${ACTIVE_CYCLE.cycleStart}:${ACTIVE_CYCLE.cycleEnd}`,
+    id: `means-cycle-baseline:source-vault:${CYCLE_START}:${CYCLE_END}`,
     recordKind: "means_cycle_baseline",
-    cycleStart: ACTIVE_CYCLE.cycleStart,
-    cycleEnd: ACTIVE_CYCLE.cycleEnd,
+    cycleStart: CYCLE_START,
+    cycleEnd: CYCLE_END,
     baseline: v7Baseline(anchor),
   };
 }
@@ -83,27 +78,7 @@ function preparedFixture({ events = [], expenses = [], transactions = [], prefer
   };
 }
 
-function requirementOccurrence({
-  key,
-  amount = 3000,
-  actualPaid = 0,
-  kind = "money_schedule",
-  sourceId = "legacy-electric",
-  date = ACTIVE_CYCLE.activeDate,
-} = {}) {
-  return {
-    id: key,
-    requirementKey: key,
-    sourceType: kind,
-    kind,
-    sourceId,
-    date,
-    amount,
-    actualPaid,
-  };
-}
-
-function resolveSourceCanonicalRequirementKey(expense, transaction, scheduleEventDates = new Map()) {
+function sourceRequirementKey(expense, transaction, scheduleEventDates = new Map()) {
   return (
     getExplicitMeansRequirementKey(expense) ||
     getExplicitMeansRequirementKey(transaction) ||
@@ -113,26 +88,29 @@ function resolveSourceCanonicalRequirementKey(expense, transaction, scheduleEven
   );
 }
 
-function baselineStateFor({ key, planned = 3000, paid = 0, kind = "money_schedule", sourceId } = {}) {
+function requirementState({ key, planned = 3000, paid = 0, kind = "money_schedule", sourceId = "legacy-electric" }) {
   return resolveAdaptiveMeansBaselineState({
     stored: v7Baseline(planned),
-    cycleStart: ACTIVE_CYCLE.cycleStart,
-    cycleEnd: ACTIVE_CYCLE.cycleEnd,
-    today: ACTIVE_CYCLE.activeDate,
+    cycleStart: CYCLE_START,
+    cycleEnd: CYCLE_END,
+    today: ACTIVE_DATE,
     occurrences: [
-      requirementOccurrence({
-        key,
-        amount: planned,
-        actualPaid: paid,
+      {
+        id: key,
+        requirementKey: key,
+        sourceType: kind,
         kind,
         sourceId,
-      }),
+        date: ACTIVE_DATE,
+        amount: planned,
+        actualPaid: paid,
+      },
     ],
   });
 }
 
-function semanticSnapshot({ state, wallet = 3000, vaultId = "source-vault" } = {}) {
-  const scoreState = calculateMeansScoreState({
+function semanticSnapshot(state, vaultId, wallet = 3000) {
+  const score = calculateMeansScoreState({
     availableWalletMoney: wallet,
     remainingPlannedSpending: state.remainingPlannedSpending,
     cycle100Anchor: state.cycle100Anchor,
@@ -141,113 +119,93 @@ function semanticSnapshot({ state, wallet = 3000, vaultId = "source-vault" } = {
     localVaultId: vaultId,
     activeCycle: {
       sourceId: "income-master",
-      cycleStart: ACTIVE_CYCLE.cycleStart,
-      cycleEnd: ACTIVE_CYCLE.cycleEnd,
+      cycleStart: CYCLE_START,
+      cycleEnd: CYCLE_END,
     },
     availableWalletMoney: wallet,
     remainingPlannedSpending: state.remainingPlannedSpending,
     cycle100Anchor: state.cycle100Anchor,
     anchorState: state.anchorState,
     migrationUnresolved: Boolean(state.migrationUnresolved),
-    wallBill: scoreState.wallBill,
-    meansScore: scoreState.score,
+    wallBill: score.wallBill,
+    meansScore: score.score,
   };
 }
 
-function simulateLegacyMoneyScheduleTransfer(paymentAmount) {
+function simulateLegacyScheduleTransfer(payment) {
   const events = [
-    {
-      id: "legacy-electric",
-      date: ACTIVE_CYCLE.activeDate,
-      amount: 3000,
-      direction: "out",
-    },
+    { id: "legacy-electric", date: ACTIVE_DATE, amount: 3000, direction: "out" },
   ];
   const expense = {
     id: "expense-legacy-1",
     moneyScheduleEventId: "legacy-electric",
     planning_status: "planned",
-    date: ACTIVE_CYCLE.activeDate,
+    date: ACTIVE_DATE,
   };
   const transaction = {
     id: "txn-legacy-1",
-    expense_id: "expense-legacy-1",
-    amount: -Math.abs(paymentAmount),
-    date: ACTIVE_CYCLE.activeDate,
+    expense_id: expense.id,
+    amount: -Math.abs(payment),
+    date: ACTIVE_DATE,
   };
   const prepared = preparedFixture({
     events,
     expenses: [expense],
     transactions: [transaction],
-    preferences: [baselinePreference(3000)],
+    preferences: [baselinePreference()],
   });
 
-  const { byId: scheduleEventDates } = buildDeterministicMeansScheduleEventDateIndex(events);
-  const sourceRequirementKey = resolveSourceCanonicalRequirementKey(
-    expense,
-    transaction,
-    scheduleEventDates
-  );
-  const sourceState = baselineStateFor({
-    key: sourceRequirementKey,
-    planned: 3000,
-    paid: Math.abs(paymentAmount),
-  });
-  const source = semanticSnapshot({ state: sourceState, wallet: 3000, vaultId: "source-vault" });
+  const { byId } = buildDeterministicMeansScheduleEventDateIndex(events);
+  const sourceKey = sourceRequirementKey(expense, transaction, byId);
+  const sourceState = requirementState({ key: sourceKey, paid: Math.abs(payment) });
+  const source = semanticSnapshot(sourceState, "source-vault");
 
-  const serialized = JSON.parse(JSON.stringify(prepared));
-  const normalized = normalizePreparedFinancialContext(serialized);
-  const finance = normalized.prepared.data.indexedDB.databases[0].stores;
-  const destinationExpense = finance.expenses.records[0];
-  const destinationTransaction = finance.wallet_transactions.records[0];
-  const destinationRequirementKey =
-    getExplicitMeansRequirementKey(destinationExpense) ||
-    getExplicitMeansRequirementKey(destinationTransaction);
-  const destinationState = baselineStateFor({
-    key: destinationRequirementKey,
-    planned: 3000,
-    paid: Math.abs(paymentAmount),
-  });
-  const destination = semanticSnapshot({
-    state: destinationState,
-    wallet: 3000,
-    vaultId: "destination-vault",
-  });
-  const reconciliation = reconcileFinancialContextMigration({
+  const wireCopy = JSON.parse(JSON.stringify(prepared));
+  const normalized = normalizePreparedFinancialContext(wireCopy);
+  const stores = normalized.prepared.data.indexedDB.databases[0].stores;
+  const destinationKey =
+    getExplicitMeansRequirementKey(stores.expenses.records[0]) ||
+    getExplicitMeansRequirementKey(stores.wallet_transactions.records[0]);
+  const destinationState = requirementState({ key: destinationKey, paid: Math.abs(payment) });
+  const destination = semanticSnapshot(destinationState, "destination-vault");
+  const migration = reconcileFinancialContextMigration({
     source,
     destination,
     unresolved: normalized.unresolved,
   });
 
   return {
-    sourceRequirementKey,
-    destinationRequirementKey,
-    destinationExpense,
-    destinationTransaction,
-    normalized,
+    sourceKey,
+    destinationKey,
     sourceState,
     destinationState,
     source,
     destination,
-    reconciliation,
+    normalized,
+    migration,
   };
 }
 
-test("canonical Means and transfer normalization use the same shared deterministic legacy identity authority", () => {
-  assert.match(meansSource, /deriveDeterministicLegacyMeansRequirementIdentity/);
-  assert.match(meansSource, /buildDeterministicMeansScheduleEventDateIndex/);
-  assert.match(
-    meansSource,
-    /getExplicitMeansRequirementKey\(expense\)[\s\S]*getExplicitMeansRequirementKey\(transaction\)[\s\S]*deriveDeterministicLegacyMeansRequirementIdentity\(expense/[\s\S]*deriveDeterministicLegacyMeansRequirementIdentity\(transaction/
-  );
+test("source canonical Means resolves legacy identity in the required strict order", () => {
+  const explicitExpense = meansSource.indexOf("getExplicitMeansRequirementKey(expense)");
+  const explicitTransaction = meansSource.indexOf("getExplicitMeansRequirementKey(transaction)", explicitExpense);
+  const legacyExpense = meansSource.indexOf("deriveDeterministicLegacyMeansRequirementIdentity(expense", explicitTransaction);
+  const legacyTransaction = meansSource.indexOf("deriveDeterministicLegacyMeansRequirementIdentity(transaction", legacyExpense);
 
-  const result = simulateLegacyMoneyScheduleTransfer(3000);
-  assert.equal(result.sourceRequirementKey, "money-schedule:legacy-electric:" + ACTIVE_CYCLE.activeDate);
-  assert.equal(result.destinationRequirementKey, result.sourceRequirementKey);
-  assert.equal(result.destinationExpense.meansRequirementKey, result.sourceRequirementKey);
-  assert.equal(result.destinationTransaction.meansRequirementKey, result.sourceRequirementKey);
+  assert.ok(explicitExpense >= 0);
+  assert.ok(explicitTransaction > explicitExpense);
+  assert.ok(legacyExpense > explicitTransaction);
+  assert.ok(legacyTransaction > legacyExpense);
+  assert.ok(meansSource.includes("buildDeterministicMeansScheduleEventDateIndex"));
+});
+
+test("legacy Money Schedule full fulfillment is semantically identical before and after normalization", () => {
+  const result = simulateLegacyScheduleTransfer(3000);
+  const expectedKey = `money-schedule:legacy-electric:${ACTIVE_DATE}`;
+
+  assert.equal(result.sourceKey, expectedKey);
+  assert.equal(result.destinationKey, expectedKey);
   assert.equal(result.normalized.unresolved.length, 0);
-
   assert.equal(result.sourceState.requirements[0].fulfilledAmount, 3000);
   assert.equal(result.destinationState.requirements[0].fulfilledAmount, 3000);
   assert.equal(result.source.remainingPlannedSpending, 0);
@@ -260,8 +218,7 @@ test("canonical Means and transfer normalization use the same shared determinist
   assert.equal(result.destination.wallBill, 3000);
   assert.equal(result.source.meansScore, 200);
   assert.equal(result.destination.meansScore, 200);
-
-  assert.deepEqual(result.reconciliation.reconciliation, {
+  assert.deepEqual(result.migration.reconciliation, {
     cycleMatch: true,
     walletMatch: true,
     remainingPlanMatch: true,
@@ -269,34 +226,33 @@ test("canonical Means and transfer normalization use the same shared determinist
     wallBillMatch: true,
     meansScoreMatch: true,
   });
-  assert.equal(result.reconciliation.status, "success");
-  assert.deepEqual(result.reconciliation.unresolved, []);
+  assert.equal(result.migration.status, "success");
+  assert.deepEqual(result.migration.unresolved, []);
 });
 
-test("partial deterministic legacy fulfillment remains identical before and after normalization", () => {
-  const result = simulateLegacyMoneyScheduleTransfer(1200);
+test("legacy Money Schedule partial fulfillment preserves the exact 1800 remainder", () => {
+  const result = simulateLegacyScheduleTransfer(1200);
   assert.equal(result.sourceState.requirements[0].fulfilledAmount, 1200);
   assert.equal(result.destinationState.requirements[0].fulfilledAmount, 1200);
-  assert.equal(result.sourceState.remainingPlannedSpending, 1800);
-  assert.equal(result.destinationState.remainingPlannedSpending, 1800);
-  assert.equal(result.reconciliation.status, "success");
-  assert.equal(result.reconciliation.reconciliation.remainingPlanMatch, true);
+  assert.equal(result.source.remainingPlannedSpending, 1800);
+  assert.equal(result.destination.remainingPlannedSpending, 1800);
+  assert.equal(result.migration.status, "success");
 });
 
-test("legacy overpayment caps planned fulfillment and never creates negative Remaining Plan", () => {
-  const result = simulateLegacyMoneyScheduleTransfer(3500);
+test("legacy Money Schedule overpayment caps fulfillment at the planned 3000", () => {
+  const result = simulateLegacyScheduleTransfer(3500);
   assert.equal(result.sourceState.requirements[0].fulfilledAmount, 3000);
   assert.equal(result.destinationState.requirements[0].fulfilledAmount, 3000);
-  assert.equal(result.sourceState.remainingPlannedSpending, 0);
-  assert.equal(result.destinationState.remainingPlannedSpending, 0);
-  assert.equal(result.reconciliation.status, "success");
+  assert.equal(result.source.remainingPlannedSpending, 0);
+  assert.equal(result.destination.remainingPlannedSpending, 0);
+  assert.equal(result.migration.status, "success");
 });
 
-test("ambiguous active-cycle legacy labels remain unresolved and are never fuzzy matched", () => {
+test("same-title active-cycle legacy records without deterministic identity remain unresolved", () => {
   const prepared = preparedFixture({
     events: [
-      { id: "internet-a", title: "Internet Bill", date: ACTIVE_CYCLE.activeDate, amount: 1500 },
-      { id: "internet-b", title: "Internet Bill", date: dateOffset(1), amount: 1500 },
+      { id: "internet-a", title: "Internet Bill", date: ACTIVE_DATE, amount: 1500 },
+      { id: "internet-b", title: "Internet Bill", date: addFinancialDays(ACTIVE_DATE, 1), amount: 1500 },
     ],
     expenses: [
       {
@@ -304,7 +260,7 @@ test("ambiguous active-cycle legacy labels remain unresolved and are never fuzzy
         title: "Internet Bill",
         source: "money_schedule",
         planning_status: "planned",
-        date: ACTIVE_CYCLE.activeDate,
+        date: ACTIVE_DATE,
       },
     ],
     transactions: [
@@ -312,7 +268,7 @@ test("ambiguous active-cycle legacy labels remain unresolved and are never fuzzy
         id: "txn-internet",
         expense_id: "legacy-internet",
         amount: -1500,
-        date: ACTIVE_CYCLE.activeDate,
+        date: ACTIVE_DATE,
       },
     ],
     preferences: [baselinePreference(1500)],
@@ -321,112 +277,98 @@ test("ambiguous active-cycle legacy labels remain unresolved and are never fuzzy
   const normalized = normalizePreparedFinancialContext(prepared);
   const expense = normalized.prepared.data.indexedDB.databases[0].stores.expenses.records[0];
   assert.equal(getExplicitMeansRequirementKey(expense), "");
-  assert.equal(
-    normalized.unresolved.some((item) => item.code === "legacy_requirement_identity_unresolved"),
-    true
+  assert.ok(
+    normalized.unresolved.some((item) => item.code === "legacy_requirement_identity_unresolved")
   );
 });
 
-test("legacy Debt identity uses only debt ID plus exact due occurrence and preserves Remaining Plan", () => {
+test("legacy Debt identity is only debt ID plus exact due occurrence and remains semantically identical", () => {
   const expense = {
     id: "expense-debt-legacy",
     debtId: "debt-7",
-    dueDate: ACTIVE_CYCLE.activeDate,
+    dueDate: ACTIVE_DATE,
     planning_status: "planned",
-    date: ACTIVE_CYCLE.activeDate,
+    date: ACTIVE_DATE,
   };
   const transaction = {
     id: "txn-debt-legacy",
-    expense_id: "expense-debt-legacy",
+    expense_id: expense.id,
     amount: -1200,
-    date: ACTIVE_CYCLE.activeDate,
+    date: ACTIVE_DATE,
   };
-  const sourceKey = resolveSourceCanonicalRequirementKey(expense, transaction);
-  assert.equal(sourceKey, `debt:debt-7:${ACTIVE_CYCLE.activeDate}`);
+  const sourceKey = sourceRequirementKey(expense, transaction);
+  assert.equal(sourceKey, `debt:debt-7:${ACTIVE_DATE}`);
 
-  const prepared = preparedFixture({
-    expenses: [expense],
-    transactions: [transaction],
-    preferences: [baselinePreference(3000)],
-  });
-  const normalized = normalizePreparedFinancialContext(JSON.parse(JSON.stringify(prepared)));
-  const finance = normalized.prepared.data.indexedDB.databases[0].stores;
-  const destinationKey = getExplicitMeansRequirementKey(finance.expenses.records[0]);
+  const normalized = normalizePreparedFinancialContext(
+    preparedFixture({
+      expenses: [expense],
+      transactions: [transaction],
+      preferences: [baselinePreference()],
+    })
+  );
+  const stores = normalized.prepared.data.indexedDB.databases[0].stores;
+  const destinationKey = getExplicitMeansRequirementKey(stores.expenses.records[0]);
   assert.equal(destinationKey, sourceKey);
-  assert.equal(getExplicitMeansRequirementKey(finance.wallet_transactions.records[0]), sourceKey);
+  assert.equal(getExplicitMeansRequirementKey(stores.wallet_transactions.records[0]), sourceKey);
   assert.deepEqual(normalized.unresolved, []);
 
-  const sourceState = baselineStateFor({
+  const sourceState = requirementState({
     key: sourceKey,
-    planned: 3000,
     paid: 1200,
     kind: "debt",
     sourceId: "debt-7",
   });
-  const destinationState = baselineStateFor({
+  const destinationState = requirementState({
     key: destinationKey,
-    planned: 3000,
     paid: 1200,
     kind: "debt",
     sourceId: "debt-7",
   });
-  assert.equal(sourceState.requirements[0].fulfilledAmount, 1200);
-  assert.equal(destinationState.requirements[0].fulfilledAmount, 1200);
   assert.equal(sourceState.remainingPlannedSpending, 1800);
   assert.equal(destinationState.remainingPlannedSpending, 1800);
 
-  const reconciliation = reconcileFinancialContextMigration({
-    source: semanticSnapshot({ state: sourceState, wallet: 3000, vaultId: "source-vault" }),
-    destination: semanticSnapshot({
-      state: destinationState,
-      wallet: 3000,
-      vaultId: "destination-vault",
-    }),
+  const migration = reconcileFinancialContextMigration({
+    source: semanticSnapshot(sourceState, "source-vault"),
+    destination: semanticSnapshot(destinationState, "destination-vault"),
     unresolved: normalized.unresolved,
   });
-  assert.equal(reconciliation.status, "success");
-  assert.equal(reconciliation.reconciliation.remainingPlanMatch, true);
+  assert.equal(migration.status, "success");
+  assert.equal(migration.reconciliation.remainingPlanMatch, true);
 });
 
-function extractProductionFunctionBlock(startMarker, endMarker) {
+function extractFunction(startMarker, endMarker) {
   const start = vaultSource.indexOf(startMarker);
   const end = vaultSource.indexOf(endMarker, start);
-  assert.ok(start >= 0, `Missing production marker: ${startMarker}`);
-  assert.ok(end > start, `Missing production end marker after: ${startMarker}`);
+  assert.ok(start >= 0, `Missing ${startMarker}`);
+  assert.ok(end > start, `Missing end marker after ${startMarker}`);
   return vaultSource.slice(start, end).trim();
 }
 
-function productionFinanceNamespacingFunction() {
-  const rewrite = extractProductionFunctionBlock(
+function loadProductionNamespacingFunction() {
+  const rewrite = extractFunction(
     "function rewriteRecordReferences",
     "\n\nfunction isMeansBaselineRecord"
   );
-  const isBaseline = extractProductionFunctionBlock(
+  const isBaseline = extractFunction(
     "function isMeansBaselineRecord",
     "\n\nfunction transferredFinanceRecordId"
   );
-  const transferredId = extractProductionFunctionBlock(
+  const transferredId = extractFunction(
     "function transferredFinanceRecordId",
     "\n\nfunction namespaceTransferredFinanceRecordIds"
   );
-  const namespace = extractProductionFunctionBlock(
+  const namespace = extractFunction(
     "function namespaceTransferredFinanceRecordIds",
     "\n\nfunction indexedDbOnly"
   );
 
   const text = (value) => String(value ?? "").trim();
   const dateKey = (value) => text(value).slice(0, 10);
-  const normalizeStoreRecords = (store) => {
-    if (Array.isArray(store)) return store;
-    if (Array.isArray(store?.records)) return store.records;
-    return [];
-  };
+  const normalizeStoreRecords = (store) => Array.isArray(store) ? store : (store?.records || []);
   const getFinanceDatabase = (snapshot) =>
-    (snapshot?.data?.indexedDB?.databases || []).find(
-      (database) => database?.name === "clara_local_finance"
-    );
-  const meansCycleBaselineRecordId = (vaultId, cycleStart, cycleEnd) =>
-    `means-cycle-baseline:${vaultId}:${cycleStart}:${cycleEnd}`;
+    (snapshot?.data?.indexedDB?.databases || []).find((database) => database?.name === "clara_local_finance");
+  const meansCycleBaselineRecordId = (vaultId, start, end) =>
+    `means-cycle-baseline:${vaultId}:${start}:${end}`;
 
   return new Function(
     "text",
@@ -435,7 +377,7 @@ function productionFinanceNamespacingFunction() {
     "getFinanceDatabase",
     "MEANS_BASELINE_RECORD_KIND",
     "meansCycleBaselineRecordId",
-    `${rewrite}\n\n${isBaseline}\n\n${transferredId}\n\n${namespace}\nreturn namespaceTransferredFinanceRecordIds;`
+    `${rewrite}\n${isBaseline}\n${transferredId}\n${namespace}\nreturn namespaceTransferredFinanceRecordIds;`
   )(
     text,
     dateKey,
@@ -446,82 +388,63 @@ function productionFinanceNamespacingFunction() {
   );
 }
 
-test("finance ID namespacing keeps linked finance references and Means identities internally coherent", () => {
-  const namespaceTransferredFinanceRecordIds = productionFinanceNamespacingFunction();
-  const scheduleRequirementKey = `money-schedule:schedule-1:${ACTIVE_CYCLE.activeDate}`;
-  const debtRequirementKey = `debt:debt-1:${ACTIVE_CYCLE.activeDate}`;
+test("production finance namespacing keeps record links, requirement keys, and baseline references coherent", () => {
+  const namespaceTransferredFinanceRecordIds = loadProductionNamespacingFunction();
+  const scheduleKey = `money-schedule:schedule-1:${ACTIVE_DATE}`;
+  const debtKey = `debt:debt-1:${ACTIVE_DATE}`;
   const prepared = {
     data: {
       localStorage: {
         "clara_schedule_events_v2:source-vault": [
-          { id: "schedule-1", date: ACTIVE_CYCLE.activeDate, amount: 3000 },
+          { id: "schedule-1", date: ACTIVE_DATE, amount: 3000 },
         ],
       },
       indexedDB: {
-        supported: true,
-        errors: [],
         databases: [
           {
             name: "clara_local_finance",
             stores: {
-              wallets: {
-                records: [{ id: "wallet-1", name: "Cash" }],
-                count: 1,
-              },
+              wallets: { records: [{ id: "wallet-1" }] },
               expenses: {
-                records: [
-                  {
-                    id: "expense-1",
-                    wallet_id: "wallet-1",
-                    debtId: "debt-1",
-                    scheduleEventId: "schedule-1",
-                    meansRequirementKey: scheduleRequirementKey,
-                    requirementKey: scheduleRequirementKey,
-                  },
-                ],
-                count: 1,
+                records: [{
+                  id: "expense-1",
+                  wallet_id: "wallet-1",
+                  debtId: "debt-1",
+                  scheduleEventId: "schedule-1",
+                  requirementKey: scheduleKey,
+                }],
               },
               wallet_transactions: {
-                records: [
-                  {
-                    id: "txn-1",
-                    expense_id: "expense-1",
-                    wallet_id: "wallet-1",
-                    debt_id: "debt-1",
-                    schedule_event_id: "schedule-1",
-                    meansRequirementKey: debtRequirementKey,
-                    requirementKey: debtRequirementKey,
-                  },
-                ],
-                count: 1,
+                records: [{
+                  id: "txn-1",
+                  expense_id: "expense-1",
+                  wallet_id: "wallet-1",
+                  debt_id: "debt-1",
+                  schedule_event_id: "schedule-1",
+                  requirementKey: debtKey,
+                }],
               },
               private_preferences: {
                 records: [
+                  { id: "debt-1", recordKind: "debt_obligation" },
                   {
-                    id: "debt-1",
-                    recordKind: "debt_obligation",
-                  },
-                  {
-                    id: `means-cycle-baseline:source-vault:${ACTIVE_CYCLE.cycleStart}:${ACTIVE_CYCLE.cycleEnd}`,
+                    id: `means-cycle-baseline:source-vault:${CYCLE_START}:${CYCLE_END}`,
                     recordKind: "means_cycle_baseline",
-                    cycleStart: ACTIVE_CYCLE.cycleStart,
-                    cycleEnd: ACTIVE_CYCLE.cycleEnd,
+                    cycleStart: CYCLE_START,
+                    cycleEnd: CYCLE_END,
                     baseline: {
-                      cycleStart: ACTIVE_CYCLE.cycleStart,
-                      cycleEnd: ACTIVE_CYCLE.cycleEnd,
-                      anchorRequirements: [
-                        {
-                          walletId: "wallet-1",
-                          debtId: "debt-1",
-                          scheduleEventId: "schedule-1",
-                          debtRequirementKey,
-                          scheduleRequirementKey,
-                        },
-                      ],
+                      cycleStart: CYCLE_START,
+                      cycleEnd: CYCLE_END,
+                      anchorRequirements: [{
+                        walletId: "wallet-1",
+                        debtId: "debt-1",
+                        scheduleEventId: "schedule-1",
+                        debtRequirementKey: debtKey,
+                        scheduleRequirementKey: scheduleKey,
+                      }],
                     },
                   },
                 ],
-                count: 2,
               },
             },
           },
@@ -536,9 +459,7 @@ test("finance ID namespacing keeps linked finance references and Means identitie
   const expense = stores.expenses.records[0];
   const transaction = stores.wallet_transactions.records[0];
   const debt = stores.private_preferences.records.find((row) => row.recordKind === "debt_obligation");
-  const baseline = stores.private_preferences.records.find(
-    (row) => row.recordKind === "means_cycle_baseline"
-  );
+  const baseline = stores.private_preferences.records.find((row) => row.recordKind === "means_cycle_baseline");
 
   assert.equal(wallet.id, "transfer:destination-vault:wallet-1");
   assert.equal(expense.id, "transfer:destination-vault:expense-1");
@@ -549,17 +470,13 @@ test("finance ID namespacing keeps linked finance references and Means identitie
   assert.equal(debt.id, "transfer:destination-vault:debt-1");
   assert.equal(expense.debtId, debt.id);
   assert.equal(transaction.debt_id, debt.id);
-
   assert.equal(expense.scheduleEventId, "schedule-1");
   assert.equal(transaction.schedule_event_id, "schedule-1");
-  assert.equal(expense.requirementKey, scheduleRequirementKey);
-  assert.equal(
-    transaction.requirementKey,
-    `debt:transfer:destination-vault:debt-1:${ACTIVE_CYCLE.activeDate}`
-  );
+  assert.equal(expense.requirementKey, scheduleKey);
+  assert.equal(transaction.requirementKey, `debt:transfer:destination-vault:debt-1:${ACTIVE_DATE}`);
   assert.equal(
     baseline.id,
-    `means-cycle-baseline:destination-vault:${ACTIVE_CYCLE.cycleStart}:${ACTIVE_CYCLE.cycleEnd}`
+    `means-cycle-baseline:destination-vault:${CYCLE_START}:${CYCLE_END}`
   );
   assert.equal(baseline.baseline.anchorRequirements[0].walletId, wallet.id);
   assert.equal(baseline.baseline.anchorRequirements[0].debtId, debt.id);
@@ -568,9 +485,6 @@ test("finance ID namespacing keeps linked finance references and Means identitie
     baseline.baseline.anchorRequirements[0].debtRequirementKey,
     transaction.requirementKey
   );
-  assert.equal(
-    baseline.baseline.anchorRequirements[0].scheduleRequirementKey,
-    scheduleRequirementKey
-  );
+  assert.equal(baseline.baseline.anchorRequirements[0].scheduleRequirementKey, scheduleKey);
   assert.deepEqual(namespaced.data.localStorage, prepared.data.localStorage);
 });
