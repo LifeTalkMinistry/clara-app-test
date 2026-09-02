@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp } from "lucide-react";
 import ClaraChatHeader from "./ClaraChatHeader";
+import useClaraConversationReveal from "./useClaraConversationReveal";
 import {
   getWalletCurrentBalance,
   getWalletId,
@@ -79,10 +80,14 @@ function chatMessage(role, text) {
   };
 }
 
-function Bubble({ role = "assistant", children, typing = false }) {
+function Bubble({ role = "assistant", children, typing = false, elementRef = null }) {
   const assistant = role === "assistant";
   return (
-    <div className={`flex ${assistant ? "justify-start" : "justify-end"}`}>
+    <div
+      ref={elementRef}
+      data-clara-conversation-role={role}
+      className={`flex ${assistant ? "justify-start" : "justify-end"}`}
+    >
       <div
         className={`max-w-[86%] rounded-[20px] px-4 py-3 text-[13px] font-semibold leading-5 shadow-[0_12px_28px_rgba(0,0,0,0.20)] ${
           assistant
@@ -324,8 +329,6 @@ function walletConfirmedCopy(snapshot, actualBalance) {
   return `Got it — ${snapshot.walletName} is ${money(actualBalance)}.`;
 }
 
-// Kept as a small transcript helper because the Weekly pacing regression also
-// verifies that consecutive CLARA thoughts can stay in one logical turn.
 function mergeTrailingAssistant(messages = [], text = "") {
   const list = Array.isArray(messages) ? messages : [];
   const last = list[list.length - 1];
@@ -372,6 +375,8 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
   const [error, setError] = useState("");
 
   const viewportRef = useRef(null);
+  const latestAssistantRef = useRef(null);
+  const actionRef = useRef(null);
   const timerIdsRef = useRef(new Set());
   const typingTimerRef = useRef(null);
   const sequenceRef = useRef([]);
@@ -384,17 +389,8 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
   const currentSnapshot = snapshots[currentWalletIndex] || null;
   const currentReviewSnapshot = reviewWalletIndex >= 0 ? snapshots[reviewWalletIndex] : null;
 
-  const scrollToLatest = () => {
-    if (typeof window === "undefined") return;
-    window.requestAnimationFrame(() => {
-      const viewport = viewportRef.current;
-      if (viewport) viewport.scrollTop = viewport.scrollHeight;
-    });
-  };
-
   const append = (...nextMessages) => {
     setMessages((current) => [...current, ...nextMessages]);
-    scrollToLatest();
   };
 
   const registerTimeout = (callback, delay) => {
@@ -445,7 +441,6 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
       if (token !== sequenceTokenRef.current) return;
       setTypedText("");
       setPendingMessage(chatMessage("assistant", nextText));
-      scrollToLatest();
     };
 
     if (skipDelay) show();
@@ -665,7 +660,6 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
       if (token !== sequenceTokenRef.current) return;
       index = Math.min(plan.source.length, index + plan.charsPerTick);
       setTypedText(plan.source.slice(0, index));
-      scrollToLatest();
       if (index >= plan.source.length) {
         window.clearInterval(typingTimerRef.current);
         typingTimerRef.current = null;
@@ -673,7 +667,6 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
         setMessages((current) => [...current, completedMessage]);
         setPendingMessage(null);
         setTypedText("");
-        scrollToLatest();
         queueNextAssistantMessage(token);
       }
     }, plan.tickMs);
@@ -697,12 +690,28 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
     clearPacingTimers();
   }, []);
 
-  if (!isActive) return null;
-
   const controlsReady = interactionReady && !pendingMessage && phase !== "responding";
   const typingMessageId = pendingMessage?.id || null;
   const readLocked = phase === "responding" && !pendingMessage && !interactionReady;
   const interactionLocked = Boolean(typingMessageId) || readLocked || !controlsReady;
+  const latestAssistantMessage = useMemo(
+    () => [...messages].reverse().find((entry) => entry?.role === "assistant") || null,
+    [messages]
+  );
+  const revealKey = controlsReady && latestAssistantMessage
+    ? `${sequenceTokenRef.current}:${phase}:${latestAssistantMessage.id}`
+    : null;
+
+  useClaraConversationReveal({
+    viewportRef,
+    assistantRef: latestAssistantRef,
+    actionRef,
+    revealKey,
+    enabled: isActive && controlsReady && Boolean(latestAssistantMessage),
+    requireAction: true,
+  });
+
+  if (!isActive) return null;
 
   const closeChat = () => {
     const shouldCancelSession = phase !== "completed" && phase !== "no_wallets";
@@ -977,7 +986,6 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
       data-clara-conversation-pacing="masterclass"
     >
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_5%_4%,rgba(23,105,255,0.28),transparent_34%),radial-gradient(circle_at_96%_8%,rgba(43,225,216,0.12),transparent_34%),linear-gradient(180deg,#06152e_0%,#040b1a_44%,#020714_100%)]" />
-
       <ClaraChatHeader
         title="Weekly Cross-Check"
         tagline="Verify · Reconcile · Stay accountable"
@@ -991,65 +999,73 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
       >
         <div className="flex min-h-full flex-col gap-3" data-clara-ai-message-stack="true">
           {messages.map((entry) => (
-            <Bubble key={entry.id} role={entry.role}>{entry.text}</Bubble>
+            <Bubble
+              key={entry.id}
+              role={entry.role}
+              elementRef={entry.id === latestAssistantMessage?.id ? latestAssistantRef : null}
+            >
+              {entry.text}
+            </Bubble>
           ))}
           {pendingMessage ? <Bubble role="assistant" typing>{typedText}</Bubble> : null}
 
-          {phase === "wallet_confirm" && currentSnapshot && controlsReady ? (
-            <div className="relative z-20 mt-1 grid gap-2.5">
-              <ChoiceButton onClick={() => confirmCurrentWallet(true)}>
-                {currentSnapshot.isMoneyLent
-                  ? `Yes, still ${money(currentSnapshot.recordedBalance)} owed`
-                  : `Yes, still ${money(currentSnapshot.recordedBalance)}`}
-              </ChoiceButton>
-              <ChoiceButton secondary onClick={() => confirmCurrentWallet(false)}>No, it changed</ChoiceButton>
-            </div>
-          ) : null}
+          <div ref={actionRef} data-clara-conversation-action-region="true" className="contents">
+            {phase === "wallet_confirm" && currentSnapshot && controlsReady ? (
+              <div className="relative z-20 mt-1 grid gap-2.5">
+                <ChoiceButton onClick={() => confirmCurrentWallet(true)}>
+                  {currentSnapshot.isMoneyLent
+                    ? `Yes, still ${money(currentSnapshot.recordedBalance)} owed`
+                    : `Yes, still ${money(currentSnapshot.recordedBalance)}`}
+                </ChoiceButton>
+                <ChoiceButton secondary onClick={() => confirmCurrentWallet(false)}>No, it changed</ChoiceButton>
+              </div>
+            ) : null}
 
-          {phase === "classify_difference" && currentReviewSnapshot && controlsReady ? (
-            <div className="relative z-20 mt-1 grid gap-2.5">
-              {getDirectionChoices(currentReviewSnapshot).map((choice) => (
-                <ChoiceButton key={choice.id} onClick={() => handleChoice(choice)}>{choice.label}</ChoiceButton>
-              ))}
-              <ChoiceButton secondary onClick={recheckReviewWallet}>Back</ChoiceButton>
-            </div>
-          ) : null}
+            {phase === "classify_difference" && currentReviewSnapshot && controlsReady ? (
+              <div className="relative z-20 mt-1 grid gap-2.5">
+                {getDirectionChoices(currentReviewSnapshot).map((choice) => (
+                  <ChoiceButton key={choice.id} onClick={() => handleChoice(choice)}>{choice.label}</ChoiceButton>
+                ))}
+                <ChoiceButton secondary onClick={recheckReviewWallet}>Back</ChoiceButton>
+              </div>
+            ) : null}
 
-          {phase === "completed" && controlsReady ? (
-            <div className="relative z-20 mt-1 grid gap-2.5">
-              <ChoiceButton onClick={closeChat}>Done</ChoiceButton>
-            </div>
-          ) : null}
+            {phase === "completed" && controlsReady ? (
+              <div className="relative z-20 mt-1 grid gap-2.5">
+                <ChoiceButton onClick={closeChat}>Done</ChoiceButton>
+              </div>
+            ) : null}
 
-          {phase === "no_wallets" && controlsReady ? (
-            <div className="relative z-20 mt-1 grid gap-2.5">
-              <ChoiceButton secondary onClick={closeChat}>Done</ChoiceButton>
-            </div>
-          ) : null}
+            {phase === "no_wallets" && controlsReady ? (
+              <div className="relative z-20 mt-1 grid gap-2.5">
+                <ChoiceButton secondary onClick={closeChat}>Done</ChoiceButton>
+              </div>
+            ) : null}
 
-          {showComposer ? (
-            <div className="mt-auto grid gap-2.5 pt-3">
-              <Composer
-                value={input}
-                onChange={(value) => { setInput(value); setError(""); }}
-                onSubmit={phase === "wallet_entry" ? submitWalletBalance : submitDetail}
-                placeholder={phase === "wallet_entry" ? (currentSnapshot?.isMoneyLent ? "Amount still owed" : "Exact wallet balance") : "Tell CLARA what happened"}
-                inputMode={phase === "wallet_entry" ? "decimal" : "text"}
-                disabled={interactionLocked}
-              />
-              {phase === "wallet_entry" ? (
-                <ChoiceButton secondary onClick={backWallet}>Back</ChoiceButton>
-              ) : (
-                <ChoiceButton secondary onClick={backDetail}>Back</ChoiceButton>
-              )}
-            </div>
-          ) : null}
+            {showComposer ? (
+              <div className="mt-auto grid gap-2.5 pt-3">
+                <Composer
+                  value={input}
+                  onChange={(value) => { setInput(value); setError(""); }}
+                  onSubmit={phase === "wallet_entry" ? submitWalletBalance : submitDetail}
+                  placeholder={phase === "wallet_entry" ? (currentSnapshot?.isMoneyLent ? "Amount still owed" : "Exact wallet balance") : "Tell CLARA what happened"}
+                  inputMode={phase === "wallet_entry" ? "decimal" : "text"}
+                  disabled={interactionLocked}
+                />
+                {phase === "wallet_entry" ? (
+                  <ChoiceButton secondary onClick={backWallet}>Back</ChoiceButton>
+                ) : (
+                  <ChoiceButton secondary onClick={backDetail}>Back</ChoiceButton>
+                )}
+              </div>
+            ) : null}
 
-          {error ? (
-            <div className="rounded-[18px] border border-rose-300/14 bg-rose-500/[0.07] px-3 py-2.5 text-[11px] font-bold text-rose-100/82">
-              {error}
-            </div>
-          ) : null}
+            {error ? (
+              <div className="rounded-[18px] border border-rose-300/14 bg-rose-500/[0.07] px-3 py-2.5 text-[11px] font-bold text-rose-100/82">
+                {error}
+              </div>
+            ) : null}
+          </div>
         </div>
       </main>
     </div>
