@@ -53,6 +53,7 @@ import "./budget-manager-layout-fix.css";
 import "./guided-onboarding-bubble.css";
 import "./clara-unified-shell-theme.css";
 import "./clara-feature-theme-pass.css";
+import "./clara-financial-context-official.css";
 import "./clara-home-premium-theme.css";
 import "./clara-home-daily-tip-official.css";
 import "./clara-no-bubble-effects.css";
