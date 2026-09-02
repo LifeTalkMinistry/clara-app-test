@@ -41,6 +41,22 @@ export function financialDateKey(value = new Date()) {
   return `${byType.year}-${byType.month}-${byType.day}`;
 }
 
+export function getFinancialCreationBoundaryDate(record = {}) {
+  const createdAt = String(record?.createdAt || record?.created_at || "").trim();
+  return createdAt ? financialDateKey(createdAt) : "";
+}
+
+export function isFinancialOccurrenceOnOrAfterCreation(record = {}, occurrenceDate = "") {
+  const occurrence =
+    normalizeFinancialDateKey(occurrenceDate) || financialDateKey(occurrenceDate);
+  if (!occurrence) return false;
+
+  const creationBoundary = getFinancialCreationBoundaryDate(record);
+  // Legacy records without a trustworthy creation timestamp remain unbounded.
+  // New records must never manufacture financial history before creation day.
+  return !creationBoundary || occurrence >= creationBoundary;
+}
+
 export function addFinancialDays(dateKey, days = 0) {
   const normalized = normalizeFinancialDateKey(dateKey);
   if (!normalized) return "";
