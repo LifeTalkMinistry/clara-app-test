@@ -278,9 +278,12 @@ test("27 same-cycle legacy V6 evidence is preserved but not reinterpreted as a V
   assert.equal(state.shouldPersist, false);
 });
 
-test("28 runtime uses one canonical Means authority and no duplicate display formula", async () => {
+test("28 runtime uses one rolling canonical Means authority and no duplicate display formula", async () => {
   const runtime = await source("../src/runtime/installClaraOrbGreeting.js");
-  assert.match(runtime, /buildCanonicalMeansSnapshot/);
+  const rolling = await source("../src/lib/clara-means-rolling-authority.js");
+  assert.match(runtime, /buildRollingMeansSnapshot/);
+  assert.match(rolling, /buildCanonicalMeansSnapshot/);
+  assert.match(rolling, /selectConservativeMeansScore/);
   assert.doesNotMatch(runtime, /function calculateMeansScore/);
   assert.match(runtime, /snapshot\?\.wallBill/);
 });
