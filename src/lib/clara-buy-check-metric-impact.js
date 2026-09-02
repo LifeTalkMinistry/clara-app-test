@@ -9,6 +9,10 @@ import {
   normalizeFinancialDateKey,
 } from "./clara-financial-day.js";
 import { matchMeansOutflowToRequirement } from "./clara-means-cycle-baseline.js";
+import {
+  calculateUpcomingCoverageState,
+  selectConservativeMeansScore,
+} from "./clara-means-next-cycle-coverage.js";
 
 const STOP_WORDS = new Set([
   "a", "an", "and", "buy", "buying", "for", "get", "i", "item", "my", "of", "pay",
@@ -309,9 +313,7 @@ function statusForScore(score) {
   if (value >= 2000) return "Silver";
   if (value >= 1000) return "Bronze";
   if (value >= 500) return "Vanguard";
-  if (value >= 400) return "3 Cycles Ahead";
-  if (value >= 300) return "2 Cycles Ahead";
-  if (value >= 200) return "1 Cycle Ahead";
+  if (value >= 200) return "Strong Coverage";
   if (value >= 101) return "Below Your Means";
   if (value === 100) return "Within Your Means";
   if (value >= 1) return "Above Your Means";
@@ -375,12 +377,28 @@ function simulateMeansPurchaseImpact({
   );
   const projectedWallBill =
     availableAfterPurchase - remainingPlannedSpendingAfterPurchase;
-  const projectedRawScore = cycle100Anchor > 0
+  const projectedCurrentCycleRawScore = cycle100Anchor > 0
     ? 100 + ((projectedWallBill / cycle100Anchor) * 100)
     : null;
-  const projectedScoreAfterPurchase = projectedRawScore == null
-    ? null
-    : Math.round(projectedRawScore);
+  const upcomingCycleRequirement = Math.max(
+    0,
+    toNumber(snapshot.upcomingCycleRequirement)
+  );
+  const lowestExpectedIncome = Math.max(0, toNumber(snapshot.lowestExpectedIncome));
+  const projectedUpcomingCoverage =
+    snapshot.upcomingCycleResolved === true && upcomingCycleRequirement > 0
+      ? calculateUpcomingCoverageState({
+          currentRealRoom: projectedWallBill,
+          lowestExpectedIncome,
+          upcomingCycleRequirement,
+        })
+      : null;
+  const conservative = selectConservativeMeansScore({
+    currentCycleRawScore: projectedCurrentCycleRawScore,
+    upcomingCoverageRawScore: projectedUpcomingCoverage?.rawScore ?? null,
+  });
+  const projectedRawScore = conservative.rawScore;
+  const projectedScoreAfterPurchase = conservative.score;
   const scoreChange = Number.isFinite(currentScore) && projectedScoreAfterPurchase != null
     ? projectedScoreAfterPurchase - currentScore
     : null;
@@ -402,6 +420,9 @@ function simulateMeansPurchaseImpact({
     currentScore: Number.isFinite(currentScore) ? currentScore : null,
     projectedScoreAfterPurchase,
     projectedRawScore,
+    projectedCurrentCycleRawScore,
+    projectedUpcomingCoverageRawScore: projectedUpcomingCoverage?.rawScore ?? null,
+    projectedMeansLimitingWindow: conservative.limitingWindow,
     scoreChange,
     currentStatus: statusForScore(currentScore),
     projectedStatus: statusForScore(projectedScoreAfterPurchase),
@@ -428,6 +449,8 @@ function simulateMeansPurchaseImpact({
     remainingPlannedSpendingAfterPurchase,
     upcomingCommitments: remainingPlannedSpending,
     upcomingCommitmentsAfterPurchase: remainingPlannedSpendingAfterPurchase,
+    upcomingCycleRequirement,
+    lowestExpectedIncome,
     breakdown: {
       debtAndObligations: Math.max(0, toNumber(snapshot.debtUpcoming)),
       savingsGoals: Math.max(0, toNumber(snapshot.savingsGoalUpcoming)),
