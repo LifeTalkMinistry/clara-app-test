@@ -59,6 +59,21 @@ test("the shared reveal primitive is semantic, one-key, geometry based, and muta
   assert.doesNotMatch(text, /scrollHeight\s*-\s*viewport\.clientHeight\s*$/m);
 });
 
+test("the shared reveal primitive live-follows growing assistant bubbles without typewriter bottom chasing", async () => {
+  const text = await source(`${assistantRoot}/useClaraConversationReveal.js`);
+
+  assert.match(text, /ResizeObserver/);
+  assert.match(text, /resolveNewestAssistantInViewport/);
+  assert.match(text, /liveFollowArmedRef/);
+  assert.match(text, /assistantRect\.bottom\s*-\s*visibleBottom/);
+  assert.match(text, /behavior:\s*"auto"/);
+  assert.match(text, /touchmove/);
+  assert.match(text, /wheel/);
+  assert.doesNotMatch(text, /MutationObserver/);
+  assert.doesNotMatch(text, /setInterval/);
+  assert.doesNotMatch(text, /setTimeout/);
+});
+
 test("Buy Check keyboard guard owns IME geometry only and never transcript position", async () => {
   const text = await source("src/runtime/installClaraBuyCheckKeyboardGuard.js");
 
