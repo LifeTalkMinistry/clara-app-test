@@ -29,17 +29,33 @@ export const toNumber = toDebtNumber;
 export const clampProgress = (value) =>
   Math.max(0, Math.min(Number(value) || 0, 100));
 
+// First-level obligation taxonomy is intentionally worker-centered. Debt is one
+// branch of financial commitments rather than the default assumption for every bill.
+export const OBLIGATION_TYPES = [
+  { value: "housing_rent", label: "Housing / Rent" },
+  { value: "utilities", label: "Utilities" },
+  { value: "family_support", label: "Family Support" },
+  { value: "transportation", label: "Transportation" },
+  { value: "insurance", label: "Insurance" },
+  { value: "education", label: "Education" },
+  { value: "debt", label: "Loan / Debt" },
+  { value: "other", label: "Other" },
+];
+
+// Debt-specific labels remain available as the second level and for legacy records.
 export const DEBT_TYPES = [
   { value: "credit_card", label: "Credit Card" },
   { value: "loan", label: "Loan" },
   { value: "installment", label: "Installment" },
   { value: "mortgage", label: "Mortgage" },
   { value: "personal_debt", label: "Personal Debt" },
-  { value: "other", label: "Other" },
+  { value: "other_debt", label: "Other Debt" },
 ];
 
 export const getDebtTypeLabel = (value) =>
-  DEBT_TYPES.find((type) => type.value === value)?.label || "Credit Card";
+  OBLIGATION_TYPES.find((type) => type.value === value)?.label ||
+  DEBT_TYPES.find((type) => type.value === value)?.label ||
+  (value === "other" ? "Other" : "Other");
 
 export const debtTone = {
   border: "border-cyan-300/25",
