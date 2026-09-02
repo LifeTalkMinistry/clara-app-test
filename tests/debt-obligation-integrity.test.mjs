@@ -128,3 +128,20 @@ test("Debt / Obligations primary selector reflects normal worker commitments whi
   assert.match(logic, /Personal Debt/);
   assert.match(overlay, /DEBT_TYPES\.map/);
 });
+
+test("Debt / Obligations add flow uses worker-centered commitment language instead of debt-first copy", async () => {
+  const overlay = await readFile(
+    new URL("../src/components/fresh/main-dashboard/assistant/ClaraDebtObligationOverlay.jsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(overlay, /What bill or financial commitment should CLARA keep track of\?/);
+  assert.match(overlay, /Which category best describes this commitment\?/);
+  assert.match(overlay, /Is this a regular recurring payment, or a balance you’re paying off\?/);
+  assert.match(overlay, /e\.g\. Electric bill, Rent, Loan/);
+  assert.match(overlay, />Regular recurring payment</);
+  assert.match(overlay, /Review commitment load/);
+  assert.match(overlay, /I have no bills, obligations, or debts/);
+  assert.doesNotMatch(overlay, /Who or what do you owe\?/);
+  assert.doesNotMatch(overlay, /placeholder="Name or lender"/);
+});
