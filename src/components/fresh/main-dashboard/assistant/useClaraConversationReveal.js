@@ -63,7 +63,9 @@ function resolveElement(ref, mode = "self") {
     for (let index = children.length - 1; index >= 0; index -= 1) {
       const child = children[index];
       if (!(child instanceof HTMLElement) || !isVisibleElement(child)) continue;
-      if (child.classList.contains("justify-start")) return child;
+      if (child.matches('[data-clara-conversation-role="assistant"]') || child.classList.contains("justify-start")) {
+        return child;
+      }
     }
     return null;
   }
@@ -71,13 +73,52 @@ function resolveElement(ref, mode = "self") {
   return owner;
 }
 
+function resolveNewestAssistantInViewport(viewport) {
+  if (!(viewport instanceof HTMLElement)) return null;
+
+  const semanticRows = Array.from(
+    viewport.querySelectorAll('[data-clara-conversation-role="assistant"]')
+  );
+  for (let index = semanticRows.length - 1; index >= 0; index -= 1) {
+    if (isVisibleElement(semanticRows[index])) return semanticRows[index];
+  }
+
+  const assistantRows = Array.from(viewport.querySelectorAll(".justify-start"));
+  for (let index = assistantRows.length - 1; index >= 0; index -= 1) {
+    if (isVisibleElement(assistantRows[index])) return assistantRows[index];
+  }
+
+  return null;
+}
+
+function isNearLatest(viewport, assistant, tolerance = 180) {
+  const viewportRect = viewport.getBoundingClientRect();
+  const assistantRect = measurableRect(assistant);
+  if (!assistantRect) return false;
+
+  const intersects = assistantRect.bottom >= viewportRect.top && assistantRect.top <= viewportRect.bottom;
+  const distanceFromBottom = Math.max(
+    0,
+    viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop
+  );
+
+  return intersects || distanceFromBottom <= tolerance;
+}
+
 /**
  * Canonical CLARA conversation viewport authority.
  *
+ * Final reveal:
  * A caller supplies one semantic reveal key only after the current turn is fully
  * actionable. The hook then performs at most one layout-time reveal for that key.
- * Passive renders, typewriter ticks, keyboard geometry changes, and DOM mutations
- * do not authorize additional transcript movement.
+ *
+ * Live follow:
+ * While the newest CLARA bubble is still growing (for example during the shared
+ * typewriter animation), a ResizeObserver follows only real layout growth. It
+ * nudges the transcript just enough to keep the newest rendered lines visible.
+ * It never chases scrollHeight, never runs from DOM mutations, and it stops
+ * following the current bubble if the user deliberately wheels or touch-scrolls
+ * away from the latest conversation.
  *
  * For large conversation owners that already render transcript rows and controls
  * as direct children of one stack, the optional ref modes let that stack remain
@@ -94,8 +135,82 @@ export default function useClaraConversationReveal({
   enabled = true,
   requireAction = false,
   behavior = "smooth",
+  liveFollowEnabled = true,
+  liveFollowMargin = 12,
 }) {
   const lastRevealedKeyRef = useRef(null);
+  const liveAssistantElementRef = useRef(null);
+  const liveFollowArmedRef = useRef(false);
+
+  // This effect intentionally runs after every render. Parent-paced conversations
+  // re-render as their typewriter advances, while child-owned typewriters are
+  // covered by the ResizeObserver once their assistant row has mounted.
+  useLayoutEffect(() => {
+    if (!liveFollowEnabled || typeof window === "undefined") return undefined;
+
+    const viewport = viewportRef?.current;
+    if (!(viewport instanceof HTMLElement)) return undefined;
+
+    const assistant = resolveNewestAssistantInViewport(viewport);
+    if (!(assistant instanceof HTMLElement)) return undefined;
+
+    if (liveAssistantElementRef.current !== assistant) {
+      liveAssistantElementRef.current = assistant;
+      liveFollowArmedRef.current = isNearLatest(viewport, assistant);
+    }
+
+    const suspendLiveFollow = () => {
+      liveFollowArmedRef.current = false;
+    };
+
+    viewport.addEventListener("wheel", suspendLiveFollow, { passive: true });
+    viewport.addEventListener("touchmove", suspendLiveFollow, { passive: true });
+
+    let frame = 0;
+    const revealGrowingEdge = () => {
+      if (!liveFollowArmedRef.current) return;
+      if (frame) window.cancelAnimationFrame(frame);
+
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        if (!liveFollowArmedRef.current) return;
+        if (!viewport.isConnected || !assistant.isConnected) return;
+
+        const viewportRect = viewport.getBoundingClientRect();
+        const assistantRect = measurableRect(assistant);
+        if (!assistantRect) return;
+
+        const visibleBottom = viewportRect.bottom - Math.max(0, Number(liveFollowMargin) || 0);
+        if (assistantRect.bottom <= visibleBottom + 1) return;
+
+        const currentTop = viewport.scrollTop;
+        const overflow = assistantRect.bottom - visibleBottom;
+        const maximumTop = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
+        const targetTop = clamp(currentTop + overflow, 0, maximumTop);
+
+        if (targetTop > currentTop + 1) {
+          // Live typing uses an immediate, tiny geometry correction. Smooth
+          // animations would queue while text is still wrapping and create bounce.
+          viewport.scrollTo({ top: targetTop, behavior: "auto" });
+        }
+      });
+    };
+
+    revealGrowingEdge();
+
+    const ResizeObserverCtor = window.ResizeObserver;
+    const observer = typeof ResizeObserverCtor === "function"
+      ? new ResizeObserverCtor(revealGrowingEdge)
+      : null;
+    observer?.observe(assistant);
+
+    return () => {
+      viewport.removeEventListener("wheel", suspendLiveFollow);
+      viewport.removeEventListener("touchmove", suspendLiveFollow);
+      observer?.disconnect();
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  });
 
   useLayoutEffect(() => {
     if (!enabled || revealKey == null || typeof window === "undefined") return undefined;
