@@ -7,6 +7,7 @@ import {
   PlusCircle,
 } from "lucide-react";
 import ClaraChatHeader from "./ClaraChatHeader";
+import useClaraConversationReveal from "./useClaraConversationReveal";
 import {
   CLARA_MONEY_ROUTINE_WEEKDAYS,
   readClaraMoneyRoutine,
@@ -231,7 +232,6 @@ function Composer({ value, onChange, onSubmit, placeholder, inputMode = "text" }
       className="flex items-center gap-2 rounded-[22px] border border-blue-200/14 bg-[#07142b]/96 p-2 shadow-[0_14px_34px_rgba(0,0,0,0.28)]"
     >
       <input
-        autoFocus
         value={value}
         onChange={(event) => onChange?.(event.target.value)}
         placeholder={placeholder}
@@ -552,6 +552,7 @@ export default function ClaraMoneyScheduleOverlay({
   const [typedText, setTypedText] = useState("");
   const [interactionReady, setInteractionReady] = useState(false);
   const viewportRef = useRef(null);
+  const stackRef = useRef(null);
   const previousActiveRef = useRef(false);
   const timerIdsRef = useRef(new Set());
   const typingTimerRef = useRef(null);
@@ -563,18 +564,9 @@ export default function ClaraMoneyScheduleOverlay({
     CLARA_MONEY_ROUTINE_WEEKDAYS[dayIndex] || CLARA_MONEY_ROUTINE_WEEKDAYS[0];
   const configuredDays = days.slice(0, dayIndex).filter(Boolean);
 
-  const scrollToLatest = () => {
-    if (typeof window === "undefined") return;
-    window.requestAnimationFrame(() => {
-      const viewport = viewportRef.current;
-      if (viewport) viewport.scrollTop = viewport.scrollHeight;
-    });
-  };
-
   const appendUser = (text) => {
     if (!cleanText(text)) return;
     setMessages((current) => [...current, chatMessage("user", text)]);
-    scrollToLatest();
   };
 
   const registerTimeout = (callback, delay) => {
@@ -620,7 +612,6 @@ export default function ClaraMoneyScheduleOverlay({
       if (token !== sequenceTokenRef.current) return;
       setTypedText("");
       setPendingMessage(chatMessage("assistant", nextText));
-      scrollToLatest();
     };
 
     if (skipDelay) show();
@@ -716,7 +707,6 @@ export default function ClaraMoneyScheduleOverlay({
       if (token !== sequenceTokenRef.current) return;
       index = Math.min(plan.source.length, index + plan.charsPerTick);
       setTypedText(plan.source.slice(0, index));
-      scrollToLatest();
 
       if (index >= plan.source.length) {
         window.clearInterval(typingTimerRef.current);
@@ -725,7 +715,6 @@ export default function ClaraMoneyScheduleOverlay({
         setMessages((current) => [...current, completedMessage]);
         setPendingMessage(null);
         setTypedText("");
-        scrollToLatest();
         queueNextAssistantMessage(token);
       }
     }, plan.tickMs);
@@ -772,9 +761,23 @@ export default function ClaraMoneyScheduleOverlay({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isActive, onClose, inlineEditingItemId, phase]);
 
-  useEffect(() => {
-    scrollToLatest();
-  }, [messages, pendingMessage, phase]);
+  const controlsReady = interactionReady && !pendingMessage && phase !== "responding" && !busy;
+  const latestAssistantMessage = [...messages].reverse().find((entry) => entry?.role === "assistant") || null;
+  const revealKey = controlsReady && latestAssistantMessage
+    ? `${sequenceTokenRef.current}:${phase}:${latestAssistantMessage.id}`
+    : null;
+
+  useClaraConversationReveal({
+    viewportRef,
+    assistantRef: stackRef,
+    actionRef: stackRef,
+    assistantRefMode: "latest-assistant",
+    actionRefMode: "last-child",
+    revealKey,
+    enabled: isActive,
+    requireAction: true,
+    behavior: "smooth",
+  });
 
   if (!isActive) return null;
 
@@ -1466,7 +1469,6 @@ export default function ClaraMoneyScheduleOverlay({
 
   const weeklyTotal = days.reduce((sum, day) => sum + totalItems(day?.items), 0);
   const routineComplete = findNextMissingDayIndex(days, 0) < 0;
-  const controlsReady = interactionReady && !pendingMessage && phase !== "responding" && !busy;
 
   return (
     <div
@@ -1477,6 +1479,7 @@ export default function ClaraMoneyScheduleOverlay({
       data-clara-money-schedule-chat="true"
       data-clara-money-routine-flow="true"
       data-clara-conversation-pacing="masterclass"
+      data-clara-conversation-reveal-owner="semantic"
     >
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_5%_4%,rgba(23,105,255,0.28),transparent_34%),radial-gradient(circle_at_96%_8%,rgba(43,225,216,0.10),transparent_34%),linear-gradient(180deg,#06152e_0%,#040b1a_44%,#020714_100%)]" />
 
@@ -1491,7 +1494,7 @@ export default function ClaraMoneyScheduleOverlay({
         data-clara-ai-message-viewport="true"
         className="relative z-10 min-h-0 flex-1 overflow-y-auto px-2 pb-5 pt-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        <div data-clara-ai-message-stack="true" className="flex min-h-full flex-col gap-3">
+        <div ref={stackRef} data-clara-ai-message-stack="true" className="flex min-h-full flex-col gap-3">
           {messages.map((entry) => (
             <Bubble key={entry.id} role={entry.role}>{entry.text}</Bubble>
           ))}
