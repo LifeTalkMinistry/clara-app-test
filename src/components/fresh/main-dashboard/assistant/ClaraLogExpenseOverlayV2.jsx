@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp } from "lucide-react";
 import ClaraChatHeader from "./ClaraChatHeader";
+import useClaraConversationReveal from "./useClaraConversationReveal";
 import { addBuyCheckExpense } from "@/lib/clara-buy-check-expense-repository";
 import {
   clean,
@@ -44,10 +45,14 @@ function chatMessage(role, text) {
   return { id: `log-expense-${Date.now()}-${Math.random().toString(36).slice(2)}`, role, text };
 }
 
-function Bubble({ role, children, typing = false }) {
+function Bubble({ role, children, typing = false, elementRef = null }) {
   const assistant = role === "assistant";
   return (
-    <div className={`flex ${assistant ? "justify-start" : "justify-end"}`}>
+    <div
+      ref={elementRef}
+      data-clara-conversation-role={role}
+      className={`flex ${assistant ? "justify-start" : "justify-end"}`}
+    >
       <div className={`max-w-[86%] rounded-[20px] px-4 py-3 text-[13px] font-semibold leading-5 shadow-[0_12px_28px_rgba(0,0,0,0.20)] ${assistant ? "rounded-tl-[7px] border border-blue-200/12 bg-[#0a1933]/94 text-slate-100" : "rounded-tr-[7px] border border-blue-300/22 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] text-white"}`}>
         <span className="whitespace-pre-wrap">{children}</span>
         {typing ? <span className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[2px] animate-pulse rounded-full bg-cyan-100/75" /> : null}
@@ -100,6 +105,8 @@ export default function ClaraLogExpenseOverlayV2({
   const [typedText, setTypedText] = useState("");
   const [interactionReady, setInteractionReady] = useState(false);
   const viewportRef = useRef(null);
+  const latestAssistantRef = useRef(null);
+  const actionRef = useRef(null);
   const timerIdsRef = useRef(new Set());
   const typingTimerRef = useRef(null);
   const sequenceRef = useRef([]);
@@ -116,17 +123,8 @@ export default function ClaraLogExpenseOverlayV2({
     [claraAssistantContext?.wallets]
   );
 
-  const scrollToLatest = () => {
-    if (typeof window === "undefined") return;
-    window.requestAnimationFrame(() => {
-      const viewport = viewportRef.current;
-      if (viewport) viewport.scrollTop = viewport.scrollHeight;
-    });
-  };
-
   const append = (...nextMessages) => {
     setMessages((current) => [...current, ...nextMessages]);
-    scrollToLatest();
   };
 
   const registerTimeout = (callback, delay) => {
@@ -165,7 +163,6 @@ export default function ClaraLogExpenseOverlayV2({
       if (token !== sequenceTokenRef.current) return;
       setTypedText("");
       setPendingMessage(chatMessage("assistant", nextText));
-      scrollToLatest();
     };
     if (skipDelay) show(); else registerTimeout(show, getClaraReplyDelay());
   };
@@ -225,7 +222,6 @@ export default function ClaraLogExpenseOverlayV2({
       if (token !== sequenceTokenRef.current) return;
       index = Math.min(plan.source.length, index + plan.charsPerTick);
       setTypedText(plan.source.slice(0, index));
-      scrollToLatest();
       if (index >= plan.source.length) {
         window.clearInterval(typingTimerRef.current);
         typingTimerRef.current = null;
@@ -233,7 +229,6 @@ export default function ClaraLogExpenseOverlayV2({
         setMessages((current) => [...current, completedMessage]);
         setPendingMessage(null);
         setTypedText("");
-        scrollToLatest();
         queueNextAssistantMessage(token);
       }
     }, plan.tickMs);
@@ -255,6 +250,24 @@ export default function ClaraLogExpenseOverlayV2({
   }, [isActive, firstName]);
 
   useEffect(() => () => { sequenceTokenRef.current += 1; clearPacingTimers(); }, []);
+
+  const controlsReady = interactionReady && !pendingMessage && phase !== "responding" && !busy;
+  const latestAssistantMessage = useMemo(
+    () => [...messages].reverse().find((entry) => entry?.role === "assistant") || null,
+    [messages]
+  );
+  const revealKey = controlsReady && latestAssistantMessage
+    ? `${sequenceTokenRef.current}:${phase}:${latestAssistantMessage.id}`
+    : null;
+
+  useClaraConversationReveal({
+    viewportRef,
+    assistantRef: latestAssistantRef,
+    actionRef,
+    revealKey,
+    enabled: isActive && controlsReady && Boolean(latestAssistantMessage),
+    requireAction: true,
+  });
 
   if (!isActive) return null;
 
@@ -345,7 +358,6 @@ export default function ClaraLogExpenseOverlayV2({
   };
 
   const resetFlow = () => startOpeningConversation();
-  const controlsReady = interactionReady && !pendingMessage && phase !== "responding" && !busy;
 
   return (
     <div className="fixed inset-0 z-[400] mx-auto flex w-full max-w-[430px] flex-col overflow-hidden bg-[#020714]/98 px-2 pb-[max(env(safe-area-inset-bottom),14px)] pt-[max(env(safe-area-inset-top),10px)] text-white" data-clara-ai-layout-variant="log-expense" data-clara-pause-overlay="true" data-clara-buy-check-react-owner="true" data-clara-log-expense-chat="true" data-clara-conversation-pacing="masterclass">
@@ -357,35 +369,45 @@ export default function ClaraLogExpenseOverlayV2({
       />
       <main ref={viewportRef} data-clara-ai-message-viewport="true" className="relative z-10 min-h-0 flex-1 overflow-y-auto px-2 pb-5 pt-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex min-h-full flex-col gap-3">
-          {messages.map((entry) => <Bubble key={entry.id} role={entry.role}>{entry.text}</Bubble>)}
+          {messages.map((entry) => (
+            <Bubble
+              key={entry.id}
+              role={entry.role}
+              elementRef={entry.id === latestAssistantMessage?.id ? latestAssistantRef : null}
+            >
+              {entry.text}
+            </Bubble>
+          ))}
           {pendingMessage ? <Bubble role="assistant" typing>{typedText}</Bubble> : null}
-          {phase === "amount" && controlsReady ? <div className="mt-auto pt-3"><Composer value={amountInput} onChange={setAmountInput} onSubmit={submitAmount} placeholder="Amount spent" inputMode="decimal" /></div> : null}
-          {phase === "item" && controlsReady ? <div className="mt-auto pt-3"><Composer value={itemInput} onChange={setItemInput} onSubmit={submitItem} placeholder="What was it for?" /></div> : null}
-          {phase === "wallet" && controlsReady ? (
-            <div className="relative z-20 mt-1 grid gap-2">
-              {walletOptions.length ? walletOptions.map((wallet) => (
-                <button key={wallet.id} type="button" disabled={!wallet.enough} onClick={() => chooseWallet(wallet)} className="relative z-20 flex min-h-14 touch-manipulation items-center justify-between gap-3 rounded-[18px] border border-blue-200/12 bg-[#07142b]/88 px-4 py-3 text-left transition active:scale-[0.985] disabled:opacity-40">
-                  <span><span className="block text-[13px] font-black text-white">{wallet.name}</span><span className="mt-0.5 block text-[10.5px] font-semibold text-slate-300/62">{wallet.enough ? "Available to spend" : "Not enough balance"}</span></span>
-                  <span className="shrink-0 text-[12px] font-black text-[#8ffff8]/82">{money(wallet.balance)}</span>
-                </button>
-              )) : activeWallets.length ? (
-                <>
-                  <Bubble role="assistant">I can see your wallet setup, but there isn’t any spendable money available yet. Add money to a wallet and we can continue.</Bubble>
-                  {activeWallets.map((wallet) => <ChoiceButton key={wallet.id} onClick={() => fundWalletAndReturn(wallet)}>Add money to {wallet.name}</ChoiceButton>)}
-                  <ChoiceButton onClick={closeChat} secondary>Not now</ChoiceButton>
-                </>
-              ) : (
-                <>
-                  <Bubble role="assistant">It looks like you don’t have a wallet yet. You’ll need one before I can log this expense. Want to create one now?</Bubble>
-                  <ChoiceButton onClick={createWalletAndReturn}>Create a Wallet</ChoiceButton>
-                  <ChoiceButton onClick={closeChat} secondary>Not now</ChoiceButton>
-                </>
-              )}
-            </div>
-          ) : null}
-          {phase === "confirm" && controlsReady ? <div className="mt-1 grid grid-cols-2 gap-2.5"><ChoiceButton onClick={logExpense} disabled={busy}>{busy ? "Logging..." : "Yes, log it"}</ChoiceButton><ChoiceButton onClick={() => setPhase("wallet")} disabled={busy} secondary>Back</ChoiceButton></div> : null}
-          {phase === "done" && controlsReady ? <div className="mt-1 grid grid-cols-2 gap-2.5"><ChoiceButton onClick={resetFlow}>Log another</ChoiceButton><ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton></div> : null}
-          {error && phase !== "responding" ? <p className="rounded-[16px] border border-red-300/15 bg-red-500/[0.06] px-3.5 py-3 text-[11.5px] font-bold leading-5 text-red-100/88" aria-live="polite">{error}</p> : null}
+          <div ref={actionRef} data-clara-conversation-action-region="true" className="contents">
+            {phase === "amount" && controlsReady ? <div className="mt-auto pt-3"><Composer value={amountInput} onChange={setAmountInput} onSubmit={submitAmount} placeholder="Amount spent" inputMode="decimal" /></div> : null}
+            {phase === "item" && controlsReady ? <div className="mt-auto pt-3"><Composer value={itemInput} onChange={setItemInput} onSubmit={submitItem} placeholder="What was it for?" /></div> : null}
+            {phase === "wallet" && controlsReady ? (
+              <div className="relative z-20 mt-1 grid gap-2">
+                {walletOptions.length ? walletOptions.map((wallet) => (
+                  <button key={wallet.id} type="button" disabled={!wallet.enough} onClick={() => chooseWallet(wallet)} className="relative z-20 flex min-h-14 touch-manipulation items-center justify-between gap-3 rounded-[18px] border border-blue-200/12 bg-[#07142b]/88 px-4 py-3 text-left transition active:scale-[0.985] disabled:opacity-40">
+                    <span><span className="block text-[13px] font-black text-white">{wallet.name}</span><span className="mt-0.5 block text-[10.5px] font-semibold text-slate-300/62">{wallet.enough ? "Available to spend" : "Not enough balance"}</span></span>
+                    <span className="shrink-0 text-[12px] font-black text-[#8ffff8]/82">{money(wallet.balance)}</span>
+                  </button>
+                )) : activeWallets.length ? (
+                  <>
+                    <Bubble role="assistant">I can see your wallet setup, but there isn’t any spendable money available yet. Add money to a wallet and we can continue.</Bubble>
+                    {activeWallets.map((wallet) => <ChoiceButton key={wallet.id} onClick={() => fundWalletAndReturn(wallet)}>Add money to {wallet.name}</ChoiceButton>)}
+                    <ChoiceButton onClick={closeChat} secondary>Not now</ChoiceButton>
+                  </>
+                ) : (
+                  <>
+                    <Bubble role="assistant">It looks like you don’t have a wallet yet. You’ll need one before I can log this expense. Want to create one now?</Bubble>
+                    <ChoiceButton onClick={createWalletAndReturn}>Create a Wallet</ChoiceButton>
+                    <ChoiceButton onClick={closeChat} secondary>Not now</ChoiceButton>
+                  </>
+                )}
+              </div>
+            ) : null}
+            {phase === "confirm" && controlsReady ? <div className="mt-1 grid grid-cols-2 gap-2.5"><ChoiceButton onClick={logExpense} disabled={busy}>{busy ? "Logging..." : "Yes, log it"}</ChoiceButton><ChoiceButton onClick={() => setPhase("wallet")} disabled={busy} secondary>Back</ChoiceButton></div> : null}
+            {phase === "done" && controlsReady ? <div className="mt-1 grid grid-cols-2 gap-2.5"><ChoiceButton onClick={resetFlow}>Log another</ChoiceButton><ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton></div> : null}
+            {error && phase !== "responding" ? <p className="rounded-[16px] border border-red-300/15 bg-red-500/[0.06] px-3.5 py-3 text-[11.5px] font-bold leading-5 text-red-100/88" aria-live="polite">{error}</p> : null}
+          </div>
         </div>
       </main>
     </div>
