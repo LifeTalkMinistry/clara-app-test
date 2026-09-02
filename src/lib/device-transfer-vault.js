@@ -215,16 +215,20 @@ export function buildDeviceTransferSummary(snapshot) {
 }
 
 export async function createDeviceTransferSnapshot({ user, profile } = {}) {
+  const activeVaultId = text(getActiveLocalVaultId());
+
+  // Canonical Means evaluation can persist an adaptive/migrated baseline. Settle that
+  // durable state before freezing the export so snapshot.data and financial_context
+  // describe the same source-vault truth during destination reconciliation.
+  const financialContext = await buildFinancialContextMigrationSnapshot({
+    profile,
+    vaultId: activeVaultId,
+  });
   const fullSnapshot = await buildClaraCloudVaultSnapshot({
     user,
     profile,
     includeDeviceOnly: true,
     requireCompleteExport: true,
-  });
-  const activeVaultId = text(getActiveLocalVaultId());
-  const financialContext = await buildFinancialContextMigrationSnapshot({
-    profile,
-    vaultId: activeVaultId,
   });
   const snapshot = {
     ...withoutNotificationDatabase(fullSnapshot),
