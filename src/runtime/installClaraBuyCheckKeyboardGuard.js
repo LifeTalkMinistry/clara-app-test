@@ -3,12 +3,18 @@ const OVERLAY_SELECTOR =
   '[data-clara-pause-overlay="true"][data-clara-buy-check-react-owner="true"][data-clara-buy-check-result-mode]';
 const FORM_SELECTOR = '[data-clara-buy-check-react-form="true"]';
 const VIEWPORT_SELECTOR = '[data-clara-ai-message-viewport="true"]';
-const STACK_SELECTOR = '[data-clara-ai-message-stack="true"]';
 const KEYBOARD_THRESHOLD_PX = 80;
-const FOLLOW_LATEST_THRESHOLD_PX = 72;
-const pendingScrollFrames = new WeakMap();
-const migratedOverlays = new WeakSet();
 
+/**
+ * Ask Before You Spend keyboard/IME compatibility runtime.
+ *
+ * Ownership rule:
+ * - React conversation code owns transcript position.
+ * - This runtime owns only the fixed overlay geometry required by Android/iOS
+ *   visualViewport changes while the composer is focused.
+ * - Focus, resize, IME animation, and DOM growth must never pull the transcript
+ *   to the bottom or otherwise write scrollTop.
+ */
 function readVisibleViewport() {
   const viewport = window.visualViewport;
   const layoutHeight = Math.max(
@@ -44,156 +50,6 @@ function setImportantStyle(element, property, value) {
   element.style.setProperty(property, value, "important");
 }
 
-function isConversationRow(row) {
-  if (!(row instanceof HTMLElement)) return false;
-  const bubble = row.firstElementChild;
-  if (!(bubble instanceof HTMLElement)) return false;
-  return Boolean(bubble.querySelector("span.whitespace-pre-wrap"));
-}
-
-function findFirstConversationRow(stack) {
-  if (!stack) return null;
-  for (const row of stack.children) {
-    if (isConversationRow(row)) return row;
-  }
-  return null;
-}
-
-function findLastConversationRow(stack) {
-  if (!stack) return null;
-  const rows = Array.from(stack.children);
-  for (let index = rows.length - 1; index >= 0; index -= 1) {
-    if (isConversationRow(rows[index])) return rows[index];
-  }
-  return null;
-}
-
-function migrateLegacyHiddenHistory(overlay) {
-  if (!overlay || migratedOverlays.has(overlay)) return;
-  migratedOverlays.add(overlay);
-
-  const stack = overlay.querySelector(STACK_SELECTOR);
-  if (!stack) return;
-
-  Array.from(stack.children).forEach((row) => {
-    if (!(row instanceof HTMLElement)) return;
-    if (
-      row.dataset.claraBuyCheckOlderTurn === "true" ||
-      row.style.getPropertyValue("display") === "none"
-    ) {
-      row.style.removeProperty("display");
-      delete row.dataset.claraBuyCheckOlderTurn;
-    }
-  });
-
-  delete overlay.dataset.claraBuyCheckCurrentTurnMode;
-}
-
-function clearKeyboardAnchor(overlay) {
-  if (!overlay) return;
-  const anchor = overlay.querySelector('[data-clara-buy-check-keyboard-anchor="true"]');
-  if (!anchor) return;
-  anchor.style.removeProperty("margin-top");
-  delete anchor.dataset.claraBuyCheckKeyboardAnchor;
-}
-
-function arrangeConversationForKeyboard(overlay, keyboardActive) {
-  if (!overlay) return;
-
-  const stack = overlay.querySelector(STACK_SELECTOR);
-  if (!stack) return;
-
-  migrateLegacyHiddenHistory(overlay);
-
-  if (!keyboardActive) {
-    stack.style.removeProperty("justify-content");
-    stack.style.removeProperty("padding-bottom");
-    clearKeyboardAnchor(overlay);
-    delete overlay.dataset.claraBuyCheckCurrentTurnMode;
-    return;
-  }
-
-  setImportantStyle(stack, "justify-content", "flex-start");
-  setImportantStyle(stack, "padding-bottom", "12px");
-
-  let anchor = overlay.querySelector('[data-clara-buy-check-keyboard-anchor="true"]');
-  if (!anchor || !anchor.isConnected) {
-    anchor = findFirstConversationRow(stack);
-    if (anchor) anchor.dataset.claraBuyCheckKeyboardAnchor = "true";
-  }
-  if (anchor) setImportantStyle(anchor, "margin-top", "auto");
-
-  overlay.dataset.claraBuyCheckCurrentTurnMode = "scrollable-history";
-}
-
-function distanceFromBottom(viewport) {
-  if (!viewport) return Number.POSITIVE_INFINITY;
-  return Math.max(
-    0,
-    viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop
-  );
-}
-
-function scrollLatestIntoPlace(overlay) {
-  if (!overlay) return;
-  const messageViewport = overlay.querySelector(VIEWPORT_SELECTOR);
-  if (!messageViewport) return;
-
-  if (pendingScrollFrames.has(messageViewport)) return;
-
-  const scrollToLatest = () => {
-    const top = Math.max(0, messageViewport.scrollHeight - messageViewport.clientHeight);
-    if (Math.abs(messageViewport.scrollTop - top) <= 1) return;
-    messageViewport.scrollTop = top;
-  };
-
-  const firstFrame = window.requestAnimationFrame(() => {
-    scrollToLatest();
-    const secondFrame = window.requestAnimationFrame(() => {
-      scrollToLatest();
-      pendingScrollFrames.delete(messageViewport);
-    });
-    pendingScrollFrames.set(messageViewport, secondFrame);
-  });
-
-  pendingScrollFrames.set(messageViewport, firstFrame);
-}
-
-function revealLatestWithoutReanchoring(overlay) {
-  if (!overlay) return;
-  const messageViewport = overlay.querySelector(VIEWPORT_SELECTOR);
-  const stack = overlay.querySelector(STACK_SELECTOR);
-  const latestRow = findLastConversationRow(stack);
-  if (!messageViewport || !latestRow) return;
-
-  if (pendingScrollFrames.has(messageViewport)) return;
-
-  const frame = window.requestAnimationFrame(() => {
-    const viewportRect = messageViewport.getBoundingClientRect();
-    const latestRect = latestRow.getBoundingClientRect();
-    const safeBottom = viewportRect.bottom - 10;
-
-    // Only move upward by the exact amount needed to reveal the new row. Never
-    // decrease scrollTop here: decreasing it is what made the previous last
-    // message visibly fall downward before snapping back into place.
-    if (latestRect.bottom > safeBottom) {
-      const delta = Math.ceil(latestRect.bottom - safeBottom);
-      messageViewport.scrollTop += delta;
-    }
-
-    pendingScrollFrames.delete(messageViewport);
-  });
-
-  pendingScrollFrames.set(messageViewport, frame);
-}
-
-function cancelPendingScroll(viewport) {
-  if (!viewport) return;
-  const frame = pendingScrollFrames.get(viewport);
-  if (frame) window.cancelAnimationFrame(frame);
-  pendingScrollFrames.delete(viewport);
-}
-
 function clearOverlayViewportLock(overlay) {
   if (!overlay) return;
 
@@ -203,68 +59,43 @@ function clearOverlayViewportLock(overlay) {
 
   delete overlay.dataset.claraBuyCheckKeyboardActive;
   delete overlay.dataset.claraBuyCheckKeyboardInset;
-  delete overlay.dataset.claraBuyCheckCurrentTurnMode;
 
   const viewport = overlay.querySelector(VIEWPORT_SELECTOR);
-  cancelPendingScroll(viewport);
   viewport?.style.removeProperty("scroll-padding-bottom");
 
-  const stack = overlay.querySelector(STACK_SELECTOR);
-  stack?.style.removeProperty("justify-content");
-  stack?.style.removeProperty("padding-bottom");
-  clearKeyboardAnchor(overlay);
+  const form = overlay.querySelector(FORM_SELECTOR);
+  form?.style.removeProperty("z-index");
 }
 
 function releaseKeyboardOwnedGeometry(overlay) {
   if (!overlay) return;
-
   clearOverlayViewportLock(overlay);
   overlay.dataset.claraBuyCheckKeyboardActive = "false";
   overlay.dataset.claraBuyCheckKeyboardInset = "0";
-
-  const activeElement = document.activeElement;
-  if (
-    activeElement instanceof HTMLElement &&
-    activeElement.closest?.(OVERLAY_SELECTOR)
-  ) {
-    activeElement.blur();
-  }
 }
 
-function syncBuyCheckToVisibleViewport({
-  settle = false,
-  forceLatest = false,
-  shouldFollowLatest = true,
-  transcriptUpdate = false,
-} = {}) {
+function syncBuyCheckToVisibleViewport() {
   const overlay = document.querySelector(OVERLAY_SELECTOR);
-  if (!overlay) return;
+  if (!overlay) return null;
 
   const form = overlay.querySelector(FORM_SELECTOR);
 
-  // Once React removes the composer, Buy Check has left conversation mode.
-  // Android's visualViewport can continue reporting the old keyboard inset for
-  // several frames while the IME is dismissing. Treating that stale inset as an
-  // active keyboard kept the entire overlay locked to the reduced keyboard
-  // height on phones, even though desktop immediately expanded correctly.
-  // Release every keyboard-owned inline measurement as soon as the composer is
-  // gone so the fixed overlay can return to its full viewport and the result can
-  // own the screen.
+  // Once React removes the composer, Buy Check has left keyboard conversation
+  // mode. Release every IME-owned inline measurement immediately. Transcript
+  // position is deliberately untouched.
   if (!form) {
     releaseKeyboardOwnedGeometry(overlay);
-    return;
+    return overlay;
   }
 
   const visible = readVisibleViewport();
-  const messageViewport = overlay.querySelector(VIEWPORT_SELECTOR);
   const activeElement = document.activeElement;
   const inputFocused = Boolean(
     activeElement &&
       form.contains(activeElement) &&
       activeElement.matches?.("input, textarea, select")
   );
-  const keyboardActive =
-    inputFocused || visible.keyboardInset > KEYBOARD_THRESHOLD_PX;
+  const keyboardActive = inputFocused || visible.keyboardInset > KEYBOARD_THRESHOLD_PX;
 
   setImportantStyle(overlay, "top", `${visible.top}px`);
   setImportantStyle(overlay, "bottom", "auto");
@@ -273,12 +104,11 @@ function syncBuyCheckToVisibleViewport({
   setImportantStyle(overlay, "max-height", `${visible.height}px`);
 
   overlay.dataset.claraBuyCheckKeyboardActive = keyboardActive ? "true" : "false";
-  overlay.dataset.claraBuyCheckKeyboardInset = String(
-    Math.round(visible.keyboardInset)
-  );
+  overlay.dataset.claraBuyCheckKeyboardInset = String(Math.round(visible.keyboardInset));
 
   setImportantStyle(form, "z-index", "60");
 
+  const messageViewport = overlay.querySelector(VIEWPORT_SELECTOR);
   if (messageViewport) {
     const composerHeight = form.getBoundingClientRect?.().height || 0;
     setImportantStyle(
@@ -288,39 +118,7 @@ function syncBuyCheckToVisibleViewport({
     );
   }
 
-  arrangeConversationForKeyboard(overlay, keyboardActive);
-
-  if (keyboardActive && forceLatest) {
-    scrollLatestIntoPlace(overlay);
-  } else if (keyboardActive && transcriptUpdate && shouldFollowLatest) {
-    revealLatestWithoutReanchoring(overlay);
-  }
-
-  if (keyboardActive && settle) {
-    window.requestAnimationFrame(() => {
-      const currentOverlay = document.querySelector(OVERLAY_SELECTOR);
-      if (!currentOverlay) return;
-
-      const currentForm = currentOverlay.querySelector(FORM_SELECTOR);
-      if (!currentForm) {
-        releaseKeyboardOwnedGeometry(currentOverlay);
-        return;
-      }
-
-      const currentVisible = readVisibleViewport();
-      setImportantStyle(currentOverlay, "top", `${currentVisible.top}px`);
-      setImportantStyle(currentOverlay, "bottom", "auto");
-      setImportantStyle(currentOverlay, "height", `${currentVisible.height}px`);
-      setImportantStyle(currentOverlay, "max-height", `${currentVisible.height}px`);
-
-      arrangeConversationForKeyboard(currentOverlay, true);
-      if (forceLatest) {
-        scrollLatestIntoPlace(currentOverlay);
-      } else if (transcriptUpdate && shouldFollowLatest) {
-        revealLatestWithoutReanchoring(currentOverlay);
-      }
-    });
-  }
+  return overlay;
 }
 
 function installClaraBuyCheckKeyboardGuard() {
@@ -333,100 +131,21 @@ function installClaraBuyCheckKeyboardGuard() {
   let focusTimerB = 0;
   let focusTimerC = 0;
   let lastOverlay = null;
-  let activeMessageViewport = null;
-  let activeForm = null;
-  let transcriptObserver = null;
-  let formResizeObserver = null;
-  let followLatest = true;
 
-  const handleMessageViewportScroll = () => {
-    if (!activeMessageViewport) return;
-    followLatest =
-      distanceFromBottom(activeMessageViewport) <= FOLLOW_LATEST_THRESHOLD_PX;
-  };
-
-  const stopScopedObservers = () => {
-    transcriptObserver?.disconnect();
-    transcriptObserver = null;
-    formResizeObserver?.disconnect();
-    formResizeObserver = null;
-  };
-
-  const queueSync = (
-    settle = false,
-    forceLatest = false,
-    transcriptUpdate = false
-  ) => {
+  const queueSync = (settle = false) => {
     window.cancelAnimationFrame(frame);
     frame = window.requestAnimationFrame(() => {
       const overlay = document.querySelector(OVERLAY_SELECTOR);
-      if (overlay !== lastOverlay && lastOverlay) {
-        clearOverlayViewportLock(lastOverlay);
-      }
-      bindOverlay(overlay);
-      syncBuyCheckToVisibleViewport({
-        settle,
-        forceLatest,
-        shouldFollowLatest: followLatest,
-        transcriptUpdate,
+      if (overlay !== lastOverlay && lastOverlay) clearOverlayViewportLock(lastOverlay);
+      lastOverlay = syncBuyCheckToVisibleViewport();
+
+      if (!settle) return;
+      window.requestAnimationFrame(() => {
+        const currentOverlay = document.querySelector(OVERLAY_SELECTOR);
+        if (currentOverlay !== lastOverlay && lastOverlay) clearOverlayViewportLock(lastOverlay);
+        lastOverlay = syncBuyCheckToVisibleViewport();
       });
     });
-  };
-
-  const bindOverlay = (overlay) => {
-    const nextViewport = overlay?.querySelector(VIEWPORT_SELECTOR) || null;
-    const nextForm = overlay?.querySelector(FORM_SELECTOR) || null;
-    if (
-      overlay === lastOverlay &&
-      nextViewport === activeMessageViewport &&
-      nextForm === activeForm
-    ) {
-      return;
-    }
-
-    activeMessageViewport?.removeEventListener(
-      "scroll",
-      handleMessageViewportScroll
-    );
-    stopScopedObservers();
-
-    lastOverlay = overlay;
-    activeMessageViewport = nextViewport;
-    activeForm = nextForm;
-    followLatest = true;
-
-    activeMessageViewport?.addEventListener(
-      "scroll",
-      handleMessageViewportScroll,
-      { passive: true }
-    );
-
-    if (!overlay) return;
-
-    migrateLegacyHiddenHistory(overlay);
-
-    const transcriptRoot = activeMessageViewport || overlay.querySelector(STACK_SELECTOR);
-    if (transcriptRoot) {
-      transcriptObserver = new MutationObserver((mutations) => {
-        const transcriptChanged = mutations.some(
-          (mutation) =>
-            mutation.type === "characterData" ||
-            (mutation.type === "childList" &&
-              (mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0))
-        );
-        queueSync(false, false, transcriptChanged);
-      });
-      transcriptObserver.observe(transcriptRoot, {
-        childList: true,
-        characterData: true,
-        subtree: true,
-      });
-    }
-
-    if (activeForm && typeof ResizeObserver !== "undefined") {
-      formResizeObserver = new ResizeObserver(() => queueSync(false, false, false));
-      formResizeObserver.observe(activeForm);
-    }
   };
 
   const handleFocusIn = (event) => {
@@ -434,47 +153,24 @@ function installClaraBuyCheckKeyboardGuard() {
     if (!target?.matches?.("input, textarea, select")) return;
     if (!target.closest?.(OVERLAY_SELECTOR)) return;
 
-    followLatest = true;
-    queueSync(true, true, false);
+    queueSync(true);
     window.clearTimeout(focusTimerA);
     window.clearTimeout(focusTimerB);
     window.clearTimeout(focusTimerC);
 
-    focusTimerA = window.setTimeout(() => queueSync(true, true, false), 90);
-    focusTimerB = window.setTimeout(() => queueSync(true, true, false), 220);
-    focusTimerC = window.setTimeout(() => queueSync(true, true, false), 420);
+    // Android IME geometry often settles in stages. Re-measure geometry only;
+    // none of these passes is permitted to move the transcript.
+    focusTimerA = window.setTimeout(() => queueSync(true), 90);
+    focusTimerB = window.setTimeout(() => queueSync(true), 220);
+    focusTimerC = window.setTimeout(() => queueSync(true), 420);
   };
 
   const handleFocusOut = (event) => {
     if (!event.target?.closest?.(OVERLAY_SELECTOR)) return;
-    window.setTimeout(() => queueSync(true, false, false), 120);
+    window.setTimeout(() => queueSync(true), 120);
   };
 
-  const handleViewportChange = () => queueSync(false, false, false);
-
-  // Ignore transcript mutations here because the scoped transcript observer
-  // already owns them. Structural changes beside the transcript — especially
-  // mounting/unmounting the composer when chat mode ends — must still reach the
-  // keyboard guard on Android so stale IME geometry is released immediately.
-  const rootObserver = new MutationObserver((mutations) => {
-    if (
-      activeMessageViewport &&
-      mutations.length > 0 &&
-      mutations.every((mutation) =>
-        mutation.target instanceof Node
-          ? activeMessageViewport.contains(mutation.target)
-          : false
-      )
-    ) {
-      return;
-    }
-    queueSync(false, false, false);
-  });
-  const root = document.getElementById("root") || document.body;
-  rootObserver.observe(root, {
-    childList: true,
-    subtree: true,
-  });
+  const handleViewportChange = () => queueSync(false);
 
   document.addEventListener("focusin", handleFocusIn, true);
   document.addEventListener("focusout", handleFocusOut, true);
@@ -482,24 +178,15 @@ function installClaraBuyCheckKeyboardGuard() {
   window.visualViewport?.addEventListener("resize", handleViewportChange);
   window.visualViewport?.addEventListener("scroll", handleViewportChange);
 
-  queueSync(false, false, false);
+  queueSync(false);
 
   window[RUNTIME_KEY] = {
     destroy() {
-      rootObserver.disconnect();
-      stopScopedObservers();
       document.removeEventListener("focusin", handleFocusIn, true);
       document.removeEventListener("focusout", handleFocusOut, true);
       window.removeEventListener("resize", handleViewportChange);
       window.visualViewport?.removeEventListener("resize", handleViewportChange);
       window.visualViewport?.removeEventListener("scroll", handleViewportChange);
-      activeMessageViewport?.removeEventListener(
-        "scroll",
-        handleMessageViewportScroll
-      );
-      cancelPendingScroll(activeMessageViewport);
-      activeMessageViewport = null;
-      activeForm = null;
       window.cancelAnimationFrame(frame);
       window.clearTimeout(focusTimerA);
       window.clearTimeout(focusTimerB);
