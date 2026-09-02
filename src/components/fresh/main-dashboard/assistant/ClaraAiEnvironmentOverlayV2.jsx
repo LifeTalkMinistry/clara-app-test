@@ -75,6 +75,10 @@ function isSilentBinaryUserRow(entry) {
   return isUserBubble && /^(yes|no)$/i.test(text);
 }
 
+function isBuyCheckUiCard(entry) {
+  return entry instanceof HTMLElement && entry.hasAttribute("data-clara-buy-check-ui-card");
+}
+
 function syncIntroComposerGate(root, introActive) {
   const form = root?.querySelector?.('[data-clara-buy-check-react-form="true"]');
   if (!(form instanceof HTMLElement)) return;
@@ -156,7 +160,7 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
       const stackChildren = stack ? Array.from(stack.children) : [];
 
       stackChildren.forEach((entry) => {
-        if (!(entry instanceof HTMLElement)) return;
+        if (!(entry instanceof HTMLElement) || isBuyCheckUiCard(entry)) return;
         if (isSilentBinaryUserRow(entry)) {
           entry.setAttribute("data-clara-buy-check-silent-binary-choice", "true");
         } else {
@@ -166,6 +170,7 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
 
       const lastMessageRow = [...stackChildren].reverse().find((entry) => {
         if (!(entry instanceof HTMLElement)) return false;
+        if (isBuyCheckUiCard(entry)) return false;
         if (entry.hasAttribute("data-clara-buy-check-result-focus")) return false;
         if (isSilentBinaryUserRow(entry)) return false;
         return Boolean(clean(entry.textContent));
@@ -297,7 +302,9 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
     const stack = root?.querySelector('[data-clara-ai-message-stack="true"]');
     if (!stack) return undefined;
     const row = [...stack.children].reverse().find((entry) =>
-      entry instanceof HTMLElement && clean(entry.textContent).includes(GENERIC_MEANS_FAILURE)
+      entry instanceof HTMLElement &&
+      !isBuyCheckUiCard(entry) &&
+      clean(entry.textContent).includes(GENERIC_MEANS_FAILURE)
     );
     row?.setAttribute("data-clara-buy-check-setup-replaced", "true");
     return () => row?.removeAttribute("data-clara-buy-check-setup-replaced");
@@ -477,6 +484,7 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
 
       {setupPromptVisible ? createPortal(
         <div
+          data-clara-buy-check-ui-card="financial-setup"
           data-clara-buy-check-financial-setup-prompt="true"
           className="mx-2 mt-3 rounded-[26px] border border-blue-200/18 border-l-2 border-l-[#ffd84a]/55 bg-[#07152d]/96 px-5 py-5 text-left shadow-[0_18px_48px_rgba(0,0,0,0.40)] backdrop-blur-2xl"
           aria-live="polite"
