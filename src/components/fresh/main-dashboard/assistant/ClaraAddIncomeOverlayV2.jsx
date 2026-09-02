@@ -13,6 +13,10 @@ import {
   upsertIncomeSource,
 } from "@/lib/incomeHubRepository";
 import {
+  isIncomeSourceMasterPayCycle,
+  setIncomeSourceAsMasterPayCycle,
+} from "@/lib/clara-master-pay-cycle-repository";
+import {
   getWalletId,
   getWalletName,
   isActiveWalletForMoneySemantics,
@@ -219,6 +223,10 @@ export default function ClaraAddIncomeOverlayV2({
   const selectedSource = useMemo(
     () => sources.find((source) => String(source?.id) === String(selectedSourceId)) || null,
     [sources, selectedSourceId]
+  );
+  const currentMasterSource = useMemo(
+    () => sources.find(isIncomeSourceMasterPayCycle) || null,
+    [sources]
   );
 
   const wallets = useMemo(
@@ -533,6 +541,10 @@ export default function ClaraAddIncomeOverlayV2({
     setPhase("saving-source");
 
     try {
+      const existingSources = await getIncomeSources(localUserId);
+      const existingMaster = (Array.isArray(existingSources) ? existingSources : []).find(
+        isIncomeSourceMasterPayCycle
+      ) || null;
       const timestamp = new Date().toISOString();
       const activityLog = appendIncomeSourceActivity({}, {
         type: "source_created",
@@ -567,13 +579,40 @@ export default function ClaraAddIncomeOverlayV2({
         last_activity_at: timestamp,
       });
 
-      setSources([saved]);
-      setSelectedSourceId(String(saved.id));
+      let savedForSelection = saved;
+      if (stable && recurrence && !existingMaster) {
+        savedForSelection =
+          (await setIncomeSourceAsMasterPayCycle(localUserId, saved.id, {
+            mode: "income_schedule",
+          })) || saved;
+      }
+
+      const refreshedSources = await getIncomeSources(localUserId);
+      setSources(Array.isArray(refreshedSources) ? refreshedSources : [savedForSelection]);
+      setSelectedSourceId(String(savedForSelection.id));
       resetTransferDraft();
       setBusy(false);
+
+      if (stable && recurrence && existingMaster) {
+        runAssistantSequence(
+          [
+            `${saved.name} is now set up as your income source.`,
+            `Should ${saved.name} be the income source CLARA uses for your Master Pay Cycle?`,
+            `Your current Master Pay Cycle is ${existingMaster.name}.`,
+          ],
+          "master-pay-cycle-choice",
+          { skipInitialDelay: true }
+        );
+        return;
+      }
+
+      const firstMasterMessage = stable && recurrence && !existingMaster
+        ? `Since there wasn’t a Master Pay Cycle yet, I’ll use ${saved.name}'s pay schedule as your Master Pay Cycle. You can change this later.`
+        : null;
       runAssistantSequence(
         [
           `${saved.name} is now set up as your income source.`,
+          firstMasterMessage,
           "Would you like to add money now, create another income source, or are you done?",
         ],
         "source-created-choice",
@@ -708,6 +747,66 @@ export default function ClaraAddIncomeOverlayV2({
     setError("");
     append(chatMessage("user", String(dayOfMonth)));
     void saveNewSource({ type: "monthly", startDate: localDateKey(), dayOfMonth });
+  };
+
+  const keepCurrentMasterPayCycle = () => {
+    if (!interactionReady || !selectedSource || !currentMasterSource) return;
+    setError("");
+    append(chatMessage("user", `Keep ${currentMasterSource.name} as Master Pay Cycle`));
+    runAssistantSequence(
+      [
+        `${currentMasterSource.name} will remain your Master Pay Cycle.`,
+        "Would you like to add money now, create another income source, or are you done?",
+      ],
+      "source-created-choice"
+    );
+  };
+
+  const requestMasterPayCycleChange = () => {
+    if (!interactionReady || !selectedSource || !currentMasterSource) return;
+    setError("");
+    append(chatMessage("user", "Use as Master Pay Cycle"));
+    runAssistantSequence(
+      [
+        `Changing the Master Pay Cycle from ${currentMasterSource.name} to ${selectedSource.name} changes CLARA’s active financial timeframe.`,
+        "Your current 100 and Means Score may be recalculated. Historical transactions and actual due dates will not be rewritten.",
+        `Change the Master Pay Cycle to ${selectedSource.name}?`,
+      ],
+      "master-pay-cycle-confirm"
+    );
+  };
+
+  const confirmMasterPayCycleChange = async () => {
+    if (busy || !interactionReady || !selectedSource) return;
+
+    cancelConversationPacing();
+    setBusy(true);
+    setError("");
+    setPhase("saving-master-pay-cycle");
+    append(chatMessage("user", "Yes, change it"));
+
+    try {
+      const updatedMaster = await setIncomeSourceAsMasterPayCycle(localUserId, selectedSource.id, {
+        mode: "income_schedule",
+      });
+      const refreshedSources = await getIncomeSources(localUserId);
+      setSources(Array.isArray(refreshedSources) ? refreshedSources : [updatedMaster || selectedSource]);
+      setBusy(false);
+      runAssistantSequence(
+        [
+          `${selectedSource.name} is now your Master Pay Cycle.`,
+          "CLARA will use this pay schedule as the active financial timeframe.",
+          "Would you like to add money now, create another income source, or are you done?",
+        ],
+        "source-created-choice",
+        { skipInitialDelay: true }
+      );
+    } catch (nextError) {
+      const message = clean(nextError?.message || "I couldn’t change the Master Pay Cycle. Please try again.");
+      setBusy(false);
+      setError(message);
+      runAssistantSequence([message], "master-pay-cycle-choice", { skipInitialDelay: true });
+    }
   };
 
   const addMoneyAfterSourceCreation = () => {
@@ -1109,6 +1208,26 @@ export default function ClaraAddIncomeOverlayV2({
                   inputMode="numeric"
                   pattern="[0-9]{1,2}"
                 />
+              </div>
+            ) : null}
+
+            {phase === "master-pay-cycle-choice" && controlsReady ? (
+              <div className="mt-1 grid gap-2.5" data-clara-master-pay-cycle-choice="true">
+                <ChoiceButton onClick={requestMasterPayCycleChange}>Use as Master Pay Cycle</ChoiceButton>
+                <ChoiceButton onClick={keepCurrentMasterPayCycle} secondary>
+                  Keep {currentMasterSource?.name || "current Master Pay Cycle"}
+                </ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "master-pay-cycle-confirm" && controlsReady ? (
+              <div className="mt-1 grid grid-cols-2 gap-2.5" data-clara-master-pay-cycle-confirm="true">
+                <ChoiceButton onClick={confirmMasterPayCycleChange} disabled={busy}>
+                  {busy ? "Changing..." : "Yes, change it"}
+                </ChoiceButton>
+                <ChoiceButton onClick={keepCurrentMasterPayCycle} disabled={busy} secondary>
+                  No, keep current
+                </ChoiceButton>
               </div>
             ) : null}
 
