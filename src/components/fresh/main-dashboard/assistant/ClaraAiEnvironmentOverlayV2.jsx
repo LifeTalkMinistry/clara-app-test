@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import ClaraAiEnvironmentOverlayCore from "./ClaraAiEnvironmentOverlayCore.jsx";
+import useClaraConversationReveal from "./useClaraConversationReveal";
 import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "@/lib/clara-pause-events";
 
 const READY_PROMPT = "Ready to chat now?";
@@ -105,6 +106,12 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
   const { isActive = false, layoutVariant = "default" } = props || {};
   const guidePreview = layoutVariant === "guide-preview";
   const rootRef = useRef(null);
+  const semanticViewportRef = useRef(null);
+  const latestAssistantRowRef = useRef(null);
+  const lastAssistantNodeRef = useRef(null);
+  const assistantTurnCounterRef = useRef(0);
+  const binaryControlsRef = useRef(null);
+  const setupPromptRef = useRef(null);
   const typingTimerRef = useRef(null);
   const interactionTimerRef = useRef(null);
   const [entryAnimationDone, setEntryAnimationDone] = useState(false);
@@ -115,7 +122,9 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
   const [messageStack, setMessageStack] = useState(null);
   const [conversationStarted, setConversationStarted] = useState(false);
   const [observedAssistantText, setObservedAssistantText] = useState("");
+  const [observedAssistantTurn, setObservedAssistantTurn] = useState(0);
   const [settledAssistantText, setSettledAssistantText] = useState("");
+  const [settledAssistantTurn, setSettledAssistantTurn] = useState(0);
   const [interactionMode, setInteractionMode] = useState("text");
   const [binarySubmitting, setBinarySubmitting] = useState(false);
 
@@ -129,9 +138,17 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
       setMessageStack(null);
       setConversationStarted(false);
       setObservedAssistantText("");
+      setObservedAssistantTurn(0);
       setSettledAssistantText("");
+      setSettledAssistantTurn(0);
       setInteractionMode("text");
       setBinarySubmitting(false);
+      semanticViewportRef.current = null;
+      latestAssistantRowRef.current = null;
+      lastAssistantNodeRef.current = null;
+      assistantTurnCounterRef.current = 0;
+      binaryControlsRef.current = null;
+      setupPromptRef.current = null;
       if (typingTimerRef.current) window.clearInterval(typingTimerRef.current);
       if (interactionTimerRef.current) window.clearTimeout(interactionTimerRef.current);
       typingTimerRef.current = null;
@@ -172,9 +189,18 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
         if (isBuyCheckUiCard(entry)) return false;
         if (entry.hasAttribute("data-clara-buy-check-result-focus")) return false;
         if (isSilentBinaryUserRow(entry)) return false;
-        return Boolean(clean(entry.textContent));
-      });
+        const isAssistant = String(entry.className || "").includes("justify-start");
+        return isAssistant && Boolean(clean(entry.textContent));
+      }) || null;
 
+      if (lastMessageRow !== lastAssistantNodeRef.current) {
+        lastAssistantNodeRef.current = lastMessageRow;
+        assistantTurnCounterRef.current += lastMessageRow ? 1 : 0;
+        setObservedAssistantTurn(assistantTurnCounterRef.current);
+      }
+
+      semanticViewportRef.current = viewport instanceof HTMLElement ? viewport : null;
+      latestAssistantRowRef.current = lastMessageRow instanceof HTMLElement ? lastMessageRow : null;
       setOpeningBoard((current) => current === board ? current : board);
       setMessageViewport((current) => current === viewport ? current : viewport);
       setMessageStack((current) => current === stack ? current : stack);
@@ -201,9 +227,11 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
 
   useEffect(() => {
     if (interactionTimerRef.current) window.clearTimeout(interactionTimerRef.current);
+    const observedTurn = observedAssistantTurn;
     interactionTimerRef.current = window.setTimeout(() => {
       const nextMode = classifyInteraction(observedAssistantText);
       setSettledAssistantText(observedAssistantText);
+      setSettledAssistantTurn(observedTurn);
       setInteractionMode(nextMode);
       setBinarySubmitting(false);
       interactionTimerRef.current = null;
@@ -213,7 +241,7 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
       if (interactionTimerRef.current) window.clearTimeout(interactionTimerRef.current);
       interactionTimerRef.current = null;
     };
-  }, [observedAssistantText]);
+  }, [observedAssistantText, observedAssistantTurn]);
 
   useEffect(() => {
     if (!entryAnimationDone || chatReady || guidePreview) return undefined;
@@ -360,18 +388,32 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
     isActive && !guidePreview && chatReady && conversationStarted && interactionMode === "setup" && messageViewport && messageStack,
   );
 
-  useLayoutEffect(() => {
-    if (!setupPromptVisible || !(messageViewport instanceof HTMLElement)) return undefined;
+  const semanticRevealKey = Boolean(
+    isActive &&
+    !guidePreview &&
+    chatReady &&
+    conversationStarted &&
+    settledAssistantTurn > 0 &&
+    settledAssistantText
+  )
+    ? `buy-check:${settledAssistantTurn}:${interactionMode}`
+    : null;
+  const semanticAssistantRef = interactionMode === "setup" ? setupPromptRef : latestAssistantRowRef;
+  const semanticActionRef = interactionMode === "binary"
+    ? binaryControlsRef
+    : interactionMode === "setup"
+      ? setupPromptRef
+      : null;
 
-    const frame = window.requestAnimationFrame(() => {
-      messageViewport.scrollTo?.({
-        top: messageViewport.scrollHeight,
-        behavior: "smooth",
-      });
-    });
-
-    return () => window.cancelAnimationFrame(frame);
-  }, [messageViewport, setupPromptVisible]);
+  useClaraConversationReveal({
+    viewportRef: semanticViewportRef,
+    assistantRef: semanticAssistantRef,
+    actionRef: semanticActionRef,
+    revealKey: semanticRevealKey,
+    enabled: !guidePreview,
+    requireAction: interactionMode === "binary" || interactionMode === "setup",
+    behavior: "smooth",
+  });
 
   if (guidePreview) return <ClaraAiEnvironmentOverlayCore {...props} />;
 
@@ -380,7 +422,7 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
       ref={rootRef}
       data-clara-buy-check-ready-gate={chatReady ? "chat" : "intro"}
       data-clara-buy-check-interaction-mode={interactionMode}
-      data-clara-buy-check-runtime="v2-hard-intro-gate"
+      data-clara-buy-check-runtime="v2-semantic-viewport-reveal"
       className="clara-buy-check-ready-gate"
     >
       <style>{`
@@ -447,6 +489,7 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
 
       {binaryControlsVisible ? createPortal(
         <div
+          ref={binaryControlsRef}
           data-clara-buy-check-binary-controls="true"
           className="sticky bottom-2 z-50 mx-2 mt-4 grid grid-cols-2 gap-3 rounded-[24px] border border-blue-200/14 bg-[#040b1a]/96 p-3 shadow-[0_16px_44px_rgba(0,0,0,0.42)] backdrop-blur-2xl"
           aria-label="Choose Yes or No"
@@ -473,6 +516,7 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
 
       {setupPromptVisible ? createPortal(
         <div
+          ref={setupPromptRef}
           data-clara-buy-check-ui-card="financial-setup"
           data-clara-buy-check-financial-setup-prompt="true"
           className="mx-2 mt-3 rounded-[26px] border border-blue-200/18 border-l-2 border-l-[#ffd84a]/55 bg-[#07152d]/96 px-5 py-5 text-left shadow-[0_18px_48px_rgba(0,0,0,0.40)] backdrop-blur-2xl"
