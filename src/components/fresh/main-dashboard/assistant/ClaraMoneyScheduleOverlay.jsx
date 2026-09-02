@@ -522,6 +522,7 @@ function WeeklyReviewDayCard({
 export default function ClaraMoneyScheduleOverlay({
   isActive = false,
   claraAssistantContext = {},
+  onSetupResult,
   onClose,
 }) {
   const user = claraAssistantContext?.user || {};
@@ -1467,6 +1468,22 @@ export default function ClaraMoneyScheduleOverlay({
     onClose?.();
   };
 
+  const completeSetupWithRoutine = () => {
+    if (typeof onSetupResult === "function") {
+      cancelConversationPacing();
+      onSetupResult({ status: "complete", outcome: "configured" });
+      return;
+    }
+    closeChat();
+  };
+
+  const confirmNoRoutine = () => {
+    if (!interactionReady || typeof onSetupResult !== "function") return;
+    appendUser("I don’t have routine spending");
+    cancelConversationPacing();
+    onSetupResult({ status: "complete", outcome: "none_confirmed" });
+  };
+
   const weeklyTotal = days.reduce((sum, day) => sum + totalItems(day?.items), 0);
   const routineComplete = findNextMissingDayIndex(days, 0) < 0;
 
@@ -1504,6 +1521,9 @@ export default function ClaraMoneyScheduleOverlay({
           {phase === "welcome" && controlsReady ? (
             <div className="mt-auto grid gap-2.5 pt-3">
               <ChoiceButton onClick={startSetup}>Yes, let’s set it up</ChoiceButton>
+              {typeof onSetupResult === "function" ? (
+                <ChoiceButton onClick={confirmNoRoutine} secondary>I don’t have routine spending</ChoiceButton>
+              ) : null}
               <ChoiceButton onClick={closeChat} secondary>Not now</ChoiceButton>
             </div>
           ) : null}
@@ -1866,7 +1886,7 @@ export default function ClaraMoneyScheduleOverlay({
               </section>
               <div className="grid grid-cols-2 gap-2.5">
                 <ChoiceButton onClick={openSavedDayPicker}>Edit a day</ChoiceButton>
-                <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
+                <ChoiceButton onClick={completeSetupWithRoutine} secondary>Done</ChoiceButton>
               </div>
             </>
           ) : null}

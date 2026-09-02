@@ -181,6 +181,7 @@ export default function ClaraAddIncomeOverlayV2({
   claraAssistantContext = {},
   resumeState = null,
   onOpenWalletChat,
+  onSetupResult,
   onClose,
 }) {
   const user = claraAssistantContext?.user || {};
@@ -517,6 +518,15 @@ export default function ClaraAddIncomeOverlayV2({
   const closeChat = () => {
     cancelConversationPacing();
     onClose?.();
+  };
+
+  const completeSetupStep = () => {
+    if (typeof onSetupResult === "function") {
+      cancelConversationPacing();
+      onSetupResult({ status: "complete", outcome: "configured" });
+      return;
+    }
+    closeChat();
   };
 
   const saveNewSource = async (recurrence, overrides = {}) => {
@@ -1130,7 +1140,7 @@ export default function ClaraAddIncomeOverlayV2({
               <div className="mt-1 grid gap-2.5" data-clara-income-home="true">
                 <ChoiceButton onClick={beginAddMoney}>Add money</ChoiceButton>
                 <ChoiceButton onClick={beginCreateAnotherSource} secondary>Create another income source</ChoiceButton>
-                <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
+                <ChoiceButton onClick={completeSetupStep} secondary>Done</ChoiceButton>
               </div>
             ) : null}
 
@@ -1259,7 +1269,7 @@ export default function ClaraAddIncomeOverlayV2({
                 <ChoiceButton onClick={addMoneyAfterSourceCreation}>Add money now</ChoiceButton>
                 <ChoiceButton onClick={createStandaloneWalletAfterSourceCreation} secondary>Create a Wallet</ChoiceButton>
                 <ChoiceButton onClick={beginCreateAnotherSource} secondary>Create another income source</ChoiceButton>
-                <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
+                <ChoiceButton onClick={completeSetupStep} secondary>Done</ChoiceButton>
               </div>
             ) : null}
 
@@ -1309,7 +1319,7 @@ export default function ClaraAddIncomeOverlayV2({
                 <ChoiceButton onClick={beginTransfer}>Transfer to Wallet</ChoiceButton>
                 <div className="grid grid-cols-2 gap-2.5">
                   <ChoiceButton onClick={restart} secondary>Add another</ChoiceButton>
-                  <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
+                  <ChoiceButton onClick={completeSetupStep} secondary>Done</ChoiceButton>
                 </div>
               </div>
             ) : null}
@@ -1358,7 +1368,7 @@ export default function ClaraAddIncomeOverlayV2({
             {phase === "transferred" && controlsReady ? (
               <div className="mt-1 grid grid-cols-2 gap-2.5">
                 <ChoiceButton onClick={restart}>Add another</ChoiceButton>
-                <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
+                <ChoiceButton onClick={completeSetupStep} secondary>Done</ChoiceButton>
               </div>
             ) : null}
 

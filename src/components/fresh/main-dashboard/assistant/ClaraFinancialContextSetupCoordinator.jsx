@@ -1,509 +1,685 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ChevronRight, WalletCards } from "lucide-react";
-import ClaraAddIncomeOverlayV2 from "./ClaraAddIncomeOverlayV2.jsx";
-import ClaraWalletOverlayV2 from "./ClaraWalletOverlayV2.jsx";
+import { useEffect, useMemo, useState } from "react";
+import { CheckCircle2, ChevronRight, CircleDollarSign, WalletCards } from "lucide-react";
+import useFinancialData from "@/hooks/useFinancialData";
+import ClaraAddIncomeOverlay from "./ClaraAddIncomeOverlayV2.jsx";
+import ClaraWalletOverlay from "./ClaraWalletOverlayV2.jsx";
 import ClaraMoneyScheduleOverlay from "./ClaraMoneyScheduleOverlay.jsx";
 import ClaraDebtObligationOverlay from "./ClaraDebtObligationOverlay.jsx";
 import {
-  completeFinancialContextSetupStep,
-  advanceFinancialContextSetup,
-  finalizeFinancialContextSetup,
-  getFinancialContextSetupLocalUserId,
+  completeFinancialContextSetup,
+  recordFinancialContextSetupOutcome,
+  startFinancialContextSetup,
 } from "@/lib/financialContextSetupRepository";
-import { getIncomeSources } from "@/lib/incomeHubRepository";
+import {
+  getIncomeHubLocalUserId,
+  getIncomeSources,
+} from "@/lib/incomeHubRepository";
+import { isIncomeSourceMasterPayCycle } from "@/lib/clara-master-pay-cycle-repository";
 import {
   getEmergencyFund,
   getSavingsGoals,
-  getWallets,
+  getTransfers,
   getWalletTransactions,
+  getWallets,
 } from "@/lib/financeRepository";
-import { readClaraMoneyRoutine } from "@/lib/clara-money-schedule-repository";
-import { getDebtObligations } from "@/lib/debtObligationStore";
-import { buildCanonicalMeansSnapshot } from "@/lib/clara-means-authority";
 import {
+  getWalletId,
   getWalletName,
   isActiveWalletForMoneySemantics,
+  isMoneyLentWallet,
 } from "@/lib/clara-wallet-money-semantics";
+import {
+  getDebtObligations,
+  summarizeDebtObligations,
+} from "@/lib/debtObligationStore";
+import { readClaraMoneyRoutine } from "@/lib/clara-money-schedule-repository";
+import {
+  buildCanonicalMeansSnapshot,
+  calculateMeansAvailableWalletState,
+} from "@/lib/clara-means-authority";
 
-const STEP_LABELS = Object.freeze({
-  intro: "Financial Context",
-  income_hub: "Income Hub",
-  wallet: "Wallet",
-  money_schedule: "Money Schedule",
-  obligations: "Debt / Obligations",
-  review: "Review",
-});
+const clean = (value) => String(value ?? "").trim();
 
-const money = (value) =>
-  `₱${Math.max(0, Number(value) || 0).toLocaleString("en-PH", {
+function money(value = 0) {
+  const parsed = Number(value);
+  return new Intl.NumberFormat("en-PH", {
+    style: "currency",
+    currency: "PHP",
+    minimumFractionDigits: 0,
     maximumFractionDigits: 2,
-  })}`;
+  }).format(Number.isFinite(parsed) ? parsed : 0);
+}
 
-function SetupShell({ eyebrow = "CLARA setup", title, body, children }) {
+function firstNameFromUser(user = {}) {
+  const raw = clean(
+    user?.firstName ||
+      user?.first_name ||
+      user?.displayName ||
+      user?.display_name ||
+      user?.fullName ||
+      user?.full_name ||
+      user?.name
+  );
+  if (raw) return raw.split(" ")[0];
+  const email = clean(user?.email);
+  return email.includes("@") ? email.split("@")[0] : "there";
+}
+
+function isSetupWallet(wallet = {}) {
+  return isActiveWalletForMoneySemantics(wallet) && !isMoneyLentWallet(wallet);
+}
+
+function ProgressStrip({ currentStep }) {
+  const items = [
+    ["income_hub", "Income"],
+    ["wallet", "Wallet"],
+    ["money_schedule", "Schedule"],
+    ["obligations", "Obligations"],
+    ["review", "Review"],
+  ];
+  const activeIndex = Math.max(0, items.findIndex(([step]) => step === currentStep));
+
   return (
-    <div
-      className="fixed inset-0 z-[410] mx-auto flex w-full max-w-[430px] flex-col overflow-y-auto bg-[#020714] px-5 pb-[max(env(safe-area-inset-bottom),22px)] pt-[max(env(safe-area-inset-top),22px)] text-white"
-      data-clara-financial-context-setup="true"
-    >
-      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_8%_4%,rgba(23,105,255,0.28),transparent_34%),radial-gradient(circle_at_94%_10%,rgba(43,225,216,0.12),transparent_34%),linear-gradient(180deg,#06152e_0%,#040b1a_48%,#020714_100%)]" />
-      <div className="mx-auto flex min-h-full w-full max-w-sm flex-col justify-center py-8">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8ffff8]/55">{eyebrow}</p>
-        <h1 className="mt-3 text-[30px] font-black leading-[1.06] tracking-[-0.045em] text-white">{title}</h1>
-        {body ? <p className="mt-4 text-[13px] font-semibold leading-6 text-white/58">{body}</p> : null}
-        <div className="mt-7 grid gap-3">{children}</div>
-      </div>
+    <div className="grid grid-cols-5 gap-1.5 px-4" aria-label="Financial Context Setup progress">
+      {items.map(([step, label], index) => (
+        <div key={step} className="min-w-0 text-center">
+          <div
+            className={`mx-auto h-1.5 w-full rounded-full ${
+              index <= activeIndex ? "bg-[#2be1d8]" : "bg-white/10"
+            }`}
+          />
+          <span
+            className={`mt-1.5 block truncate text-[8.5px] font-black uppercase tracking-[0.08em] ${
+              index === activeIndex ? "text-cyan-100/85" : "text-white/28"
+            }`}
+          >
+            {label}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
 
-function PrimaryButton({ children, onClick, secondary = false, disabled = false }) {
+function SetupFrame({ currentStep, children }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`min-h-13 rounded-[18px] border px-4 py-3 text-[13px] font-black transition active:scale-[0.985] disabled:opacity-45 ${
-        secondary
-          ? "border-white/10 bg-white/[0.035] text-white/82"
-          : "border-cyan-200/20 bg-[linear-gradient(135deg,#1769ff,#0d4fc6)] text-white shadow-[0_14px_34px_rgba(23,105,255,0.22)]"
-      }`}
+    <div
+      className="fixed inset-0 z-[420] mx-auto flex w-full max-w-[430px] flex-col overflow-hidden bg-[#020714] text-white"
+      data-clara-financial-context-setup="true"
+      data-clara-financial-context-step={currentStep}
     >
-      {children}
-    </button>
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_5%,rgba(23,105,255,0.27),transparent_34%),radial-gradient(circle_at_94%_8%,rgba(43,225,216,0.12),transparent_32%),linear-gradient(180deg,#06152e_0%,#040b1a_45%,#020714_100%)]" />
+      <header className="relative z-10 shrink-0 px-4 pb-3 pt-[max(env(safe-area-inset-top),14px)]">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/48">CLARA setup</p>
+            <h1 className="mt-0.5 text-[15px] font-black tracking-[-0.02em]">Financial Context</h1>
+          </div>
+          <span className="rounded-full border border-cyan-200/12 bg-cyan-200/[0.045] px-2.5 py-1 text-[9px] font-black text-cyan-50/62">
+            First setup
+          </span>
+        </div>
+        {currentStep !== "intro" ? <ProgressStrip currentStep={currentStep} /> : null}
+      </header>
+      <div className="relative z-10 min-h-0 flex-1">{children}</div>
+    </div>
   );
 }
 
-function SummaryRow({ label, value }) {
+function PausedSetup({ currentStep, onResume }) {
+  const labels = {
+    income_hub: "Income Hub",
+    wallet: "Wallet",
+    money_schedule: "Money Schedule",
+    obligations: "Debt / Obligations",
+    review: "Review",
+  };
+
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-white/[0.07] py-3 last:border-b-0">
-      <span className="text-[11px] font-bold text-white/42">{label}</span>
-      <span className="max-w-[64%] text-right text-[12px] font-black leading-5 text-white/88">{value}</span>
+    <div className="flex h-full items-center justify-center px-5 py-10">
+      <section className="w-full rounded-[28px] border border-white/[0.08] bg-[#07142b]/92 p-6 text-center shadow-[0_24px_70px_rgba(0,0,0,0.35)]">
+        <CheckCircle2 className="mx-auto h-8 w-8 text-[#8ffff8]/85" />
+        <h2 className="mt-4 text-xl font-black tracking-[-0.03em]">Your progress is saved.</h2>
+        <p className="mx-auto mt-2 max-w-xs text-[12.5px] font-semibold leading-6 text-white/50">
+          You can continue from {labels[currentStep] || "the current step"}. Completed financial-context steps will not be repeated.
+        </p>
+        <button
+          type="button"
+          onClick={onResume}
+          className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[17px] bg-[#1769ff] px-4 text-[13px] font-black text-white shadow-[0_12px_30px_rgba(23,105,255,0.25)] active:scale-[0.985]"
+        >
+          Resume setup <ChevronRight className="h-4 w-4" />
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function Intro({ firstName, busy, error, onContinue }) {
+  return (
+    <div className="flex h-full items-center justify-center overflow-y-auto px-5 pb-[max(env(safe-area-inset-bottom),22px)] pt-3">
+      <section className="w-full rounded-[30px] border border-white/[0.08] bg-[#07142b]/88 p-6 shadow-[0_26px_80px_rgba(0,0,0,0.34)]">
+        <div className="grid h-12 w-12 place-items-center rounded-2xl border border-cyan-200/14 bg-cyan-200/[0.055]">
+          <CircleDollarSign className="h-6 w-6 text-[#8ffff8]" />
+        </div>
+        <p className="mt-5 text-[10px] font-black uppercase tracking-[0.17em] text-cyan-100/48">Before we start</p>
+        <h2 className="mt-2 text-[26px] font-black leading-[1.08] tracking-[-0.045em]">
+          I need to understand your financial context, {firstName}.
+        </h2>
+        <p className="mt-4 text-[13px] font-semibold leading-6 text-white/54">
+          I’ll guide you through a short series of questions. This gives CLARA the context it needs before showing your financial position.
+        </p>
+        <div className="mt-5 grid gap-2.5">
+          {[
+            ["1", "Where your money comes from"],
+            ["2", "Where your available money is held"],
+            ["3", "Your normal scheduled spending"],
+            ["4", "Bills, loans, debts, and obligations"],
+          ].map(([number, label]) => (
+            <div key={number} className="flex items-center gap-3 rounded-[16px] border border-white/[0.06] bg-white/[0.025] px-3.5 py-3">
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#1769ff]/18 text-[10px] font-black text-cyan-100/78">{number}</span>
+              <span className="text-[12px] font-bold text-white/76">{label}</span>
+            </div>
+          ))}
+        </div>
+        <p className="mt-4 text-[11px] font-semibold leading-5 text-white/36">
+          You do not need to invent money or obligations you do not have. ₱0 and “none” are valid answers where they apply.
+        </p>
+        {error ? <p className="mt-3 text-[11px] font-bold text-red-100/80">{error}</p> : null}
+        <button
+          type="button"
+          onClick={onContinue}
+          disabled={busy}
+          className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[17px] bg-[#1769ff] px-4 text-[13px] font-black text-white shadow-[0_12px_30px_rgba(23,105,255,0.25)] active:scale-[0.985] disabled:opacity-45"
+        >
+          {busy ? "Starting..." : "Build my financial context"}
+          {!busy ? <ChevronRight className="h-4 w-4" /> : null}
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function Review({ review, loading, error, busy, onRetry, onComplete }) {
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center px-5 text-center">
+        <div>
+          <div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-white/10 border-t-[#2be1d8]" />
+          <p className="mt-3 text-[12px] font-bold text-white/48">Checking your financial context...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !review) {
+    return (
+      <div className="flex h-full items-center justify-center px-5">
+        <section className="w-full rounded-[24px] border border-red-200/10 bg-red-500/[0.04] p-5 text-center">
+          <p className="text-[13px] font-black">CLARA couldn’t prepare the review yet.</p>
+          <p className="mt-2 text-[11px] font-semibold leading-5 text-white/45">{error || "Financial context is temporarily unavailable."}</p>
+          <button type="button" onClick={onRetry} className="mt-4 min-h-11 w-full rounded-[15px] bg-[#1769ff] text-[12px] font-black">Try again</button>
+        </section>
+      </div>
+    );
+  }
+
+  const means = review.means;
+  const rawMeansScore = means?.meansScore;
+  const scoreAvailable =
+    rawMeansScore !== null &&
+    rawMeansScore !== undefined &&
+    rawMeansScore !== "" &&
+    Number.isFinite(Number(rawMeansScore));
+
+  return (
+    <div className="h-full overflow-y-auto px-4 pb-[max(env(safe-area-inset-bottom),22px)] pt-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <section className="rounded-[26px] border border-white/[0.08] bg-[#07142b]/88 p-5">
+        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/48">Context review</p>
+        <h2 className="mt-2 text-[24px] font-black tracking-[-0.04em]">CLARA now has the full setup picture.</h2>
+        <p className="mt-2 text-[12px] font-semibold leading-5 text-white/46">Review the context below before we finish your first setup.</p>
+      </section>
+
+      <div className="mt-3 grid gap-2.5">
+        <section className="rounded-[20px] border border-white/[0.07] bg-white/[0.025] p-4">
+          <p className="text-[9px] font-black uppercase tracking-[0.13em] text-white/34">Income Hub</p>
+          <p className="mt-1.5 text-[14px] font-black">{review.incomeSources.length} income source{review.incomeSources.length === 1 ? "" : "s"}</p>
+          <p className="mt-1 text-[11px] font-semibold text-white/44">
+            Master Pay Cycle: {review.masterSource?.name || "Not established"}
+          </p>
+        </section>
+
+        <section className="rounded-[20px] border border-white/[0.07] bg-white/[0.025] p-4">
+          <p className="text-[9px] font-black uppercase tracking-[0.13em] text-white/34">Wallet</p>
+          <p className="mt-1.5 text-[14px] font-black">{review.wallets.length} active wallet{review.wallets.length === 1 ? "" : "s"}</p>
+          <p className="mt-1 text-[11px] font-semibold text-white/44">Available wallet money: {money(review.availableWalletMoney)}</p>
+        </section>
+
+        <section className="rounded-[20px] border border-white/[0.07] bg-white/[0.025] p-4">
+          <p className="text-[9px] font-black uppercase tracking-[0.13em] text-white/34">Money Schedule</p>
+          <p className="mt-1.5 text-[14px] font-black">
+            {review.routine ? `Normal weekly routine: ${money((review.routine.weeklyTotalCentavos || 0) / 100)}` : "No routine spending confirmed"}
+          </p>
+        </section>
+
+        <section className="rounded-[20px] border border-white/[0.07] bg-white/[0.025] p-4">
+          <p className="text-[9px] font-black uppercase tracking-[0.13em] text-white/34">Debt / Obligations</p>
+          <p className="mt-1.5 text-[14px] font-black">{review.obligations.length} active obligation{review.obligations.length === 1 ? "" : "s"}</p>
+          <p className="mt-1 text-[11px] font-semibold text-white/44">Monthly obligation: {money(review.debtSummary.monthlyDebt)}</p>
+        </section>
+      </div>
+
+      <section className="mt-3 rounded-[24px] border border-cyan-200/14 bg-[linear-gradient(135deg,rgba(23,105,255,0.12),rgba(43,225,216,0.055))] p-5">
+        <div className="flex items-center gap-2">
+          <WalletCards className="h-4 w-4 text-[#8ffff8]" />
+          <p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100/58">Initial financial position</p>
+        </div>
+        {scoreAvailable ? (
+          <>
+            <p className="mt-3 text-[38px] font-black leading-none tracking-[-0.055em]">{Number(rawMeansScore).toFixed(0)}</p>
+            <p className="mt-2 text-[11px] font-semibold text-white/48">Means Score · Cycle 100 Anchor {money(means.cycle100Anchor)}</p>
+            <p className="mt-1 text-[11px] font-semibold text-white/48">Real room / Wall Bill: {money(means.wallBill)}</p>
+          </>
+        ) : (
+          <>
+            <p className="mt-3 text-[18px] font-black tracking-[-0.025em]">Financial context ready.</p>
+            <p className="mt-2 text-[11px] font-semibold leading-5 text-white/48">
+              Your Cycle 100 Anchor and numeric Means Score have not been established yet. CLARA will not invent a score.
+            </p>
+          </>
+        )}
+      </section>
+
+      {error ? <p className="mt-3 text-[11px] font-bold text-red-100/80">{error}</p> : null}
+      <button
+        type="button"
+        onClick={onComplete}
+        disabled={busy}
+        className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[17px] bg-[#1769ff] px-4 text-[13px] font-black text-white shadow-[0_12px_30px_rgba(23,105,255,0.25)] active:scale-[0.985] disabled:opacity-45"
+      >
+        {busy ? "Finishing..." : "Finish setup"}
+        {!busy ? <CheckCircle2 className="h-4 w-4" /> : null}
+      </button>
     </div>
   );
 }
 
 export default function ClaraFinancialContextSetupCoordinator({
   user,
-  setupState,
+  initialState,
   onStateChange,
   onComplete,
 }) {
-  const localUserId = useMemo(() => getFinancialContextSetupLocalUserId(user || {}), [user]);
-  const step = setupState?.currentStep || "intro";
-  const [childActive, setChildActive] = useState(false);
-  const [closeConfirmation, setCloseConfirmation] = useState("");
-  const [financeContext, setFinanceContext] = useState({
-    wallets: [],
-    walletTransactions: [],
-    savingsGoals: [],
-    emergencyFund: null,
-  });
-  const [review, setReview] = useState(null);
+  const firstName = firstNameFromUser(user);
+  const localUserId = useMemo(() => getIncomeHubLocalUserId(user), [user]);
+  const [setupState, setSetupState] = useState(initialState);
+  const [paused, setPaused] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [walletStepMode, setWalletStepMode] = useState("checking");
+  const [incomeWalletHandoff, setIncomeWalletHandoff] = useState(null);
+  const [incomeResume, setIncomeResume] = useState(null);
+  const [review, setReview] = useState(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewNonce, setReviewNonce] = useState(0);
 
-  const refreshFinanceContext = useCallback(async () => {
-    const [wallets, walletTransactions, savingsGoals, emergencyFund] = await Promise.all([
-      getWallets(localUserId).catch(() => []),
-      getWalletTransactions(localUserId).catch(() => []),
-      getSavingsGoals(localUserId).catch(() => []),
-      getEmergencyFund(localUserId).catch(() => null),
-    ]);
-    const next = {
-      wallets: Array.isArray(wallets) ? wallets : [],
-      walletTransactions: Array.isArray(walletTransactions) ? walletTransactions : [],
-      savingsGoals: Array.isArray(savingsGoals) ? savingsGoals : [],
-      emergencyFund: emergencyFund || null,
-    };
-    setFinanceContext(next);
-    return next;
-  }, [localUserId]);
+  const {
+    expenses = [],
+    incomes = [],
+    wallets = [],
+    walletTransactions = [],
+    transfers = [],
+    budgets = [],
+    savingsGoals = [],
+    emergencyFund = null,
+    totalIncome = 0,
+    loading = false,
+    refreshing = false,
+  } = useFinancialData(user);
 
-  const persistState = useCallback((next) => {
+  useEffect(() => {
+    setSetupState(initialState);
+    setPaused(false);
+    setError("");
+    setWalletStepMode("checking");
+    setIncomeWalletHandoff(null);
+    setIncomeResume(null);
+    setReview(null);
+  }, [initialState, localUserId]);
+
+  const currentStep = setupState?.currentStep || "intro";
+
+  const childContext = useMemo(
+    () => ({
+      user,
+      expenses,
+      incomes,
+      wallets,
+      walletTransactions,
+      transfers,
+      budgets,
+      savingsGoals,
+      emergencyFund,
+      totalIncome,
+      loading,
+      refreshing,
+    }),
+    [
+      user,
+      expenses,
+      incomes,
+      wallets,
+      walletTransactions,
+      transfers,
+      budgets,
+      savingsGoals,
+      emergencyFund,
+      totalIncome,
+      loading,
+      refreshing,
+    ]
+  );
+
+  const commitState = (next) => {
+    setSetupState(next);
     onStateChange?.(next);
     return next;
-  }, [onStateChange]);
+  };
 
-  const completeStep = useCallback(async ({ step: completedStep, outcome, nextStep }) => {
+  const startSetup = async () => {
+    if (busy) return;
     setBusy(true);
     setError("");
     try {
-      const next = await completeFinancialContextSetupStep(localUserId, {
-        step: completedStep,
-        outcome,
-        nextStep,
-      });
-      setChildActive(false);
-      setCloseConfirmation("");
-      persistState(next);
-      return next;
+      const next = await startFinancialContextSetup(localUserId);
+      commitState(next);
     } catch (nextError) {
-      setError(String(nextError?.message || "CLARA couldn’t save your setup progress."));
+      setError(clean(nextError?.message) || "CLARA couldn’t start Financial Context Setup.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const advance = async (step, outcome) => {
+    if (busy) return null;
+    setBusy(true);
+    setError("");
+    try {
+      const next = await recordFinancialContextSetupOutcome(localUserId, { step, outcome });
+      setPaused(false);
+      setWalletStepMode("checking");
+      setIncomeWalletHandoff(null);
+      setIncomeResume(null);
+      setReview(null);
+      return commitState(next);
+    } catch (nextError) {
+      setError(clean(nextError?.message) || "CLARA couldn’t save this setup step.");
       return null;
     } finally {
       setBusy(false);
     }
-  }, [localUserId, persistState]);
+  };
+
+  const interrupt = () => {
+    setPaused(true);
+    setIncomeWalletHandoff(null);
+    setIncomeResume(null);
+    setError("");
+  };
+
+  const handleIncomeSetupResult = (result = {}) => {
+    if (result?.status !== "complete") return;
+    void advance("income_hub", result?.outcome || "configured");
+  };
+
+  const openWalletFromIncome = (detail = {}) => {
+    const amount = Number(detail?.amount) || 0;
+    setIncomeResume(
+      amount > 0
+        ? {
+            sourceId: String(detail?.sourceId || ""),
+            sourceName: clean(detail?.sourceName),
+            amount,
+            reason: "transfer-after-wallet",
+            cancelled: false,
+          }
+        : null
+    );
+    setIncomeWalletHandoff({
+      ...detail,
+      intent: "create",
+      source: "financial-context-income",
+      returnMode: "income_hub",
+    });
+  };
+
+  const returnWalletToIncome = (detail = {}) => {
+    const pendingAmount = Number(incomeWalletHandoff?.amount) || 0;
+    if (pendingAmount > 0) {
+      setIncomeResume((current) => ({
+        ...(current || {}),
+        wallet: detail?.wallet || null,
+        walletAction: detail?.action || "created",
+        cancelled: false,
+      }));
+    } else {
+      setIncomeResume(null);
+    }
+    setIncomeWalletHandoff(null);
+  };
 
   useEffect(() => {
-    setChildActive(false);
-    setCloseConfirmation("");
-    setError("");
+    if (currentStep !== "wallet" || paused) return undefined;
+    let cancelled = false;
+    setWalletStepMode("checking");
 
-    if (step === "income_hub") {
-      setChildActive(true);
-      return;
-    }
-
-    if (step === "wallet") {
-      let cancelled = false;
-      void refreshFinanceContext().then(async (context) => {
+    (async () => {
+      try {
+        const rows = await getWallets(localUserId);
         if (cancelled) return;
-        const activeWallet = context.wallets.find(isActiveWalletForMoneySemantics);
-        if (activeWallet) {
-          await completeStep({ step: "wallet", outcome: "existing", nextStep: "money_schedule" });
+        const hasExistingWallet = (Array.isArray(rows) ? rows : []).some(isSetupWallet);
+        if (hasExistingWallet) {
+          await advance("wallet", "existing");
           return;
         }
-        if (!cancelled) setChildActive(true);
-      });
-      return () => {
-        cancelled = true;
-      };
-    }
+        if (!cancelled) setWalletStepMode("create");
+      } catch (nextError) {
+        if (!cancelled) {
+          setError(clean(nextError?.message) || "CLARA couldn’t check your Wallet setup.");
+          setWalletStepMode("create");
+        }
+      }
+    })();
 
-    if (step === "review") {
-      let cancelled = false;
-      setBusy(true);
-      void Promise.all([
-        getIncomeSources(localUserId).catch(() => []),
-        refreshFinanceContext(),
-        getDebtObligations(localUserId).catch(() => []),
-        buildCanonicalMeansSnapshot({ profile: user || {} }).catch(() => null),
-      ]).then(([incomeSources, context, obligations, means]) => {
-        if (cancelled) return;
-        const routine = readClaraMoneyRoutine(user || {});
-        setReview({
-          incomeSources: Array.isArray(incomeSources) ? incomeSources : [],
-          wallets: context.wallets.filter(isActiveWalletForMoneySemantics),
-          routine,
-          obligations: Array.isArray(obligations) ? obligations : [],
-          means,
-        });
-        setBusy(false);
-      });
-      return () => {
-        cancelled = true;
-      };
-    }
+    return () => {
+      cancelled = true;
+    };
+  }, [currentStep, localUserId, paused]);
 
-    return undefined;
-  }, [completeStep, localUserId, refreshFinanceContext, step, user]);
-
-  const assistantContext = useMemo(() => ({
-    user: user || {},
-    wallets: financeContext.wallets,
-    walletTransactions: financeContext.walletTransactions,
-    savingsGoals: financeContext.savingsGoals,
-    emergencyFund: financeContext.emergencyFund,
-  }), [financeContext, user]);
-
-  const continueIntro = async () => {
-    setBusy(true);
+  useEffect(() => {
+    if (currentStep !== "review" || paused) return undefined;
+    let cancelled = false;
+    setReviewLoading(true);
     setError("");
-    try {
-      const next = await advanceFinancialContextSetup(localUserId, "income_hub");
-      persistState(next);
-    } catch (nextError) {
-      setError(String(nextError?.message || "CLARA couldn’t start Financial Context Setup."));
-    } finally {
-      setBusy(false);
-    }
-  };
 
-  const handleIncomeClose = async () => {
-    setChildActive(false);
-    const sources = await getIncomeSources(localUserId).catch(() => []);
-    setCloseConfirmation(Array.isArray(sources) && sources.length ? "income-configured" : "income-incomplete");
-  };
+    (async () => {
+      try {
+        const [
+          incomeSources,
+          walletRows,
+          transactionRows,
+          transferRows,
+          goalRows,
+          reserve,
+          obligations,
+          canonicalMeans,
+        ] = await Promise.all([
+          getIncomeSources(localUserId),
+          getWallets(localUserId),
+          getWalletTransactions(localUserId),
+          getTransfers(localUserId),
+          getSavingsGoals(localUserId),
+          getEmergencyFund(localUserId),
+          getDebtObligations(localUserId),
+          buildCanonicalMeansSnapshot({
+            profile: {
+              ...(user || {}),
+              id: localUserId,
+              user_id: localUserId,
+              userId: localUserId,
+            },
+            now: new Date(),
+          }),
+        ]);
+        if (cancelled) return;
 
-  const handleIncomeOpenWallet = async () => {
-    await completeStep({ step: "income_hub", outcome: "configured", nextStep: "wallet" });
-  };
+        const safeWallets = (Array.isArray(walletRows) ? walletRows : []).filter(isSetupWallet);
+        const walletState = calculateMeansAvailableWalletState(
+          walletRows,
+          transactionRows,
+          transferRows,
+          { emergencyFund: reserve, savingsGoals: goalRows }
+        );
+        const safeIncomeSources = Array.isArray(incomeSources) ? incomeSources : [];
+        const safeObligations = Array.isArray(obligations) ? obligations : [];
+        const routine = readClaraMoneyRoutine(user);
+        const debtSummary = summarizeDebtObligations(safeObligations, {
+          income: Number(totalIncome) || 0,
+        });
 
-  const handleWalletReady = async () => {
-    await refreshFinanceContext();
-    await completeStep({ step: "wallet", outcome: "created", nextStep: "money_schedule" });
-  };
+        setReview({
+          incomeSources: safeIncomeSources,
+          masterSource: safeIncomeSources.find(isIncomeSourceMasterPayCycle) || null,
+          wallets: safeWallets.map((wallet) => ({
+            id: getWalletId(wallet),
+            name: getWalletName(wallet) || "Wallet",
+          })),
+          availableWalletMoney: Number(
+            canonicalMeans?.availableWalletMoney ?? walletState.availableNow
+          ) || 0,
+          routine,
+          obligations: safeObligations,
+          debtSummary,
+          means: canonicalMeans || null,
+        });
+      } catch (nextError) {
+        if (!cancelled) {
+          setReview(null);
+          setError(clean(nextError?.message) || "CLARA couldn’t build your financial review.");
+        }
+      } finally {
+        if (!cancelled) setReviewLoading(false);
+      }
+    })();
 
-  const handleMoneyScheduleClose = () => {
-    setChildActive(false);
-    const routine = readClaraMoneyRoutine(user || {});
-    setCloseConfirmation(routine?.active ? "schedule-configured" : "schedule-incomplete");
-  };
-
-  const handleObligationsClose = async () => {
-    setChildActive(false);
-    const records = await getDebtObligations(localUserId).catch(() => []);
-    setCloseConfirmation(Array.isArray(records) && records.length ? "obligations-configured" : "obligations-incomplete");
-  };
+    return () => {
+      cancelled = true;
+    };
+  }, [currentStep, localUserId, paused, reviewNonce, totalIncome, user]);
 
   const finishSetup = async () => {
+    if (busy) return;
     setBusy(true);
     setError("");
     try {
-      const next = await finalizeFinancialContextSetup(localUserId);
-      persistState(next);
+      const next = await completeFinancialContextSetup(localUserId);
+      commitState(next);
       onComplete?.(next);
     } catch (nextError) {
-      setError(String(nextError?.message || "CLARA couldn’t finish your Financial Context Setup."));
+      setError(clean(nextError?.message) || "CLARA couldn’t finish Financial Context Setup.");
     } finally {
       setBusy(false);
     }
   };
 
-  if (step === "intro") {
-    return (
-      <SetupShell
-        title="Before we start, I need to understand your financial context."
-        body="I’ll guide you through a short series of questions so CLARA understands your income cycle, where your money is held, your normal spending routine, and the obligations you need to protect."
-      >
-        <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
-          {["Income Hub", "Wallet", "Money Schedule", "Debt / Obligations"].map((label, index) => (
-            <div key={label} className="flex items-center gap-3 border-b border-white/[0.07] py-2.5 last:border-b-0">
-              <span className="grid h-7 w-7 place-items-center rounded-full bg-cyan-200/[0.08] text-[10px] font-black text-[#8ffff8]/80">{index + 1}</span>
-              <span className="text-[12px] font-black text-white/82">{label}</span>
-            </div>
-          ))}
-        </div>
-        <PrimaryButton onClick={continueIntro} disabled={busy}>
-          {busy ? "Starting…" : "Build my financial context"}
-        </PrimaryButton>
-        {error ? <p className="text-center text-[11px] font-bold text-rose-200/85">{error}</p> : null}
-      </SetupShell>
-    );
-  }
+  if (currentStep === "complete") return null;
 
-  if (step === "income_hub") {
-    if (childActive) {
-      return (
-        <ClaraAddIncomeOverlayV2
+  if (incomeWalletHandoff && currentStep === "income_hub" && !paused) {
+    return (
+      <SetupFrame currentStep={currentStep}>
+        <ClaraWalletOverlay
           isActive
-          claraAssistantContext={assistantContext}
-          onOpenWalletChat={handleIncomeOpenWallet}
-          onClose={handleIncomeClose}
+          claraAssistantContext={childContext}
+          entryContext={incomeWalletHandoff}
+          onWalletReady={returnWalletToIncome}
+          onClose={interrupt}
         />
-      );
-    }
-
-    return (
-      <SetupShell
-        eyebrow="Financial Context · Income Hub"
-        title={closeConfirmation === "income-configured" ? "Income Hub has usable context." : "Income Hub is still incomplete."}
-        body={closeConfirmation === "income-configured"
-          ? "I found at least one Income Source. Closing the chat did not automatically complete the setup step, so confirm when you’re ready to continue."
-          : "No Income Source was confirmed. Reopen Income Hub to continue; your normal CLARA experience stays gated until this setup is resolved."}
-      >
-        {closeConfirmation === "income-configured" ? (
-          <PrimaryButton
-            onClick={() => completeStep({ step: "income_hub", outcome: "configured", nextStep: "wallet" })}
-            disabled={busy}
-          >
-            Continue to Wallet
-          </PrimaryButton>
-        ) : null}
-        <PrimaryButton onClick={() => setChildActive(true)} secondary>Reopen Income Hub</PrimaryButton>
-      </SetupShell>
-    );
-  }
-
-  if (step === "wallet") {
-    if (childActive) {
-      return (
-        <ClaraWalletOverlayV2
-          isActive
-          claraAssistantContext={assistantContext}
-          entryContext={{ intent: "create", source: "financial-context-setup", returnMode: "financial-context-setup" }}
-          onWalletReady={handleWalletReady}
-          onClose={() => setChildActive(false)}
-        />
-      );
-    }
-    return (
-      <SetupShell
-        eyebrow="Financial Context · Wallet"
-        title="Create the place where your actual money is tracked."
-        body="A Wallet can start at ₱0. You do not need to add or transfer income first."
-      >
-        <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl border border-cyan-200/14 bg-cyan-200/[0.05]">
-          <WalletCards className="h-6 w-6 text-[#8ffff8]/75" />
-        </div>
-        <PrimaryButton onClick={() => setChildActive(true)}>Create a Wallet</PrimaryButton>
-      </SetupShell>
-    );
-  }
-
-  if (step === "money_schedule") {
-    if (childActive) {
-      return (
-        <ClaraMoneyScheduleOverlay
-          isActive
-          claraAssistantContext={assistantContext}
-          onClose={handleMoneyScheduleClose}
-        />
-      );
-    }
-
-    if (closeConfirmation === "schedule-configured") {
-      return (
-        <SetupShell
-          eyebrow="Financial Context · Money Schedule"
-          title="Your Money Schedule is configured."
-          body="Confirm this as the routine CLARA should use for the setup, or reopen it if you want to make changes first."
-        >
-          <PrimaryButton
-            onClick={() => completeStep({ step: "money_schedule", outcome: "configured", nextStep: "obligations" })}
-            disabled={busy}
-          >
-            Continue to Debt / Obligations
-          </PrimaryButton>
-          <PrimaryButton onClick={() => setChildActive(true)} secondary>Reopen Money Schedule</PrimaryButton>
-        </SetupShell>
-      );
-    }
-
-    return (
-      <SetupShell
-        eyebrow="Financial Context · Money Schedule"
-        title="What do you normally need to spend during your routine?"
-        body="Set up your normal Monday-to-Sunday routine. If you truly have no routine spending yet, say so explicitly — CLARA will not create fake ₱0 schedule records."
-      >
-        <PrimaryButton onClick={() => setChildActive(true)}>Set up Money Schedule</PrimaryButton>
-        <PrimaryButton
-          onClick={() => completeStep({ step: "money_schedule", outcome: "none_confirmed", nextStep: "obligations" })}
-          secondary
-          disabled={busy}
-        >
-          I have no routine spending yet
-        </PrimaryButton>
-      </SetupShell>
-    );
-  }
-
-  if (step === "obligations") {
-    if (childActive) {
-      return (
-        <ClaraDebtObligationOverlay
-          isActive
-          claraAssistantContext={assistantContext}
-          onClose={handleObligationsClose}
-        />
-      );
-    }
-
-    if (closeConfirmation === "obligations-configured") {
-      return (
-        <SetupShell
-          eyebrow="Financial Context · Debt / Obligations"
-          title="Your obligations are configured."
-          body="Confirm that CLARA should use the obligations you recorded, or reopen the chat if you need to add or correct something."
-        >
-          <PrimaryButton
-            onClick={() => completeStep({ step: "obligations", outcome: "configured", nextStep: "review" })}
-            disabled={busy}
-          >
-            Continue to Review
-          </PrimaryButton>
-          <PrimaryButton onClick={() => setChildActive(true)} secondary>Reopen Debt / Obligations</PrimaryButton>
-        </SetupShell>
-      );
-    }
-
-    return (
-      <SetupShell
-        eyebrow="Financial Context · Debt / Obligations"
-        title="Do you have bills, obligations, loans, or debts CLARA should protect?"
-        body="Record the commitments that apply to you. If you have none, confirm that explicitly; an empty database by itself does not count as an answer."
-      >
-        <PrimaryButton onClick={() => setChildActive(true)}>Set up Debt / Obligations</PrimaryButton>
-        <PrimaryButton
-          onClick={() => completeStep({ step: "obligations", outcome: "none_confirmed", nextStep: "review" })}
-          secondary
-          disabled={busy}
-        >
-          I have no debt or obligations
-        </PrimaryButton>
-      </SetupShell>
-    );
-  }
-
-  if (step === "review") {
-    const scheduleOutcome = setupState?.outcomes?.moneySchedule;
-    const obligationOutcome = setupState?.outcomes?.obligations;
-    const means = review?.means || null;
-    const meansResolved = Boolean(means?.meansScoreResolved && Number.isFinite(Number(means?.meansScore)));
-    const activeWalletMoney = means ? means.availableWalletMoney : null;
-
-    return (
-      <SetupShell
-        eyebrow="Financial Context · Review"
-        title="CLARA now has your starting financial context."
-        body="This review reads your existing financial authorities. It does not calculate another version of your Means Score."
-      >
-        <div className="rounded-[22px] border border-white/8 bg-white/[0.03] px-4">
-          <SummaryRow label="Income Sources" value={busy ? "Loading…" : `${review?.incomeSources?.length || 0} configured`} />
-          <SummaryRow
-            label="Wallets"
-            value={busy ? "Loading…" : review?.wallets?.length
-              ? review.wallets.map((wallet) => getWalletName(wallet) || "Wallet").join(", ")
-              : "None"}
-          />
-          <SummaryRow
-            label="Available Wallet Money"
-            value={busy ? "Loading…" : activeWalletMoney === null ? "—" : money(activeWalletMoney)}
-          />
-          <SummaryRow
-            label="Money Schedule"
-            value={scheduleOutcome === "none_confirmed" ? "None confirmed" : review?.routine?.active ? "Configured" : "Configured in setup"}
-          />
-          <SummaryRow
-            label="Debt / Obligations"
-            value={obligationOutcome === "none_confirmed" ? "None confirmed" : `${review?.obligations?.length || 0} configured`}
-          />
-        </div>
-
-        <div className="rounded-[22px] border border-cyan-200/14 bg-cyan-200/[0.045] p-4 text-center">
-          {meansResolved ? (
-            <>
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8ffff8]/55">Initial Means Score</p>
-              <p className="mt-2 text-[44px] font-black tracking-[-0.05em] text-white">{Math.round(Number(means.meansScore))}</p>
-              <p className="mt-1 text-[11px] font-semibold text-white/48">Canonical Cycle 100 / Means authority</p>
-            </>
-          ) : (
-            <>
-              <CheckCircle2 className="mx-auto h-7 w-7 text-[#8ffff8]/70" />
-              <p className="mt-3 text-[13px] font-black text-white">Financial context is ready.</p>
-              <p className="mt-1 text-[11px] font-semibold leading-5 text-white/48">
-                Your Means Score has not been established yet because the canonical Cycle 100 Anchor is not currently resolved. CLARA will not invent a score.
-              </p>
-            </>
-          )}
-        </div>
-
-        <PrimaryButton onClick={finishSetup} disabled={busy || !review}>
-          <span className="inline-flex items-center gap-2">
-            Enter CLARA <ChevronRight className="h-4 w-4" />
-          </span>
-        </PrimaryButton>
-        {error ? <p className="text-center text-[11px] font-bold text-rose-200/85">{error}</p> : null}
-      </SetupShell>
+      </SetupFrame>
     );
   }
 
   return (
-    <SetupShell title={STEP_LABELS[step] || "Financial Context Setup"} body="Loading your setup progress…">
-      <div className="h-1.5 overflow-hidden rounded-full bg-white/8">
-        <div className="h-full w-1/2 animate-pulse rounded-full bg-cyan-200/55" />
-      </div>
-    </SetupShell>
+    <SetupFrame currentStep={currentStep}>
+      {paused ? (
+        <PausedSetup currentStep={currentStep} onResume={() => setPaused(false)} />
+      ) : currentStep === "intro" ? (
+        <Intro firstName={firstName} busy={busy} error={error} onContinue={startSetup} />
+      ) : currentStep === "income_hub" ? (
+        <ClaraAddIncomeOverlay
+          isActive
+          claraAssistantContext={childContext}
+          resumeState={incomeResume}
+          onOpenWalletChat={openWalletFromIncome}
+          onSetupResult={handleIncomeSetupResult}
+          onClose={interrupt}
+        />
+      ) : currentStep === "wallet" ? (
+        walletStepMode === "checking" ? (
+          <div className="flex h-full items-center justify-center px-5 text-center">
+            <div>
+              <div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-white/10 border-t-[#2be1d8]" />
+              <p className="mt-3 text-[12px] font-bold text-white/48">Checking your Wallet context...</p>
+            </div>
+          </div>
+        ) : (
+          <ClaraWalletOverlay
+            isActive
+            claraAssistantContext={childContext}
+            entryContext={{
+              intent: "create",
+              source: "financial-context-setup",
+              returnMode: "financial-context-setup",
+            }}
+            onWalletReady={() => void advance("wallet", "created")}
+            onClose={interrupt}
+          />
+        )
+      ) : currentStep === "money_schedule" ? (
+        <ClaraMoneyScheduleOverlay
+          isActive
+          claraAssistantContext={childContext}
+          onSetupResult={(result) => {
+            if (result?.status === "complete") {
+              void advance("money_schedule", result?.outcome || "configured");
+            }
+          }}
+          onClose={interrupt}
+        />
+      ) : currentStep === "obligations" ? (
+        <ClaraDebtObligationOverlay
+          isActive
+          claraAssistantContext={childContext}
+          onSetupResult={(result) => {
+            if (result?.status === "complete") {
+              void advance("obligations", result?.outcome || "configured");
+            }
+          }}
+          onClose={interrupt}
+        />
+      ) : currentStep === "review" ? (
+        <Review
+          review={review}
+          loading={reviewLoading}
+          error={error}
+          busy={busy}
+          onRetry={() => setReviewNonce((value) => value + 1)}
+          onComplete={finishSetup}
+        />
+      ) : (
+        <div className="flex h-full items-center justify-center px-5 text-center">
+          <p className="text-[12px] font-bold text-white/50">Restoring Financial Context Setup...</p>
+        </div>
+      )}
+    </SetupFrame>
   );
 }

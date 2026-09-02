@@ -33,8 +33,8 @@ import {
   getStoredBackendUser,
 } from "@/lib/clara-backend-client";
 import {
-  ensureFinancialContextSetupState,
   isFinancialContextSetupComplete,
+  resolveFinancialContextSetupState,
 } from "@/lib/financialContextSetupRepository";
 import { consumeSupportConversationTarget } from "@/lib/support-conversation-navigation";
 
@@ -237,15 +237,32 @@ function UnderConstructionView() {
   );
 }
 
-function FinancialContextSetupLoading() {
+function FinancialContextSetupLoading({ error, onRetry }) {
   return (
-    <main className="flex min-h-0 flex-1 items-center justify-center bg-[#020714] px-5 text-white" data-clara-financial-context-loading="true">
-      <div className="w-full max-w-xs text-center">
-        <div className="mx-auto h-1.5 w-36 overflow-hidden rounded-full bg-white/8">
-          <div className="h-full w-1/2 animate-pulse rounded-full bg-cyan-200/55" />
-        </div>
-        <p className="mt-4 text-[11px] font-black uppercase tracking-[0.16em] text-cyan-100/45">Preparing your financial context</p>
-      </div>
+    <main
+      className="flex min-h-0 flex-1 items-center justify-center bg-[radial-gradient(circle_at_50%_12%,rgba(23,105,255,0.18),transparent_35%),#020714] px-5 py-10 text-white"
+      data-clara-financial-context-setup-gate="loading"
+    >
+      <section className="w-full max-w-sm rounded-[28px] border border-white/[0.08] bg-[#07142b]/90 px-6 py-8 text-center shadow-2xl shadow-black/30">
+        {error ? (
+          <>
+            <p className="text-sm font-black">CLARA couldn’t restore your setup progress.</p>
+            <p className="mt-2 text-[11px] font-semibold leading-5 text-white/45">{error}</p>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="mt-5 min-h-11 w-full rounded-[15px] bg-[#1769ff] px-4 text-[12px] font-black"
+            >
+              Try again
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-white/10 border-t-[#2be1d8]" />
+            <p className="mt-4 text-[12px] font-bold text-white/50">Preparing your financial context...</p>
+          </>
+        )}
+      </section>
     </main>
   );
 }
@@ -264,8 +281,9 @@ export default function Community() {
   } = useClaraProductAccess();
   const [notifications, setNotifications] = useState([]);
   const [financialSetupState, setFinancialSetupState] = useState(null);
-  const [checkingFinancialSetup, setCheckingFinancialSetup] = useState(true);
+  const [checkingFinancialSetup, setCheckingFinancialSetup] = useState(false);
   const [financialSetupError, setFinancialSetupError] = useState("");
+  const [financialSetupRetryNonce, setFinancialSetupRetryNonce] = useState(0);
   const token = getStoredBackendToken();
   const backendUser = getStoredBackendUser();
   const settingsUser = appUser || backendUser;
@@ -278,54 +296,20 @@ export default function Community() {
     !isAdmin &&
     !hasProductAccess &&
     activeView !== "settings";
+  const financialSetupLocalUserId = String(
+    appUser?.local_vault_id || appUser?.id || ""
+  ).trim();
+  const accountCreatedAt =
+    backendUser?.created_at ||
+    backendUser?.createdAt ||
+    appUser?.created_at ||
+    appUser?.createdAt ||
+    "";
   const financialSetupComplete = isFinancialContextSetupComplete(financialSetupState);
-  const gateFinancialContextSetup =
+  const financialSetupGateActive =
     !isAdmin &&
     hasProductAccess &&
-    !checkingProductAccess &&
-    (checkingFinancialSetup || !financialSetupComplete);
-
-  useEffect(() => {
-    if (isAdmin) {
-      setFinancialSetupState(null);
-      setFinancialSetupError("");
-      setCheckingFinancialSetup(false);
-      return undefined;
-    }
-
-    if (checkingProductAccess || !hasProductAccess || !settingsUser?.id && !settingsUser?.email) {
-      setCheckingFinancialSetup(true);
-      return undefined;
-    }
-
-    let cancelled = false;
-    setCheckingFinancialSetup(true);
-    setFinancialSetupError("");
-
-    void ensureFinancialContextSetupState(settingsUser)
-      .then((nextState) => {
-        if (cancelled) return;
-        setFinancialSetupState(nextState);
-        setCheckingFinancialSetup(false);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setFinancialSetupError(String(error?.message || "CLARA couldn’t load Financial Context Setup."));
-        setCheckingFinancialSetup(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    checkingProductAccess,
-    hasProductAccess,
-    isAdmin,
-    settingsUser?.id,
-    settingsUser?.email,
-    settingsUser?.created_at,
-    settingsUser?.createdAt,
-  ]);
+    (checkingFinancialSetup || !financialSetupLocalUserId || !financialSetupComplete);
 
   const handleOpenLearningHub = useCallback(() => {
     const nextParams = new URLSearchParams(searchParams);
@@ -362,6 +346,56 @@ export default function Community() {
     }, 8000);
     return () => window.clearInterval(intervalId);
   }, [isAdmin, loadNotifications, token]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (isAdmin || !hasProductAccess) {
+      setCheckingFinancialSetup(false);
+      setFinancialSetupError("");
+      setFinancialSetupState(null);
+      return undefined;
+    }
+
+    if (!financialSetupLocalUserId) {
+      setCheckingFinancialSetup(true);
+      setFinancialSetupError("");
+      setFinancialSetupState(null);
+      return undefined;
+    }
+
+    setCheckingFinancialSetup(true);
+    setFinancialSetupError("");
+
+    resolveFinancialContextSetupState({
+      localUserId: financialSetupLocalUserId,
+      accountCreatedAt,
+    })
+      .then((state) => {
+        if (cancelled) return;
+        setFinancialSetupState(state);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setFinancialSetupState(null);
+        setFinancialSetupError(
+          String(error?.message || "Financial Context Setup is unavailable right now.")
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setCheckingFinancialSetup(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    accountCreatedAt,
+    financialSetupLocalUserId,
+    financialSetupRetryNonce,
+    hasProductAccess,
+    isAdmin,
+  ]);
 
   useEffect(() => {
     if (
@@ -413,8 +447,9 @@ export default function Community() {
     <div
       className="clara-community-root fixed inset-0 z-[80] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[#06111f] text-white"
       data-community-view={activeView}
+      data-clara-financial-context-gated={financialSetupGateActive ? "true" : "false"}
     >
-      {!gateFinancialContextSetup ? (
+      {!financialSetupGateActive ? (
         <CommunityShellHeader activeView={activeView} unreadCount={unreadCount} />
       ) : null}
 
@@ -499,7 +534,29 @@ export default function Community() {
         }
       `}</style>
 
-      {activeView === "settings" && gateCurrentView ? (
+      {gateCurrentView ? (
+        <ClaraTrialAccessGate
+          trial={trial}
+          checking={checkingProductAccess}
+          error={productAccessError}
+          onRedeem={redeemTrialCode}
+          onRetry={refreshAccess}
+        />
+      ) : financialSetupGateActive ? (
+        checkingFinancialSetup || !financialSetupState || financialSetupError ? (
+          <FinancialContextSetupLoading
+            error={financialSetupError}
+            onRetry={() => setFinancialSetupRetryNonce((value) => value + 1)}
+          />
+        ) : (
+          <ClaraFinancialContextSetupCoordinator
+            user={settingsUser}
+            initialState={financialSetupState}
+            onStateChange={setFinancialSetupState}
+            onComplete={setFinancialSetupState}
+          />
+        )
+      ) : activeView === "settings" ? (
         <main className="clara-community-settings-view relative z-[1] min-h-0 flex-1 overflow-y-auto bg-[#040b18] px-4 pb-[calc(env(safe-area-inset-bottom)+30px)] pt-5 sm:px-6">
           <div className="mx-auto w-full max-w-md">
             <DashboardSettingsPanel
@@ -516,41 +573,6 @@ export default function Community() {
             />
           </div>
         </main>
-      ) : gateCurrentView ? (
-        <ClaraTrialAccessGate
-          trial={trial}
-          checking={checkingProductAccess}
-          error={productAccessError}
-          onRedeem={redeemTrialCode}
-          onRetry={refreshAccess}
-        />
-      ) : gateFinancialContextSetup ? (
-        checkingFinancialSetup || !financialSetupState ? (
-          financialSetupError ? (
-            <main className="flex min-h-0 flex-1 items-center justify-center bg-[#020714] px-5 text-white">
-              <div className="w-full max-w-sm text-center">
-                <p className="text-[13px] font-black">Financial Context Setup could not load.</p>
-                <p className="mt-2 text-[11px] font-semibold leading-5 text-white/45">{financialSetupError}</p>
-                <button
-                  type="button"
-                  onClick={() => window.location.reload()}
-                  className="mt-5 min-h-11 rounded-[16px] border border-cyan-200/20 bg-cyan-200/[0.08] px-5 text-[12px] font-black text-cyan-50"
-                >
-                  Retry
-                </button>
-              </div>
-            </main>
-          ) : (
-            <FinancialContextSetupLoading />
-          )
-        ) : (
-          <ClaraFinancialContextSetupCoordinator
-            user={settingsUser}
-            setupState={financialSetupState}
-            onStateChange={setFinancialSetupState}
-            onComplete={setFinancialSetupState}
-          />
-        )
       ) : adminOnlyForCurrentUser ? (
         <UnderConstructionView />
       ) : activeView === "orb" ? (
@@ -602,23 +624,6 @@ export default function Community() {
         >
           <div className="mx-auto min-h-full w-full max-w-3xl">
             <DashboardSchedulePanel />
-          </div>
-        </main>
-      ) : activeView === "settings" ? (
-        <main className="clara-community-settings-view relative z-[1] min-h-0 flex-1 overflow-y-auto bg-[#040b18] px-4 pb-[calc(env(safe-area-inset-bottom)+30px)] pt-5 sm:px-6">
-          <div className="mx-auto w-full max-w-md">
-            <DashboardSettingsPanel
-              user={settingsUser}
-              isAdmin={isAdmin}
-              onOpenMessages={() => {
-                const targetUserId = consumeSupportConversationTarget();
-                navigate(
-                  targetUserId
-                    ? `/community?view=messages&userId=${encodeURIComponent(targetUserId)}`
-                    : "/community?view=messages"
-                );
-              }}
-            />
           </div>
         </main>
       ) : activeView === "feed" ? (

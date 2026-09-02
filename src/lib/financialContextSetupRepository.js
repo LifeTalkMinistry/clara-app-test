@@ -2,15 +2,13 @@ import {
   LOCAL_FINANCE_STORES,
   getLocalRecordById,
   upsertLocalRecord,
-} from "./localFinanceStore.js";
-import { getIncomeHubLocalUserId } from "./incomeHubRepository.js";
+} from "@/lib/localFinanceStore";
 
 export const FINANCIAL_CONTEXT_SETUP_VERSION = 1;
-export const FINANCIAL_CONTEXT_SETUP_RECORD_KIND = "financial_context_setup";
-export const FINANCIAL_CONTEXT_SETUP_ROLLOUT_AT = "2026-09-02T22:30:00.000Z";
+export const FINANCIAL_CONTEXT_SETUP_ROLLOUT_AT = "2026-09-02T20:34:00.000Z";
+export const FINANCIAL_CONTEXT_SETUP_UPDATED_EVENT = "clara-financial-context-setup-updated";
 
-const STORE_NAME = LOCAL_FINANCE_STORES?.privatePreferences || "private_preferences";
-const STEP_ORDER = Object.freeze([
+export const FINANCIAL_CONTEXT_SETUP_STEPS = Object.freeze([
   "intro",
   "income_hub",
   "wallet",
@@ -20,188 +18,269 @@ const STEP_ORDER = Object.freeze([
   "complete",
 ]);
 
-const clean = (value) => String(value ?? "").trim();
+const STORE_NAME = LOCAL_FINANCE_STORES.privatePreferences;
+const RECORD_KIND = "financial_context_setup";
 
-export function getFinancialContextSetupLocalUserId(user = {}) {
-  return getIncomeHubLocalUserId(user);
-}
-
-export function getFinancialContextSetupRecordId(localUserId) {
-  const owner = clean(localUserId);
-  if (!owner) throw new Error("Financial Context Setup requires an account-scoped local user id.");
-  return `financial-context-setup:v${FINANCIAL_CONTEXT_SETUP_VERSION}:${owner}`;
-}
-
-function initialState(localUserId) {
-  return {
-    id: getFinancialContextSetupRecordId(localUserId),
-    recordKind: FINANCIAL_CONTEXT_SETUP_RECORD_KIND,
-    version: FINANCIAL_CONTEXT_SETUP_VERSION,
-    status: "not_started",
-    currentStep: "intro",
-    outcomes: {
-      incomeHub: null,
-      wallet: null,
-      moneySchedule: null,
-      obligations: null,
-    },
-    completedAt: null,
-    migration: { reason: null },
-  };
-}
-
-function migratedCompleteState(localUserId, migrationTime = new Date().toISOString()) {
-  return {
-    ...initialState(localUserId),
-    status: "complete",
-    currentStep: "complete",
-    completedAt: migrationTime,
-    migration: { reason: "pre_feature_migration" },
-  };
-}
-
-function normalizeState(localUserId, record = null) {
-  const base = initialState(localUserId);
-  if (!record || Number(record.version) !== FINANCIAL_CONTEXT_SETUP_VERSION) return base;
-  const currentStep = STEP_ORDER.includes(record.currentStep) ? record.currentStep : "intro";
-  return {
-    ...base,
-    ...record,
-    id: base.id,
-    recordKind: FINANCIAL_CONTEXT_SETUP_RECORD_KIND,
-    version: FINANCIAL_CONTEXT_SETUP_VERSION,
-    status: ["not_started", "in_progress", "complete"].includes(record.status)
-      ? record.status
-      : "not_started",
-    currentStep,
-    outcomes: {
-      ...base.outcomes,
-      ...(record.outcomes || {}),
-    },
-    migration: {
-      ...base.migration,
-      ...(record.migration || {}),
-    },
-  };
-}
-
-export async function readFinancialContextSetupState(userOrLocalUserId) {
-  const localUserId = typeof userOrLocalUserId === "string"
-    ? clean(userOrLocalUserId)
-    : getFinancialContextSetupLocalUserId(userOrLocalUserId || {});
-  const id = getFinancialContextSetupRecordId(localUserId);
-  const record = await getLocalRecordById(STORE_NAME, id, localUserId).catch(() => null);
-  return record ? normalizeState(localUserId, record) : null;
-}
-
-function accountCreatedAt(user = {}) {
-  return clean(
-    user?.created_at ||
-      user?.createdAt ||
-      user?.account_created_at ||
-      user?.accountCreatedAt ||
-      user?.profile?.created_at ||
-      user?.account_profile?.created_at
-  );
-}
-
-function isPreFeatureAccount(user = {}) {
-  const createdAt = accountCreatedAt(user);
-  if (!createdAt) return true;
-  const createdTime = new Date(createdAt).getTime();
-  const rolloutTime = new Date(FINANCIAL_CONTEXT_SETUP_ROLLOUT_AT).getTime();
-  if (!Number.isFinite(createdTime) || !Number.isFinite(rolloutTime)) return true;
-  return createdTime < rolloutTime;
-}
-
-export async function ensureFinancialContextSetupState(user = {}) {
-  const localUserId = getFinancialContextSetupLocalUserId(user);
-  const existing = await readFinancialContextSetupState(localUserId);
-  if (existing) return existing;
-
-  const next = isPreFeatureAccount(user)
-    ? migratedCompleteState(localUserId)
-    : initialState(localUserId);
-
-  return upsertLocalRecord(STORE_NAME, next, localUserId);
-}
-
-export async function writeFinancialContextSetupState(userOrLocalUserId, patch = {}) {
-  const localUserId = typeof userOrLocalUserId === "string"
-    ? clean(userOrLocalUserId)
-    : getFinancialContextSetupLocalUserId(userOrLocalUserId || {});
-  const existing = (await readFinancialContextSetupState(localUserId)) || initialState(localUserId);
-  const next = normalizeState(localUserId, {
-    ...existing,
-    ...patch,
-    outcomes: {
-      ...existing.outcomes,
-      ...(patch.outcomes || {}),
-    },
-    migration: {
-      ...existing.migration,
-      ...(patch.migration || {}),
-    },
-  });
-  return upsertLocalRecord(STORE_NAME, next, localUserId);
-}
-
-export async function startFinancialContextSetup(userOrLocalUserId) {
-  return writeFinancialContextSetupState(userOrLocalUserId, {
-    status: "in_progress",
-    currentStep: "intro",
-  });
-}
-
-const OUTCOME_FIELD_BY_STEP = Object.freeze({
+const STEP_TO_OUTCOME_KEY = Object.freeze({
   income_hub: "incomeHub",
   wallet: "wallet",
   money_schedule: "moneySchedule",
   obligations: "obligations",
 });
 
-export async function completeFinancialContextSetupStep(
-  userOrLocalUserId,
-  { step, outcome, nextStep }
-) {
-  if (!STEP_ORDER.includes(step) || step === "intro" || step === "review" || step === "complete") {
-    throw new Error(`Unsupported Financial Context Setup completion step: ${step}`);
-  }
-  if (!STEP_ORDER.includes(nextStep)) {
-    throw new Error(`Unsupported Financial Context Setup next step: ${nextStep}`);
-  }
-  const outcomeField = OUTCOME_FIELD_BY_STEP[step];
-  return writeFinancialContextSetupState(userOrLocalUserId, {
-    status: "in_progress",
-    currentStep: nextStep,
-    outcomes: outcomeField ? { [outcomeField]: outcome } : {},
-  });
+const STEP_SUCCESSOR = Object.freeze({
+  income_hub: "wallet",
+  wallet: "money_schedule",
+  money_schedule: "obligations",
+  obligations: "review",
+});
+
+const ALLOWED_OUTCOMES = Object.freeze({
+  income_hub: new Set(["configured", "none_confirmed"]),
+  wallet: new Set(["existing", "created"]),
+  money_schedule: new Set(["configured", "none_confirmed"]),
+  obligations: new Set(["configured", "none_confirmed"]),
+});
+
+const clean = (value) => String(value ?? "").trim();
+
+function nowIso() {
+  return new Date().toISOString();
 }
 
-export async function advanceFinancialContextSetup(userOrLocalUserId, nextStep) {
-  if (!STEP_ORDER.includes(nextStep)) {
-    throw new Error(`Unsupported Financial Context Setup step: ${nextStep}`);
+function normalizeLocalUserId(localUserId) {
+  const value = clean(localUserId);
+  if (!value) {
+    throw new Error("A local vault id is required for Financial Context Setup.");
   }
-  return writeFinancialContextSetupState(userOrLocalUserId, {
-    status: nextStep === "complete" ? "complete" : "in_progress",
-    currentStep: nextStep,
-    completedAt: nextStep === "complete" ? new Date().toISOString() : null,
-  });
+  return value;
 }
 
-export async function finalizeFinancialContextSetup(userOrLocalUserId) {
-  return writeFinancialContextSetupState(userOrLocalUserId, {
+export function financialContextSetupRecordId(localUserId) {
+  const owner = normalizeLocalUserId(localUserId);
+  return `financial-context-setup:v${FINANCIAL_CONTEXT_SETUP_VERSION}:${encodeURIComponent(owner)}`;
+}
+
+function emptyOutcomes() {
+  return {
+    incomeHub: null,
+    wallet: null,
+    moneySchedule: null,
+    obligations: null,
+  };
+}
+
+export function createInitialFinancialContextSetupState() {
+  return {
+    version: FINANCIAL_CONTEXT_SETUP_VERSION,
+    status: "not_started",
+    currentStep: "intro",
+    outcomes: emptyOutcomes(),
+    completedAt: null,
+    migration: {
+      reason: null,
+    },
+  };
+}
+
+export function createGrandfatheredFinancialContextSetupState(completedAt = nowIso()) {
+  return {
+    version: FINANCIAL_CONTEXT_SETUP_VERSION,
     status: "complete",
     currentStep: "complete",
-    completedAt: new Date().toISOString(),
+    outcomes: emptyOutcomes(),
+    completedAt,
+    migration: {
+      reason: "pre_feature_migration",
+    },
+  };
+}
+
+export function shouldGrandfatherFinancialContextSetup(
+  accountCreatedAt,
+  rolloutAt = FINANCIAL_CONTEXT_SETUP_ROLLOUT_AT
+) {
+  const createdAtMs = Date.parse(clean(accountCreatedAt));
+  const rolloutAtMs = Date.parse(clean(rolloutAt));
+  if (!Number.isFinite(createdAtMs) || !Number.isFinite(rolloutAtMs)) return false;
+  return createdAtMs < rolloutAtMs;
+}
+
+export function isFinancialContextSetupComplete(state) {
+  return state?.status === "complete" && state?.currentStep === "complete";
+}
+
+function normalizeOutcomes(outcomes = {}) {
+  const source = outcomes && typeof outcomes === "object" ? outcomes : {};
+  return {
+    incomeHub: clean(source.incomeHub) || null,
+    wallet: clean(source.wallet) || null,
+    moneySchedule: clean(source.moneySchedule) || null,
+    obligations: clean(source.obligations) || null,
+  };
+}
+
+function normalizeState(record) {
+  if (!record || typeof record !== "object" || record.deletedAt) return null;
+  const version = Number(record.version);
+  if (version !== FINANCIAL_CONTEXT_SETUP_VERSION) return null;
+
+  const status = ["not_started", "in_progress", "complete"].includes(record.status)
+    ? record.status
+    : "not_started";
+  const requestedStep = clean(record.currentStep);
+  const currentStep = FINANCIAL_CONTEXT_SETUP_STEPS.includes(requestedStep)
+    ? requestedStep
+    : status === "complete"
+      ? "complete"
+      : "intro";
+
+  return {
+    version: FINANCIAL_CONTEXT_SETUP_VERSION,
+    status: currentStep === "complete" ? "complete" : status === "complete" ? "in_progress" : status,
+    currentStep,
+    outcomes: normalizeOutcomes(record.outcomes),
+    completedAt: currentStep === "complete" ? clean(record.completedAt) || null : null,
+    migration: {
+      reason: clean(record?.migration?.reason) || null,
+    },
+  };
+}
+
+export function applyFinancialContextSetupOutcome(state, { step, outcome } = {}) {
+  const current = normalizeState(state);
+  if (!current) throw new Error("Financial Context Setup state is invalid.");
+  if (isFinancialContextSetupComplete(current)) return current;
+
+  const safeStep = clean(step);
+  const safeOutcome = clean(outcome);
+  const outcomeKey = STEP_TO_OUTCOME_KEY[safeStep];
+  const successor = STEP_SUCCESSOR[safeStep];
+  const allowed = ALLOWED_OUTCOMES[safeStep];
+
+  if (!outcomeKey || !successor || !allowed?.has(safeOutcome)) {
+    throw new Error(`Invalid Financial Context Setup outcome: ${safeStep}/${safeOutcome}`);
+  }
+  if (current.currentStep !== safeStep) {
+    throw new Error(
+      `Financial Context Setup cannot complete ${safeStep} while ${current.currentStep} is active.`
+    );
+  }
+
+  return {
+    ...current,
+    status: "in_progress",
+    currentStep: successor,
+    outcomes: {
+      ...current.outcomes,
+      [outcomeKey]: safeOutcome,
+    },
+    completedAt: null,
+    migration: { reason: null },
+  };
+}
+
+function dispatchSetupUpdated(state) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(FINANCIAL_CONTEXT_SETUP_UPDATED_EVENT, {
+      detail: { state },
+    })
+  );
+}
+
+async function persistState(localUserId, state) {
+  const owner = normalizeLocalUserId(localUserId);
+  const normalized = normalizeState({ ...state, version: FINANCIAL_CONTEXT_SETUP_VERSION });
+  if (!normalized) throw new Error("Financial Context Setup state is invalid.");
+
+  const saved = await upsertLocalRecord(
+    STORE_NAME,
+    {
+      id: financialContextSetupRecordId(owner),
+      kind: RECORD_KIND,
+      recordKind: RECORD_KIND,
+      recordType: RECORD_KIND,
+      ...normalized,
+      source: "financial_context_setup",
+      syncStatus: "local_only",
+    },
+    owner
+  );
+
+  const next = normalizeState(saved) || normalized;
+  dispatchSetupUpdated(next);
+  return next;
+}
+
+export async function readFinancialContextSetupState(localUserId) {
+  const owner = normalizeLocalUserId(localUserId);
+  const record = await getLocalRecordById(
+    STORE_NAME,
+    financialContextSetupRecordId(owner),
+    owner
+  );
+  return normalizeState(record);
+}
+
+export async function resolveFinancialContextSetupState({
+  localUserId,
+  accountCreatedAt,
+} = {}) {
+  const owner = normalizeLocalUserId(localUserId);
+  const existing = await readFinancialContextSetupState(owner);
+  if (existing) return existing;
+
+  if (shouldGrandfatherFinancialContextSetup(accountCreatedAt)) {
+    return persistState(owner, createGrandfatheredFinancialContextSetupState());
+  }
+
+  // Missing or untrustworthy account-age evidence deliberately fails closed into
+  // the setup journey. Finance-row absence is never interpreted as confirmation.
+  return persistState(owner, createInitialFinancialContextSetupState());
+}
+
+export async function startFinancialContextSetup(localUserId) {
+  const owner = normalizeLocalUserId(localUserId);
+  const current = (await readFinancialContextSetupState(owner)) || createInitialFinancialContextSetupState();
+  if (isFinancialContextSetupComplete(current)) return current;
+
+  return persistState(owner, {
+    ...current,
+    status: "in_progress",
+    currentStep: "income_hub",
+    completedAt: null,
+    migration: { reason: null },
   });
 }
 
-export function isFinancialContextSetupComplete(state = null) {
-  return Boolean(
-    state &&
-    Number(state.version) === FINANCIAL_CONTEXT_SETUP_VERSION &&
-    state.status === "complete" &&
-    state.currentStep === "complete"
-  );
+export async function recordFinancialContextSetupOutcome(
+  localUserId,
+  { step, outcome } = {}
+) {
+  const owner = normalizeLocalUserId(localUserId);
+  const current = (await readFinancialContextSetupState(owner)) || createInitialFinancialContextSetupState();
+  const next = applyFinancialContextSetupOutcome(current, { step, outcome });
+  if (next === current || isFinancialContextSetupComplete(current)) return current;
+  return persistState(owner, next);
 }
+
+export async function completeFinancialContextSetup(localUserId) {
+  const owner = normalizeLocalUserId(localUserId);
+  const current = await readFinancialContextSetupState(owner);
+  if (!current) throw new Error("Financial Context Setup has not started.");
+  if (isFinancialContextSetupComplete(current)) return current;
+  if (current.currentStep !== "review") {
+    throw new Error(`Financial Context Setup cannot finish from ${current.currentStep}.`);
+  }
+
+  return persistState(owner, {
+    ...current,
+    status: "complete",
+    currentStep: "complete",
+    completedAt: nowIso(),
+    migration: { reason: null },
+  });
+}
+
+export const FINANCIAL_CONTEXT_SETUP_RECORD_KIND = RECORD_KIND;
