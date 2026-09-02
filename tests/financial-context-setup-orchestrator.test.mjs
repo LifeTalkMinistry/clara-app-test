@@ -171,6 +171,26 @@ test("existing-user migration is account-age based, idempotent by persisted reco
   assert.doesNotMatch(setup, /getDebtObligations|getIncomeSources|getWallets|readClaraMoneyRoutine/);
 });
 
+test("Clear Data fresh vault restarts Financial Context Setup even for a grandfathered account", async () => {
+  const setup = await source(repositoryPath);
+  const reset = await source("../src/lib/clear-clara-device-data.js");
+  const syncPolicy = await source("../src/lib/cloud-sync-policy.js");
+
+  assert.match(reset, /pauseOnlineSyncAfterDeviceReset\(\{ freshVaultId \}\)/);
+  assert.match(syncPolicy, /getResetFreshLocalVaultId/);
+  assert.match(setup, /getResetFreshLocalVaultId/);
+  assert.match(setup, /isResetFreshFinancialContextVault\(owner\)/);
+
+  const resetBranch = setup.indexOf("if (isResetFreshFinancialContextVault(owner))");
+  const grandfatherBranch = setup.indexOf("if (shouldGrandfatherFinancialContextSetup(accountCreatedAt))");
+  assert.ok(resetBranch >= 0, "reset-fresh vault branch must exist");
+  assert.ok(grandfatherBranch > resetBranch, "Clear Data must override pre-feature grandfathering");
+  assert.match(
+    setup.slice(resetBranch, grandfatherBranch),
+    /createInitialFinancialContextSetupState\(\)/
+  );
+});
+
 test("multi-account and device-transfer safety follow the authenticated local vault private-preference authority", async () => {
   const community = await source(communityPath);
   const setup = await source(repositoryPath);
