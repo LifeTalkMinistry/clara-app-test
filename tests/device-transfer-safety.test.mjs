@@ -179,6 +179,19 @@ test("device transfer source package captures canonical financial truth", () => 
   assert.match(migrationSource, /fulfillmentContext/);
 });
 
+test("device transfer settles canonical source state before freezing the export", () => {
+  const start = vaultSource.indexOf("export async function createDeviceTransferSnapshot");
+  const end = vaultSource.indexOf("\n}\n\nfunction rewriteRecordReferences", start);
+  const sourceFunction = vaultSource.slice(start, end);
+  const canonicalIndex = sourceFunction.indexOf("buildFinancialContextMigrationSnapshot");
+  const exportIndex = sourceFunction.indexOf("buildClaraCloudVaultSnapshot");
+
+  assert.ok(start >= 0 && end > start);
+  assert.ok(canonicalIndex >= 0);
+  assert.ok(exportIndex >= 0);
+  assert.ok(canonicalIndex < exportIndex);
+});
+
 test("Means baseline durable ID is deterministic per vault and backward compatible", () => {
   assert.match(
     baselineRepositorySource,
