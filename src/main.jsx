@@ -35,6 +35,7 @@ import "./runtime/installBudgetRecentReuse";
 import "./runtime/installBudgetDocumentationHeaderCleanup";
 import "./runtime/installQuickActionsBudgetSetupNoticeCleanup";
 import "./runtime/installProfileUnderConstructionModal";
+import "./runtime/installClaraProgressiveMeansBreakdown";
 import "./index.css";
 import "./support-orb-position.css";
 import "./messages-back-to-community-label.css";
