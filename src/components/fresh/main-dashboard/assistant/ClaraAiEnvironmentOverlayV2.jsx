@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import ClaraAiEnvironmentOverlayCore from "./ClaraAiEnvironmentOverlayCore.jsx";
 
 const READY_PROMPT = "Ready to chat now?";
 const FIRST_GREETING = "Hi! What exact item are you thinking about buying? Type the exact name of the item.";
 const GENERIC_MEANS_FAILURE = "I have the amount, but I can’t verify the Means impact right now.";
-const FINANCIAL_SETUP_EVENT = "clara:start-financial-setup";
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -100,6 +100,7 @@ function syncIntroComposerGate(root, introActive) {
 export default function ClaraAiEnvironmentOverlayV2(props) {
   const { isActive = false, layoutVariant = "default" } = props || {};
   const guidePreview = layoutVariant === "guide-preview";
+  const navigate = useNavigate();
   const rootRef = useRef(null);
   const typingTimerRef = useRef(null);
   const interactionTimerRef = useRef(null);
@@ -108,6 +109,7 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
   const [chatReady, setChatReady] = useState(guidePreview);
   const [openingBoard, setOpeningBoard] = useState(null);
   const [messageViewport, setMessageViewport] = useState(null);
+  const [messageStack, setMessageStack] = useState(null);
   const [conversationStarted, setConversationStarted] = useState(false);
   const [observedAssistantText, setObservedAssistantText] = useState("");
   const [settledAssistantText, setSettledAssistantText] = useState("");
@@ -121,6 +123,7 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
       setChatReady(guidePreview);
       setOpeningBoard(null);
       setMessageViewport(null);
+      setMessageStack(null);
       setConversationStarted(false);
       setObservedAssistantText("");
       setSettledAssistantText("");
@@ -170,6 +173,7 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
 
       setOpeningBoard((current) => current === board ? current : board);
       setMessageViewport((current) => current === viewport ? current : viewport);
+      setMessageStack((current) => current === stack ? current : stack);
       setConversationStarted(Boolean(stack));
       setObservedAssistantText(clean(lastMessageRow?.textContent || ""));
 
@@ -317,24 +321,26 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
   };
 
   const openIncomeHub = () => {
+    props?.onClose?.();
+    navigate("/community?view=home");
+
+    let attempts = 0;
     const locateAndOpen = () => {
       const slide = document.querySelector('[data-card-key="investmentFund"]');
-      if (!(slide instanceof HTMLElement)) return false;
-      slide.scrollIntoView?.({ behavior: "smooth", block: "center", inline: "center" });
-      if (slide.getAttribute("data-expanded") !== "true") {
-        const toggle = slide.querySelector('[data-clara-finance-expand-toggle="true"]');
-        if (toggle instanceof HTMLElement) toggle.click();
+      if (slide instanceof HTMLElement) {
+        slide.scrollIntoView?.({ behavior: "smooth", block: "center", inline: "center" });
+        if (slide.getAttribute("data-expanded") !== "true") {
+          const toggle = slide.querySelector('[data-clara-finance-expand-toggle="true"]');
+          if (toggle instanceof HTMLElement) toggle.click();
+        }
+        return;
       }
-      return true;
+
+      attempts += 1;
+      if (attempts < 16) window.setTimeout(locateAndOpen, 150);
     };
 
-    window.dispatchEvent(new CustomEvent(FINANCIAL_SETUP_EVENT, {
-      detail: { startAt: "investmentFund", source: "ask-before-you-spend" },
-    }));
-    props?.onClose?.();
-    window.setTimeout(() => {
-      if (!locateAndOpen()) window.setTimeout(locateAndOpen, 500);
-    }, 180);
+    window.setTimeout(locateAndOpen, 120);
   };
 
   const gateVisible = Boolean(
@@ -355,7 +361,7 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
     isActive && !guidePreview && chatReady && conversationStarted && interactionMode === "binary" && !binarySubmitting && messageViewport,
   );
   const setupPromptVisible = Boolean(
-    isActive && !guidePreview && chatReady && conversationStarted && interactionMode === "setup" && messageViewport,
+    isActive && !guidePreview && chatReady && conversationStarted && interactionMode === "setup" && messageViewport && messageStack,
   );
 
   useLayoutEffect(() => {
@@ -489,7 +495,7 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
             Start financial setup
           </button>
         </div>,
-        messageViewport,
+        messageStack,
       ) : null}
     </div>
   );
