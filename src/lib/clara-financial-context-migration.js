@@ -1,4 +1,9 @@
 import { financialDateKey, normalizeFinancialDateKey } from "./clara-financial-day.js";
+import {
+  buildDeterministicMeansScheduleEventDateIndex,
+  deriveDeterministicLegacyMeansRequirementIdentity,
+  getExplicitMeansRequirementKey,
+} from "./clara-means-requirement-identity.js";
 
 export const CLARA_FINANCIAL_CONTEXT_MIGRATION_VERSION = 1;
 export const CLARA_FINANCIAL_RECONCILIATION_EPSILON = 0.000001;
@@ -11,17 +16,6 @@ const signed = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 const money = (value) => Math.max(0, signed(value));
-
-function explicitRequirementKey(record = {}) {
-  return text(
-    record?.meansRequirementKey ||
-      record?.means_requirement_key ||
-      record?.plannedRequirementKey ||
-      record?.planned_requirement_key ||
-      record?.requirementKey ||
-      record?.requirement_key
-  );
-}
 
 function financeDatabase(prepared) {
   return (prepared?.data?.indexedDB?.databases || []).find(
@@ -36,22 +30,12 @@ function normalizeStoreRecords(store) {
 }
 
 function scheduleEventDates(prepared) {
-  const byId = new Map();
-  const conflicts = new Set();
+  const events = [];
   Object.entries(prepared?.data?.localStorage || {}).forEach(([key, value]) => {
     if (!key.startsWith("clara_schedule_events_v2")) return;
-    const events = Array.isArray(value) ? value : [];
-    events.forEach((event) => {
-      const id = text(event?.id);
-      const date = dateKey(event?.date);
-      if (!id || !date) return;
-      const current = byId.get(id);
-      if (current && current !== date) conflicts.add(id);
-      else byId.set(id, date);
-    });
+    if (Array.isArray(value)) events.push(...value);
   });
-  conflicts.forEach((id) => byId.delete(id));
-  return { byId, conflicts };
+  return buildDeterministicMeansScheduleEventDateIndex(events);
 }
 
 function legacySourceSignal(record = {}) {
@@ -63,49 +47,6 @@ function legacySourceSignal(record = {}) {
       record?.recordKind ||
       record?.record_kind
   );
-}
-
-function legacyIdentityEvidence(record = {}, scheduleDates = new Map()) {
-  const debtId = text(record?.debtId || record?.debt_id || record?.obligationId || record?.obligation_id);
-  const dueDate = dateKey(
-    record?.dueDate ||
-      record?.due_date ||
-      record?.dueOccurrenceDate ||
-      record?.due_occurrence_date
-  );
-  if (debtId && dueDate) {
-    return { key: `debt:${debtId}:${dueDate}`, evidence: "debt_id_due_date" };
-  }
-
-  const eventId = text(
-    record?.moneyScheduleEventId ||
-      record?.money_schedule_event_id ||
-      record?.scheduleEventId ||
-      record?.schedule_event_id
-  );
-  const eventDate = dateKey(
-    record?.occurrenceDate ||
-      record?.occurrence_date ||
-      record?.scheduledDate ||
-      record?.scheduled_date ||
-      scheduleDates.get(eventId)
-  );
-  if (eventId && eventDate) {
-    return { key: `money-schedule:${eventId}:${eventDate}`, evidence: "schedule_event_id_occurrence" };
-  }
-
-  const routineId = text(record?.routineId || record?.routine_id || record?.moneyRoutineId || record?.money_routine_id);
-  const routineDate = dateKey(
-    record?.occurrenceDate ||
-      record?.occurrence_date ||
-      record?.scheduledDate ||
-      record?.scheduled_date
-  );
-  if (routineId && routineDate) {
-    return { key: `money-routine:${routineId}:${routineDate}`, evidence: "routine_id_occurrence" };
-  }
-
-  return null;
 }
 
 function hasLegacyPlanIdentitySignal(record = {}) {
@@ -236,8 +177,12 @@ export function normalizePreparedFinancialContext(prepared) {
   const transactionRows = normalizeStoreRecords(stores.wallet_transactions);
 
   const normalizeRow = (record, storeName) => {
-    const existingKey = explicitRequirementKey(record);
-    const derived = existingKey ? null : legacyIdentityEvidence(record, scheduleDates);
+    const existingKey = getExplicitMeansRequirementKey(record);
+    const derived = existingKey
+      ? null
+      : deriveDeterministicLegacyMeansRequirementIdentity(record, {
+          scheduleEventDates: scheduleDates,
+        });
     if (existingKey) return withRequirementKey(record, existingKey, "explicit_requirement_key");
     if (derived?.key) {
       normalized.push({
@@ -276,12 +221,12 @@ export function normalizePreparedFinancialContext(prepared) {
       expense,
       activeCycle
     );
-    const expenseKey = explicitRequirementKey(expense);
-    const transactionKey = explicitRequirementKey(transaction);
+    const expenseKey = getExplicitMeansRequirementKey(expense);
+    const transactionKey = getExplicitMeansRequirementKey(transaction);
 
     if (affectsActiveFulfillment) {
       const inspectLegacyAmbiguity = (record, storeName) => {
-        if (explicitRequirementKey(record)) return;
+        if (getExplicitMeansRequirementKey(record)) return;
         const eventId = text(
           record?.moneyScheduleEventId ||
             record?.money_schedule_event_id ||
@@ -349,7 +294,7 @@ export function normalizePreparedFinancialContext(prepared) {
   // exact V7 cycle evidence to safely ignore genuinely historical ambiguity.
   if (!activeCycle) {
     normalizeStoreRecords(stores.expenses).forEach((expense) => {
-      if (explicitRequirementKey(expense) || !hasLegacyPlanIdentitySignal(expense)) return;
+      if (getExplicitMeansRequirementKey(expense) || !hasLegacyPlanIdentitySignal(expense)) return;
       const eventId = text(
         expense?.moneyScheduleEventId ||
           expense?.money_schedule_event_id ||
