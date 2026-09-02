@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ArrowUp, CalendarDays } from "lucide-react";
 import ClaraChatHeader from "./ClaraChatHeader";
+import useClaraConversationReveal from "./useClaraConversationReveal";
 import { getRecurringCashFlowOwnerId } from "@/lib/recurringCashFlowRepository";
 import { filterScheduleOwnedEvents } from "@/lib/scheduleEventOwnership";
 
@@ -85,10 +86,10 @@ function saveCalendarEvent(user, event) {
   window.dispatchEvent(new Event("clara-finance-updated"));
 }
 
-function Bubble({ role = "assistant", children }) {
+function Bubble({ role = "assistant", children, elementRef = null }) {
   const user = role === "user";
   return (
-    <div className={`flex ${user ? "justify-end" : "justify-start"}`}>
+    <div ref={elementRef} data-clara-conversation-role={role} className={`flex ${user ? "justify-end" : "justify-start"}`}>
       <div
         className={`max-w-[86%] whitespace-pre-wrap rounded-[20px] px-4 py-3 text-[13px] font-semibold leading-5 shadow-[0_12px_28px_rgba(0,0,0,.2)] ${
           user
@@ -168,6 +169,8 @@ export default function ClaraCalendarOverlay({ isActive = false, claraAssistantC
   const user = claraAssistantContext?.user || {};
   const firstName = firstNameFromUser(user);
   const viewportRef = useRef(null);
+  const latestAssistantRef = useRef(null);
+  const actionRef = useRef(null);
 
   const greeting = `Calendar is open, ${firstName}. What do you want to schedule?`;
   const [phase, setPhase] = useState("title");
@@ -195,14 +198,25 @@ export default function ClaraCalendarOverlay({ isActive = false, claraAssistantC
     ]);
   };
 
-  useEffect(() => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-    const frame = window.requestAnimationFrame(() => {
-      viewport.scrollTo({ top: viewport.scrollHeight, behavior: "smooth" });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [messages, phase, error, saved]);
+  const latestAssistantIndex = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (messages[index]?.role === "assistant") return index;
+    }
+    return -1;
+  }, [messages]);
+
+  const revealKey = isActive && latestAssistantIndex >= 0
+    ? `${phase}:${messages.length}:${saved ? "saved" : "active"}`
+    : null;
+
+  useClaraConversationReveal({
+    viewportRef,
+    assistantRef: latestAssistantRef,
+    actionRef,
+    revealKey,
+    enabled: Boolean(revealKey),
+    requireAction: true,
+  });
 
   if (!isActive) return null;
 
@@ -395,152 +409,158 @@ export default function ClaraCalendarOverlay({ isActive = false, claraAssistantC
       >
         <div className="flex min-h-full flex-col gap-3" data-clara-ai-message-stack="true">
           {messages.map((message, index) => (
-            <Bubble key={`${message.role}-${index}-${message.text}`} role={message.role}>
+            <Bubble
+              key={`${message.role}-${index}-${message.text}`}
+              role={message.role}
+              elementRef={index === latestAssistantIndex ? latestAssistantRef : null}
+            >
               {message.text}
             </Bubble>
           ))}
 
-          {phase === "title" ? (
-            <div className="mt-auto pt-3">
-              <Composer
-                value={titleInput}
-                onChange={setTitleInput}
-                onSubmit={submitTitle}
-                placeholder="e.g. Dentist, meeting, anniversary"
-              />
-            </div>
-          ) : null}
-
-          {phase === "date" ? (
-            <div className="mt-auto grid gap-2.5 pt-3">
-              <input
-                type="date"
-                value={date}
-                onChange={(event) => setDate(event.target.value)}
-                className="min-h-12 rounded-[18px] border border-blue-200/16 bg-[#07142b]/96 px-4 text-[16px] font-bold text-white outline-none"
-              />
-              <ChoiceButton onClick={chooseDate} disabled={!date}>
-                Send date
-              </ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "time" ? (
-            <div className="mt-auto grid gap-2.5 pt-3">
-              <input
-                type="time"
-                value={time}
-                onChange={(event) => setTime(event.target.value)}
-                className="min-h-12 rounded-[18px] border border-blue-200/16 bg-[#07142b]/96 px-4 text-[16px] font-bold text-white outline-none"
-              />
-              <ChoiceButton onClick={chooseTime}>
-                {time ? `Send ${formatTime(time)}` : "No specific time"}
-              </ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "type" ? (
-            <div className="flex flex-wrap gap-2 pt-1">
-              {TYPE_OPTIONS.map((option) => (
-                <TypeReplyButton key={option} onClick={() => chooseType(option)}>
-                  {option}
-                </TypeReplyButton>
-              ))}
-              <TypeReplyButton onClick={chooseOtherType} secondary>
-                Other
-              </TypeReplyButton>
-            </div>
-          ) : null}
-
-          {phase === "other-type" ? (
-            <div className="mt-auto pt-3">
-              <Composer
-                value={otherTypeInput}
-                onChange={setOtherTypeInput}
-                onSubmit={submitOtherType}
-                placeholder="Type the schedule type..."
-              />
-            </div>
-          ) : null}
-
-          {phase === "money" ? (
-            <div className="mt-auto grid grid-cols-2 gap-2.5 pt-3">
-              <ChoiceButton onClick={() => chooseMoneyImpact(false)}>No</ChoiceButton>
-              <ChoiceButton onClick={() => chooseMoneyImpact(true)} secondary>
-                Yes
-              </ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "direction" ? (
-            <div className="mt-auto grid grid-cols-2 gap-2.5 pt-3">
-              <ChoiceButton onClick={() => chooseDirection("out")}>Money out</ChoiceButton>
-              <ChoiceButton onClick={() => chooseDirection("in")} secondary>
-                Money in
-              </ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "amount" ? (
-            <div className="mt-auto grid gap-2.5 pt-3">
-              <Composer
-                value={amountInput}
-                onChange={(value) => {
-                  setAmountKnown(true);
-                  setAmountInput(cleanMoney(value));
-                }}
-                onSubmit={submitAmount}
-                placeholder="0"
-                inputMode="decimal"
-              />
-              <ChoiceButton onClick={chooseUnknownAmount} secondary>
-                Not sure yet
-              </ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "notes" ? (
-            <div className="mt-auto grid gap-2.5 pt-3">
-              <Composer
-                value={noteInput}
-                onChange={setNoteInput}
-                onSubmit={submitNote}
-                placeholder="Add a note for yourself..."
-              />
-              <ChoiceButton onClick={skipNoteAndSave} secondary>
-                Skip note & save
-              </ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "saved" && saved ? (
-            <>
-              <div className="rounded-[22px] border border-cyan-200/14 bg-cyan-200/[.045] p-4 text-center">
-                <CalendarDays className="mx-auto h-6 w-6 text-[#8ffff8]" />
-                <p className="mt-2 text-[13px] font-black text-white">Scheduled</p>
-                <p className="mt-1 text-[11px] font-semibold leading-5 text-white/52">
-                  {title} · {formatDate(date)}{time ? ` · ${formatTime(time)}` : ""} · {type}
-                </p>
-                {affectsMoney ? (
-                  <p className="mt-1 text-[11px] font-semibold leading-5 text-white/42">
-                    {direction === "in" ? "Money in" : "Money out"}: {amountKnown ? `₱${moneyNumber(amountInput).toLocaleString("en-PH")}` : "amount pending"}
-                  </p>
-                ) : null}
+          <div ref={actionRef} data-clara-conversation-action-region="true" className="contents">
+            {phase === "title" ? (
+              <div className="mt-auto pt-3">
+                <Composer
+                  value={titleInput}
+                  onChange={setTitleInput}
+                  onSubmit={submitTitle}
+                  placeholder="e.g. Dentist, meeting, anniversary"
+                />
               </div>
+            ) : null}
+
+            {phase === "date" ? (
               <div className="mt-auto grid gap-2.5 pt-3">
-                <ChoiceButton onClick={reset}>Schedule another</ChoiceButton>
-                <ChoiceButton onClick={onClose} secondary>
-                  Done
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(event) => setDate(event.target.value)}
+                  className="min-h-12 rounded-[18px] border border-blue-200/16 bg-[#07142b]/96 px-4 text-[16px] font-bold text-white outline-none"
+                />
+                <ChoiceButton onClick={chooseDate} disabled={!date}>
+                  Send date
                 </ChoiceButton>
               </div>
-            </>
-          ) : null}
+            ) : null}
 
-          {error ? (
-            <p className="rounded-[16px] border border-red-300/15 bg-red-500/[.06] px-3.5 py-3 text-[11.5px] font-bold leading-5 text-red-100/88">
-              {error}
-            </p>
-          ) : null}
+            {phase === "time" ? (
+              <div className="mt-auto grid gap-2.5 pt-3">
+                <input
+                  type="time"
+                  value={time}
+                  onChange={(event) => setTime(event.target.value)}
+                  className="min-h-12 rounded-[18px] border border-blue-200/16 bg-[#07142b]/96 px-4 text-[16px] font-bold text-white outline-none"
+                />
+                <ChoiceButton onClick={chooseTime}>
+                  {time ? `Send ${formatTime(time)}` : "No specific time"}
+                </ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "type" ? (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {TYPE_OPTIONS.map((option) => (
+                  <TypeReplyButton key={option} onClick={() => chooseType(option)}>
+                    {option}
+                  </TypeReplyButton>
+                ))}
+                <TypeReplyButton onClick={chooseOtherType} secondary>
+                  Other
+                </TypeReplyButton>
+              </div>
+            ) : null}
+
+            {phase === "other-type" ? (
+              <div className="mt-auto pt-3">
+                <Composer
+                  value={otherTypeInput}
+                  onChange={setOtherTypeInput}
+                  onSubmit={submitOtherType}
+                  placeholder="Type the schedule type..."
+                />
+              </div>
+            ) : null}
+
+            {phase === "money" ? (
+              <div className="mt-auto grid grid-cols-2 gap-2.5 pt-3">
+                <ChoiceButton onClick={() => chooseMoneyImpact(false)}>No</ChoiceButton>
+                <ChoiceButton onClick={() => chooseMoneyImpact(true)} secondary>
+                  Yes
+                </ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "direction" ? (
+              <div className="mt-auto grid grid-cols-2 gap-2.5 pt-3">
+                <ChoiceButton onClick={() => chooseDirection("out")}>Money out</ChoiceButton>
+                <ChoiceButton onClick={() => chooseDirection("in")} secondary>
+                  Money in
+                </ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "amount" ? (
+              <div className="mt-auto grid gap-2.5 pt-3">
+                <Composer
+                  value={amountInput}
+                  onChange={(value) => {
+                    setAmountKnown(true);
+                    setAmountInput(cleanMoney(value));
+                  }}
+                  onSubmit={submitAmount}
+                  placeholder="0"
+                  inputMode="decimal"
+                />
+                <ChoiceButton onClick={chooseUnknownAmount} secondary>
+                  Not sure yet
+                </ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "notes" ? (
+              <div className="mt-auto grid gap-2.5 pt-3">
+                <Composer
+                  value={noteInput}
+                  onChange={setNoteInput}
+                  onSubmit={submitNote}
+                  placeholder="Add a note for yourself..."
+                />
+                <ChoiceButton onClick={skipNoteAndSave} secondary>
+                  Skip note & save
+                </ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "saved" && saved ? (
+              <>
+                <div className="rounded-[22px] border border-cyan-200/14 bg-cyan-200/[.045] p-4 text-center">
+                  <CalendarDays className="mx-auto h-6 w-6 text-[#8ffff8]" />
+                  <p className="mt-2 text-[13px] font-black text-white">Scheduled</p>
+                  <p className="mt-1 text-[11px] font-semibold leading-5 text-white/52">
+                    {title} · {formatDate(date)}{time ? ` · ${formatTime(time)}` : ""} · {type}
+                  </p>
+                  {affectsMoney ? (
+                    <p className="mt-1 text-[11px] font-semibold leading-5 text-white/42">
+                      {direction === "in" ? "Money in" : "Money out"}: {amountKnown ? `₱${moneyNumber(amountInput).toLocaleString("en-PH")}` : "amount pending"}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="mt-auto grid gap-2.5 pt-3">
+                  <ChoiceButton onClick={reset}>Schedule another</ChoiceButton>
+                  <ChoiceButton onClick={onClose} secondary>
+                    Done
+                  </ChoiceButton>
+                </div>
+              </>
+            ) : null}
+
+            {error ? (
+              <p className="rounded-[16px] border border-red-300/15 bg-red-500/[.06] px-3.5 py-3 text-[11.5px] font-bold leading-5 text-red-100/88">
+                {error}
+              </p>
+            ) : null}
+          </div>
         </div>
       </main>
     </div>
