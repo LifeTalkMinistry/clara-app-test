@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, PiggyBank } from "lucide-react";
 import ClaraChatHeader from "./ClaraChatHeader";
+import useClaraConversationReveal from "./useClaraConversationReveal";
 import useFinancialData from "@/hooks/useFinancialData";
 
 const OTHER_OPTION = "__other__";
@@ -219,10 +220,10 @@ function generateId() {
   return `goal_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function Bubble({ role = "assistant", children }) {
+function Bubble({ role = "assistant", children, elementRef = null }) {
   const user = role === "user";
   return (
-    <div className={`flex ${user ? "justify-end" : "justify-start"}`}>
+    <div ref={elementRef} data-clara-conversation-role={role} className={`flex ${user ? "justify-end" : "justify-start"}`}>
       <div
         className={`max-w-[86%] whitespace-pre-wrap rounded-[20px] px-4 py-3 text-[13px] font-semibold leading-5 shadow-[0_12px_28px_rgba(0,0,0,.2)] ${
           user
@@ -247,7 +248,6 @@ function Composer({ value, onChange, onSubmit, placeholder, inputMode = "text" }
       className="flex items-center gap-2 rounded-[22px] border border-blue-200/14 bg-[#07142b]/96 p-2 shadow-[0_14px_34px_rgba(0,0,0,.28)]"
     >
       <input
-        autoFocus
         value={value}
         onChange={(event) => onChange?.(event.target.value)}
         placeholder={placeholder}
@@ -310,6 +310,8 @@ export default function ClaraSavingsGoalOverlay({
   const user = claraAssistantContext?.user || {};
   const firstName = firstNameFromUser(user);
   const viewportRef = useRef(null);
+  const latestAssistantRef = useRef(null);
+  const actionRef = useRef(null);
   const finance = useFinancialData(user);
   const sourceWallets = Array.isArray(finance?.wallets)
     ? finance.wallets
@@ -428,14 +430,25 @@ export default function ClaraSavingsGoalOverlay({
     setPhase("home");
   }, [activeGoals.length, firstName, isActive, phase, title, titleInput]);
 
-  useEffect(() => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-    const frame = window.requestAnimationFrame(() => {
-      viewport.scrollTo({ top: viewport.scrollHeight, behavior: "smooth" });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [messages, phase, error, saved]);
+  const latestAssistantIndex = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (messages[index]?.role === "assistant") return index;
+    }
+    return -1;
+  }, [messages]);
+
+  const revealKey = isActive && !saving && latestAssistantIndex >= 0
+    ? `${phase}:${messages.length}:${saved ? "saved" : "active"}`
+    : null;
+
+  useClaraConversationReveal({
+    viewportRef,
+    assistantRef: latestAssistantRef,
+    actionRef,
+    revealKey,
+    enabled: Boolean(revealKey),
+    requireAction: true,
+  });
 
   if (!isActive) return null;
 
@@ -1063,267 +1076,273 @@ export default function ClaraSavingsGoalOverlay({
       >
         <div className="flex min-h-full flex-col gap-3" data-clara-ai-message-stack="true">
           {messages.map((message, index) => (
-            <Bubble key={`${message.role}-${index}-${message.text}`} role={message.role}>
+            <Bubble
+              key={`${message.role}-${index}-${message.text}`}
+              role={message.role}
+              elementRef={index === latestAssistantIndex ? latestAssistantRef : null}
+            >
               {message.text}
             </Bubble>
           ))}
 
-          {phase === "home" ? (
-            <div className="mt-auto grid gap-2.5 pt-3" data-clara-savings-goal-fund-actions="true">
-              <div className="grid gap-2">
-                {activeGoals.map((goal) => (
-                  <ReplyButton key={goal.id} onClick={() => chooseManagedGoal(goal)}>
-                    <span className="block">{getGoalTitle(goal)}</span>
-                    <span className="mt-1 block text-[10px] font-semibold text-white/48">Saved {fmt(getGoalSavedAmount(goal))} · Target {fmt(getGoalTargetAmount(goal))}</span>
-                  </ReplyButton>
-                ))}
-              </div>
-              <ReplyButton onClick={startCreateGoal} secondary>Create new Savings Goal</ReplyButton>
-            </div>
-          ) : null}
-
-          {phase === "manage-goal" && selectedManagedGoal ? (
-            <div className="mt-auto grid gap-2.5 pt-3" data-clara-savings-goal-fund-actions="true">
-              <div className="rounded-[20px] border border-cyan-200/14 bg-cyan-200/[.045] p-3.5">
-                <SummaryRow label="Goal" value={getGoalTitle(selectedManagedGoal)} />
-                <div className="mt-2"><SummaryRow label="Saved" value={fmt(getGoalSavedAmount(selectedManagedGoal))} accent /></div>
-                <div className="mt-2"><SummaryRow label="Target" value={fmt(getGoalTargetAmount(selectedManagedGoal))} /></div>
-              </div>
-              <ReplyButton onClick={startAddFund} disabled={saving}>Add Fund</ReplyButton>
-              <ReplyButton onClick={startMoveFundOut} disabled={saving || getGoalSavedAmount(selectedManagedGoal) <= 0}>Move Fund Out</ReplyButton>
-              <ReplyButton onClick={openGoalHome} secondary>Back to Savings Goals</ReplyButton>
-            </div>
-          ) : null}
-
-          {phase === "fund-wallet" && selectedManagedGoal ? (
-            <div className="grid gap-2 pt-1" data-clara-savings-goal-fund-actions="true">
-              {realWallets.map((wallet) => {
-                const available = Math.max(toNumber(walletAvailableBalances[wallet.id]), 0);
-                return (
-                  <ReplyButton key={wallet.id} onClick={() => chooseFundWallet(wallet)} disabled={available <= 0}>
-                    <span className="block">{wallet.name}</span>
-                    <span className="mt-1 block text-[10px] font-semibold text-white/48">Available: {fmt(available)}</span>
-                  </ReplyButton>
-                );
-              })}
-              <ReplyButton onClick={() => setPhase("manage-goal")} secondary>Back</ReplyButton>
-            </div>
-          ) : null}
-
-          {phase === "fund-amount" && selectedManagedGoal ? (
-            <div className="mt-auto grid gap-2.5 pt-3" data-clara-savings-goal-fund-actions="true">
-              <Composer value={fundAmountInput} onChange={(value) => { setFundAmountInput(cleanMoney(value)); setError(""); }} onSubmit={submitAddFund} placeholder="Amount to add" inputMode="decimal" />
-              <ReplyButton onClick={() => setPhase("fund-wallet")} secondary>Choose another wallet</ReplyButton>
-            </div>
-          ) : null}
-
-          {phase === "out-wallet" && selectedManagedGoal ? (
-            <div className="grid gap-2 pt-1" data-clara-savings-goal-fund-actions="true">
-              {realWallets.map((wallet) => (
-                <ReplyButton key={wallet.id} onClick={() => chooseOutWallet(wallet)}>
-                  <span className="block">{wallet.name}</span>
-                  <span className="mt-1 block text-[10px] font-semibold text-white/48">Current balance: {fmt(getWalletBalance(wallet))}</span>
-                </ReplyButton>
-              ))}
-              <ReplyButton onClick={() => setPhase("manage-goal")} secondary>Back</ReplyButton>
-            </div>
-          ) : null}
-
-          {phase === "out-amount" && selectedManagedGoal ? (
-            <div className="mt-auto grid gap-2.5 pt-3" data-clara-savings-goal-fund-actions="true">
-              <Composer value={outAmountInput} onChange={(value) => { setOutAmountInput(cleanMoney(value)); setError(""); }} onSubmit={submitMoveFundOut} placeholder={`Up to ${fmt(getGoalSavedAmount(selectedManagedGoal))}`} inputMode="decimal" />
-              <ReplyButton onClick={() => setPhase("out-wallet")} secondary>Choose another wallet</ReplyButton>
-            </div>
-          ) : null}
-
-          {phase === "title" ? (
-            <div className="mt-auto grid gap-2.5 pt-3">
-              <div className="grid grid-cols-2 gap-2">
-                {STARTER_IDEAS.map((idea) => (
-                  <ReplyButton key={idea} onClick={() => chooseTitle(idea)}>{idea}</ReplyButton>
-                ))}
-              </div>
-              <Composer
-                value={titleInput}
-                onChange={setTitleInput}
-                onSubmit={submitTitle}
-                placeholder="Type your goal..."
-              />
-            </div>
-          ) : null}
-
-          {phase === "category" ? (
-            <div className="flex flex-wrap gap-2 pt-1">
-              {Object.keys(CATEGORIES).map((item) => (
-                <ReplyButton key={item} onClick={() => chooseCategory(item)}>{item}</ReplyButton>
-              ))}
-              <ReplyButton onClick={() => chooseCategory(OTHER_OPTION)} secondary>Other</ReplyButton>
-              <ReplyButton onClick={() => chooseCategory("")} secondary>Skip</ReplyButton>
-            </div>
-          ) : null}
-
-          {phase === "custom-category" ? (
-            <div className="mt-auto pt-3">
-              <Composer value={customInput} onChange={setCustomInput} onSubmit={submitCustomCategory} placeholder="Type your category..." />
-            </div>
-          ) : null}
-
-          {phase === "custom-detail" ? (
-            <div className="mt-auto grid gap-2.5 pt-3">
-              <Composer value={customInput} onChange={setCustomInput} onSubmit={submitCustomDetail} placeholder="Describe it more specifically..." />
-              <ReplyButton onClick={skipCustomDetail} secondary>Skip specific detail</ReplyButton>
-            </div>
-          ) : null}
-
-          {phase === "subcategory" ? (
-            <div className="flex flex-wrap gap-2 pt-1">
-              {subcategoryOptions.map((item) => (
-                <ReplyButton key={item} onClick={() => chooseSubcategory(item)}>{item}</ReplyButton>
-              ))}
-              <ReplyButton onClick={() => chooseSubcategory(OTHER_OPTION)} secondary>Other</ReplyButton>
-              <ReplyButton onClick={() => chooseSubcategory("")} secondary>Skip</ReplyButton>
-            </div>
-          ) : null}
-
-          {phase === "custom-subcategory" ? (
-            <div className="mt-auto pt-3">
-              <Composer value={customInput} onChange={setCustomInput} onSubmit={submitCustomSubcategory} placeholder="Type your subcategory..." />
-            </div>
-          ) : null}
-
-          {phase === "target" ? (
-            <div className="mt-auto pt-3">
-              <Composer
-                value={targetInput}
-                onChange={(value) => { setTargetInput(cleanMoney(value)); setError(""); }}
-                onSubmit={submitTarget}
-                placeholder="Target amount"
-                inputMode="decimal"
-              />
-            </div>
-          ) : null}
-
-          {phase === "saved-amount" ? (
-            <div className="mt-auto grid gap-2.5 pt-3">
-              <Composer
-                value={savedInput}
-                onChange={(value) => { setSavedInput(cleanMoney(value)); setError(""); }}
-                onSubmit={submitSavedAmount}
-                placeholder="Already saved"
-                inputMode="decimal"
-              />
-              <ReplyButton onClick={() => chooseSavedAmount(0, "None yet · ₱0")} secondary>None yet · ₱0</ReplyButton>
-            </div>
-          ) : null}
-
-          {phase === "wallet" ? (
-            <div className="grid gap-2 pt-1">
-              {activeWallets.map((wallet) => {
-                const available = Math.max(toNumber(walletAvailableBalances[wallet.id]), 0);
-                return (
-                  <ReplyButton key={wallet.id} onClick={() => chooseWallet(wallet)}>
-                    <span className="block">{wallet.name}</span>
-                    <span className="mt-1 block text-[10px] font-semibold text-white/48">Available: {fmt(available)}</span>
-                  </ReplyButton>
-                );
-              })}
-              {savedAmount <= 0 ? (
-                <ReplyButton onClick={chooseNoWallet} secondary>No wallet yet</ReplyButton>
-              ) : null}
-              {!activeWallets.length ? (
-                <div className="rounded-[18px] border border-amber-300/15 bg-amber-400/[0.06] px-4 py-3 text-[11.5px] font-semibold leading-5 text-amber-100/82">
-                  No wallets are available.{savedAmount > 0 ? " Create a wallet first before keeping an Already Saved amount." : " You can continue without a wallet because nothing is marked as saved yet."}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          {phase === "date" ? (
-            <div className="mt-auto grid gap-2.5 pt-3">
-              <input
-                type="date"
-                value={plannedUseDate}
-                onChange={(event) => setPlannedUseDate(event.target.value)}
-                className="min-h-12 rounded-[18px] border border-blue-200/16 bg-[#07142b]/96 px-4 text-[16px] font-bold text-white outline-none"
-              />
-              <ReplyButton onClick={() => chooseDate(plannedUseDate)} disabled={!plannedUseDate}>Use this date</ReplyButton>
-              <ReplyButton onClick={() => chooseDate("")} secondary>No planned date</ReplyButton>
-            </div>
-          ) : null}
-
-          {reasonIndex >= 0 ? (
-            <div className="mt-auto grid gap-2.5 pt-3">
-              <Composer value={reasonInput} onChange={setReasonInput} onSubmit={submitReason} placeholder={`Reason ${reasonIndex + 1}`} />
-              <ReplyButton onClick={skipReason} secondary>Skip reason {reasonIndex + 1}</ReplyButton>
-            </div>
-          ) : null}
-
-          {phase === "emotional" ? (
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              {EMOTIONAL_VALUES.map((item) => (
-                <ReplyButton key={item.value} onClick={() => chooseEmotionalValue(item)}>{item.label}</ReplyButton>
-              ))}
-            </div>
-          ) : null}
-
-          {phase === "priority" ? (
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              {PRIORITIES.map((item) => (
-                <ReplyButton key={item.value} onClick={() => choosePriority(item)}>{item.label}</ReplyButton>
-              ))}
-            </div>
-          ) : null}
-
-          {phase === "notes" ? (
-            <div className="mt-auto grid gap-2.5 pt-3">
-              <Composer value={notesInput} onChange={setNotesInput} onSubmit={submitNotes} placeholder="Add a note..." />
-              <ReplyButton onClick={skipNotes} secondary>Skip notes</ReplyButton>
-            </div>
-          ) : null}
-
-          {phase === "review" ? (
-            <div className="mt-auto grid gap-2.5 pt-3">
-              <div className="rounded-[22px] border border-cyan-200/14 bg-cyan-200/[.045] p-3.5">
-                <div className="mb-3 flex items-center gap-2">
-                  <PiggyBank className="h-5 w-5 text-cyan-100" />
-                  <p className="text-[13px] font-black text-white">Savings Goal summary</p>
-                </div>
+          <div ref={actionRef} data-clara-conversation-action-region="true" className="contents">
+            {phase === "home" ? (
+              <div className="mt-auto grid gap-2.5 pt-3" data-clara-savings-goal-fund-actions="true">
                 <div className="grid gap-2">
-                  <SummaryRow label="Goal" value={title} />
-                  <SummaryRow label="Category" value={category || "None"} />
-                  {subcategory ? <SummaryRow label="Detail" value={subcategory} /> : null}
-                  <SummaryRow label="Target" value={fmt(targetAmount)} accent />
-                  <SummaryRow label="Already saved" value={fmt(savedAmount)} />
-                  <SummaryRow label="Saved in" value={selectedWallet?.name || "No wallet yet"} />
-                  <SummaryRow label="Planned use" value={formatDate(plannedUseDate)} />
-                  <SummaryRow label="Emotional value" value={emotionalLabel} />
-                  <SummaryRow label="Priority" value={priorityLabel} />
+                  {activeGoals.map((goal) => (
+                    <ReplyButton key={goal.id} onClick={() => chooseManagedGoal(goal)}>
+                      <span className="block">{getGoalTitle(goal)}</span>
+                      <span className="mt-1 block text-[10px] font-semibold text-white/48">Saved {fmt(getGoalSavedAmount(goal))} · Target {fmt(getGoalTargetAmount(goal))}</span>
+                    </ReplyButton>
+                  ))}
                 </div>
+                <ReplyButton onClick={startCreateGoal} secondary>Create new Savings Goal</ReplyButton>
               </div>
-              <ReplyButton onClick={saveGoal} disabled={saving}>{saving ? "Creating..." : "Create Goal"}</ReplyButton>
-            </div>
-          ) : null}
+            ) : null}
 
-          {phase === "saved" && saved ? (
-            <>
-              <div className="rounded-[22px] border border-cyan-200/14 bg-cyan-200/[.045] p-4 text-center">
-                <PiggyBank className="mx-auto h-6 w-6 text-[#8ffff8]" />
-                <p className="mt-2 text-[13px] font-black text-white">Savings Goal created</p>
-                <p className="mt-1 text-[11px] font-semibold leading-5 text-white/52">{title} · {fmt(targetAmount)} target</p>
+            {phase === "manage-goal" && selectedManagedGoal ? (
+              <div className="mt-auto grid gap-2.5 pt-3" data-clara-savings-goal-fund-actions="true">
+                <div className="rounded-[20px] border border-cyan-200/14 bg-cyan-200/[.045] p-3.5">
+                  <SummaryRow label="Goal" value={getGoalTitle(selectedManagedGoal)} />
+                  <div className="mt-2"><SummaryRow label="Saved" value={fmt(getGoalSavedAmount(selectedManagedGoal))} accent /></div>
+                  <div className="mt-2"><SummaryRow label="Target" value={fmt(getGoalTargetAmount(selectedManagedGoal))} /></div>
+                </div>
+                <ReplyButton onClick={startAddFund} disabled={saving}>Add Fund</ReplyButton>
+                <ReplyButton onClick={startMoveFundOut} disabled={saving || getGoalSavedAmount(selectedManagedGoal) <= 0}>Move Fund Out</ReplyButton>
+                <ReplyButton onClick={openGoalHome} secondary>Back to Savings Goals</ReplyButton>
               </div>
+            ) : null}
+
+            {phase === "fund-wallet" && selectedManagedGoal ? (
+              <div className="grid gap-2 pt-1" data-clara-savings-goal-fund-actions="true">
+                {realWallets.map((wallet) => {
+                  const available = Math.max(toNumber(walletAvailableBalances[wallet.id]), 0);
+                  return (
+                    <ReplyButton key={wallet.id} onClick={() => chooseFundWallet(wallet)} disabled={available <= 0}>
+                      <span className="block">{wallet.name}</span>
+                      <span className="mt-1 block text-[10px] font-semibold text-white/48">Available: {fmt(available)}</span>
+                    </ReplyButton>
+                  );
+                })}
+                <ReplyButton onClick={() => setPhase("manage-goal")} secondary>Back</ReplyButton>
+              </div>
+            ) : null}
+
+            {phase === "fund-amount" && selectedManagedGoal ? (
+              <div className="mt-auto grid gap-2.5 pt-3" data-clara-savings-goal-fund-actions="true">
+                <Composer value={fundAmountInput} onChange={(value) => { setFundAmountInput(cleanMoney(value)); setError(""); }} onSubmit={submitAddFund} placeholder="Amount to add" inputMode="decimal" />
+                <ReplyButton onClick={() => setPhase("fund-wallet")} secondary>Choose another wallet</ReplyButton>
+              </div>
+            ) : null}
+
+            {phase === "out-wallet" && selectedManagedGoal ? (
+              <div className="grid gap-2 pt-1" data-clara-savings-goal-fund-actions="true">
+                {realWallets.map((wallet) => (
+                  <ReplyButton key={wallet.id} onClick={() => chooseOutWallet(wallet)}>
+                    <span className="block">{wallet.name}</span>
+                    <span className="mt-1 block text-[10px] font-semibold text-white/48">Current balance: {fmt(getWalletBalance(wallet))}</span>
+                  </ReplyButton>
+                ))}
+                <ReplyButton onClick={() => setPhase("manage-goal")} secondary>Back</ReplyButton>
+              </div>
+            ) : null}
+
+            {phase === "out-amount" && selectedManagedGoal ? (
+              <div className="mt-auto grid gap-2.5 pt-3" data-clara-savings-goal-fund-actions="true">
+                <Composer value={outAmountInput} onChange={(value) => { setOutAmountInput(cleanMoney(value)); setError(""); }} onSubmit={submitMoveFundOut} placeholder={`Up to ${fmt(getGoalSavedAmount(selectedManagedGoal))}`} inputMode="decimal" />
+                <ReplyButton onClick={() => setPhase("out-wallet")} secondary>Choose another wallet</ReplyButton>
+              </div>
+            ) : null}
+
+            {phase === "title" ? (
               <div className="mt-auto grid gap-2.5 pt-3">
-                <ReplyButton onClick={openGoalHome}>Manage Savings Goals</ReplyButton>
-                <ReplyButton onClick={reset} secondary>Create another goal</ReplyButton>
-                <ReplyButton onClick={onClose} secondary>Done</ReplyButton>
+                <div className="grid grid-cols-2 gap-2">
+                  {STARTER_IDEAS.map((idea) => (
+                    <ReplyButton key={idea} onClick={() => chooseTitle(idea)}>{idea}</ReplyButton>
+                  ))}
+                </div>
+                <Composer
+                  value={titleInput}
+                  onChange={setTitleInput}
+                  onSubmit={submitTitle}
+                  placeholder="Type your goal..."
+                />
               </div>
-            </>
-          ) : null}
+            ) : null}
 
-          {error ? (
-            <p className="rounded-[16px] border border-red-300/15 bg-red-500/[.06] px-3.5 py-3 text-[11.5px] font-bold leading-5 text-red-100/88">
-              {error}
-            </p>
-          ) : null}
+            {phase === "category" ? (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {Object.keys(CATEGORIES).map((item) => (
+                  <ReplyButton key={item} onClick={() => chooseCategory(item)}>{item}</ReplyButton>
+                ))}
+                <ReplyButton onClick={() => chooseCategory(OTHER_OPTION)} secondary>Other</ReplyButton>
+                <ReplyButton onClick={() => chooseCategory("")} secondary>Skip</ReplyButton>
+              </div>
+            ) : null}
+
+            {phase === "custom-category" ? (
+              <div className="mt-auto pt-3">
+                <Composer value={customInput} onChange={setCustomInput} onSubmit={submitCustomCategory} placeholder="Type your category..." />
+              </div>
+            ) : null}
+
+            {phase === "custom-detail" ? (
+              <div className="mt-auto grid gap-2.5 pt-3">
+                <Composer value={customInput} onChange={setCustomInput} onSubmit={submitCustomDetail} placeholder="Describe it more specifically..." />
+                <ReplyButton onClick={skipCustomDetail} secondary>Skip specific detail</ReplyButton>
+              </div>
+            ) : null}
+
+            {phase === "subcategory" ? (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {subcategoryOptions.map((item) => (
+                  <ReplyButton key={item} onClick={() => chooseSubcategory(item)}>{item}</ReplyButton>
+                ))}
+                <ReplyButton onClick={() => chooseSubcategory(OTHER_OPTION)} secondary>Other</ReplyButton>
+                <ReplyButton onClick={() => chooseSubcategory("")} secondary>Skip</ReplyButton>
+              </div>
+            ) : null}
+
+            {phase === "custom-subcategory" ? (
+              <div className="mt-auto pt-3">
+                <Composer value={customInput} onChange={setCustomInput} onSubmit={submitCustomSubcategory} placeholder="Type your subcategory..." />
+              </div>
+            ) : null}
+
+            {phase === "target" ? (
+              <div className="mt-auto pt-3">
+                <Composer
+                  value={targetInput}
+                  onChange={(value) => { setTargetInput(cleanMoney(value)); setError(""); }}
+                  onSubmit={submitTarget}
+                  placeholder="Target amount"
+                  inputMode="decimal"
+                />
+              </div>
+            ) : null}
+
+            {phase === "saved-amount" ? (
+              <div className="mt-auto grid gap-2.5 pt-3">
+                <Composer
+                  value={savedInput}
+                  onChange={(value) => { setSavedInput(cleanMoney(value)); setError(""); }}
+                  onSubmit={submitSavedAmount}
+                  placeholder="Already saved"
+                  inputMode="decimal"
+                />
+                <ReplyButton onClick={() => chooseSavedAmount(0, "None yet · ₱0")} secondary>None yet · ₱0</ReplyButton>
+              </div>
+            ) : null}
+
+            {phase === "wallet" ? (
+              <div className="grid gap-2 pt-1">
+                {activeWallets.map((wallet) => {
+                  const available = Math.max(toNumber(walletAvailableBalances[wallet.id]), 0);
+                  return (
+                    <ReplyButton key={wallet.id} onClick={() => chooseWallet(wallet)}>
+                      <span className="block">{wallet.name}</span>
+                      <span className="mt-1 block text-[10px] font-semibold text-white/48">Available: {fmt(available)}</span>
+                    </ReplyButton>
+                  );
+                })}
+                {savedAmount <= 0 ? (
+                  <ReplyButton onClick={chooseNoWallet} secondary>No wallet yet</ReplyButton>
+                ) : null}
+                {!activeWallets.length ? (
+                  <div className="rounded-[18px] border border-amber-300/15 bg-amber-400/[0.06] px-4 py-3 text-[11.5px] font-semibold leading-5 text-amber-100/82">
+                    No wallets are available.{savedAmount > 0 ? " Create a wallet first before keeping an Already Saved amount." : " You can continue without a wallet because nothing is marked as saved yet."}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {phase === "date" ? (
+              <div className="mt-auto grid gap-2.5 pt-3">
+                <input
+                  type="date"
+                  value={plannedUseDate}
+                  onChange={(event) => setPlannedUseDate(event.target.value)}
+                  className="min-h-12 rounded-[18px] border border-blue-200/16 bg-[#07142b]/96 px-4 text-[16px] font-bold text-white outline-none"
+                />
+                <ReplyButton onClick={() => chooseDate(plannedUseDate)} disabled={!plannedUseDate}>Use this date</ReplyButton>
+                <ReplyButton onClick={() => chooseDate("")} secondary>No planned date</ReplyButton>
+              </div>
+            ) : null}
+
+            {reasonIndex >= 0 ? (
+              <div className="mt-auto grid gap-2.5 pt-3">
+                <Composer value={reasonInput} onChange={setReasonInput} onSubmit={submitReason} placeholder={`Reason ${reasonIndex + 1}`} />
+                <ReplyButton onClick={skipReason} secondary>Skip reason {reasonIndex + 1}</ReplyButton>
+              </div>
+            ) : null}
+
+            {phase === "emotional" ? (
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                {EMOTIONAL_VALUES.map((item) => (
+                  <ReplyButton key={item.value} onClick={() => chooseEmotionalValue(item)}>{item.label}</ReplyButton>
+                ))}
+              </div>
+            ) : null}
+
+            {phase === "priority" ? (
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                {PRIORITIES.map((item) => (
+                  <ReplyButton key={item.value} onClick={() => choosePriority(item)}>{item.label}</ReplyButton>
+                ))}
+              </div>
+            ) : null}
+
+            {phase === "notes" ? (
+              <div className="mt-auto grid gap-2.5 pt-3">
+                <Composer value={notesInput} onChange={setNotesInput} onSubmit={submitNotes} placeholder="Add a note..." />
+                <ReplyButton onClick={skipNotes} secondary>Skip notes</ReplyButton>
+              </div>
+            ) : null}
+
+            {phase === "review" ? (
+              <div className="mt-auto grid gap-2.5 pt-3">
+                <div className="rounded-[22px] border border-cyan-200/14 bg-cyan-200/[.045] p-3.5">
+                  <div className="mb-3 flex items-center gap-2">
+                    <PiggyBank className="h-5 w-5 text-cyan-100" />
+                    <p className="text-[13px] font-black text-white">Savings Goal summary</p>
+                  </div>
+                  <div className="grid gap-2">
+                    <SummaryRow label="Goal" value={title} />
+                    <SummaryRow label="Category" value={category || "None"} />
+                    {subcategory ? <SummaryRow label="Detail" value={subcategory} /> : null}
+                    <SummaryRow label="Target" value={fmt(targetAmount)} accent />
+                    <SummaryRow label="Already saved" value={fmt(savedAmount)} />
+                    <SummaryRow label="Saved in" value={selectedWallet?.name || "No wallet yet"} />
+                    <SummaryRow label="Planned use" value={formatDate(plannedUseDate)} />
+                    <SummaryRow label="Emotional value" value={emotionalLabel} />
+                    <SummaryRow label="Priority" value={priorityLabel} />
+                  </div>
+                </div>
+                <ReplyButton onClick={saveGoal} disabled={saving}>{saving ? "Creating..." : "Create Goal"}</ReplyButton>
+              </div>
+            ) : null}
+
+            {phase === "saved" && saved ? (
+              <>
+                <div className="rounded-[22px] border border-cyan-200/14 bg-cyan-200/[.045] p-4 text-center">
+                  <PiggyBank className="mx-auto h-6 w-6 text-[#8ffff8]" />
+                  <p className="mt-2 text-[13px] font-black text-white">Savings Goal created</p>
+                  <p className="mt-1 text-[11px] font-semibold leading-5 text-white/52">{title} · {fmt(targetAmount)} target</p>
+                </div>
+                <div className="mt-auto grid gap-2.5 pt-3">
+                  <ReplyButton onClick={openGoalHome}>Manage Savings Goals</ReplyButton>
+                  <ReplyButton onClick={reset} secondary>Create another goal</ReplyButton>
+                  <ReplyButton onClick={onClose} secondary>Done</ReplyButton>
+                </div>
+              </>
+            ) : null}
+
+            {error ? (
+              <p className="rounded-[16px] border border-red-300/15 bg-red-500/[.06] px-3.5 py-3 text-[11.5px] font-bold leading-5 text-red-100/88">
+                {error}
+              </p>
+            ) : null}
+          </div>
         </div>
       </main>
     </div>
