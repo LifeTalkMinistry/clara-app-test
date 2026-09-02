@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp } from "lucide-react";
 import ClaraChatHeader from "./ClaraChatHeader";
+import useClaraConversationReveal from "./useClaraConversationReveal";
 import { getEffectiveDemoFinanceLocalUserId } from "@/lib/demo/activeDemoProfile";
 import {
   deleteDebtObligation,
@@ -60,10 +61,14 @@ function chatMessage(role, text) {
   };
 }
 
-function Bubble({ role = "assistant", children, typing = false }) {
+function Bubble({ role = "assistant", children, typing = false, elementRef = null }) {
   const assistant = role === "assistant";
   return (
-    <div className={`flex ${assistant ? "justify-start" : "justify-end"}`}>
+    <div
+      ref={elementRef}
+      data-clara-conversation-role={role}
+      className={`flex ${assistant ? "justify-start" : "justify-end"}`}
+    >
       <div
         className={`max-w-[86%] rounded-[20px] px-4 py-3 text-[13px] font-semibold leading-5 shadow-[0_12px_28px_rgba(0,0,0,0.20)] ${
           assistant
@@ -201,6 +206,8 @@ export default function ClaraDebtObligationOverlay({
   const [error, setError] = useState("");
 
   const viewportRef = useRef(null);
+  const latestAssistantRef = useRef(null);
+  const actionRef = useRef(null);
   const timerIdsRef = useRef(new Set());
   const typingTimerRef = useRef(null);
   const sequenceRef = useRef([]);
@@ -232,17 +239,8 @@ export default function ClaraDebtObligationOverlay({
     ? `You have ${pressure.activeCount} active obligation${pressure.activeCount === 1 ? "" : "s"}. Total remaining balance: ${fmt(pressure.totalDebt)}. Monthly obligation: ${fmt(pressure.monthlyDebt)}. Current debt pressure: ${pressure.debtRatio.toFixed(0)}% (${pressure.riskLevel}).`
     : "You currently have no active debt or obligations recorded.";
 
-  const scrollToLatest = () => {
-    if (typeof window === "undefined") return;
-    window.requestAnimationFrame(() => {
-      const viewport = viewportRef.current;
-      if (viewport) viewport.scrollTop = viewport.scrollHeight;
-    });
-  };
-
   const append = (...nextMessages) => {
     setMessages((current) => [...current, ...nextMessages]);
-    scrollToLatest();
   };
 
   const registerTimeout = (callback, delay) => {
@@ -287,7 +285,6 @@ export default function ClaraDebtObligationOverlay({
       if (token !== sequenceTokenRef.current) return;
       setTypedText("");
       setPendingMessage(chatMessage("assistant", nextText));
-      scrollToLatest();
     };
 
     if (skipDelay) show();
@@ -360,7 +357,6 @@ export default function ClaraDebtObligationOverlay({
       if (token !== sequenceTokenRef.current) return;
       index = Math.min(plan.source.length, index + plan.charsPerTick);
       setTypedText(plan.source.slice(0, index));
-      scrollToLatest();
       if (index >= plan.source.length) {
         window.clearInterval(typingTimerRef.current);
         typingTimerRef.current = null;
@@ -368,7 +364,6 @@ export default function ClaraDebtObligationOverlay({
         setMessages((current) => [...current, completedMessage]);
         setPendingMessage(null);
         setTypedText("");
-        scrollToLatest();
         queueNextAssistantMessage(token);
       }
     }, plan.tickMs);
@@ -395,9 +390,25 @@ export default function ClaraDebtObligationOverlay({
     clearPacingTimers();
   }, []);
 
-  if (!isActive) return null;
-
   const controlsReady = interactionReady && !pendingMessage && phase !== "responding" && !busy;
+  const latestAssistantMessage = useMemo(
+    () => [...messages].reverse().find((entry) => entry?.role === "assistant") || null,
+    [messages]
+  );
+  const revealKey = controlsReady && latestAssistantMessage
+    ? `${sequenceTokenRef.current}:${phase}:${latestAssistantMessage.id}`
+    : null;
+
+  useClaraConversationReveal({
+    viewportRef,
+    assistantRef: latestAssistantRef,
+    actionRef,
+    revealKey,
+    enabled: isActive && controlsReady && Boolean(latestAssistantMessage),
+    requireAction: true,
+  });
+
+  if (!isActive) return null;
 
   const closeChat = () => {
     cancelConversationPacing();
@@ -777,272 +788,280 @@ export default function ClaraDebtObligationOverlay({
       >
         <div className="flex min-h-full flex-col gap-3" data-clara-ai-message-stack="true">
           {messages.map((entry) => (
-            <Bubble key={entry.id} role={entry.role}>{entry.text}</Bubble>
+            <Bubble
+              key={entry.id}
+              role={entry.role}
+              elementRef={entry.id === latestAssistantMessage?.id ? latestAssistantRef : null}
+            >
+              {entry.text}
+            </Bubble>
           ))}
           {pendingMessage ? <Bubble role="assistant" typing>{typedText}</Bubble> : null}
 
-          {phase === "home" && controlsReady ? (
-            <div className="relative z-20 mt-1 grid gap-2.5">
-              <ChoiceButton onClick={beginAdd}>Add an obligation</ChoiceButton>
-              <ChoiceButton onClick={openPay} disabled={!records.length}>Pay an obligation</ChoiceButton>
-              <ChoiceButton onClick={openView}>View obligations</ChoiceButton>
-              <ChoiceButton onClick={openManage} disabled={!records.length}>Edit or delete an obligation</ChoiceButton>
-              <ChoiceButton onClick={openPressure}>Review debt pressure</ChoiceButton>
-              <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
-            </div>
-          ) : null}
+          <div ref={actionRef} data-clara-conversation-action-region="true" className="contents">
+            {phase === "home" && controlsReady ? (
+              <div className="relative z-20 mt-1 grid gap-2.5">
+                <ChoiceButton onClick={beginAdd}>Add an obligation</ChoiceButton>
+                <ChoiceButton onClick={openPay} disabled={!records.length}>Pay an obligation</ChoiceButton>
+                <ChoiceButton onClick={openView}>View obligations</ChoiceButton>
+                <ChoiceButton onClick={openManage} disabled={!records.length}>Edit or delete an obligation</ChoiceButton>
+                <ChoiceButton onClick={openPressure}>Review debt pressure</ChoiceButton>
+                <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
+              </div>
+            ) : null}
 
-          {phase === "view" && controlsReady ? (
-            <div className="mt-1 grid gap-2.5">
-              {records.map((record) => (
-                <article key={record.id} className="rounded-[21px] border border-blue-200/12 bg-[#07142b]/88 p-3.5 shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
-                  <p className="text-[12.5px] font-black leading-5 text-white/92">{getDebtTitle(record)}</p>
-                  <p className="mt-1 text-[10.5px] font-semibold leading-5 text-white/48">{summaryText(record)}</p>
-                </article>
-              ))}
-              <ChoiceButton secondary onClick={() => goHome("Back")}>Back</ChoiceButton>
-            </div>
-          ) : null}
+            {phase === "view" && controlsReady ? (
+              <div className="mt-1 grid gap-2.5">
+                {records.map((record) => (
+                  <article key={record.id} className="rounded-[21px] border border-blue-200/12 bg-[#07142b]/88 p-3.5 shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
+                    <p className="text-[12.5px] font-black leading-5 text-white/92">{getDebtTitle(record)}</p>
+                    <p className="mt-1 text-[10.5px] font-semibold leading-5 text-white/48">{summaryText(record)}</p>
+                  </article>
+                ))}
+                <ChoiceButton secondary onClick={() => goHome("Back")}>Back</ChoiceButton>
+              </div>
+            ) : null}
 
-          {phase === "pay-select" && controlsReady ? (
-            <div className="mt-1 grid gap-2.5">
-              {records.map((record) => (
-                <ChoiceButton key={record.id} onClick={() => beginPayment(record, "pay-select")}>
-                  <span className="block text-left">{getDebtTitle(record)}</span>
-                  <span className="mt-1 block text-left text-[10px] font-semibold text-white/55">{summaryText(record)}</span>
-                </ChoiceButton>
-              ))}
-              <ChoiceButton secondary onClick={() => goHome("Back")}>Back</ChoiceButton>
-            </div>
-          ) : null}
+            {phase === "pay-select" && controlsReady ? (
+              <div className="mt-1 grid gap-2.5">
+                {records.map((record) => (
+                  <ChoiceButton key={record.id} onClick={() => beginPayment(record, "pay-select")}>
+                    <span className="block text-left">{getDebtTitle(record)}</span>
+                    <span className="mt-1 block text-left text-[10px] font-semibold text-white/55">{summaryText(record)}</span>
+                  </ChoiceButton>
+                ))}
+                <ChoiceButton secondary onClick={() => goHome("Back")}>Back</ChoiceButton>
+              </div>
+            ) : null}
 
-          {phase === "pay-amount" && selectedRecord && controlsReady ? (
-            <div className="mt-auto grid gap-2.5 pt-3">
-              <Composer
-                value={input}
-                onChange={(value) => { setInput(cleanMoney(value)); setError(""); }}
-                onSubmit={submitPaymentAmount}
-                placeholder="Payment amount"
-                inputMode="decimal"
-              />
-              <ChoiceButton secondary onClick={backFromPaymentAmount}>Back</ChoiceButton>
-            </div>
-          ) : null}
+            {phase === "pay-amount" && selectedRecord && controlsReady ? (
+              <div className="mt-auto grid gap-2.5 pt-3">
+                <Composer
+                  value={input}
+                  onChange={(value) => { setInput(cleanMoney(value)); setError(""); }}
+                  onSubmit={submitPaymentAmount}
+                  placeholder="Payment amount"
+                  inputMode="decimal"
+                />
+                <ChoiceButton secondary onClick={backFromPaymentAmount}>Back</ChoiceButton>
+              </div>
+            ) : null}
 
-          {phase === "pay-wallet" && selectedRecord && controlsReady ? (
-            <div className="relative z-20 mt-1 grid gap-2.5">
-              {paymentWalletOptions.length ? paymentWalletOptions.map((wallet) => (
-                <button
-                  key={wallet.id}
-                  type="button"
-                  disabled={!wallet.enough}
-                  onClick={() => choosePaymentWallet(wallet)}
-                  className="relative z-20 flex min-h-14 touch-manipulation items-center justify-between gap-3 rounded-[18px] border border-blue-200/12 bg-[#07142b]/88 px-4 py-3 text-left transition active:scale-[0.985] disabled:opacity-40"
-                >
-                  <span>
-                    <span className="block text-[13px] font-black text-white">{wallet.name}</span>
-                    <span className="mt-0.5 block text-[10.5px] font-semibold text-slate-300/62">
-                      {wallet.enough ? "Available to pay" : "Not enough spendable balance"}
+            {phase === "pay-wallet" && selectedRecord && controlsReady ? (
+              <div className="relative z-20 mt-1 grid gap-2.5">
+                {paymentWalletOptions.length ? paymentWalletOptions.map((wallet) => (
+                  <button
+                    key={wallet.id}
+                    type="button"
+                    disabled={!wallet.enough}
+                    onClick={() => choosePaymentWallet(wallet)}
+                    className="relative z-20 flex min-h-14 touch-manipulation items-center justify-between gap-3 rounded-[18px] border border-blue-200/12 bg-[#07142b]/88 px-4 py-3 text-left transition active:scale-[0.985] disabled:opacity-40"
+                  >
+                    <span>
+                      <span className="block text-[13px] font-black text-white">{wallet.name}</span>
+                      <span className="mt-0.5 block text-[10.5px] font-semibold text-slate-300/62">
+                        {wallet.enough ? "Available to pay" : "Not enough spendable balance"}
+                      </span>
                     </span>
-                  </span>
-                  <span className="shrink-0 text-[12px] font-black text-[#8ffff8]/82">{fmt(wallet.balance)}</span>
-                </button>
-              )) : (
-                <Bubble role="assistant">There isn’t any spendable wallet money available for this payment. Protected money stays protected.</Bubble>
-              )}
-              <ChoiceButton secondary onClick={() => {
-                setPaymentWalletId("");
-                setInput(String(paymentAmount || suggestedPayment(selectedRecord) || ""));
-                append(chatMessage("user", "Back"));
-                runAssistantSequence([`How much are you paying toward ${getDebtTitle(selectedRecord)}?`], "pay-amount");
-              }}>Back</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "pay-confirm" && selectedRecord && selectedPaymentWallet && controlsReady ? (
-            <div className="mt-1 grid gap-2.5">
-              <article className="rounded-[21px] border border-blue-200/12 bg-[#07142b]/88 p-3.5 shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
-                <div className="space-y-2 text-[11.5px] font-semibold leading-5 text-white/82">
-                  <div><span className="text-white/42">Obligation:</span> {getDebtTitle(selectedRecord)}</div>
-                  <div><span className="text-white/42">Payment:</span> {fmt(paymentAmount)}</div>
-                  <div><span className="text-white/42">From:</span> {selectedPaymentWallet.name}</div>
-                  {getDebtObligationMode(selectedRecord) === "balance" ? (
-                    <div><span className="text-white/42">Remaining:</span> {fmt(Math.max(getDebtBalance(selectedRecord) - paymentAmount, 0))}</div>
-                  ) : null}
-                </div>
-              </article>
-              <div className="grid grid-cols-2 gap-2.5">
-                <ChoiceButton onClick={confirmPayment} disabled={busy}>{busy ? "Paying..." : "Confirm payment"}</ChoiceButton>
+                    <span className="shrink-0 text-[12px] font-black text-[#8ffff8]/82">{fmt(wallet.balance)}</span>
+                  </button>
+                )) : (
+                  <Bubble role="assistant">There isn’t any spendable wallet money available for this payment. Protected money stays protected.</Bubble>
+                )}
                 <ChoiceButton secondary onClick={() => {
                   setPaymentWalletId("");
+                  setInput(String(paymentAmount || suggestedPayment(selectedRecord) || ""));
                   append(chatMessage("user", "Back"));
-                  runAssistantSequence(["Which wallet are you paying from?"], "pay-wallet");
+                  runAssistantSequence([`How much are you paying toward ${getDebtTitle(selectedRecord)}?`], "pay-amount");
                 }}>Back</ChoiceButton>
               </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          {phase === "manage" && controlsReady ? (
-            <div className="mt-1 grid gap-2.5">
-              {records.map((record) => (
-                <ChoiceButton key={record.id} onClick={() => selectManagedRecord(record)}>
-                  <span className="block text-left">{getDebtTitle(record)}</span>
-                  <span className="mt-1 block text-left text-[10px] font-semibold text-white/55">{summaryText(record)}</span>
-                </ChoiceButton>
-              ))}
-              <ChoiceButton secondary onClick={() => goHome("Back")}>Back</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "manage-action" && selectedRecord && controlsReady ? (
-            <div className="mt-1 grid gap-2.5">
-              <article className="rounded-[21px] border border-blue-200/12 bg-[#07142b]/88 p-3.5 shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
-                <p className="text-[12.5px] font-black leading-5 text-white/92">{getDebtTitle(selectedRecord)}</p>
-                <p className="mt-1 text-[10.5px] font-semibold leading-5 text-white/48">{summaryText(selectedRecord)}</p>
-              </article>
-              <ChoiceButton onClick={() => beginPayment(selectedRecord, "manage-action")}>Make a payment</ChoiceButton>
-              <ChoiceButton onClick={() => beginEdit(selectedRecord)}>Edit this obligation</ChoiceButton>
-              <ChoiceButton danger onClick={askDelete}>Delete this obligation</ChoiceButton>
-              <ChoiceButton secondary onClick={() => {
-                append(chatMessage("user", "Back"));
-                runAssistantSequence(["Choose the obligation you want to manage."], "manage");
-              }}>Back</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "delete-confirm" && selectedRecord && controlsReady ? (
-            <div className="mt-1 grid grid-cols-2 gap-2.5">
-              <ChoiceButton danger onClick={remove}>Yes, delete it</ChoiceButton>
-              <ChoiceButton secondary onClick={() => {
-                append(chatMessage("user", "Cancel"));
-                runAssistantSequence([`What would you like to do with ${getDebtTitle(selectedRecord)}?`], "manage-action");
-              }}>Cancel</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "pressure" && controlsReady ? (
-            <div className="mt-1 grid gap-2.5">
-              <ChoiceButton secondary onClick={() => goHome("Back")}>Back</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "name" && controlsReady ? (
-            <div className="mt-auto grid gap-2.5 pt-3">
-              <Composer value={input} onChange={(value) => { setInput(value); setError(""); }} onSubmit={submitName} placeholder="Name or lender" />
-              <ChoiceButton secondary onClick={backFromName}>Back</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "type" && controlsReady ? (
-            <div className="mt-1 grid grid-cols-2 gap-2.5">
-              {DEBT_TYPES.map((item) => (
-                <ChoiceButton key={item.value} onClick={() => chooseType(item.value)}>{item.label}</ChoiceButton>
-              ))}
-              <div className="col-span-2">
-                <ChoiceButton secondary onClick={() => {
-                  setInput(draft.title || "");
-                  append(chatMessage("user", "Back"));
-                  runAssistantSequence(["Who or what do you owe?"], "name");
-                }}>Back</ChoiceButton>
-              </div>
-            </div>
-          ) : null}
-
-          {phase === "mode" && controlsReady ? (
-            <div className="mt-1 grid gap-2.5">
-              <ChoiceButton onClick={() => chooseMode("balance")}>Balance I’m paying off</ChoiceButton>
-              <ChoiceButton onClick={() => chooseMode("recurring")}>Ongoing monthly obligation</ChoiceButton>
-              <ChoiceButton secondary onClick={() => {
-                append(chatMessage("user", "Back"));
-                runAssistantSequence(["What type of obligation is this?"], "type");
-              }}>Back</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "balance" && controlsReady ? (
-            <div className="mt-auto grid gap-2.5 pt-3">
-              <Composer value={input} onChange={(value) => { setInput(cleanMoney(value)); setError(""); }} onSubmit={submitBalance} placeholder="Remaining balance" inputMode="decimal" />
-              <ChoiceButton secondary onClick={() => {
-                setInput("");
-                append(chatMessage("user", "Back"));
-                runAssistantSequence(["Is this a balance you are paying off, or an ongoing monthly obligation?"], "mode");
-              }}>Back</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "monthly" && controlsReady ? (
-            <div className="mt-auto grid gap-2.5 pt-3">
-              <Composer value={input} onChange={(value) => { setInput(cleanMoney(value)); setError(""); }} onSubmit={submitMonthly} placeholder="Monthly payment" inputMode="decimal" />
-              <ChoiceButton secondary onClick={() => {
-                append(chatMessage("user", "Back"));
-                if (draft.obligationMode === "balance") {
-                  setInput(draft.totalDebt || "");
-                  runAssistantSequence(["How much is the remaining balance?"], "balance");
-                } else {
-                  setInput("");
-                  runAssistantSequence(["Is this a balance you are paying off, or an ongoing monthly obligation?"], "mode");
-                }
-              }}>Back</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "interest" && controlsReady ? (
-            <div className="mt-auto grid gap-2.5 pt-3">
-              <Composer value={input} onChange={(value) => { setInput(cleanMoney(value)); setError(""); }} onSubmit={submitInterest} placeholder="Annual interest %" inputMode="decimal" />
-              <ChoiceButton secondary onClick={() => {
-                setInput(draft.monthlyDebt || "");
-                append(chatMessage("user", "Back"));
-                runAssistantSequence(["How much do you pay each month?"], "monthly");
-              }}>Back</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "due" && controlsReady ? (
-            <div className="mt-auto grid gap-2.5 pt-3">
-              <Composer value={input} onChange={(value) => { setInput(String(value).replace(/[^0-9]/g, "").slice(0, 2)); setError(""); }} onSubmit={() => finishDue(false)} placeholder="Due day (1–31)" inputMode="numeric" />
-              <ChoiceButton secondary onClick={() => finishDue(true)}>Skip due day</ChoiceButton>
-              <ChoiceButton secondary onClick={() => {
-                append(chatMessage("user", "Back"));
-                if (draft.obligationMode === "balance") {
-                  setInput(draft.interestRate || "");
-                  runAssistantSequence(["What is the annual interest rate? Enter 0 if there is none."], "interest");
-                } else {
-                  setInput(draft.monthlyDebt || "");
-                  runAssistantSequence(["How much is the monthly payment?"], "monthly");
-                }
-              }}>Back</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "review" && controlsReady ? (
-            <div className="mt-auto grid gap-2.5 pt-3">
-              <article className="rounded-[21px] border border-blue-200/12 bg-[#07142b]/88 p-3.5 shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
-                <div className="space-y-2 text-[11.5px] font-semibold leading-5 text-white/82">
-                  <div><span className="text-white/42">Name:</span> {draft.title}</div>
-                  <div><span className="text-white/42">Type:</span> {DEBT_TYPES.find((item) => item.value === draft.debtType)?.label || draft.debtType}</div>
-                  <div><span className="text-white/42">Mode:</span> {draft.obligationMode === "recurring" ? "Ongoing monthly" : "Balance to pay off"}</div>
-                  {draft.obligationMode === "balance" ? <div><span className="text-white/42">Remaining:</span> {fmt(draft.totalDebt)}</div> : null}
-                  <div><span className="text-white/42">Monthly:</span> {fmt(draft.monthlyDebt)}</div>
-                  {draft.obligationMode === "balance" ? <div><span className="text-white/42">Interest:</span> {toDebtNumber(draft.interestRate)}%</div> : null}
-                  <div><span className="text-white/42">Due:</span> {draft.dueDay ? `Day ${draft.dueDay}` : "Not set"}</div>
+            {phase === "pay-confirm" && selectedRecord && selectedPaymentWallet && controlsReady ? (
+              <div className="mt-1 grid gap-2.5">
+                <article className="rounded-[21px] border border-blue-200/12 bg-[#07142b]/88 p-3.5 shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
+                  <div className="space-y-2 text-[11.5px] font-semibold leading-5 text-white/82">
+                    <div><span className="text-white/42">Obligation:</span> {getDebtTitle(selectedRecord)}</div>
+                    <div><span className="text-white/42">Payment:</span> {fmt(paymentAmount)}</div>
+                    <div><span className="text-white/42">From:</span> {selectedPaymentWallet.name}</div>
+                    {getDebtObligationMode(selectedRecord) === "balance" ? (
+                      <div><span className="text-white/42">Remaining:</span> {fmt(Math.max(getDebtBalance(selectedRecord) - paymentAmount, 0))}</div>
+                    ) : null}
+                  </div>
+                </article>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <ChoiceButton onClick={confirmPayment} disabled={busy}>{busy ? "Paying..." : "Confirm payment"}</ChoiceButton>
+                  <ChoiceButton secondary onClick={() => {
+                    setPaymentWalletId("");
+                    append(chatMessage("user", "Back"));
+                    runAssistantSequence(["Which wallet are you paying from?"], "pay-wallet");
+                  }}>Back</ChoiceButton>
                 </div>
-              </article>
-              <div className="grid grid-cols-2 gap-2.5">
-                <ChoiceButton onClick={save}>Save obligation</ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "manage" && controlsReady ? (
+              <div className="mt-1 grid gap-2.5">
+                {records.map((record) => (
+                  <ChoiceButton key={record.id} onClick={() => selectManagedRecord(record)}>
+                    <span className="block text-left">{getDebtTitle(record)}</span>
+                    <span className="mt-1 block text-left text-[10px] font-semibold text-white/55">{summaryText(record)}</span>
+                  </ChoiceButton>
+                ))}
+                <ChoiceButton secondary onClick={() => goHome("Back")}>Back</ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "manage-action" && selectedRecord && controlsReady ? (
+              <div className="mt-1 grid gap-2.5">
+                <article className="rounded-[21px] border border-blue-200/12 bg-[#07142b]/88 p-3.5 shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
+                  <p className="text-[12.5px] font-black leading-5 text-white/92">{getDebtTitle(selectedRecord)}</p>
+                  <p className="mt-1 text-[10.5px] font-semibold leading-5 text-white/48">{summaryText(selectedRecord)}</p>
+                </article>
+                <ChoiceButton onClick={() => beginPayment(selectedRecord, "manage-action")}>Make a payment</ChoiceButton>
+                <ChoiceButton onClick={() => beginEdit(selectedRecord)}>Edit this obligation</ChoiceButton>
+                <ChoiceButton danger onClick={askDelete}>Delete this obligation</ChoiceButton>
                 <ChoiceButton secondary onClick={() => {
-                  setInput(draft.dueDay || "");
                   append(chatMessage("user", "Back"));
-                  runAssistantSequence(["What day of the month is it due? You can skip this."], "due");
+                  runAssistantSequence(["Choose the obligation you want to manage."], "manage");
                 }}>Back</ChoiceButton>
               </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          {error && phase !== "responding" ? (
-            <p className="rounded-[16px] border border-red-300/15 bg-red-500/[0.06] px-3.5 py-3 text-[11.5px] font-bold leading-5 text-red-100/88" aria-live="polite">
-              {error}
-            </p>
-          ) : null}
+            {phase === "delete-confirm" && selectedRecord && controlsReady ? (
+              <div className="mt-1 grid grid-cols-2 gap-2.5">
+                <ChoiceButton danger onClick={remove}>Yes, delete it</ChoiceButton>
+                <ChoiceButton secondary onClick={() => {
+                  append(chatMessage("user", "Cancel"));
+                  runAssistantSequence([`What would you like to do with ${getDebtTitle(selectedRecord)}?`], "manage-action");
+                }}>Cancel</ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "pressure" && controlsReady ? (
+              <div className="mt-1 grid gap-2.5">
+                <ChoiceButton secondary onClick={() => goHome("Back")}>Back</ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "name" && controlsReady ? (
+              <div className="mt-auto grid gap-2.5 pt-3">
+                <Composer value={input} onChange={(value) => { setInput(value); setError(""); }} onSubmit={submitName} placeholder="Name or lender" />
+                <ChoiceButton secondary onClick={backFromName}>Back</ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "type" && controlsReady ? (
+              <div className="mt-1 grid grid-cols-2 gap-2.5">
+                {DEBT_TYPES.map((item) => (
+                  <ChoiceButton key={item.value} onClick={() => chooseType(item.value)}>{item.label}</ChoiceButton>
+                ))}
+                <div className="col-span-2">
+                  <ChoiceButton secondary onClick={() => {
+                    setInput(draft.title || "");
+                    append(chatMessage("user", "Back"));
+                    runAssistantSequence(["Who or what do you owe?"], "name");
+                  }}>Back</ChoiceButton>
+                </div>
+              </div>
+            ) : null}
+
+            {phase === "mode" && controlsReady ? (
+              <div className="mt-1 grid gap-2.5">
+                <ChoiceButton onClick={() => chooseMode("balance")}>Balance I’m paying off</ChoiceButton>
+                <ChoiceButton onClick={() => chooseMode("recurring")}>Ongoing monthly obligation</ChoiceButton>
+                <ChoiceButton secondary onClick={() => {
+                  append(chatMessage("user", "Back"));
+                  runAssistantSequence(["What type of obligation is this?"], "type");
+                }}>Back</ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "balance" && controlsReady ? (
+              <div className="mt-auto grid gap-2.5 pt-3">
+                <Composer value={input} onChange={(value) => { setInput(cleanMoney(value)); setError(""); }} onSubmit={submitBalance} placeholder="Remaining balance" inputMode="decimal" />
+                <ChoiceButton secondary onClick={() => {
+                  setInput("");
+                  append(chatMessage("user", "Back"));
+                  runAssistantSequence(["Is this a balance you are paying off, or an ongoing monthly obligation?"], "mode");
+                }}>Back</ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "monthly" && controlsReady ? (
+              <div className="mt-auto grid gap-2.5 pt-3">
+                <Composer value={input} onChange={(value) => { setInput(cleanMoney(value)); setError(""); }} onSubmit={submitMonthly} placeholder="Monthly payment" inputMode="decimal" />
+                <ChoiceButton secondary onClick={() => {
+                  append(chatMessage("user", "Back"));
+                  if (draft.obligationMode === "balance") {
+                    setInput(draft.totalDebt || "");
+                    runAssistantSequence(["How much is the remaining balance?"], "balance");
+                  } else {
+                    setInput("");
+                    runAssistantSequence(["Is this a balance you are paying off, or an ongoing monthly obligation?"], "mode");
+                  }
+                }}>Back</ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "interest" && controlsReady ? (
+              <div className="mt-auto grid gap-2.5 pt-3">
+                <Composer value={input} onChange={(value) => { setInput(cleanMoney(value)); setError(""); }} onSubmit={submitInterest} placeholder="Annual interest %" inputMode="decimal" />
+                <ChoiceButton secondary onClick={() => {
+                  setInput(draft.monthlyDebt || "");
+                  append(chatMessage("user", "Back"));
+                  runAssistantSequence(["How much do you pay each month?"], "monthly");
+                }}>Back</ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "due" && controlsReady ? (
+              <div className="mt-auto grid gap-2.5 pt-3">
+                <Composer value={input} onChange={(value) => { setInput(String(value).replace(/[^0-9]/g, "").slice(0, 2)); setError(""); }} onSubmit={() => finishDue(false)} placeholder="Due day (1–31)" inputMode="numeric" />
+                <ChoiceButton secondary onClick={() => finishDue(true)}>Skip due day</ChoiceButton>
+                <ChoiceButton secondary onClick={() => {
+                  append(chatMessage("user", "Back"));
+                  if (draft.obligationMode === "balance") {
+                    setInput(draft.interestRate || "");
+                    runAssistantSequence(["What is the annual interest rate? Enter 0 if there is none."], "interest");
+                  } else {
+                    setInput(draft.monthlyDebt || "");
+                    runAssistantSequence(["How much is the monthly payment?"], "monthly");
+                  }
+                }}>Back</ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "review" && controlsReady ? (
+              <div className="mt-auto grid gap-2.5 pt-3">
+                <article className="rounded-[21px] border border-blue-200/12 bg-[#07142b]/88 p-3.5 shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
+                  <div className="space-y-2 text-[11.5px] font-semibold leading-5 text-white/82">
+                    <div><span className="text-white/42">Name:</span> {draft.title}</div>
+                    <div><span className="text-white/42">Type:</span> {DEBT_TYPES.find((item) => item.value === draft.debtType)?.label || draft.debtType}</div>
+                    <div><span className="text-white/42">Mode:</span> {draft.obligationMode === "recurring" ? "Ongoing monthly" : "Balance to pay off"}</div>
+                    {draft.obligationMode === "balance" ? <div><span className="text-white/42">Remaining:</span> {fmt(draft.totalDebt)}</div> : null}
+                    <div><span className="text-white/42">Monthly:</span> {fmt(draft.monthlyDebt)}</div>
+                    {draft.obligationMode === "balance" ? <div><span className="text-white/42">Interest:</span> {toDebtNumber(draft.interestRate)}%</div> : null}
+                    <div><span className="text-white/42">Due:</span> {draft.dueDay ? `Day ${draft.dueDay}` : "Not set"}</div>
+                  </div>
+                </article>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <ChoiceButton onClick={save}>Save obligation</ChoiceButton>
+                  <ChoiceButton secondary onClick={() => {
+                    setInput(draft.dueDay || "");
+                    append(chatMessage("user", "Back"));
+                    runAssistantSequence(["What day of the month is it due? You can skip this."], "due");
+                  }}>Back</ChoiceButton>
+                </div>
+              </div>
+            ) : null}
+
+            {error && phase !== "responding" ? (
+              <p className="rounded-[16px] border border-red-300/15 bg-red-500/[0.06] px-3.5 py-3 text-[11.5px] font-bold leading-5 text-red-100/88" aria-live="polite">
+                {error}
+              </p>
+            ) : null}
+          </div>
         </div>
       </main>
     </div>
