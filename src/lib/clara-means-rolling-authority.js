@@ -43,7 +43,10 @@ function ownerIdentity(profile = {}) {
 function dateAtFinancialNoon(dateKey) {
   const normalized = normalizeFinancialDateKey(dateKey);
   if (!normalized) return null;
-  const date = new Date(`${normalized}T12:00:00`);
+  const [year, month, day] = normalized.split("-").map(Number);
+  // 04:00 UTC is 12:00 in Asia/Manila. Constructing it explicitly keeps the
+  // financial date stable even if the device/browser itself is in another timezone.
+  const date = new Date(Date.UTC(year, month - 1, day, 4, 0, 0));
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
