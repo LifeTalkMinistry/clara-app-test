@@ -230,6 +230,14 @@ export async function resolveFinancialContextSetupState({
 } = {}) {
   const owner = normalizeLocalUserId(localUserId);
   const existing = await readFinancialContextSetupState(owner);
+
+  // A failed pre-fix Clear Data attempt may already have written a grandfathered
+  // completion record for this same finance owner. While the current device is
+  // still in its reset-fresh session, repair only that migration record back to
+  // a true first-run setup. Genuine in-progress or completed setup is preserved.
+  if (forceFresh && existing?.migration?.reason === "pre_feature_migration") {
+    return persistState(owner, createInitialFinancialContextSetupState());
+  }
   if (existing) return existing;
 
   // Clear Data leaves an authenticated account on a brand-new empty local vault.
