@@ -3,7 +3,6 @@ import {
   getLocalRecordById,
   upsertLocalRecord,
 } from "@/lib/localFinanceStore";
-import { getResetFreshLocalVaultId } from "@/lib/cloud-sync-policy";
 
 export const FINANCIAL_CONTEXT_SETUP_VERSION = 1;
 export const FINANCIAL_CONTEXT_SETUP_ROLLOUT_AT = "2026-09-02T22:32:47.000Z";
@@ -52,7 +51,7 @@ function nowIso() {
 function normalizeLocalUserId(localUserId) {
   const value = clean(localUserId);
   if (!value) {
-    throw new Error("A local vault id is required for Financial Context Setup.");
+    throw new Error("A financial owner id is required for Financial Context Setup.");
   }
   return value;
 }
@@ -105,12 +104,6 @@ export function shouldGrandfatherFinancialContextSetup(
   const rolloutAtMs = Date.parse(clean(rolloutAt));
   if (!Number.isFinite(createdAtMs) || !Number.isFinite(rolloutAtMs)) return false;
   return createdAtMs < rolloutAtMs;
-}
-
-export function isResetFreshFinancialContextVault(localUserId) {
-  const owner = normalizeLocalUserId(localUserId);
-  const resetFreshVaultId = clean(getResetFreshLocalVaultId());
-  return Boolean(resetFreshVaultId && resetFreshVaultId === owner);
 }
 
 export function isFinancialContextSetupComplete(state) {
@@ -233,15 +226,17 @@ export async function readFinancialContextSetupState(localUserId) {
 export async function resolveFinancialContextSetupState({
   localUserId,
   accountCreatedAt,
+  forceFresh = false,
 } = {}) {
   const owner = normalizeLocalUserId(localUserId);
   const existing = await readFinancialContextSetupState(owner);
   if (existing) return existing;
 
-  // Clear Data creates a brand-new empty account-scoped vault. That is an explicit
-  // request to rebuild local financial context, so it must restart this setup even
-  // for accounts old enough to be grandfathered during the original rollout.
-  if (isResetFreshFinancialContextVault(owner)) {
+  // Clear Data leaves an authenticated account on a brand-new empty local vault.
+  // Community resolves that reset session and explicitly asks this repository to
+  // start fresh. The owner remains the same finance owner used by Income Hub,
+  // Wallet, Money Schedule, Debt/Obligations, and the setup coordinator.
+  if (forceFresh) {
     return persistState(owner, createInitialFinancialContextSetupState());
   }
 
