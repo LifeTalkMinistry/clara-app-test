@@ -18,6 +18,7 @@ const semanticOwners = [
   "ClaraEmergencyFundOverlay.jsx",
   "ClaraSavingsGoalOverlay.jsx",
   "ClaraAiEnvironmentOverlayV2.jsx",
+  "ClaraAiEnvironmentOverlayCore.jsx",
 ];
 
 const bottomChasePatterns = [
@@ -83,14 +84,20 @@ test("paced Money Schedule reveals only after its turn becomes actionable", asyn
 });
 
 test("Ask Before You Spend settles a semantic assistant turn before revealing it", async () => {
-  const text = await source(`${assistantRoot}/ClaraAiEnvironmentOverlayV2.jsx`);
+  const wrapper = await source(`${assistantRoot}/ClaraAiEnvironmentOverlayV2.jsx`);
+  const core = await source(`${assistantRoot}/ClaraAiEnvironmentOverlayCore.jsx`);
 
-  assert.match(text, /settledAssistantTurn/);
-  assert.match(text, /semanticRevealKey/);
-  assert.match(text, /binaryControlsRef/);
-  assert.match(text, /setupPromptRef/);
-  assert.match(text, /useClaraConversationReveal\(\{/);
-  assert.doesNotMatch(text, /messageViewport\.scrollTo/);
-  assert.doesNotMatch(text, /messageViewport\.scrollTop/);
-  assert.doesNotMatch(text, /messageViewport\.scrollHeight/);
+  assert.match(wrapper, /settledAssistantTurn/);
+  assert.match(wrapper, /semanticRevealKey/);
+  assert.match(wrapper, /binaryControlsRef/);
+  assert.match(wrapper, /setupPromptRef/);
+  assert.match(wrapper, /useClaraConversationReveal\(\{/);
+  assert.doesNotMatch(wrapper, /messageViewport\.scrollTo/);
+  assert.doesNotMatch(wrapper, /messageViewport\.scrollTop/);
+  assert.doesNotMatch(wrapper, /messageViewport\.scrollHeight/);
+
+  assert.match(core, /resultRevealKey/);
+  assert.match(core, /assistantRef:\s*resultFocusRef/);
+  assert.match(core, /viewportRef/);
+  assert.doesNotMatch(core, /scrollIntoView/);
 });
