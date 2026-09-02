@@ -147,6 +147,39 @@ function normalizeState(record) {
   };
 }
 
+export function applyFinancialContextSetupOutcome(state, { step, outcome } = {}) {
+  const current = normalizeState(state);
+  if (!current) throw new Error("Financial Context Setup state is invalid.");
+  if (isFinancialContextSetupComplete(current)) return current;
+
+  const safeStep = clean(step);
+  const safeOutcome = clean(outcome);
+  const outcomeKey = STEP_TO_OUTCOME_KEY[safeStep];
+  const successor = STEP_SUCCESSOR[safeStep];
+  const allowed = ALLOWED_OUTCOMES[safeStep];
+
+  if (!outcomeKey || !successor || !allowed?.has(safeOutcome)) {
+    throw new Error(`Invalid Financial Context Setup outcome: ${safeStep}/${safeOutcome}`);
+  }
+  if (current.currentStep !== safeStep) {
+    throw new Error(
+      `Financial Context Setup cannot complete ${safeStep} while ${current.currentStep} is active.`
+    );
+  }
+
+  return {
+    ...current,
+    status: "in_progress",
+    currentStep: successor,
+    outcomes: {
+      ...current.outcomes,
+      [outcomeKey]: safeOutcome,
+    },
+    completedAt: null,
+    migration: { reason: null },
+  };
+}
+
 function dispatchSetupUpdated(state) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(
@@ -226,36 +259,10 @@ export async function recordFinancialContextSetupOutcome(
   { step, outcome } = {}
 ) {
   const owner = normalizeLocalUserId(localUserId);
-  const safeStep = clean(step);
-  const safeOutcome = clean(outcome);
-  const outcomeKey = STEP_TO_OUTCOME_KEY[safeStep];
-  const successor = STEP_SUCCESSOR[safeStep];
-  const allowed = ALLOWED_OUTCOMES[safeStep];
-
-  if (!outcomeKey || !successor || !allowed?.has(safeOutcome)) {
-    throw new Error(`Invalid Financial Context Setup outcome: ${safeStep}/${safeOutcome}`);
-  }
-
   const current = (await readFinancialContextSetupState(owner)) || createInitialFinancialContextSetupState();
-  if (isFinancialContextSetupComplete(current)) return current;
-
-  if (current.currentStep !== safeStep) {
-    throw new Error(
-      `Financial Context Setup cannot complete ${safeStep} while ${current.currentStep} is active.`
-    );
-  }
-
-  return persistState(owner, {
-    ...current,
-    status: "in_progress",
-    currentStep: successor,
-    outcomes: {
-      ...current.outcomes,
-      [outcomeKey]: safeOutcome,
-    },
-    completedAt: null,
-    migration: { reason: null },
-  });
+  const next = applyFinancialContextSetupOutcome(current, { step, outcome });
+  if (next === current || isFinancialContextSetupComplete(current)) return current;
+  return persistState(owner, next);
 }
 
 export async function completeFinancialContextSetup(localUserId) {
