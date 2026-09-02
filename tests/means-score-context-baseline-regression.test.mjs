@@ -8,6 +8,11 @@ import {
   matchMeansOutflowToRequirement,
   resolveAdaptiveMeansBaselineState,
 } from "../src/lib/clara-means-cycle-baseline.js";
+import {
+  calculateUpcomingCoverageState,
+  isOccurrenceInPaycheckWindow,
+  selectConservativeMeansScore,
+} from "../src/lib/clara-means-next-cycle-coverage.js";
 
 const CYCLE = { start: "2026-08-25", end: "2026-09-10" };
 
@@ -267,9 +272,127 @@ test("negative Wall Bill can produce a negative Means Score without clamping", (
   assert.equal(state.score, -25);
 });
 
-test("ORB money briefing stays presentation-only and reconciles to V7 Wall Bill", async () => {
+test("rolling acceptance: 405 current is capped to 98 by Sep 10-Sep 24 coverage", () => {
+  const coverage = calculateUpcomingCoverageState({
+    currentRealRoom: 2497,
+    lowestExpectedIncome: 13000,
+    upcomingCycleRequirement: 15820,
+  });
+  assert.equal(coverage.carryover, 2497);
+  assert.equal(coverage.projectedResources, 15497);
+  assert.ok(Math.abs(coverage.rawScore - 97.9582806573957) < 0.000001);
+  assert.equal(coverage.score, 98);
+  assert.equal(coverage.shortfall, 323);
+
+  const final = selectConservativeMeansScore({
+    currentCycleRawScore: 405,
+    upcomingCoverageRawScore: coverage.rawScore,
+  });
+  assert.equal(final.score, 98);
+  assert.equal(final.limitingWindow, "upcoming");
+});
+
+test("rolling safety: current 110 and upcoming 98 displays 98", () => {
+  const final = selectConservativeMeansScore({
+    currentCycleRawScore: 110,
+    upcomingCoverageRawScore: 98,
+  });
+  assert.equal(final.score, 98);
+  assert.equal(final.limitingWindow, "upcoming");
+});
+
+test("rolling safety: current 85 cannot be rescued by upcoming 120", () => {
+  const final = selectConservativeMeansScore({
+    currentCycleRawScore: 85,
+    upcomingCoverageRawScore: 120,
+  });
+  assert.equal(final.score, 85);
+  assert.equal(final.limitingWindow, "current");
+});
+
+test("payday boundary is inclusive on Sep 10 and exclusive on Sep 25", () => {
+  assert.equal(isOccurrenceInPaycheckWindow("2026-09-10", "2026-09-10", "2026-09-25"), true);
+  assert.equal(isOccurrenceInPaycheckWindow("2026-09-24", "2026-09-10", "2026-09-25"), true);
+  assert.equal(isOccurrenceInPaycheckWindow("2026-09-25", "2026-09-10", "2026-09-25"), false);
+  assert.equal(isOccurrenceInPaycheckWindow("2026-09-09", "2026-09-10", "2026-09-25"), false);
+});
+
+test("calendar event dates obey the same exact upcoming paycheck window", () => {
+  assert.equal(isOccurrenceInPaycheckWindow("2026-09-18", "2026-09-10", "2026-09-25"), true);
+  assert.equal(isOccurrenceInPaycheckWindow("2026-09-27", "2026-09-10", "2026-09-25"), false);
+});
+
+test("no expected income uses surviving actual room only", () => {
+  const coverage = calculateUpcomingCoverageState({
+    currentRealRoom: 2497,
+    lowestExpectedIncome: 0,
+    upcomingCycleRequirement: 15820,
+  });
+  assert.equal(coverage.projectedResources, 2497);
+  assert.equal(coverage.score, 16);
+});
+
+test("no upcoming requirements does not divide by zero or invent cycles ahead", () => {
+  const coverage = calculateUpcomingCoverageState({
+    currentRealRoom: 2497,
+    lowestExpectedIncome: 13000,
+    upcomingCycleRequirement: 0,
+  });
+  assert.equal(coverage.rawScore, null);
+  assert.equal(coverage.score, null);
+  assert.equal(coverage.coverageState, "no_upcoming_requirements");
+
+  const final = selectConservativeMeansScore({
+    currentCycleRawScore: 405,
+    upcomingCoverageRawScore: coverage.rawScore,
+  });
+  assert.equal(final.score, 405);
+  assert.equal(final.limitingWindow, "current");
+});
+
+test("rolling authority uses exact future occurrences and keeps creation boundaries", async () => {
   const authority = await readFile(
     new URL("../src/lib/clara-means-authority.js", import.meta.url),
+    "utf8"
+  );
+  const rolling = await readFile(
+    new URL("../src/lib/clara-means-rolling-authority.js", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(rolling, /buildMeansDebtOccurrences\(\s*debtRecords,\s*upcomingCycleStartDate,\s*upcomingCycleEndDate\s*\)/s);
+  assert.match(rolling, /buildMeansMoneyScheduleOccurrences\(\s*owner,\s*upcomingCycleStartDate,\s*upcomingCycleEndDate\s*\)/s);
+  assert.match(rolling, /buildMeansCalendarEventOccurrences\(\s*owner,\s*upcomingCycleStartDate,\s*upcomingCycleEndDate\s*\)/s);
+  assert.match(rolling, /isFinancialOccurrenceOnOrAfterCreation\(event, date\)/);
+  assert.match(authority, /isFinancialOccurrenceOnOrAfterCreation\(record, date\)/);
+  assert.match(authority, /date >= cycleStart &&\s*date < cycleEnd/s);
+});
+
+test("rolling authority reads the conservative Income Hub minimum without mutating Wallet", async () => {
+  const authority = await readFile(
+    new URL("../src/lib/clara-means-authority.js", import.meta.url),
+    "utf8"
+  );
+  const rolling = await readFile(
+    new URL("../src/lib/clara-means-rolling-authority.js", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(rolling, /minimumStableIncome/);
+  assert.match(rolling, /minimumExpectedIncome/);
+  assert.match(rolling, /calculateUpcomingCoverageState/);
+  assert.match(rolling, /selectConservativeMeansScore/);
+  assert.doesNotMatch(rolling, /upsertWallet|addWallet|createIncomeTransaction|upsertIncome|saveIncome/);
+  assert.match(authority, /availableWalletMoney: availableNow/);
+});
+
+test("ORB briefing shows both paycheck windows and removes legacy cycles-ahead copy", async () => {
+  const authority = await readFile(
+    new URL("../src/lib/clara-means-authority.js", import.meta.url),
+    "utf8"
+  );
+  const rolling = await readFile(
+    new URL("../src/lib/clara-means-rolling-authority.js", import.meta.url),
     "utf8"
   );
   const orbRuntime = await readFile(
@@ -281,18 +404,21 @@ test("ORB money briefing stays presentation-only and reconciles to V7 Wall Bill"
   assert.match(authority, /cycle100Anchor/);
   assert.match(authority, /wallBill: scoreState\.wallBill/);
   assert.match(authority, /projectedRoom: scoreState\.wallBill/);
+  assert.match(rolling, /currentRealRoom/);
+  assert.match(rolling, /upcomingProjectedResources/);
+  assert.match(rolling, /upcomingCycleRequirement/);
+  assert.match(orbRuntime, /buildRollingMeansSnapshot/);
   assert.match(orbRuntime, /data-clara-money-briefing="active-cycle"/);
   assert.match(orbRuntime, />This pay cycle</);
-  assert.match(orbRuntime, />Spending</);
-  assert.match(orbRuntime, />Still to cover</);
-  assert.match(orbRuntime, /data-clara-money-in-hand="true"/);
-  assert.match(orbRuntime, /data-clara-upcoming-commitments="true"/);
-  assert.match(orbRuntime, /data-clara-real-room="true"/);
-  assert.match(orbRuntime, /Remaining planned spending/);
-  assert.match(orbRuntime, /Money in hand minus everything still planned/);
-  assert.match(orbRuntime, /Cycle 100 Anchor/);
+  assert.match(orbRuntime, />Next pay cycle</);
+  assert.match(orbRuntime, /Projected money available/);
+  assert.match(orbRuntime, /Total upcoming requirement/);
+  assert.match(orbRuntime, /Calendar Events/);
+  assert.match(orbRuntime, /Next-cycle coverage/);
+  assert.match(orbRuntime, /Your score considers the next pay cycle so upcoming bills don't catch you by surprise\./);
+  assert.match(orbRuntime, /Your expected income is used only for projection — it is not counted as money you already have\./);
+  assert.doesNotMatch(orbRuntime, /Cycles Ahead/);
   assert.doesNotMatch(orbRuntime, />Assumed spent</);
-  assert.doesNotMatch(orbRuntime, /future requirements adapt/);
 
   const moneyInHand = 5809;
   const remainingPlannedSpending = 860;
