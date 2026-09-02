@@ -358,6 +358,19 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
     isActive && !guidePreview && chatReady && conversationStarted && interactionMode === "setup" && messageViewport,
   );
 
+  useLayoutEffect(() => {
+    if (!setupPromptVisible || !(messageViewport instanceof HTMLElement)) return undefined;
+
+    const frame = window.requestAnimationFrame(() => {
+      messageViewport.scrollTo?.({
+        top: messageViewport.scrollHeight,
+        behavior: "smooth",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [messageViewport, setupPromptVisible]);
+
   if (guidePreview) return <ClaraAiEnvironmentOverlayCore {...props} />;
 
   return (
