@@ -55,3 +55,14 @@ test("Income Hub exposes Customize Cycle and warns before cycle-impacting change
   assert.match(modal, /Historical transactions and actual due dates will not be rewritten/);
   assert.match(modal, /income amount itself does not enter the Means Score/);
 });
+
+test("Add Income chat uses the shared Master Pay Cycle authority and preserves change warnings", async () => {
+  const chat = await source("../src/components/fresh/main-dashboard/assistant/ClaraAddIncomeOverlayV2.jsx");
+
+  assert.match(chat, /setIncomeSourceAsMasterPayCycle/);
+  assert.match(chat, /master-pay-cycle-choice/);
+  assert.match(chat, /master-pay-cycle-confirm/);
+  assert.match(chat, /Your current 100 and Means Score may be recalculated/);
+  assert.match(chat, /Historical transactions and actual due dates will not be rewritten/);
+  assert.match(chat, /there wasn’t a Master Pay Cycle yet/);
+});
