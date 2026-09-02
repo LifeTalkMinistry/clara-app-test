@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp } from "lucide-react";
 import ClaraChatHeader from "./ClaraChatHeader";
+import useClaraConversationReveal from "./useClaraConversationReveal";
 import {
   INCOME_SOURCE_CATEGORIES,
   INCOME_SOURCE_STABILITY,
@@ -88,10 +89,14 @@ function chatMessage(role, text) {
   };
 }
 
-function Bubble({ role, children, typing = false }) {
+function Bubble({ role, children, typing = false, elementRef = null }) {
   const assistant = role === "assistant";
   return (
-    <div className={`flex ${assistant ? "justify-start" : "justify-end"}`}>
+    <div
+      ref={elementRef}
+      data-clara-conversation-role={role}
+      className={`flex ${assistant ? "justify-start" : "justify-end"}`}
+    >
       <div
         className={`max-w-[86%] rounded-[20px] px-4 py-3 text-[13px] font-semibold leading-5 shadow-[0_12px_28px_rgba(0,0,0,0.20)] ${
           assistant
@@ -202,6 +207,8 @@ export default function ClaraAddIncomeOverlayV2({
   const [scheduleInput, setScheduleInput] = useState("");
 
   const viewportRef = useRef(null);
+  const latestAssistantRef = useRef(null);
+  const actionRef = useRef(null);
   const timerIdsRef = useRef(new Set());
   const typingTimerRef = useRef(null);
   const sequenceRef = useRef([]);
@@ -245,17 +252,8 @@ export default function ClaraAddIncomeOverlayV2({
     [wallets, selectedWalletId, resumedWallet]
   );
 
-  const scrollToLatest = () => {
-    if (typeof window === "undefined") return;
-    window.requestAnimationFrame(() => {
-      const viewport = viewportRef.current;
-      if (viewport) viewport.scrollTop = viewport.scrollHeight;
-    });
-  };
-
   const append = (...nextMessages) => {
     setMessages((current) => [...current, ...nextMessages]);
-    scrollToLatest();
   };
 
   const registerTimeout = (callback, delay) => {
@@ -300,7 +298,6 @@ export default function ClaraAddIncomeOverlayV2({
       if (token !== sequenceTokenRef.current) return;
       setTypedText("");
       setPendingMessage(chatMessage("assistant", nextText));
-      scrollToLatest();
     };
 
     if (skipDelay) show();
@@ -445,7 +442,6 @@ export default function ClaraAddIncomeOverlayV2({
       if (token !== sequenceTokenRef.current) return;
       index = Math.min(plan.source.length, index + plan.charsPerTick);
       setTypedText(plan.source.slice(0, index));
-      scrollToLatest();
 
       if (index >= plan.source.length) {
         window.clearInterval(typingTimerRef.current);
@@ -454,7 +450,6 @@ export default function ClaraAddIncomeOverlayV2({
         setMessages((current) => [...current, completedMessage]);
         setPendingMessage(null);
         setTypedText("");
-        scrollToLatest();
         queueNextAssistantMessage(token);
       }
     }, plan.tickMs);
@@ -490,6 +485,24 @@ export default function ClaraAddIncomeOverlayV2({
     },
     []
   );
+
+  const controlsReady = interactionReady && !pendingMessage && phase !== "responding" && !busy;
+  const latestAssistantMessage = useMemo(
+    () => [...messages].reverse().find((entry) => entry?.role === "assistant") || null,
+    [messages]
+  );
+  const revealKey = controlsReady && latestAssistantMessage
+    ? `${sequenceTokenRef.current}:${phase}:${latestAssistantMessage.id}`
+    : null;
+
+  useClaraConversationReveal({
+    viewportRef,
+    assistantRef: latestAssistantRef,
+    actionRef,
+    revealKey,
+    enabled: isActive && controlsReady && Boolean(latestAssistantMessage),
+    requireAction: true,
+  });
 
   if (!isActive) return null;
 
@@ -951,7 +964,6 @@ export default function ClaraAddIncomeOverlayV2({
   };
 
   const restart = () => loadSourcesAndStart({ ignoreResume: true });
-  const controlsReady = interactionReady && !pendingMessage && phase !== "responding" && !busy;
 
   return (
     <div
@@ -977,239 +989,251 @@ export default function ClaraAddIncomeOverlayV2({
       >
         <div data-clara-ai-message-stack="true" className="flex min-h-full flex-col gap-3">
           {messages.map((entry) => (
-            <Bubble key={entry.id} role={entry.role}>{entry.text}</Bubble>
+            <Bubble
+              key={entry.id}
+              role={entry.role}
+              elementRef={entry.id === latestAssistantMessage?.id ? latestAssistantRef : null}
+            >
+              {entry.text}
+            </Bubble>
           ))}
           {pendingMessage ? <Bubble role="assistant" typing>{typedText}</Bubble> : null}
 
-          {phase === "income-home" && controlsReady ? (
-            <div className="mt-1 grid gap-2.5" data-clara-income-home="true">
-              <ChoiceButton onClick={beginAddMoney}>Add money</ChoiceButton>
-              <ChoiceButton onClick={beginCreateAnotherSource} secondary>Create another income source</ChoiceButton>
-              <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "create-source-choice" && controlsReady ? (
-            <div className="relative z-20 mt-1 grid grid-cols-2 gap-2" data-clara-income-source-first-choice="true">
-              {INCOME_SOURCE_CATEGORIES.map((category) => (
-                <ChoiceButton key={category} onClick={() => chooseInitialSourceCategory(category)} secondary>
-                  {category}
-                </ChoiceButton>
-              ))}
-            </div>
-          ) : null}
-
-          {phase === "create-source-name" && controlsReady ? (
-            <div className="mt-auto pt-3" data-clara-income-source-custom-name="true">
-              <Composer
-                value={sourceNameInput}
-                onChange={setSourceNameInput}
-                onSubmit={submitSourceName}
-                placeholder="Income source name"
-                inputMode="text"
-              />
-            </div>
-          ) : null}
-
-          {phase === "create-source-stability" && controlsReady ? (
-            <div className="relative z-20 mt-1 grid grid-cols-2 gap-2">
-              {INCOME_SOURCE_STABILITY.map((stability) => (
-                <ChoiceButton key={stability} onClick={() => chooseSourceStability(stability)} secondary>
-                  {stability}
-                </ChoiceButton>
-              ))}
-            </div>
-          ) : null}
-
-          {phase === "create-stable-minimum" && controlsReady ? (
-            <div className="mt-auto pt-3">
-              <Composer
-                value={stableAmountInput}
-                onChange={setStableAmountInput}
-                onSubmit={submitStableMinimum}
-                placeholder="Lowest reliable amount"
-                inputMode="decimal"
-                pattern="[0-9]*[.]?[0-9]{0,2}"
-              />
-            </div>
-          ) : null}
-
-          {phase === "create-schedule-type" && controlsReady ? (
-            <div className="relative z-20 mt-1 grid grid-cols-2 gap-2">
-              <ChoiceButton onClick={() => chooseScheduleType("weekly")} secondary>Every week</ChoiceButton>
-              <ChoiceButton onClick={() => chooseScheduleType("biweekly")} secondary>Every 2 weeks</ChoiceButton>
-              <ChoiceButton onClick={() => chooseScheduleType("twice_monthly")} secondary>Twice a month</ChoiceButton>
-              <ChoiceButton onClick={() => chooseScheduleType("monthly")} secondary>Once a month</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "create-weekday" && controlsReady ? (
-            <div className="relative z-20 mt-1 grid grid-cols-2 gap-2">
-              {WEEKDAYS.map((weekday, index) => (
-                <ChoiceButton key={weekday} onClick={() => chooseWeekday(index)} secondary>{weekday}</ChoiceButton>
-              ))}
-            </div>
-          ) : null}
-
-          {phase === "create-biweekly-date" && controlsReady ? (
-            <div className="mt-auto pt-3">
-              <Composer
-                value={scheduleInput}
-                onChange={setScheduleInput}
-                onSubmit={submitBiweeklyDate}
-                placeholder="Next payday"
-                type="date"
-                inputMode="text"
-              />
-            </div>
-          ) : null}
-
-          {phase === "create-twice-days" && controlsReady ? (
-            <div className="mt-auto pt-3">
-              <Composer
-                value={scheduleInput}
-                onChange={setScheduleInput}
-                onSubmit={submitTwiceMonthlyDays}
-                placeholder="15, 30"
-                inputMode="text"
-              />
-            </div>
-          ) : null}
-
-          {phase === "create-monthly-day" && controlsReady ? (
-            <div className="mt-auto pt-3">
-              <Composer
-                value={scheduleInput}
-                onChange={setScheduleInput}
-                onSubmit={submitMonthlyDay}
-                placeholder="Day of month"
-                inputMode="numeric"
-                pattern="[0-9]{1,2}"
-              />
-            </div>
-          ) : null}
-
-          {phase === "source-created-choice" && controlsReady ? (
-            <div className="mt-1 grid gap-2.5" data-clara-income-source-created-choice="true">
-              <ChoiceButton onClick={addMoneyAfterSourceCreation}>Add money now</ChoiceButton>
-              <ChoiceButton onClick={beginCreateAnotherSource} secondary>Create another income source</ChoiceButton>
-              <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "source" && controlsReady ? (
-            <div className="relative z-20 mt-1 grid gap-2">
-              {sources.map((source) => (
-                <button
-                  key={source.id}
-                  type="button"
-                  onClick={() => chooseSource(source)}
-                  className="relative z-20 flex min-h-14 touch-manipulation items-center justify-between gap-3 rounded-[18px] border border-blue-200/12 bg-[#07142b]/88 px-4 py-3 text-left transition active:scale-[0.985]"
-                >
-                  <span>
-                    <span className="block text-[13px] font-black text-white">{source.name}</span>
-                    <span className="mt-0.5 block text-[10.5px] font-semibold text-slate-300/62">
-                      {source.category || "Income"} · {source.stability || "Irregular"}
-                    </span>
-                  </span>
-                  <span className="shrink-0 text-[11px] font-black text-[#8ffff8]/72">Choose</span>
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          {phase === "amount" && controlsReady ? (
-            <div className="mt-auto pt-3">
-              <Composer
-                value={amountInput}
-                onChange={setAmountInput}
-                onSubmit={submitAmount}
-                placeholder="Amount received"
-                inputMode="decimal"
-                pattern="[0-9]*[.]?[0-9]{0,2}"
-              />
-            </div>
-          ) : null}
-
-          {phase === "confirm" && controlsReady ? (
-            <div className="mt-1 grid grid-cols-2 gap-2.5">
-              <ChoiceButton onClick={saveIncome} disabled={busy}>{busy ? "Adding..." : "Yes, add it"}</ChoiceButton>
-              <ChoiceButton onClick={() => setPhase("amount")} disabled={busy} secondary>Back</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "done" && controlsReady ? (
-            <div className="mt-1 grid gap-2.5">
-              <ChoiceButton onClick={beginTransfer}>Transfer to Wallet</ChoiceButton>
-              <div className="grid grid-cols-2 gap-2.5">
-                <ChoiceButton onClick={restart} secondary>Add another</ChoiceButton>
+          <div
+            ref={actionRef}
+            data-clara-conversation-action-region="true"
+            className="contents"
+          >
+            {phase === "income-home" && controlsReady ? (
+              <div className="mt-1 grid gap-2.5" data-clara-income-home="true">
+                <ChoiceButton onClick={beginAddMoney}>Add money</ChoiceButton>
+                <ChoiceButton onClick={beginCreateAnotherSource} secondary>Create another income source</ChoiceButton>
                 <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
               </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          {phase === "transfer-wallet" && controlsReady ? (
-            <div className="relative z-20 mt-1 grid gap-2">
-              {wallets.map((wallet) => (
-                <ChoiceButton key={wallet.id} onClick={() => chooseTransferWallet(wallet)} secondary>
-                  {wallet.name}
-                </ChoiceButton>
-              ))}
-              <ChoiceButton onClick={() => setPhase("done")} secondary>Back</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "transfer-amount-choice" && controlsReady ? (
-            <div className="mt-1 grid grid-cols-2 gap-2.5" data-clara-transfer-amount-choice="true">
-              <ChoiceButton onClick={chooseTransferAll}>Transfer all {money(amount)}</ChoiceButton>
-              <ChoiceButton onClick={chooseCustomTransfer} secondary>Transfer a certain amount</ChoiceButton>
-            </div>
-          ) : null}
-
-          {phase === "transfer-custom-amount" && controlsReady ? (
-            <div className="mt-auto pt-3" data-clara-transfer-custom-amount="true">
-              <Composer
-                value={transferAmountInput}
-                onChange={setTransferAmountInput}
-                onSubmit={submitCustomTransferAmount}
-                placeholder={`Amount up to ${money(amount)}`}
-                inputMode="decimal"
-                pattern="[0-9]*[.]?[0-9]{0,2}"
-              />
-              <div className="mt-2">
-                <ChoiceButton onClick={() => setPhase("transfer-amount-choice")} secondary>Back</ChoiceButton>
+            {phase === "create-source-choice" && controlsReady ? (
+              <div className="relative z-20 mt-1 grid grid-cols-2 gap-2" data-clara-income-source-first-choice="true">
+                {INCOME_SOURCE_CATEGORIES.map((category) => (
+                  <ChoiceButton key={category} onClick={() => chooseInitialSourceCategory(category)} secondary>
+                    {category}
+                  </ChoiceButton>
+                ))}
               </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          {phase === "transfer-confirm" && controlsReady ? (
-            <div className="mt-1 grid grid-cols-2 gap-2.5">
-              <ChoiceButton onClick={confirmTransfer} disabled={busy}>{busy ? "Transferring..." : "Yes, transfer it"}</ChoiceButton>
-              <ChoiceButton onClick={() => setPhase("transfer-amount-choice")} disabled={busy} secondary>Back</ChoiceButton>
-            </div>
-          ) : null}
+            {phase === "create-source-name" && controlsReady ? (
+              <div className="mt-auto pt-3" data-clara-income-source-custom-name="true">
+                <Composer
+                  value={sourceNameInput}
+                  onChange={setSourceNameInput}
+                  onSubmit={submitSourceName}
+                  placeholder="Income source name"
+                  inputMode="text"
+                />
+              </div>
+            ) : null}
 
-          {phase === "transferred" && controlsReady ? (
-            <div className="mt-1 grid grid-cols-2 gap-2.5">
-              <ChoiceButton onClick={restart}>Add another</ChoiceButton>
-              <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
-            </div>
-          ) : null}
+            {phase === "create-source-stability" && controlsReady ? (
+              <div className="relative z-20 mt-1 grid grid-cols-2 gap-2">
+                {INCOME_SOURCE_STABILITY.map((stability) => (
+                  <ChoiceButton key={stability} onClick={() => chooseSourceStability(stability)} secondary>
+                    {stability}
+                  </ChoiceButton>
+                ))}
+              </div>
+            ) : null}
 
-          {(phase === "no-wallet" || phase === "error") && controlsReady ? (
-            <div className="mt-1">
-              <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
-            </div>
-          ) : null}
+            {phase === "create-stable-minimum" && controlsReady ? (
+              <div className="mt-auto pt-3">
+                <Composer
+                  value={stableAmountInput}
+                  onChange={setStableAmountInput}
+                  onSubmit={submitStableMinimum}
+                  placeholder="Lowest reliable amount"
+                  inputMode="decimal"
+                  pattern="[0-9]*[.]?[0-9]{0,2}"
+                />
+              </div>
+            ) : null}
 
-          {error && phase !== "responding" ? (
-            <p
-              className="rounded-[16px] border border-red-300/15 bg-red-500/[0.06] px-3.5 py-3 text-[11.5px] font-bold leading-5 text-red-100/88"
-              aria-live="polite"
-            >
-              {error}
-            </p>
-          ) : null}
+            {phase === "create-schedule-type" && controlsReady ? (
+              <div className="relative z-20 mt-1 grid grid-cols-2 gap-2">
+                <ChoiceButton onClick={() => chooseScheduleType("weekly")} secondary>Every week</ChoiceButton>
+                <ChoiceButton onClick={() => chooseScheduleType("biweekly")} secondary>Every 2 weeks</ChoiceButton>
+                <ChoiceButton onClick={() => chooseScheduleType("twice_monthly")} secondary>Twice a month</ChoiceButton>
+                <ChoiceButton onClick={() => chooseScheduleType("monthly")} secondary>Once a month</ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "create-weekday" && controlsReady ? (
+              <div className="relative z-20 mt-1 grid grid-cols-2 gap-2">
+                {WEEKDAYS.map((weekday, index) => (
+                  <ChoiceButton key={weekday} onClick={() => chooseWeekday(index)} secondary>{weekday}</ChoiceButton>
+                ))}
+              </div>
+            ) : null}
+
+            {phase === "create-biweekly-date" && controlsReady ? (
+              <div className="mt-auto pt-3">
+                <Composer
+                  value={scheduleInput}
+                  onChange={setScheduleInput}
+                  onSubmit={submitBiweeklyDate}
+                  placeholder="Next payday"
+                  type="date"
+                  inputMode="text"
+                />
+              </div>
+            ) : null}
+
+            {phase === "create-twice-days" && controlsReady ? (
+              <div className="mt-auto pt-3">
+                <Composer
+                  value={scheduleInput}
+                  onChange={setScheduleInput}
+                  onSubmit={submitTwiceMonthlyDays}
+                  placeholder="15, 30"
+                  inputMode="text"
+                />
+              </div>
+            ) : null}
+
+            {phase === "create-monthly-day" && controlsReady ? (
+              <div className="mt-auto pt-3">
+                <Composer
+                  value={scheduleInput}
+                  onChange={setScheduleInput}
+                  onSubmit={submitMonthlyDay}
+                  placeholder="Day of month"
+                  inputMode="numeric"
+                  pattern="[0-9]{1,2}"
+                />
+              </div>
+            ) : null}
+
+            {phase === "source-created-choice" && controlsReady ? (
+              <div className="mt-1 grid gap-2.5" data-clara-income-source-created-choice="true">
+                <ChoiceButton onClick={addMoneyAfterSourceCreation}>Add money now</ChoiceButton>
+                <ChoiceButton onClick={beginCreateAnotherSource} secondary>Create another income source</ChoiceButton>
+                <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "source" && controlsReady ? (
+              <div className="relative z-20 mt-1 grid gap-2">
+                {sources.map((source) => (
+                  <button
+                    key={source.id}
+                    type="button"
+                    onClick={() => chooseSource(source)}
+                    className="relative z-20 flex min-h-14 touch-manipulation items-center justify-between gap-3 rounded-[18px] border border-blue-200/12 bg-[#07142b]/88 px-4 py-3 text-left transition active:scale-[0.985]"
+                  >
+                    <span>
+                      <span className="block text-[13px] font-black text-white">{source.name}</span>
+                      <span className="mt-0.5 block text-[10.5px] font-semibold text-slate-300/62">
+                        {source.category || "Income"} · {source.stability || "Irregular"}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-[11px] font-black text-[#8ffff8]/72">Choose</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            {phase === "amount" && controlsReady ? (
+              <div className="mt-auto pt-3">
+                <Composer
+                  value={amountInput}
+                  onChange={setAmountInput}
+                  onSubmit={submitAmount}
+                  placeholder="Amount received"
+                  inputMode="decimal"
+                  pattern="[0-9]*[.]?[0-9]{0,2}"
+                />
+              </div>
+            ) : null}
+
+            {phase === "confirm" && controlsReady ? (
+              <div className="mt-1 grid grid-cols-2 gap-2.5">
+                <ChoiceButton onClick={saveIncome} disabled={busy}>{busy ? "Adding..." : "Yes, add it"}</ChoiceButton>
+                <ChoiceButton onClick={() => setPhase("amount")} disabled={busy} secondary>Back</ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "done" && controlsReady ? (
+              <div className="mt-1 grid gap-2.5">
+                <ChoiceButton onClick={beginTransfer}>Transfer to Wallet</ChoiceButton>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <ChoiceButton onClick={restart} secondary>Add another</ChoiceButton>
+                  <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
+                </div>
+              </div>
+            ) : null}
+
+            {phase === "transfer-wallet" && controlsReady ? (
+              <div className="relative z-20 mt-1 grid gap-2">
+                {wallets.map((wallet) => (
+                  <ChoiceButton key={wallet.id} onClick={() => chooseTransferWallet(wallet)} secondary>
+                    {wallet.name}
+                  </ChoiceButton>
+                ))}
+                <ChoiceButton onClick={() => setPhase("done")} secondary>Back</ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "transfer-amount-choice" && controlsReady ? (
+              <div className="mt-1 grid grid-cols-2 gap-2.5" data-clara-transfer-amount-choice="true">
+                <ChoiceButton onClick={chooseTransferAll}>Transfer all {money(amount)}</ChoiceButton>
+                <ChoiceButton onClick={chooseCustomTransfer} secondary>Transfer a certain amount</ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "transfer-custom-amount" && controlsReady ? (
+              <div className="mt-auto pt-3" data-clara-transfer-custom-amount="true">
+                <Composer
+                  value={transferAmountInput}
+                  onChange={setTransferAmountInput}
+                  onSubmit={submitCustomTransferAmount}
+                  placeholder={`Amount up to ${money(amount)}`}
+                  inputMode="decimal"
+                  pattern="[0-9]*[.]?[0-9]{0,2}"
+                />
+                <div className="mt-2">
+                  <ChoiceButton onClick={() => setPhase("transfer-amount-choice")} secondary>Back</ChoiceButton>
+                </div>
+              </div>
+            ) : null}
+
+            {phase === "transfer-confirm" && controlsReady ? (
+              <div className="mt-1 grid grid-cols-2 gap-2.5">
+                <ChoiceButton onClick={confirmTransfer} disabled={busy}>{busy ? "Transferring..." : "Yes, transfer it"}</ChoiceButton>
+                <ChoiceButton onClick={() => setPhase("transfer-amount-choice")} disabled={busy} secondary>Back</ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "transferred" && controlsReady ? (
+              <div className="mt-1 grid grid-cols-2 gap-2.5">
+                <ChoiceButton onClick={restart}>Add another</ChoiceButton>
+                <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
+              </div>
+            ) : null}
+
+            {(phase === "no-wallet" || phase === "error") && controlsReady ? (
+              <div className="mt-1">
+                <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
+              </div>
+            ) : null}
+
+            {error && phase !== "responding" ? (
+              <p
+                className="rounded-[16px] border border-red-300/15 bg-red-500/[0.06] px-3.5 py-3 text-[11.5px] font-bold leading-5 text-red-100/88"
+                aria-live="polite"
+              >
+                {error}
+              </p>
+            ) : null}
+          </div>
         </div>
       </main>
     </div>
