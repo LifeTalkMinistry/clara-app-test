@@ -150,8 +150,18 @@ export async function upsertDebtObligation(localUserId, payload = {}) {
     throw new Error("Enter the monthly payment for this obligation.");
   }
 
-  const recordId = normalizeString(payload.id) || createDebtObligationId();
-  const createdAt = payload.createdAt || payload.created_at || now;
+  const suppliedRecordId = normalizeString(payload.id);
+  const recordId = suppliedRecordId || createDebtObligationId();
+  let existingRecord = null;
+  if (suppliedRecordId) {
+    const existingRecords = await getLocalRecords(DEBT_OBLIGATION_STORE, safeLocalUserId);
+    existingRecord = (existingRecords || []).find(
+      (candidate) => normalizeString(candidate?.id) === suppliedRecordId
+    ) || null;
+  }
+  const createdAt = existingRecord
+    ? normalizeString(existingRecord.createdAt || existingRecord.created_at)
+    : normalizeString(payload.createdAt || payload.created_at) || now;
   const dueDay = getDebtDueDay(payload);
   const record = {
     ...(payload || {}),

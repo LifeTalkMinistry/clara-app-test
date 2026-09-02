@@ -29,6 +29,7 @@ import {
   enumerateFinancialDates,
   financialDateKey,
   financialWeekdayIndex,
+  isFinancialOccurrenceOnOrAfterCreation,
   normalizeFinancialDateKey,
 } from "@/lib/clara-financial-day";
 import {
@@ -344,6 +345,7 @@ function buildRoutineOccurrences(owner, cycleStart, cycleEnd) {
   );
 
   return enumerateFinancialDates(cycleStart, cycleEnd)
+    .filter((date) => isFinancialOccurrenceOnOrAfterCreation(routine, date))
     .map((date) => ({
       id: `money-routine:${routineId}:${date}`,
       requirementKey: `money-routine:${routineId}:${date}`,
@@ -441,10 +443,20 @@ function debtOccurrenceDates(record = {}, cycleStart, cycleEnd) {
       cycleStart,
       addFinancialDays(cycleEnd, -1),
       { kind: "bill" }
-    ).filter((date) => date >= cycleStart && date < cycleEnd);
+    ).filter(
+      (date) =>
+        date >= cycleStart &&
+        date < cycleEnd &&
+        isFinancialOccurrenceOnOrAfterCreation(record, date)
+    );
   }
   const oneTime = normalizeFinancialDateKey(record?.dueDate || record?.due_date);
-  return oneTime && oneTime >= cycleStart && oneTime < cycleEnd ? [oneTime] : [];
+  return oneTime &&
+    oneTime >= cycleStart &&
+    oneTime < cycleEnd &&
+    isFinancialOccurrenceOnOrAfterCreation(record, oneTime)
+    ? [oneTime]
+    : [];
 }
 
 function cumulativeActualForOccurrence(record = {}, dueDate = "") {

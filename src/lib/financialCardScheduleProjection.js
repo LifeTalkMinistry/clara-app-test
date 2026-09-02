@@ -9,6 +9,7 @@ import {
   getRecurrenceOccurrences,
   toLocalDateKey,
 } from "./recurringCashFlowRepository.js";
+import { isFinancialOccurrenceOnOrAfterCreation } from "./clara-financial-day.js";
 import { isSavingsGoalActive } from "./savingsGoalLifecycle.js";
 
 export const SAVINGS_GOAL_SCHEDULE_SOURCE = "savings_goal_card_projection";
@@ -145,11 +146,13 @@ function getDebtOccurrenceDates(record = {}, referenceDate = new Date()) {
       range.start,
       range.end,
       { kind: "bill" }
-    );
+    ).filter((date) => isFinancialOccurrenceOnOrAfterCreation(record, date));
   }
 
   const oneTimeDate = toLocalDateKey(record.dueDate || record.due_date || "");
-  return oneTimeDate ? [oneTimeDate] : [];
+  return oneTimeDate && isFinancialOccurrenceOnOrAfterCreation(record, oneTimeDate)
+    ? [oneTimeDate]
+    : [];
 }
 
 export function buildDebtObligationScheduleProjection(

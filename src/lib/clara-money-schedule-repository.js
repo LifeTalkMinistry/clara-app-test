@@ -150,6 +150,8 @@ function normalizeRoutine(value = {}) {
     return normalizeRoutineDay(matching || {}, weekday);
   });
   const weeklyTotalCentavos = days.reduce((sum, day) => sum + day.totalCentavos, 0);
+  const createdAt = cleanText(value.createdAt || value.created_at);
+  const updatedAt = cleanText(value.updatedAt || value.updated_at) || new Date().toISOString();
 
   return {
     version: 1,
@@ -165,10 +167,10 @@ function normalizeRoutine(value = {}) {
     weekly_total_centavos: weeklyTotalCentavos,
     weeklyTotal: centavosToMoneyText(weeklyTotalCentavos),
     weekly_total: centavosToMoneyText(weeklyTotalCentavos),
-    createdAt: cleanText(value.createdAt || value.created_at) || new Date().toISOString(),
-    created_at: cleanText(value.createdAt || value.created_at) || new Date().toISOString(),
-    updatedAt: cleanText(value.updatedAt || value.updated_at) || new Date().toISOString(),
-    updated_at: cleanText(value.updatedAt || value.updated_at) || new Date().toISOString(),
+    createdAt,
+    created_at: createdAt,
+    updatedAt,
+    updated_at: updatedAt,
   };
 }
 
@@ -205,12 +207,15 @@ export function saveClaraMoneyRoutine({ user, days } = {}) {
 
   const existing = readClaraMoneyRoutine(user);
   const now = new Date().toISOString();
+  const createdAt = existing
+    ? cleanText(existing.createdAt || existing.created_at)
+    : now;
   const routine = normalizeRoutine({
     ...(existing || {}),
     days,
     active: true,
-    createdAt: existing?.createdAt || now,
-    created_at: existing?.created_at || now,
+    createdAt,
+    created_at: createdAt,
     updatedAt: now,
     updated_at: now,
   });
