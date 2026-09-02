@@ -109,9 +109,14 @@ if marker not in s:
 '''
     s = replace_once(s, anchor, handler + anchor, 'overlay completion handler')
 
-    old_actions = '''              <ReplyButton onClick={startAddFund} disabled={saving}>Add Fund</ReplyButton>\n              <ReplyButton onClick={startMoveFundOut} disabled={saving || getGoalSavedAmount(selectedManagedGoal) <= 0}>Move Fund Out</ReplyButton>'''
-    new_actions = '''              <ReplyButton onClick={startAddFund} disabled={saving}>Add Fund</ReplyButton>\n              <ReplyButton onClick={completeManagedGoal} disabled={saving || getGoalSavedAmount(selectedManagedGoal) <= 0} data-clara-savings-goal-complete="true">Complete</ReplyButton>\n              <ReplyButton onClick={startMoveFundOut} disabled={saving || getGoalSavedAmount(selectedManagedGoal) <= 0}>Move Fund Out</ReplyButton>'''
-    s = replace_once(s, old_actions, new_actions, 'overlay Complete button')
+    move_button = '<ReplyButton onClick={startMoveFundOut} disabled={saving || getGoalSavedAmount(selectedManagedGoal) <= 0}>Move Fund Out</ReplyButton>'
+    move_index = s.find(move_button)
+    if move_index < 0:
+        raise SystemExit('overlay Complete button anchor missing')
+    line_start = s.rfind('\n', 0, move_index) + 1
+    indent = s[line_start:move_index]
+    complete_button = '<ReplyButton onClick={completeManagedGoal} disabled={saving || getGoalSavedAmount(selectedManagedGoal) <= 0} data-clara-savings-goal-complete="true">Complete</ReplyButton>'
+    s = s[:move_index] + complete_button + '\n' + indent + s[move_index:]
     OVERLAY.write_text(s)
 
 # --- Full Savings Goals financial page ---
