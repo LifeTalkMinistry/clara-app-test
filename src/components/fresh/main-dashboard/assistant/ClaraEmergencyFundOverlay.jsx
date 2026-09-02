@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ArrowUp, Shield, WalletCards } from "lucide-react";
 import ClaraChatHeader from "./ClaraChatHeader";
+import useClaraConversationReveal from "./useClaraConversationReveal";
 import useFinancialData from "@/hooks/useFinancialData";
 
 const TARGET_OPTIONS = [
@@ -142,10 +143,10 @@ function getEmergencyStorageWalletId(emergencyFund) {
   ).trim();
 }
 
-function Bubble({ role = "assistant", children }) {
+function Bubble({ role = "assistant", children, elementRef = null }) {
   const user = role === "user";
   return (
-    <div className={`flex ${user ? "justify-end" : "justify-start"}`}>
+    <div ref={elementRef} data-clara-conversation-role={role} className={`flex ${user ? "justify-end" : "justify-start"}`}>
       <div
         className={`max-w-[86%] whitespace-pre-wrap rounded-[20px] px-4 py-3 text-[13px] font-semibold leading-5 shadow-[0_12px_28px_rgba(0,0,0,.2)] ${
           user
@@ -170,7 +171,6 @@ function Composer({ value, onChange, onSubmit, placeholder, inputMode = "text" }
       className="flex items-center gap-2 rounded-[22px] border border-blue-200/14 bg-[#07142b]/96 p-2 shadow-[0_14px_34px_rgba(0,0,0,.28)]"
     >
       <input
-        autoFocus
         value={value}
         onChange={(event) => onChange?.(event.target.value)}
         placeholder={placeholder}
@@ -232,6 +232,8 @@ export default function ClaraEmergencyFundOverlay({
   const user = claraAssistantContext?.user || {};
   const firstName = firstNameFromUser(user);
   const viewportRef = useRef(null);
+  const latestAssistantRef = useRef(null);
+  const actionRef = useRef(null);
   const finance = useFinancialData(user);
   const emergencyFund = finance?.emergencyFund || claraAssistantContext?.emergencyFund || null;
   const sourceWallets = Array.isArray(finance?.wallets)
@@ -296,14 +298,25 @@ export default function ClaraEmergencyFundOverlay({
     ]);
   };
 
-  useEffect(() => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-    const frame = window.requestAnimationFrame(() => {
-      viewport.scrollTo({ top: viewport.scrollHeight, behavior: "smooth" });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [messages, phase, error, saved]);
+  const latestAssistantIndex = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (messages[index]?.role === "assistant") return index;
+    }
+    return -1;
+  }, [messages]);
+
+  const revealKey = isActive && !saving && latestAssistantIndex >= 0
+    ? `${phase}:${messages.length}:${saved ? "saved" : "active"}`
+    : null;
+
+  useClaraConversationReveal({
+    viewportRef,
+    assistantRef: latestAssistantRef,
+    actionRef,
+    revealKey,
+    enabled: Boolean(revealKey),
+    requireAction: true,
+  });
 
   if (!isActive) return null;
 
@@ -459,115 +472,121 @@ export default function ClaraEmergencyFundOverlay({
       >
         <div className="flex min-h-full flex-col gap-3" data-clara-ai-message-stack="true">
           {messages.map((message, index) => (
-            <Bubble key={`${message.role}-${index}-${message.text}`} role={message.role}>
+            <Bubble
+              key={`${message.role}-${index}-${message.text}`}
+              role={message.role}
+              elementRef={index === latestAssistantIndex ? latestAssistantRef : null}
+            >
               {message.text}
             </Bubble>
           ))}
 
-          {phase === "monthly" ? (
-            <div className="mt-auto pt-3">
-              <Composer
-                value={monthlyInput}
-                onChange={(value) => {
-                  setMonthlyInput(String(value).replace(/[^0-9.]/g, ""));
-                  setError("");
-                }}
-                onSubmit={submitMonthly}
-                placeholder="₱ monthly essentials"
-                inputMode="decimal"
-              />
-            </div>
-          ) : null}
+          <div ref={actionRef} data-clara-conversation-action-region="true" className="contents">
+            {phase === "monthly" ? (
+              <div className="mt-auto pt-3">
+                <Composer
+                  value={monthlyInput}
+                  onChange={(value) => {
+                    setMonthlyInput(String(value).replace(/[^0-9.]/g, ""));
+                    setError("");
+                  }}
+                  onSubmit={submitMonthly}
+                  placeholder="₱ monthly essentials"
+                  inputMode="decimal"
+                />
+              </div>
+            ) : null}
 
-          {phase === "wallet" ? (
-            <div className="flex flex-col gap-2 pt-1">
-              {safeWallets.length ? (
-                safeWallets.map((wallet) => (
-                  <ReplyButton key={wallet.id} onClick={() => chooseWallet(wallet)}>
-                    <span className="flex items-center gap-2.5">
-                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-blue-300/15 bg-blue-400/[.07] text-[#FFD84A]">
-                        <WalletCards className="h-4 w-4" />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate">{wallet.name}</span>
-                        <span className="mt-0.5 block text-[10px] font-semibold text-blue-100/45">
-                          Available: {fmt(wallet.spendable)}
+            {phase === "wallet" ? (
+              <div className="flex flex-col gap-2 pt-1">
+                {safeWallets.length ? (
+                  safeWallets.map((wallet) => (
+                    <ReplyButton key={wallet.id} onClick={() => chooseWallet(wallet)}>
+                      <span className="flex items-center gap-2.5">
+                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-blue-300/15 bg-blue-400/[.07] text-[#FFD84A]">
+                          <WalletCards className="h-4 w-4" />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate">{wallet.name}</span>
+                          <span className="mt-0.5 block text-[10px] font-semibold text-blue-100/45">
+                            Available: {fmt(wallet.spendable)}
+                          </span>
                         </span>
                       </span>
+                    </ReplyButton>
+                  ))
+                ) : (
+                  <div className="rounded-[20px] border border-blue-300/12 bg-[#07172f]/85 p-3.5">
+                    <p className="text-[12px] font-bold text-white/78">You need a wallet before CLARA can protect an Emergency Fund.</p>
+                    <button
+                      type="button"
+                      onClick={createWallet}
+                      className="mt-3 w-full rounded-[16px] border border-blue-300/28 bg-[linear-gradient(100deg,#0C4EAE,#0867FF_58%,#126EDB)] px-4 py-3 text-sm font-black text-white"
+                    >
+                      Create wallet now
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : null}
+
+            {phase === "months" ? (
+              <div className="flex flex-col gap-2 pt-1">
+                {TARGET_OPTIONS.map((option) => (
+                  <ReplyButton key={option.months} onClick={() => chooseMonths(option)}>
+                    <span className="flex items-center justify-between gap-3">
+                      <span>{option.label}</span>
+                      <span className="text-[#FFD84A]">{option.months} months</span>
                     </span>
                   </ReplyButton>
-                ))
-              ) : (
-                <div className="rounded-[20px] border border-blue-300/12 bg-[#07172f]/85 p-3.5">
-                  <p className="text-[12px] font-bold text-white/78">You need a wallet before CLARA can protect an Emergency Fund.</p>
-                  <button
-                    type="button"
-                    onClick={createWallet}
-                    className="mt-3 w-full rounded-[16px] border border-blue-300/28 bg-[linear-gradient(100deg,#0C4EAE,#0867FF_58%,#126EDB)] px-4 py-3 text-sm font-black text-white"
-                  >
-                    Create wallet now
-                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            {phase === "review" ? (
+              <div className="mt-1 rounded-[22px] border border-blue-300/12 bg-[#06162f]/88 p-3.5 shadow-[0_14px_34px_rgba(0,0,0,.20)]">
+                <div className="mb-3 flex items-center gap-2 text-white/90">
+                  <Shield className="h-4 w-4 text-[#FFD84A]" />
+                  <span className="text-[12px] font-black">Setup summary</span>
                 </div>
-              )}
-            </div>
-          ) : null}
+                <div className="space-y-2">
+                  <SummaryRow label="Monthly survival cost" value={fmt(monthlySurvivalCost)} />
+                  <SummaryRow label="Storage wallet" value={selectedWallet?.name || "Not selected"} />
+                  <SummaryRow label="Protection goal" value={`${targetMonths} months`} />
+                  <SummaryRow label="Target amount" value={fmt(targetAmount)} accent />
+                </div>
+                <button
+                  type="button"
+                  onClick={saveSetup}
+                  disabled={saving}
+                  className="mt-3.5 w-full rounded-[17px] border border-[#FFD84A]/24 bg-[linear-gradient(135deg,rgba(8,103,255,.78),rgba(12,78,174,.86))] px-4 py-3 text-[13px] font-black text-white disabled:opacity-50"
+                >
+                  {saving ? "Saving..." : "Save Emergency Fund setup"}
+                </button>
+              </div>
+            ) : null}
 
-          {phase === "months" ? (
-            <div className="flex flex-col gap-2 pt-1">
-              {TARGET_OPTIONS.map((option) => (
-                <ReplyButton key={option.months} onClick={() => chooseMonths(option)}>
-                  <span className="flex items-center justify-between gap-3">
-                    <span>{option.label}</span>
-                    <span className="text-[#FFD84A]">{option.months} months</span>
-                  </span>
+            {phase === "saved" && saved ? (
+              <div className="mt-auto grid gap-2.5 pt-3">
+                <div className="rounded-[20px] border border-cyan-200/14 bg-cyan-200/[.045] p-4 text-center">
+                  <Shield className="mx-auto h-6 w-6 text-[#8ffff8]" />
+                  <p className="mt-2 text-[13px] font-black text-white">Emergency Fund ready</p>
+                  <p className="mt-1 text-[11px] font-semibold leading-5 text-white/48">
+                    {targetMonths} months · {fmt(targetAmount)} target · {selectedWallet?.name}
+                  </p>
+                </div>
+                <ReplyButton onClick={onClose} className="text-center">
+                  Done
                 </ReplyButton>
-              ))}
-            </div>
-          ) : null}
-
-          {phase === "review" ? (
-            <div className="mt-1 rounded-[22px] border border-blue-300/12 bg-[#06162f]/88 p-3.5 shadow-[0_14px_34px_rgba(0,0,0,.20)]">
-              <div className="mb-3 flex items-center gap-2 text-white/90">
-                <Shield className="h-4 w-4 text-[#FFD84A]" />
-                <span className="text-[12px] font-black">Setup summary</span>
               </div>
-              <div className="space-y-2">
-                <SummaryRow label="Monthly survival cost" value={fmt(monthlySurvivalCost)} />
-                <SummaryRow label="Storage wallet" value={selectedWallet?.name || "Not selected"} />
-                <SummaryRow label="Protection goal" value={`${targetMonths} months`} />
-                <SummaryRow label="Target amount" value={fmt(targetAmount)} accent />
-              </div>
-              <button
-                type="button"
-                onClick={saveSetup}
-                disabled={saving}
-                className="mt-3.5 w-full rounded-[17px] border border-[#FFD84A]/24 bg-[linear-gradient(135deg,rgba(8,103,255,.78),rgba(12,78,174,.86))] px-4 py-3 text-[13px] font-black text-white disabled:opacity-50"
-              >
-                {saving ? "Saving..." : "Save Emergency Fund setup"}
-              </button>
-            </div>
-          ) : null}
+            ) : null}
 
-          {phase === "saved" && saved ? (
-            <div className="mt-auto grid gap-2.5 pt-3">
-              <div className="rounded-[20px] border border-cyan-200/14 bg-cyan-200/[.045] p-4 text-center">
-                <Shield className="mx-auto h-6 w-6 text-[#8ffff8]" />
-                <p className="mt-2 text-[13px] font-black text-white">Emergency Fund ready</p>
-                <p className="mt-1 text-[11px] font-semibold leading-5 text-white/48">
-                  {targetMonths} months · {fmt(targetAmount)} target · {selectedWallet?.name}
-                </p>
-              </div>
-              <ReplyButton onClick={onClose} className="text-center">
-                Done
-              </ReplyButton>
-            </div>
-          ) : null}
-
-          {error ? (
-            <p className="rounded-[16px] border border-red-300/15 bg-red-500/[.06] px-3.5 py-3 text-[11.5px] font-bold leading-5 text-red-100/88">
-              {error}
-            </p>
-          ) : null}
+            {error ? (
+              <p className="rounded-[16px] border border-red-300/15 bg-red-500/[.06] px-3.5 py-3 text-[11.5px] font-bold leading-5 text-red-100/88">
+                {error}
+              </p>
+            ) : null}
+          </div>
         </div>
       </main>
     </div>
