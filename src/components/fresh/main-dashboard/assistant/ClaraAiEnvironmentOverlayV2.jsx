@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
 import ClaraAiEnvironmentOverlayCore from "./ClaraAiEnvironmentOverlayCore.jsx";
+import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "@/lib/clara-pause-events";
 
 const READY_PROMPT = "Ready to chat now?";
 const FIRST_GREETING = "Hi! What exact item are you thinking about buying? Type the exact name of the item.";
@@ -104,7 +104,6 @@ function syncIntroComposerGate(root, introActive) {
 export default function ClaraAiEnvironmentOverlayV2(props) {
   const { isActive = false, layoutVariant = "default" } = props || {};
   const guidePreview = layoutVariant === "guide-preview";
-  const navigate = useNavigate();
   const rootRef = useRef(null);
   const typingTimerRef = useRef(null);
   const interactionTimerRef = useRef(null);
@@ -328,26 +327,16 @@ export default function ClaraAiEnvironmentOverlayV2(props) {
   };
 
   const openIncomeHub = () => {
-    props?.onClose?.();
-    navigate("/community?view=home");
-
-    let attempts = 0;
-    const locateAndOpen = () => {
-      const slide = document.querySelector('[data-card-key="investmentFund"]');
-      if (slide instanceof HTMLElement) {
-        slide.scrollIntoView?.({ behavior: "smooth", block: "center", inline: "center" });
-        if (slide.getAttribute("data-expanded") !== "true") {
-          const toggle = slide.querySelector('[data-clara-finance-expand-toggle="true"]');
-          if (toggle instanceof HTMLElement) toggle.click();
-        }
-        return;
-      }
-
-      attempts += 1;
-      if (attempts < 16) window.setTimeout(locateAndOpen, 150);
-    };
-
-    window.setTimeout(locateAndOpen, 120);
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(
+      new CustomEvent(CLARA_PAUSE_OPEN_REQUEST_EVENT, {
+        detail: {
+          mode: "add-income",
+          source: "ask-before-you-spend",
+          reason: "financial-setup",
+        },
+      })
+    );
   };
 
   const gateVisible = Boolean(
