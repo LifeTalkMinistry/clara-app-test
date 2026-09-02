@@ -28,6 +28,13 @@ import {
 const clean = (value = "") => String(value || "").replace(/\s+/g, " ").trim();
 const cleanMoney = (value = "") => String(value || "").replace(/[^0-9.]/g, "");
 
+const OBLIGATION_COPY = Object.freeze({
+  home: "What would you like to do with your bills and commitments?",
+  name: "What bill or financial commitment should CLARA keep track of?",
+  type: "Which category best describes this commitment?",
+  mode: "Is this a regular recurring payment, or a balance you’re paying off?",
+});
+
 function fmt(value) {
   return new Intl.NumberFormat("en-PH", {
     style: "currency",
@@ -237,8 +244,8 @@ export default function ClaraDebtObligationOverlay({
   );
 
   const pressureText = records.length
-    ? `You have ${pressure.activeCount} active obligation${pressure.activeCount === 1 ? "" : "s"}. Total remaining balance: ${fmt(pressure.totalDebt)}. Monthly obligation: ${fmt(pressure.monthlyDebt)}. Current debt pressure: ${pressure.debtRatio.toFixed(0)}% (${pressure.riskLevel}).`
-    : "You currently have no active debt or obligations recorded.";
+    ? `You have ${pressure.activeCount} active commitment${pressure.activeCount === 1 ? "" : "s"}. Total remaining balance: ${fmt(pressure.totalDebt)}. Monthly commitments: ${fmt(pressure.monthlyDebt)}. Current monthly commitment load: ${pressure.debtRatio.toFixed(0)}% (${pressure.riskLevel}).`
+    : "You currently have no active bills, obligations, or debts recorded.";
 
   const append = (...nextMessages) => {
     setMessages((current) => [...current, ...nextMessages]);
@@ -337,7 +344,7 @@ export default function ClaraDebtObligationOverlay({
       const loaded = await reload(openingToken);
       if (loaded === null || openingToken !== sequenceTokenRef.current) return;
       runAssistantSequence(
-        [`Hi ${firstName}! 👋`, "Debt / Obligations is open.", "What would you like to do with your obligations?"],
+        [`Hi ${firstName}! 👋`, "Let’s keep track of the bills and financial commitments you need to protect.", OBLIGATION_COPY.home],
         "home"
       );
     } catch (nextError) {
@@ -432,19 +439,19 @@ export default function ClaraDebtObligationOverlay({
   const goHome = (userLabel = "Back") => {
     resetDraft();
     append(chatMessage("user", userLabel));
-    runAssistantSequence(["What would you like to do with your obligations?"], "home");
+    runAssistantSequence([OBLIGATION_COPY.home], "home");
   };
 
   const beginAdd = () => {
     resetDraft();
     append(chatMessage("user", "Add an obligation"));
-    runAssistantSequence(["Who or what do you owe?"], "name");
+    runAssistantSequence([OBLIGATION_COPY.name], "name");
   };
 
   const openView = () => {
     append(chatMessage("user", "View obligations"));
     runAssistantSequence(
-      [records.length ? "Here are the active obligations I have recorded for you." : "You do not have any active obligations recorded yet."],
+      [records.length ? "Here are the active commitments I have recorded for you." : "You do not have any active bills or commitments recorded yet."],
       "view"
     );
   };
@@ -452,11 +459,11 @@ export default function ClaraDebtObligationOverlay({
   const openManage = () => {
     if (!records.length) return;
     append(chatMessage("user", "Edit or delete an obligation"));
-    runAssistantSequence(["Choose the obligation you want to manage."], "manage");
+    runAssistantSequence(["Choose the bill or commitment you want to manage."], "manage");
   };
 
   const openPressure = () => {
-    append(chatMessage("user", "Review debt pressure"));
+    append(chatMessage("user", "Review commitment load"));
     runAssistantSequence([pressureText], "pressure");
   };
 
@@ -465,7 +472,7 @@ export default function ClaraDebtObligationOverlay({
     resetDraft();
     append(chatMessage("user", "Pay an obligation"));
     setPaymentOrigin("pay-select");
-    runAssistantSequence(["Choose the obligation you want to pay."], "pay-select");
+    runAssistantSequence(["Choose the bill or commitment you want to pay."], "pay-select");
   };
 
   const selectManagedRecord = (record) => {
@@ -585,7 +592,7 @@ export default function ClaraDebtObligationOverlay({
     }
     setSelectedId("");
     setPaymentOrigin("pay-select");
-    runAssistantSequence(["Choose the obligation you want to pay."], "pay-select");
+    runAssistantSequence(["Choose the bill or commitment you want to pay."], "pay-select");
   };
 
   const beginEdit = (record) => {
@@ -594,7 +601,7 @@ export default function ClaraDebtObligationOverlay({
     setInput(nextDraft.title);
     setError("");
     append(chatMessage("user", "Edit this obligation"));
-    runAssistantSequence([`Let’s update ${nextDraft.title}. What should its name be?`], "name");
+    runAssistantSequence([`Let’s update ${nextDraft.title}. What should CLARA call this commitment?`], "name");
   };
 
   const submitName = () => {
@@ -605,7 +612,7 @@ export default function ClaraDebtObligationOverlay({
     setInput("");
     setError("");
     append(chatMessage("user", title));
-    runAssistantSequence(["What type of obligation is this?"], "type");
+    runAssistantSequence([OBLIGATION_COPY.type], "type");
   };
 
   const chooseType = (value) => {
@@ -613,16 +620,16 @@ export default function ClaraDebtObligationOverlay({
     const label = DEBT_TYPES.find((item) => item.value === value)?.label || "Other";
     setDraft((current) => ({ ...current, debtType: value }));
     append(chatMessage("user", label));
-    runAssistantSequence(["Is this a balance you are paying off, or an ongoing monthly obligation?"], "mode");
+    runAssistantSequence([OBLIGATION_COPY.mode], "mode");
   };
 
   const chooseMode = (mode) => {
     if (!controlsReady) return;
     setDraft((current) => ({ ...current, obligationMode: mode }));
     setInput(mode === "balance" ? draft.totalDebt || "" : draft.monthlyDebt || "");
-    append(chatMessage("user", mode === "balance" ? "Balance I’m paying off" : "Ongoing monthly obligation"));
+    append(chatMessage("user", mode === "balance" ? "Balance I’m paying off" : "Regular recurring payment"));
     runAssistantSequence(
-      [mode === "balance" ? "How much is the remaining balance?" : "How much is the monthly payment?"],
+      [mode === "balance" ? "How much is the remaining balance?" : "About how much should CLARA plan for this each month?"],
       mode === "balance" ? "balance" : "monthly"
     );
   };
@@ -638,14 +645,14 @@ export default function ClaraDebtObligationOverlay({
     setInput(draft.monthlyDebt || "");
     setError("");
     append(chatMessage("user", fmt(value)));
-    runAssistantSequence(["How much do you pay each month?"], "monthly");
+    runAssistantSequence(["How much do you usually pay toward it each month?"], "monthly");
   };
 
   const submitMonthly = () => {
     if (!controlsReady) return;
     const value = toDebtNumber(input);
     if (value <= 0) {
-      setError("Enter a monthly payment greater than zero.");
+      setError("Enter a monthly amount greater than zero.");
       return;
     }
     setDraft((current) => ({ ...current, monthlyDebt: String(value) }));
@@ -656,7 +663,7 @@ export default function ClaraDebtObligationOverlay({
       runAssistantSequence(["What is the annual interest rate? Enter 0 if there is none."], "interest");
     } else {
       setInput(draft.dueDay || "");
-      runAssistantSequence(["What day of the month is it due? You can skip this."], "due");
+      runAssistantSequence(["What day of the month is this usually due? You can skip this."], "due");
     }
   };
 
@@ -667,7 +674,7 @@ export default function ClaraDebtObligationOverlay({
     setInput(draft.dueDay || "");
     setError("");
     append(chatMessage("user", `${value}%`));
-    runAssistantSequence(["What day of the month is it due? You can skip this."], "due");
+    runAssistantSequence(["What day of the month is this usually due? You can skip this."], "due");
   };
 
   const finishDue = (skip = false) => {
@@ -685,7 +692,7 @@ export default function ClaraDebtObligationOverlay({
     setInput("");
     setError("");
     append(chatMessage("user", dueDay ? `Day ${dueDay}` : "Skip due day"));
-    runAssistantSequence(["Review this obligation before I save it."], "review");
+    runAssistantSequence(["Review this commitment before I save it."], "review");
   };
 
   const save = async () => {
@@ -787,7 +794,7 @@ export default function ClaraDebtObligationOverlay({
 
       <ClaraChatHeader
         title="Debt / Obligations"
-        tagline="Record · Pay · Review · Stay accountable"
+        tagline="Bills · Commitments · Debt · Stay accountable"
         onClose={closeChat}
       />
 
@@ -815,12 +822,12 @@ export default function ClaraDebtObligationOverlay({
                 <ChoiceButton onClick={openPay} disabled={!records.length}>Pay an obligation</ChoiceButton>
                 <ChoiceButton onClick={openView}>View obligations</ChoiceButton>
                 <ChoiceButton onClick={openManage} disabled={!records.length}>Edit or delete an obligation</ChoiceButton>
-                <ChoiceButton onClick={openPressure}>Review debt pressure</ChoiceButton>
+                <ChoiceButton onClick={openPressure}>Review commitment load</ChoiceButton>
                 {typeof onSetupResult === "function" ? (
                   records.length ? (
                     <ChoiceButton onClick={() => completeSetupStep("configured")} secondary>Continue setup</ChoiceButton>
                   ) : (
-                    <ChoiceButton onClick={() => completeSetupStep("none_confirmed")} secondary>I have no debts or obligations</ChoiceButton>
+                    <ChoiceButton onClick={() => completeSetupStep("none_confirmed")} secondary>I have no bills, obligations, or debts</ChoiceButton>
                   )
                 ) : (
                   <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
@@ -941,7 +948,7 @@ export default function ClaraDebtObligationOverlay({
                 <ChoiceButton danger onClick={askDelete}>Delete this obligation</ChoiceButton>
                 <ChoiceButton secondary onClick={() => {
                   append(chatMessage("user", "Back"));
-                  runAssistantSequence(["Choose the obligation you want to manage."], "manage");
+                  runAssistantSequence(["Choose the bill or commitment you want to manage."], "manage");
                 }}>Back</ChoiceButton>
               </div>
             ) : null}
@@ -964,7 +971,7 @@ export default function ClaraDebtObligationOverlay({
 
             {phase === "name" && controlsReady ? (
               <div className="mt-auto grid gap-2.5 pt-3">
-                <Composer value={input} onChange={(value) => { setInput(value); setError(""); }} onSubmit={submitName} placeholder="Name or lender" />
+                <Composer value={input} onChange={(value) => { setInput(value); setError(""); }} onSubmit={submitName} placeholder="e.g. Electric bill, Rent, Loan" />
                 <ChoiceButton secondary onClick={backFromName}>Back</ChoiceButton>
               </div>
             ) : null}
@@ -978,7 +985,7 @@ export default function ClaraDebtObligationOverlay({
                   <ChoiceButton secondary onClick={() => {
                     setInput(draft.title || "");
                     append(chatMessage("user", "Back"));
-                    runAssistantSequence(["Who or what do you owe?"], "name");
+                    runAssistantSequence([OBLIGATION_COPY.name], "name");
                   }}>Back</ChoiceButton>
                 </div>
               </div>
@@ -986,11 +993,11 @@ export default function ClaraDebtObligationOverlay({
 
             {phase === "mode" && controlsReady ? (
               <div className="mt-1 grid gap-2.5">
+                <ChoiceButton onClick={() => chooseMode("recurring")}>Regular recurring payment</ChoiceButton>
                 <ChoiceButton onClick={() => chooseMode("balance")}>Balance I’m paying off</ChoiceButton>
-                <ChoiceButton onClick={() => chooseMode("recurring")}>Ongoing monthly obligation</ChoiceButton>
                 <ChoiceButton secondary onClick={() => {
                   append(chatMessage("user", "Back"));
-                  runAssistantSequence(["What type of obligation is this?"], "type");
+                  runAssistantSequence([OBLIGATION_COPY.type], "type");
                 }}>Back</ChoiceButton>
               </div>
             ) : null}
@@ -1001,14 +1008,14 @@ export default function ClaraDebtObligationOverlay({
                 <ChoiceButton secondary onClick={() => {
                   setInput("");
                   append(chatMessage("user", "Back"));
-                  runAssistantSequence(["Is this a balance you are paying off, or an ongoing monthly obligation?"], "mode");
+                  runAssistantSequence([OBLIGATION_COPY.mode], "mode");
                 }}>Back</ChoiceButton>
               </div>
             ) : null}
 
             {phase === "monthly" && controlsReady ? (
               <div className="mt-auto grid gap-2.5 pt-3">
-                <Composer value={input} onChange={(value) => { setInput(cleanMoney(value)); setError(""); }} onSubmit={submitMonthly} placeholder="Monthly payment" inputMode="decimal" />
+                <Composer value={input} onChange={(value) => { setInput(cleanMoney(value)); setError(""); }} onSubmit={submitMonthly} placeholder={draft.obligationMode === "balance" ? "Monthly payment" : "Expected monthly amount"} inputMode="decimal" />
                 <ChoiceButton secondary onClick={() => {
                   append(chatMessage("user", "Back"));
                   if (draft.obligationMode === "balance") {
@@ -1016,7 +1023,7 @@ export default function ClaraDebtObligationOverlay({
                     runAssistantSequence(["How much is the remaining balance?"], "balance");
                   } else {
                     setInput("");
-                    runAssistantSequence(["Is this a balance you are paying off, or an ongoing monthly obligation?"], "mode");
+                    runAssistantSequence([OBLIGATION_COPY.mode], "mode");
                   }
                 }}>Back</ChoiceButton>
               </div>
@@ -1028,7 +1035,7 @@ export default function ClaraDebtObligationOverlay({
                 <ChoiceButton secondary onClick={() => {
                   setInput(draft.monthlyDebt || "");
                   append(chatMessage("user", "Back"));
-                  runAssistantSequence(["How much do you pay each month?"], "monthly");
+                  runAssistantSequence(["How much do you usually pay toward it each month?"], "monthly");
                 }}>Back</ChoiceButton>
               </div>
             ) : null}
@@ -1044,7 +1051,7 @@ export default function ClaraDebtObligationOverlay({
                     runAssistantSequence(["What is the annual interest rate? Enter 0 if there is none."], "interest");
                   } else {
                     setInput(draft.monthlyDebt || "");
-                    runAssistantSequence(["How much is the monthly payment?"], "monthly");
+                    runAssistantSequence(["About how much should CLARA plan for this each month?"], "monthly");
                   }
                 }}>Back</ChoiceButton>
               </div>
@@ -1055,8 +1062,8 @@ export default function ClaraDebtObligationOverlay({
                 <article className="rounded-[21px] border border-blue-200/12 bg-[#07142b]/88 p-3.5 shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
                   <div className="space-y-2 text-[11.5px] font-semibold leading-5 text-white/82">
                     <div><span className="text-white/42">Name:</span> {draft.title}</div>
-                    <div><span className="text-white/42">Type:</span> {DEBT_TYPES.find((item) => item.value === draft.debtType)?.label || draft.debtType}</div>
-                    <div><span className="text-white/42">Mode:</span> {draft.obligationMode === "recurring" ? "Ongoing monthly" : "Balance to pay off"}</div>
+                    <div><span className="text-white/42">Category:</span> {DEBT_TYPES.find((item) => item.value === draft.debtType)?.label || draft.debtType}</div>
+                    <div><span className="text-white/42">Payment type:</span> {draft.obligationMode === "recurring" ? "Regular recurring" : "Balance to pay off"}</div>
                     {draft.obligationMode === "balance" ? <div><span className="text-white/42">Remaining:</span> {fmt(draft.totalDebt)}</div> : null}
                     <div><span className="text-white/42">Monthly:</span> {fmt(draft.monthlyDebt)}</div>
                     {draft.obligationMode === "balance" ? <div><span className="text-white/42">Interest:</span> {toDebtNumber(draft.interestRate)}%</div> : null}
@@ -1068,7 +1075,7 @@ export default function ClaraDebtObligationOverlay({
                   <ChoiceButton secondary onClick={() => {
                     setInput(draft.dueDay || "");
                     append(chatMessage("user", "Back"));
-                    runAssistantSequence(["What day of the month is it due? You can skip this."], "due");
+                    runAssistantSequence(["What day of the month is this usually due? You can skip this."], "due");
                   }}>Back</ChoiceButton>
                 </div>
               </div>
