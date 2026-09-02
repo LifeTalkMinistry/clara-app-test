@@ -11,7 +11,7 @@ import {
   CLARA_MONEY_ROUTINE_UPDATED_EVENT,
   CLARA_MONEY_SCHEDULE_UPDATED_EVENT,
 } from "@/lib/clara-money-schedule-repository";
-import { buildCanonicalMeansSnapshot } from "@/lib/clara-means-authority";
+import { buildRollingMeansSnapshot } from "@/lib/clara-means-rolling-authority";
 
 const RUNTIME_KEY = "__claraOrbGreetingRuntime__";
 const PRODUCTION_GREETING_SELECTOR =
@@ -26,6 +26,7 @@ const MEANS_METRIC_ATTR = "data-clara-orb-means-metric";
 const MEANS_PLACEHOLDER_ATTR = "data-clara-orb-means-placeholder";
 const MEANS_CONTEXT_KEY = "__claraCanonicalMeansSnapshot__";
 const INCOME_HUB_UPDATED_EVENT = "clara-income-hub-updated";
+const CALENDAR_UPDATED_EVENT = "clara:schedule-events-updated";
 
 function resolveGreetingLabel() {
   return (
@@ -82,8 +83,20 @@ function formatHorizonDate(dateKey) {
   }).format(date);
 }
 
+function formatDayBefore(dateKey) {
+  const match = String(dateKey || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return "the following payday";
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  date.setUTCDate(date.getUTCDate() - 1);
+  return new Intl.DateTimeFormat("en-PH", {
+    timeZone: "Asia/Manila",
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
+
 async function buildMeansSnapshot(profile = {}) {
-  return buildCanonicalMeansSnapshot({ profile });
+  return buildRollingMeansSnapshot({ profile });
 }
 
 function statusForScore(score) {
@@ -94,9 +107,7 @@ function statusForScore(score) {
   if (value >= 2000) return "Silver";
   if (value >= 1000) return "Bronze";
   if (value >= 500) return "Vanguard";
-  if (value >= 400) return "3 Cycles Ahead";
-  if (value >= 300) return "2 Cycles Ahead";
-  if (value >= 200) return "1 Cycle Ahead";
+  if (value >= 200) return "Strong Coverage";
   if (value >= 101) return "Below Your Means";
   if (value === 100) return "Within Your Means";
   if (value >= 1) return "Above Your Means";
@@ -130,6 +141,39 @@ function meansBriefingMarkup(snapshot, expanded) {
     snapshot?.remainingPlannedSpending ?? snapshot?.upcoming ?? 0
   ) || 0;
   const otherUpcoming = Number(snapshot?.otherScheduledUpcoming || 0) || 0;
+  const rollingResolved = snapshot?.upcomingCycleResolved === true;
+  const upcomingRequirement = Number(snapshot?.upcomingCycleRequirement || 0) || 0;
+  const upcomingCoverageResolved = snapshot?.upcomingCoverageScore != null &&
+    Number.isFinite(Number(snapshot.upcomingCoverageScore));
+  const upcomingShortfall = Number(snapshot?.upcomingShortfall || 0) || 0;
+  const upcomingSurplus = Number(snapshot?.upcomingSurplus || 0) || 0;
+  const upcomingEndLabel = formatDayBefore(snapshot?.upcomingCycleEndDate);
+  const nextCycleMarkup = rollingResolved
+    ? `
+      <span data-clara-next-pay-cycle="true" style="display:block;margin-top:11px;padding-top:10px;border-top:1px solid rgba(96,165,250,.16)">
+        <span style="display:block;font-size:7.5px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:rgba(145,190,255,.48)">Next pay cycle</span>
+        <strong style="display:block;margin-top:3px;font-size:10px;font-weight:900;color:rgba(255,255,255,.76)">${formatHorizonDate(snapshot?.upcomingCycleStartDate)} → ${upcomingEndLabel}</strong>
+
+        <span style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:12px;margin-top:7px;font-size:10px;color:rgba(255,255,255,.40)"><span style="min-width:0">Carryover from this cycle</span><strong style="white-space:nowrap;color:rgba(255,255,255,.75)">${money(snapshot?.upcomingCarryover)}</strong></span>
+        <span style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:12px;margin-top:5px;font-size:10px;color:rgba(255,255,255,.40)"><span style="min-width:0">Lowest expected ${formatHorizonDate(snapshot?.upcomingCycleStartDate)} income</span><strong style="white-space:nowrap;color:rgba(255,255,255,.75)">${money(snapshot?.lowestExpectedIncome)}</strong></span>
+        <span data-clara-upcoming-projected-resources="true" style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:12px;margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.05);font-size:9px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.47)"><span style="min-width:0">Projected money available</span><strong style="white-space:nowrap;font-size:11px;color:rgba(255,255,255,.88)">${money(snapshot?.upcomingProjectedResources)}</strong></span>
+
+        <span style="display:block;margin-top:9px;font-size:7.5px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.28)">Expected to cover before ${formatHorizonDate(snapshot?.upcomingCycleEndDate)}</span>
+        <span style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:12px;margin-top:5px;padding-left:9px;font-size:9.5px;color:rgba(255,255,255,.31)"><span style="min-width:0">↳ Debt / obligations</span><strong style="white-space:nowrap;color:rgba(255,255,255,.58)">${money(snapshot?.upcomingDebtRequirement)}</strong></span>
+        <span style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:12px;margin-top:4px;padding-left:9px;font-size:9.5px;color:rgba(255,255,255,.31)"><span style="min-width:0">↳ Money Schedule</span><strong style="white-space:nowrap;color:rgba(255,255,255,.58)">${money(snapshot?.upcomingMoneyScheduleRequirement)}</strong></span>
+        <span style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:12px;margin-top:4px;padding-left:9px;font-size:9.5px;color:rgba(255,255,255,.31)"><span style="min-width:0">↳ Calendar Events</span><strong style="white-space:nowrap;color:rgba(255,255,255,.58)">${money(snapshot?.upcomingCalendarEventRequirement)}</strong></span>
+        <span style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:12px;margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.05);font-size:9px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.47)"><span style="min-width:0">Total upcoming requirement</span><strong style="white-space:nowrap;font-size:11px;color:rgba(255,255,255,.88)">${money(upcomingRequirement)}</strong></span>
+
+        <span data-clara-next-cycle-coverage="true" style="display:block;margin-top:9px;padding-top:8px;border-top:1px solid rgba(103,232,200,.13)">
+          ${upcomingCoverageResolved
+            ? `<span style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:12px"><span style="min-width:0;font-size:8px;font-weight:900;letter-spacing:.105em;text-transform:uppercase;color:rgba(255,255,255,.55)">Next-cycle coverage</span><strong style="white-space:nowrap;font-size:12px;font-weight:950;color:${Number(snapshot.upcomingCoverageScore) >= 100 ? "#67e8c8" : "#f4d36a"}">${snapshot.upcomingCoverageScore}%</strong></span>
+              <span style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:12px;margin-top:4px;font-size:9px;color:rgba(255,255,255,.34)"><span>${upcomingShortfall > 0 ? "Short by" : "Room after requirements"}</span><strong style="white-space:nowrap;color:${upcomingShortfall > 0 ? "#ff9a9f" : "rgba(103,232,200,.78)"}">${money(upcomingShortfall > 0 ? upcomingShortfall : upcomingSurplus)}</strong></span>`
+            : `<span style="display:block;font-size:9px;font-weight:750;line-height:1.45;color:rgba(255,255,255,.38)">No upcoming planned requirement is currently scheduled in this paycheck window, so CLARA does not invent a coverage percentage.</span>`}
+        </span>
+      </span>`
+    : `
+      <span data-clara-next-pay-cycle="unresolved" style="display:block;margin-top:11px;padding-top:10px;border-top:1px solid rgba(96,165,250,.12);font-size:9px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30)">CLARA could not resolve the following payday yet, so the current score is not extended with an invented future window.</span>`;
+
   return `
     <span data-clara-means-expanded="true" data-clara-money-briefing="active-cycle" style="display:${expanded ? "block" : "none"};width:min(300px,78vw);margin:10px auto 1px;padding:11px 12px;border:1px solid rgba(112,157,229,.13);border-radius:15px;background:linear-gradient(180deg,rgba(9,21,50,.72),rgba(4,11,31,.66));box-shadow:0 14px 34px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.025);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);text-align:left;overflow:hidden">
       <span style="display:block;font-size:7.5px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.25)">This pay cycle</span>
@@ -153,11 +197,14 @@ function meansBriefingMarkup(snapshot, expanded) {
         <span style="display:block;margin-top:3px;font-size:8.5px;font-weight:650;line-height:1.35;color:rgba(255,255,255,.27)">Money in hand minus everything still planned</span>
       </span>
 
-      <span style="display:flex;align-items:center;justify-content:center;gap:5px;margin-top:8px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">
-        <span>100 = exactly enough for the remaining plan</span>
+      ${nextCycleMarkup}
+
+      <span style="display:block;margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.055);font-size:8.5px;font-weight:700;line-height:1.45;color:rgba(255,255,255,.27);text-align:center">Your score considers the next pay cycle so upcoming bills don't catch you by surprise.</span>
+      <span style="display:flex;align-items:center;justify-content:center;gap:5px;margin-top:7px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.22);text-align:center">
+        <span>CLARA uses the more conservative pay-cycle view</span>
         <button type="button" data-clara-means-info-toggle="true" aria-label="How the Means Score is calculated" aria-expanded="false" style="display:inline-grid;place-items:center;width:15px;height:15px;padding:0;border:1px solid rgba(255,255,255,.13);border-radius:999px;background:rgba(255,255,255,.025);color:rgba(255,255,255,.36);font-size:9px;font-weight:800;line-height:1;cursor:pointer;-webkit-tap-highlight-color:transparent">i</button>
       </span>
-      <span data-clara-means-info-copy="true" style="display:none;margin-top:7px;padding:7px 8px;border:1px solid rgba(255,255,255,.05);border-radius:9px;background:rgba(255,255,255,.018);font-size:8.5px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30);text-align:center">Real Room is Wallet money minus Remaining Planned Spending. Means Score translates that Real Room using the fixed Cycle 100 Anchor. A matched planned payment lowers Wallet and Remaining Plan together, so the matched portion does not lower the score.</span>
+      <span data-clara-means-info-copy="true" style="display:none;margin-top:7px;padding:7px 8px;border:1px solid rgba(255,255,255,.05);border-radius:9px;background:rgba(255,255,255,.018);font-size:8.5px;font-weight:650;line-height:1.45;color:rgba(255,255,255,.30);text-align:center">CLARA checks both your money today and what is already scheduled before your following payday. Your expected income is used only for projection — it is not counted as money you already have.</span>
     </span>
   `;
 }
@@ -249,6 +296,18 @@ function ensureMeansMetric(label, snapshot, onToggle) {
         Math.round(snapshot.cycle100Anchor || 0),
         Math.round(snapshot.remainingPlannedSpending || 0),
         Math.round(snapshot.wallBill || 0),
+        snapshot.upcomingCycleStartDate || "",
+        snapshot.upcomingCycleEndDate || "",
+        Math.round(snapshot.lowestExpectedIncome || 0),
+        Math.round(snapshot.upcomingProjectedResources || 0),
+        Math.round(snapshot.upcomingCycleRequirement || 0),
+        Math.round(snapshot.upcomingDebtRequirement || 0),
+        Math.round(snapshot.upcomingMoneyScheduleRequirement || 0),
+        Math.round(snapshot.upcomingCalendarEventRequirement || 0),
+        snapshot.upcomingCoverageScore ?? "",
+        Math.round(snapshot.upcomingShortfall || 0),
+        Math.round(snapshot.upcomingSurplus || 0),
+        snapshot.meansScoreLimitingWindow || "",
         expanded ? 1 : 0,
       ].join(":")
     : `waiting:${expanded ? 1 : 0}`;
@@ -464,6 +523,7 @@ function installClaraOrbGreeting() {
   window.addEventListener(DEBT_OBLIGATIONS_UPDATED_EVENT, handleFinanceRefresh);
   window.addEventListener(CLARA_MONEY_ROUTINE_UPDATED_EVENT, handleFinanceRefresh);
   window.addEventListener(CLARA_MONEY_SCHEDULE_UPDATED_EVENT, handleFinanceRefresh);
+  window.addEventListener(CALENDAR_UPDATED_EVENT, handleFinanceRefresh);
   window.addEventListener("clara:means-assumed-spent-reset", handleFinanceRefresh);
   window.addEventListener("clara:schedule:create-event", handleFinanceRefresh);
   queueSync();
@@ -477,6 +537,7 @@ function installClaraOrbGreeting() {
       window.removeEventListener(DEBT_OBLIGATIONS_UPDATED_EVENT, handleFinanceRefresh);
       window.removeEventListener(CLARA_MONEY_ROUTINE_UPDATED_EVENT, handleFinanceRefresh);
       window.removeEventListener(CLARA_MONEY_SCHEDULE_UPDATED_EVENT, handleFinanceRefresh);
+      window.removeEventListener(CALENDAR_UPDATED_EVENT, handleFinanceRefresh);
       window.removeEventListener("clara:means-assumed-spent-reset", handleFinanceRefresh);
       window.removeEventListener("clara:schedule:create-event", handleFinanceRefresh);
       clearGreetingPresentation(activeLabel);
