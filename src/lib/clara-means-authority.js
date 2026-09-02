@@ -44,6 +44,11 @@ import {
   isActiveWalletForMoneySemantics,
   isMoneyLentWallet,
 } from "@/lib/clara-wallet-money-semantics";
+import {
+  buildDeterministicMeansScheduleEventDateIndex,
+  deriveDeterministicLegacyMeansRequirementIdentity,
+  getExplicitMeansRequirementKey,
+} from "@/lib/clara-means-requirement-identity";
 import { getWalletBalance } from "@/utils/financialEngine";
 
 const INCOME_HUB_CASH_IN_TYPE = "add_money";
@@ -568,17 +573,6 @@ function actualSpentForDisplay(expenses = [], cycleStart, today) {
   }, 0);
 }
 
-function explicitRequirementKey(record = {}) {
-  return clean(
-    record?.meansRequirementKey ||
-      record?.means_requirement_key ||
-      record?.plannedRequirementKey ||
-      record?.planned_requirement_key ||
-      record?.requirementKey ||
-      record?.requirement_key
-  );
-}
-
 function transactionDate(transaction = {}) {
   return financialDateKey(
     transaction?.transaction_date ||
@@ -593,7 +587,8 @@ function buildExplicitExpenseFulfillmentMap(
   expenses = [],
   walletTransactions = [],
   cycleStart = "",
-  cycleEnd = ""
+  cycleEnd = "",
+  { scheduleEventDates = new Map() } = {}
 ) {
   const expenseById = new Map(
     (Array.isArray(expenses) ? expenses : [])
@@ -610,8 +605,23 @@ function buildExplicitExpenseFulfillmentMap(
     if (!expenseId || seenExpenseIds.has(expenseId)) return;
     const expense = expenseById.get(expenseId);
     if (!expense) return;
-    const requirementKey = explicitRequirementKey(expense) || explicitRequirementKey(transaction);
+
+    const explicitExpenseKey = getExplicitMeansRequirementKey(expense);
+    const explicitTransactionKey = getExplicitMeansRequirementKey(transaction);
+    const legacyExpenseIdentity = explicitExpenseKey || explicitTransactionKey
+      ? null
+      : deriveDeterministicLegacyMeansRequirementIdentity(expense, { scheduleEventDates });
+    const legacyTransactionIdentity = explicitExpenseKey || explicitTransactionKey || legacyExpenseIdentity?.key
+      ? null
+      : deriveDeterministicLegacyMeansRequirementIdentity(transaction, { scheduleEventDates });
+    const requirementKey =
+      explicitExpenseKey ||
+      explicitTransactionKey ||
+      legacyExpenseIdentity?.key ||
+      legacyTransactionIdentity?.key ||
+      "";
     if (!requirementKey) return;
+
     const date = transactionDate(transaction) || expenseDate(expense);
     if (!date || date < cycleStart || date >= cycleEnd) return;
     const amount = Math.abs(signed(transaction?.amount));
@@ -664,11 +674,15 @@ export async function buildCanonicalMeansSnapshot({ profile = {}, now = new Date
   const today = financialDateKey(now);
   const cycleStartDate = payCycle.start;
   const cycleEndDate = payCycle.end;
+  const { byId: scheduleEventDates } = buildDeterministicMeansScheduleEventDateIndex(
+    readScheduleEvents(owner)
+  );
   const explicitFulfillment = buildExplicitExpenseFulfillmentMap(
     expenses,
     walletTransactions,
     cycleStartDate,
-    cycleEndDate
+    cycleEndDate,
+    { scheduleEventDates }
   );
   const moneyScheduleOccurrences = applyExplicitScheduleFulfillment(
     buildMeansMoneyScheduleOccurrences(owner, cycleStartDate, cycleEndDate),
