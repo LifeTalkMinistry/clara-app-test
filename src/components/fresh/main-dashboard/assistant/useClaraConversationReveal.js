@@ -4,6 +4,38 @@ function clamp(value, minimum, maximum) {
   return Math.min(Math.max(value, minimum), maximum);
 }
 
+function measurableRect(element) {
+  if (!(element instanceof HTMLElement)) return null;
+  const ownRect = element.getBoundingClientRect();
+  if (ownRect.height > 0 || ownRect.width > 0) return ownRect;
+
+  const descendants = Array.from(element.querySelectorAll("*"));
+  let top = Number.POSITIVE_INFINITY;
+  let right = Number.NEGATIVE_INFINITY;
+  let bottom = Number.NEGATIVE_INFINITY;
+  let left = Number.POSITIVE_INFINITY;
+
+  descendants.forEach((child) => {
+    if (!(child instanceof HTMLElement)) return;
+    const rect = child.getBoundingClientRect();
+    if (!(rect.height > 0 || rect.width > 0)) return;
+    top = Math.min(top, rect.top);
+    right = Math.max(right, rect.right);
+    bottom = Math.max(bottom, rect.bottom);
+    left = Math.min(left, rect.left);
+  });
+
+  if (!Number.isFinite(top) || !Number.isFinite(bottom)) return ownRect;
+  return {
+    top,
+    right,
+    bottom,
+    left,
+    width: Math.max(0, right - left),
+    height: Math.max(0, bottom - top),
+  };
+}
+
 /**
  * Canonical CLARA conversation viewport authority.
  *
@@ -38,8 +70,10 @@ export default function useClaraConversationReveal({
       if (requireAction && !(action instanceof HTMLElement)) return;
 
       const viewportRect = viewport.getBoundingClientRect();
-      const assistantRect = assistant.getBoundingClientRect();
-      const actionRect = action instanceof HTMLElement ? action.getBoundingClientRect() : null;
+      const assistantRect = measurableRect(assistant);
+      const actionRect = action instanceof HTMLElement ? measurableRect(action) : null;
+      if (!assistantRect) return;
+      if (requireAction && !actionRect) return;
 
       const regionTop = Math.min(assistantRect.top, actionRect?.top ?? assistantRect.top);
       const regionBottom = Math.max(assistantRect.bottom, actionRect?.bottom ?? assistantRect.bottom);
