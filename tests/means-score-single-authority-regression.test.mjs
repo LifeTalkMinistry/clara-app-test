@@ -18,10 +18,13 @@ test("financial-day authority is pinned to Asia/Manila", () => {
   assert.equal(financialWeekdayIndex("2026-08-30"), 0);
 });
 
-test("ORB runtime delegates Means math to the canonical authority", async () => {
+test("ORB runtime delegates Means math to the rolling canonical authority", async () => {
   const runtime = await source("../src/runtime/installClaraOrbGreeting.js");
+  const rolling = await source("../src/lib/clara-means-rolling-authority.js");
 
-  assert.match(runtime, /buildCanonicalMeansSnapshot/);
+  assert.match(runtime, /buildRollingMeansSnapshot/);
+  assert.match(rolling, /buildCanonicalMeansSnapshot/);
+  assert.match(rolling, /selectConservativeMeansScore/);
   assert.doesNotMatch(runtime, /resolveLockedMeansCycleBaseline/);
   assert.doesNotMatch(runtime, /resolveMeansCycleBaselineState/);
   assert.doesNotMatch(runtime, /plannedDebtPaidInsideCycle/);
@@ -70,5 +73,6 @@ test("Money Schedule and finance updates refresh the canonical snapshot without 
   assert.match(runtime, /CLARA_MONEY_ROUTINE_UPDATED_EVENT/);
   assert.match(runtime, /CLARA_MONEY_SCHEDULE_UPDATED_EVENT/);
   assert.match(runtime, /FINANCE_DATA_UPDATED_EVENT/);
+  assert.match(runtime, /CALENDAR_UPDATED_EVENT/);
   assert.doesNotMatch(runtime, /setInterval\([^)]*refreshMeans/);
 });
