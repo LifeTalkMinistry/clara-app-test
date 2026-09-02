@@ -225,7 +225,12 @@ function Review({ review, loading, error, busy, onRetry, onComplete }) {
   }
 
   const means = review.means;
-  const scoreAvailable = Number.isFinite(Number(means?.meansScore));
+  const rawMeansScore = means?.meansScore;
+  const scoreAvailable =
+    rawMeansScore !== null &&
+    rawMeansScore !== undefined &&
+    rawMeansScore !== "" &&
+    Number.isFinite(Number(rawMeansScore));
 
   return (
     <div className="h-full overflow-y-auto px-4 pb-[max(env(safe-area-inset-bottom),22px)] pt-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -271,7 +276,7 @@ function Review({ review, loading, error, busy, onRetry, onComplete }) {
         </div>
         {scoreAvailable ? (
           <>
-            <p className="mt-3 text-[38px] font-black leading-none tracking-[-0.055em]">{Number(means.meansScore).toFixed(0)}</p>
+            <p className="mt-3 text-[38px] font-black leading-none tracking-[-0.055em]">{Number(rawMeansScore).toFixed(0)}</p>
             <p className="mt-2 text-[11px] font-semibold text-white/48">Means Score · Cycle 100 Anchor {money(means.cycle100Anchor)}</p>
             <p className="mt-1 text-[11px] font-semibold text-white/48">Real room / Wall Bill: {money(means.wallBill)}</p>
           </>
@@ -555,12 +560,7 @@ export default function ClaraFinancialContextSetupCoordinator({
           routine,
           obligations: safeObligations,
           debtSummary,
-          means: canonicalMeans || {
-            meansScore: null,
-            cycle100Anchor: 0,
-            anchorState: "no_anchor",
-            wallBill: walletState.availableNow,
-          },
+          means: canonicalMeans || null,
         });
       } catch (nextError) {
         if (!cancelled) {
