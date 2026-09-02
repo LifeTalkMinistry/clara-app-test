@@ -613,7 +613,7 @@ export default function ClaraAddIncomeOverlayV2({
         [
           `${saved.name} is now set up as your income source.`,
           firstMasterMessage,
-          "Would you like to add money now, create another income source, or are you done?",
+          "Would you like to add money now, create a Wallet, create another income source, or are you done?",
         ],
         "source-created-choice",
         { skipInitialDelay: true }
@@ -756,7 +756,7 @@ export default function ClaraAddIncomeOverlayV2({
     runAssistantSequence(
       [
         `${currentMasterSource.name} will remain your Master Pay Cycle.`,
-        "Would you like to add money now, create another income source, or are you done?",
+        "Would you like to add money now, create a Wallet, create another income source, or are you done?",
       ],
       "source-created-choice"
     );
@@ -796,7 +796,7 @@ export default function ClaraAddIncomeOverlayV2({
         [
           `${selectedSource.name} is now your Master Pay Cycle.`,
           "CLARA will use this pay schedule as the active financial timeframe.",
-          "Would you like to add money now, create another income source, or are you done?",
+          "Would you like to add money now, create a Wallet, create another income source, or are you done?",
         ],
         "source-created-choice",
         { skipInitialDelay: true }
@@ -814,6 +814,29 @@ export default function ClaraAddIncomeOverlayV2({
     setError("");
     append(chatMessage("user", "Add money now"));
     runAssistantSequence(["How much money came in?"], "amount");
+  };
+
+  const createStandaloneWalletAfterSourceCreation = () => {
+    if (!interactionReady) return;
+    setError("");
+    append(chatMessage("user", "Create a Wallet"));
+
+    if (typeof onOpenWalletChat === "function") {
+      cancelConversationPacing();
+      onOpenWalletChat({
+        intent: "create",
+        sourceId: selectedSource?.id || "",
+        sourceName: selectedSource?.name || "",
+        amount: 0,
+        standalone: true,
+      });
+      return;
+    }
+
+    runAssistantSequence(
+      ["Wallet chat is unavailable right now. You can create a Wallet later from Wallet."],
+      "source-created-choice"
+    );
   };
 
   const beginAddMoney = () => {
@@ -1234,6 +1257,7 @@ export default function ClaraAddIncomeOverlayV2({
             {phase === "source-created-choice" && controlsReady ? (
               <div className="mt-1 grid gap-2.5" data-clara-income-source-created-choice="true">
                 <ChoiceButton onClick={addMoneyAfterSourceCreation}>Add money now</ChoiceButton>
+                <ChoiceButton onClick={createStandaloneWalletAfterSourceCreation} secondary>Create a Wallet</ChoiceButton>
                 <ChoiceButton onClick={beginCreateAnotherSource} secondary>Create another income source</ChoiceButton>
                 <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
               </div>
