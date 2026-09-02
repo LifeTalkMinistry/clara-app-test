@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, X } from "lucide-react";
 import useClaraBuyCheckFlow from "@/components/fresh/main-dashboard/assistant/useClaraBuyCheckFlow";
+import useClaraConversationReveal from "./useClaraConversationReveal";
 import {
   getClaraReadDelay,
   getClaraReplyDelay,
@@ -599,6 +600,7 @@ export default function ClaraAiEnvironmentOverlay({
   const previousAcknowledgmentIndexRef = useRef(-1);
   const acknowledgmentSessionRef = useRef({ active: false, sessionId: "", index: -1, message: "" });
   const previousActiveRef = useRef(false);
+  const viewportRef = useRef(null);
   const resultFocusRef = useRef(null);
   const readTimerRef = useRef(null);
   const [entryReady, setEntryReady] = useState(false);
@@ -682,11 +684,22 @@ export default function ClaraAiEnvironmentOverlay({
     if (!isActive || !resultMode || !finalDecisionLocksConversation || pacingLocked) return undefined;
     const activeElement = document.activeElement;
     if (activeElement instanceof HTMLElement) activeElement.blur();
-    const frame = window.requestAnimationFrame(() => {
-      resultFocusRef.current?.scrollIntoView?.({ behavior: "auto", block: "start" });
-    });
-    return () => window.cancelAnimationFrame(frame);
+    return undefined;
   }, [finalDecision?.phase, finalDecisionLocksConversation, isActive, pacingLocked, resultMode]);
+
+  const resultRevealKey = isActive && resultMode && finalDecisionLocksConversation && !pacingLocked
+    ? `buy-check-result:${sessionId}:${finalDecision?.phase || "result"}`
+    : null;
+
+  useClaraConversationReveal({
+    viewportRef,
+    assistantRef: resultFocusRef,
+    actionRef: resultFocusRef,
+    revealKey: resultRevealKey,
+    enabled: isActive,
+    requireAction: true,
+    behavior: "auto",
+  });
 
   useEffect(
     () => () => {
@@ -726,6 +739,7 @@ export default function ClaraAiEnvironmentOverlay({
       data-clara-buy-check-react-owner="true"
       data-clara-buy-check-result-mode={resultMode ? "true" : "false"}
       data-clara-conversation-pacing={pacingEnabled ? "masterclass" : "preview"}
+      data-clara-conversation-reveal-owner="semantic"
     >
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_5%_4%,rgba(23,105,255,0.30),transparent_34%),radial-gradient(circle_at_52%_-8%,rgba(255,216,74,0.07),transparent_24%),radial-gradient(circle_at_96%_8%,rgba(229,57,69,0.18),transparent_34%),linear-gradient(180deg,#06152e_0%,#040b1a_44%,#020714_100%)]" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-[54%] bg-[linear-gradient(180deg,rgba(2,7,20,0)_0%,rgba(2,7,20,0.72)_22%,rgba(2,7,20,0.96)_100%)]" />
@@ -733,6 +747,7 @@ export default function ClaraAiEnvironmentOverlay({
       <BuyCheckHeader onClose={onClose} />
 
       <main
+        ref={viewportRef}
         data-clara-ai-message-viewport="true"
         className="relative z-10 min-h-0 flex-1 overflow-y-auto px-0 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
