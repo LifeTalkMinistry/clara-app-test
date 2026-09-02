@@ -1,0 +1,272 @@
+/*
+ * CLARA Financial Context Setup — official brand pass
+ * Visual-only layer. Setup logic and financial behavior remain untouched.
+ */
+
+[data-clara-financial-context-setup="true"] {
+  --clara-brand-blue: #4d8cff;
+  --clara-brand-blue-strong: #1769ff;
+  --clara-brand-gold: #ffd42f;
+  --clara-brand-red: #ff4d55;
+  --clara-brand-navy: #020712;
+  isolation: isolate;
+  background: var(--clara-brand-navy) !important;
+}
+
+/* Calm navy base with restrained Philippine-inspired blue / red / gold light. */
+[data-clara-financial-context-setup="true"] > div:first-child {
+  background:
+    radial-gradient(circle at 10% 4%, rgba(77, 140, 255, 0.3), transparent 34%),
+    radial-gradient(circle at 93% 9%, rgba(255, 77, 85, 0.12), transparent 28%),
+    radial-gradient(circle at 12% 96%, rgba(255, 212, 47, 0.05), transparent 28%),
+    linear-gradient(180deg, #071329 0%, #030918 55%, #01040b 100%) !important;
+}
+
+[data-clara-financial-context-setup="true"] header {
+  position: relative;
+}
+
+[data-clara-financial-context-setup="true"] header::after {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 0;
+  height: 1px;
+  opacity: 0.7;
+  background: linear-gradient(
+    90deg,
+    rgba(77, 140, 255, 0.88) 0 40%,
+    rgba(255, 212, 47, 0.82) 40% 60%,
+    rgba(255, 77, 85, 0.82) 60% 100%
+  );
+}
+
+/* Turn the generic CLARA setup label into the official CL / A / RA color sequence. */
+[data-clara-financial-context-setup="true"] header > div:first-child > div:first-child > p:first-child {
+  font-size: 0 !important;
+  line-height: 1 !important;
+}
+
+[data-clara-financial-context-setup="true"] header > div:first-child > div:first-child > p:first-child::before {
+  content: "CLARA";
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  background: linear-gradient(
+    90deg,
+    var(--clara-brand-blue) 0 40%,
+    var(--clara-brand-gold) 40% 60%,
+    var(--clara-brand-red) 60% 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+[data-clara-financial-context-setup="true"] header > div:first-child > div:first-child > p:first-child::after {
+  content: "  SETUP";
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  color: rgba(255, 255, 255, 0.44);
+}
+
+[data-clara-financial-context-setup="true"] header > div:first-child > span:last-child {
+  border-color: rgba(77, 140, 255, 0.24) !important;
+  background: rgba(77, 140, 255, 0.07) !important;
+  color: rgba(255, 255, 255, 0.66) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+/* Replace the old cyan setup language with official CLARA blue / gold. */
+[data-clara-financial-context-setup="true"] [class*="2be1d8"] {
+  background-color: var(--clara-brand-blue) !important;
+  border-color: var(--clara-brand-blue) !important;
+}
+
+[data-clara-financial-context-setup="true"] [class*="text-cyan"] {
+  color: rgba(255, 212, 47, 0.82) !important;
+}
+
+[data-clara-financial-context-setup="true"] [class*="border-cyan"] {
+  border-color: rgba(77, 140, 255, 0.22) !important;
+}
+
+[data-clara-financial-context-setup="true"] [class*="bg-cyan"] {
+  background-color: rgba(77, 140, 255, 0.08) !important;
+}
+
+/* Intro card: premium navy glass, no generic cyan-purple panel. */
+[data-clara-financial-context-step="intro"] > header + div > div {
+  padding-left: 18px !important;
+  padding-right: 18px !important;
+}
+
+[data-clara-financial-context-step="intro"] > header + div > div > section {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(77, 140, 255, 0.24) !important;
+  background:
+    radial-gradient(circle at 8% 4%, rgba(77, 140, 255, 0.14), transparent 34%),
+    radial-gradient(circle at 98% 96%, rgba(255, 77, 85, 0.055), transparent 34%),
+    linear-gradient(145deg, rgba(7, 20, 43, 0.96), rgba(3, 9, 23, 0.98)) !important;
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.44),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+}
+
+[data-clara-financial-context-step="intro"] > header + div > div > section::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  opacity: 0.88;
+  background: linear-gradient(
+    90deg,
+    var(--clara-brand-blue) 0 40%,
+    var(--clara-brand-gold) 40% 60%,
+    var(--clara-brand-red) 60% 100%
+  );
+}
+
+/* Rebuild the generic money icon into a compact CLARA pause/chat mark. */
+[data-clara-financial-context-step="intro"] > header + div > div > section > div:first-child {
+  position: relative;
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 16px !important;
+  border-color: rgba(77, 140, 255, 0.2) !important;
+  background: rgba(2, 10, 24, 0.52) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 12px 26px rgba(0, 0, 0, 0.18);
+}
+
+[data-clara-financial-context-step="intro"] > header + div > div > section > div:first-child > svg {
+  display: none !important;
+}
+
+[data-clara-financial-context-step="intro"] > header + div > div > section > div:first-child::before {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border-radius: 999px;
+  background: conic-gradient(
+    from 28deg,
+    var(--clara-brand-red) 0deg 48deg,
+    transparent 48deg 63deg,
+    var(--clara-brand-blue) 63deg 360deg
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
+  filter: drop-shadow(0 0 8px rgba(77, 140, 255, 0.18));
+}
+
+[data-clara-financial-context-step="intro"] > header + div > div > section > div:first-child::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--clara-brand-gold);
+  box-shadow: 8px 0 0 var(--clara-brand-gold);
+  transform: translate(-6px, -7px);
+  filter: drop-shadow(0 0 5px rgba(255, 212, 47, 0.24));
+}
+
+[data-clara-financial-context-step="intro"] > header + div > div > section > p:first-of-type {
+  color: rgba(255, 212, 47, 0.72) !important;
+}
+
+[data-clara-financial-context-step="intro"] > header + div > div > section > h2 {
+  color: rgba(255, 255, 255, 0.96) !important;
+  text-wrap: balance;
+}
+
+[data-clara-financial-context-step="intro"] > header + div > div > section > h2 + p {
+  color: rgba(235, 242, 255, 0.58) !important;
+}
+
+/* Four setup topics follow the same calm CLARA hierarchy: blue, blue, gold, red. */
+[data-clara-financial-context-step="intro"] > header + div > div > section > div:nth-of-type(2) > div {
+  --step-accent: var(--clara-brand-blue);
+  --step-border: rgba(77, 140, 255, 0.12);
+  position: relative;
+  overflow: hidden;
+  border-color: var(--step-border) !important;
+  background: rgba(255, 255, 255, 0.024) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.018);
+}
+
+[data-clara-financial-context-step="intro"] > header + div > div > section > div:nth-of-type(2) > div:nth-child(3) {
+  --step-accent: var(--clara-brand-gold);
+  --step-border: rgba(255, 212, 47, 0.13);
+}
+
+[data-clara-financial-context-step="intro"] > header + div > div > section > div:nth-of-type(2) > div:nth-child(4) {
+  --step-accent: var(--clara-brand-red);
+  --step-border: rgba(255, 77, 85, 0.14);
+}
+
+[data-clara-financial-context-step="intro"] > header + div > div > section > div:nth-of-type(2) > div::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  border-radius: 999px;
+  background: var(--step-accent);
+  opacity: 0.72;
+}
+
+[data-clara-financial-context-step="intro"] > header + div > div > section > div:nth-of-type(2) > div > span:first-child {
+  border: 1px solid var(--step-border);
+  background: rgba(255, 255, 255, 0.03) !important;
+  color: var(--step-accent) !important;
+}
+
+[data-clara-financial-context-step="intro"] > header + div > div > section > div:nth-of-type(2) > div > span:last-child {
+  color: rgba(246, 249, 255, 0.78) !important;
+}
+
+[data-clara-financial-context-step="intro"] > header + div > div > section > div:nth-of-type(2) + p {
+  margin-top: 16px !important;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.055);
+  color: rgba(226, 234, 248, 0.42) !important;
+}
+
+[data-clara-financial-context-step="intro"] > header + div > div > section > button {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, #2874ff 0%, var(--clara-brand-blue-strong) 100%) !important;
+  box-shadow:
+    0 14px 34px rgba(23, 105, 255, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+}
+
+[data-clara-financial-context-step="intro"] > header + div > div > section > button svg {
+  color: var(--clara-brand-gold) !important;
+}
+
+@media (max-height: 760px) {
+  [data-clara-financial-context-step="intro"] > header + div > div > section {
+    padding-top: 20px !important;
+    padding-bottom: 20px !important;
+  }
+
+  [data-clara-financial-context-step="intro"] > header + div > div > section > p:first-of-type {
+    margin-top: 16px !important;
+  }
+
+  [data-clara-financial-context-step="intro"] > header + div > div > section > h2 + p,
+  [data-clara-financial-context-step="intro"] > header + div > div > section > div:nth-of-type(2) {
+    margin-top: 14px !important;
+  }
+}
