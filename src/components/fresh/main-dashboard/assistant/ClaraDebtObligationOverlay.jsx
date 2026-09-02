@@ -181,6 +181,7 @@ function suggestedPayment(record = {}) {
 export default function ClaraDebtObligationOverlay({
   isActive = false,
   claraAssistantContext = {},
+  onSetupResult,
   onClose,
 }) {
   const user = claraAssistantContext?.user || {};
@@ -417,6 +418,15 @@ export default function ClaraDebtObligationOverlay({
     setMessages([]);
     setPhase("opening");
     onClose?.();
+  };
+
+  const completeSetupStep = (outcome) => {
+    if (typeof onSetupResult !== "function") {
+      closeChat();
+      return;
+    }
+    cancelConversationPacing();
+    onSetupResult({ status: "complete", outcome });
   };
 
   const goHome = (userLabel = "Back") => {
@@ -806,7 +816,15 @@ export default function ClaraDebtObligationOverlay({
                 <ChoiceButton onClick={openView}>View obligations</ChoiceButton>
                 <ChoiceButton onClick={openManage} disabled={!records.length}>Edit or delete an obligation</ChoiceButton>
                 <ChoiceButton onClick={openPressure}>Review debt pressure</ChoiceButton>
-                <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
+                {typeof onSetupResult === "function" ? (
+                  records.length ? (
+                    <ChoiceButton onClick={() => completeSetupStep("configured")} secondary>Continue setup</ChoiceButton>
+                  ) : (
+                    <ChoiceButton onClick={() => completeSetupStep("none_confirmed")} secondary>I have no debts or obligations</ChoiceButton>
+                  )
+                ) : (
+                  <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
+                )}
               </div>
             ) : null}
 
