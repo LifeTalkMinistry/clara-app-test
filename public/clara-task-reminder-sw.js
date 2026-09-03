@@ -1,7 +1,8 @@
 const CLARA_APP_BUILD = "__CLARA_APP_BUILD__";
 const CLARA_BUILD_QUERY = "__clara_build";
+const CLARA_UNSTAMPED_BUILD_PREFIX = "__CLARA_";
 const CLARA_APP_BUILD_READY =
-  Boolean(CLARA_APP_BUILD) && !CLARA_APP_BUILD.includes("__CLARA_APP_BUILD__");
+  Boolean(CLARA_APP_BUILD) && !CLARA_APP_BUILD.startsWith(CLARA_UNSTAMPED_BUILD_PREFIX);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
