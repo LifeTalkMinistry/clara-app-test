@@ -38,10 +38,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Verify tutorial ORB ownership and isolation
         run: node --test tests/clara-tutorial-orb-real-surface.test.mjs
