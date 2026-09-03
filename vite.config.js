@@ -5,6 +5,13 @@ import path from "path";
 
 const claraIconSource = path.resolve(__dirname, "./assets/icon.png");
 const claraIconsSource = path.resolve(__dirname, "./icons");
+const claraPwaBuildMarker = "__CLARA_APP_BUILD__";
+const claraReleaseBuildId = String(
+  process.env.VERCEL_GIT_COMMIT_SHA ||
+    process.env.GITHUB_SHA ||
+    process.env.CI_COMMIT_SHA ||
+    ""
+).trim();
 
 const claraWebManifest = JSON.stringify(
   {
@@ -99,6 +106,32 @@ function claraPwaBranding() {
         fs.cpSync(claraIconsSource, path.join(outDir, "icons"), {
           recursive: true,
         });
+      }
+
+      // Vercel builds Vite directly and does not run the GitHub Pages stamping
+      // step. Stamp the copied production service worker in the actual bundle so
+      // the browser never receives the raw __CLARA_APP_BUILD__ placeholder.
+      const serviceWorkerOutput = path.join(outDir, "clara-task-reminder-sw.js");
+      if (claraReleaseBuildId && fs.existsSync(serviceWorkerOutput)) {
+        const source = fs.readFileSync(serviceWorkerOutput, "utf8");
+        if (source.includes(claraPwaBuildMarker)) {
+          fs.writeFileSync(
+            serviceWorkerOutput,
+            source.replaceAll(claraPwaBuildMarker, claraReleaseBuildId),
+            "utf8",
+          );
+        }
+      }
+
+      if (claraReleaseBuildId) {
+        fs.writeFileSync(
+          path.join(outDir, "build-info.json"),
+          `${JSON.stringify({
+            commit: claraReleaseBuildId,
+            builtAt: new Date().toISOString(),
+          })}\n`,
+          "utf8",
+        );
       }
     },
   };
