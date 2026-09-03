@@ -126,6 +126,17 @@ function SetupFrame({ currentStep, children }) {
   );
 }
 
+function SetupOverlayActivationBridge({ children }) {
+  const [overlayActive, setOverlayActive] = useState(false);
+
+  useEffect(() => {
+    const activationTimer = window.setTimeout(() => setOverlayActive(true), 0);
+    return () => window.clearTimeout(activationTimer);
+  }, []);
+
+  return children(overlayActive);
+}
+
 function PausedSetup({ currentStep, onResume }) {
   const labels = {
     income_hub: "Income Hub",
@@ -615,14 +626,18 @@ export default function ClaraFinancialContextSetupCoordinator({
       ) : currentStep === "intro" ? (
         <Intro firstName={firstName} busy={busy} error={error} onContinue={startSetup} />
       ) : currentStep === "income_hub" ? (
-        <ClaraAddIncomeOverlay
-          isActive
-          claraAssistantContext={childContext}
-          resumeState={incomeResume}
-          onOpenWalletChat={openWalletFromIncome}
-          onSetupResult={handleIncomeSetupResult}
-          onClose={interrupt}
-        />
+        <SetupOverlayActivationBridge>
+          {(overlayActive) => (
+            <ClaraAddIncomeOverlay
+              isActive={overlayActive}
+              claraAssistantContext={childContext}
+              resumeState={incomeResume}
+              onOpenWalletChat={openWalletFromIncome}
+              onSetupResult={handleIncomeSetupResult}
+              onClose={interrupt}
+            />
+          )}
+        </SetupOverlayActivationBridge>
       ) : currentStep === "wallet" ? (
         walletStepMode === "checking" ? (
           <div className="flex h-full items-center justify-center px-5 text-center">
@@ -645,27 +660,35 @@ export default function ClaraFinancialContextSetupCoordinator({
           />
         )
       ) : currentStep === "money_schedule" ? (
-        <ClaraMoneyScheduleOverlay
-          isActive
-          claraAssistantContext={childContext}
-          onSetupResult={(result) => {
-            if (result?.status === "complete") {
-              void advance("money_schedule", result?.outcome || "configured");
-            }
-          }}
-          onClose={interrupt}
-        />
+        <SetupOverlayActivationBridge>
+          {(overlayActive) => (
+            <ClaraMoneyScheduleOverlay
+              isActive={overlayActive}
+              claraAssistantContext={childContext}
+              onSetupResult={(result) => {
+                if (result?.status === "complete") {
+                  void advance("money_schedule", result?.outcome || "configured");
+                }
+              }}
+              onClose={interrupt}
+            />
+          )}
+        </SetupOverlayActivationBridge>
       ) : currentStep === "obligations" ? (
-        <ClaraDebtObligationOverlay
-          isActive
-          claraAssistantContext={childContext}
-          onSetupResult={(result) => {
-            if (result?.status === "complete") {
-              void advance("obligations", result?.outcome || "configured");
-            }
-          }}
-          onClose={interrupt}
-        />
+        <SetupOverlayActivationBridge>
+          {(overlayActive) => (
+            <ClaraDebtObligationOverlay
+              isActive={overlayActive}
+              claraAssistantContext={childContext}
+              onSetupResult={(result) => {
+                if (result?.status === "complete") {
+                  void advance("obligations", result?.outcome || "configured");
+                }
+              }}
+              onClose={interrupt}
+            />
+          )}
+        </SetupOverlayActivationBridge>
       ) : currentStep === "review" ? (
         <Review
           review={review}
