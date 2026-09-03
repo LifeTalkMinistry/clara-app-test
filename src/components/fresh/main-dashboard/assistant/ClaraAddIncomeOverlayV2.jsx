@@ -29,6 +29,7 @@ import {
 
 const clean = (value) => String(value ?? "").trim();
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const INCOME_OPEN_TIMEOUT_MS = 5000;
 
 function money(value = 0) {
   const parsed = Number(value);
@@ -219,7 +220,7 @@ export default function ClaraAddIncomeOverlayV2({
   const sequenceRef = useRef([]);
   const sequencePhaseRef = useRef("source");
   const sequenceTokenRef = useRef(0);
-  const previousActiveRef = useRef(false);
+  const openingAttemptRef = useRef(0);
 
   const selectedSource = useMemo(
     () => sources.find((source) => String(source?.id) === String(selectedSourceId)) || null,
@@ -352,6 +353,7 @@ export default function ClaraAddIncomeOverlayV2({
   };
 
   const loadSourcesAndStart = async ({ ignoreResume = false } = {}) => {
+    const openingAttempt = ++openingAttemptRef.current;
     cancelConversationPacing();
     setPhase("loading");
     setSources([]);
@@ -364,8 +366,20 @@ export default function ClaraAddIncomeOverlayV2({
     setMessages([]);
     resetCreateSourceDraft();
 
+    let sourceLoadTimer = 0;
+
     try {
-      const records = await getIncomeSources(localUserId);
+      const records = await Promise.race([
+        getIncomeSources(localUserId),
+        new Promise((_, reject) => {
+          sourceLoadTimer = window.setTimeout(() => {
+            reject(new Error("Income Hub is taking longer than expected."));
+          }, INCOME_OPEN_TIMEOUT_MS);
+        }),
+      ]);
+      if (sourceLoadTimer) window.clearTimeout(sourceLoadTimer);
+      if (openingAttempt !== openingAttemptRef.current) return;
+
       const nextSources = Array.isArray(records) ? records : [];
       setSources(nextSources);
 
@@ -434,6 +448,8 @@ export default function ClaraAddIncomeOverlayV2({
         "income-home"
       );
     } catch (nextError) {
+      if (sourceLoadTimer) window.clearTimeout(sourceLoadTimer);
+      if (openingAttempt !== openingAttemptRef.current) return;
       const message = clean(nextError?.message || "I couldn’t load your Income Hub yet.");
       setError(message);
       runAssistantSequence([message], "error", { skipInitialDelay: true });
@@ -470,25 +486,28 @@ export default function ClaraAddIncomeOverlayV2({
   }, [pendingMessage]);
 
   useEffect(() => {
-    if (isActive && !previousActiveRef.current) loadSourcesAndStart();
-    if (!isActive && previousActiveRef.current) {
-      cancelConversationPacing();
-      setSources([]);
-      setSelectedSourceId("");
-      setAmountInput("");
-      setAmount(0);
-      resetTransferDraft();
-      setMessages([]);
-      setBusy(false);
-      setError("");
-      setPhase("opening");
-      resetCreateSourceDraft();
+    if (isActive) {
+      void loadSourcesAndStart();
+      return;
     }
-    previousActiveRef.current = isActive;
+
+    openingAttemptRef.current += 1;
+    cancelConversationPacing();
+    setSources([]);
+    setSelectedSourceId("");
+    setAmountInput("");
+    setAmount(0);
+    resetTransferDraft();
+    setMessages([]);
+    setBusy(false);
+    setError("");
+    setPhase("opening");
+    resetCreateSourceDraft();
   }, [isActive, localUserId, firstName]);
 
   useEffect(
     () => () => {
+      openingAttemptRef.current += 1;
       sequenceTokenRef.current += 1;
       clearPacingTimers();
     },
@@ -516,12 +535,14 @@ export default function ClaraAddIncomeOverlayV2({
   if (!isActive) return null;
 
   const closeChat = () => {
+    openingAttemptRef.current += 1;
     cancelConversationPacing();
     onClose?.();
   };
 
   const completeSetupStep = () => {
     if (typeof onSetupResult === "function") {
+      openingAttemptRef.current += 1;
       cancelConversationPacing();
       onSetupResult({ status: "complete", outcome: "configured" });
       return;
@@ -1131,6 +1152,19 @@ export default function ClaraAddIncomeOverlayV2({
           ))}
           {pendingMessage ? <Bubble role="assistant" typing>{typedText}</Bubble> : null}
 
+          {(phase === "opening" || phase === "loading") && !messages.length && !pendingMessage ? (
+            <div
+              className="flex min-h-[180px] flex-1 items-center justify-center px-5 text-center"
+              data-clara-income-opening="true"
+              aria-live="polite"
+            >
+              <div>
+                <div className="mx-auto h-8 w-8 animate-spin rounded-full border-[3px] border-white/10 border-t-[#2be1d8]" />
+                <p className="mt-3 text-[12px] font-bold text-white/52">Checking your Income Hub...</p>
+              </div>
+            </div>
+          ) : null}
+
           <div
             ref={actionRef}
             data-clara-conversation-action-region="true"
@@ -1372,8 +1406,15 @@ export default function ClaraAddIncomeOverlayV2({
               </div>
             ) : null}
 
-            {(phase === "no-wallet" || phase === "error") && controlsReady ? (
+            {phase === "no-wallet" && controlsReady ? (
               <div className="mt-1">
+                <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "error" && controlsReady ? (
+              <div className="mt-1 grid grid-cols-2 gap-2.5">
+                <ChoiceButton onClick={restart}>Try again</ChoiceButton>
                 <ChoiceButton onClick={closeChat} secondary>Done</ChoiceButton>
               </div>
             ) : null}
