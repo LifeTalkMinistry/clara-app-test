@@ -117,6 +117,19 @@ test("Income Hub keeps normal ORB close behavior while setup Done reports config
   assert.match(income, /phase === "income-home"[\s\S]*onClick=\{completeSetupStep\}[\s\S]*>Done</);
 });
 
+test("Add Income opening is visible, restartable, and stale-safe instead of rendering a black setup body", async () => {
+  const income = await source(addIncomePath);
+
+  assert.match(income, /INCOME_OPEN_TIMEOUT_MS\s*=\s*5000/);
+  assert.match(income, /const openingAttemptRef = useRef\(0\)/);
+  assert.doesNotMatch(income, /previousActiveRef/);
+  assert.match(income, /Promise\.race\(\[[\s\S]*getIncomeSources\(localUserId\)/);
+  assert.match(income, /openingAttempt !== openingAttemptRef\.current/);
+  assert.match(income, /phase === "opening" \|\| phase === "loading"/);
+  assert.match(income, /Checking your Income Hub\.\.\./);
+  assert.match(income, /phase === "error"[\s\S]*onClick=\{restart\}[\s\S]*>Try again</);
+});
+
 test("Wallet setup accepts an existing active wallet or a newly created zero-capable canonical wallet", async () => {
   const coordinator = await source(coordinatorPath);
   const wallet = await source("../src/components/fresh/main-dashboard/assistant/ClaraWalletOverlayV2.jsx");
