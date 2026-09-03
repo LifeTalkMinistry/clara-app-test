@@ -4,6 +4,10 @@ const SERVICE_WORKER_PATH = `${BASE_URL}clara-task-reminder-sw.js`;
 const BUILD_INFO_PATH = `${BASE_URL}build-info.json`;
 const BUILD_QUERY = "__clara_build";
 const LAST_FORCED_BUILD_KEY = "clara_last_forced_browser_build";
+const PROTECTED_CONVERSATION_SELECTOR = '[data-clara-pause-overlay="true"]';
+
+let deferredBuild = "";
+let deferredRefreshObserver = null;
 
 async function fetchLatestBuildInfo() {
   try {
@@ -24,7 +28,38 @@ async function fetchLatestBuildInfo() {
   }
 }
 
-function forceLatestDocument(build) {
+function hasProtectedConversation() {
+  if (typeof document === "undefined") return false;
+  return Boolean(document.querySelector(PROTECTED_CONVERSATION_SELECTOR));
+}
+
+function stopDeferredRefreshObserver() {
+  deferredRefreshObserver?.disconnect?.();
+  deferredRefreshObserver = null;
+}
+
+function scheduleDeferredDocumentRefresh(build) {
+  deferredBuild = String(build || "").trim();
+  if (!deferredBuild || typeof document === "undefined") return;
+  if (deferredRefreshObserver) return;
+
+  const tryDeferredRefresh = () => {
+    if (!deferredBuild || hasProtectedConversation()) return;
+
+    const nextBuild = deferredBuild;
+    deferredBuild = "";
+    stopDeferredRefreshObserver();
+    forceLatestDocument(nextBuild, { allowDefer: false });
+  };
+
+  deferredRefreshObserver = new MutationObserver(tryDeferredRefresh);
+  deferredRefreshObserver.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
+}
+
+function forceLatestDocument(build, { allowDefer = true } = {}) {
   if (!build || typeof window === "undefined") return false;
 
   try {
@@ -34,10 +69,19 @@ function forceLatestDocument(build) {
 
     if (currentBuild === build) {
       sessionStorage.setItem(LAST_FORCED_BUILD_KEY, build);
+      if (deferredBuild === build) deferredBuild = "";
       return false;
     }
 
     if (lastForcedBuild === build) return false;
+
+    // A release freshness check must never tear down an active CLARA chat.
+    // Defer the document replacement until the overlay leaves the DOM, then
+    // perform the same one-time build refresh immediately after the interaction.
+    if (allowDefer && hasProtectedConversation()) {
+      scheduleDeferredDocumentRefresh(build);
+      return false;
+    }
 
     sessionStorage.setItem(LAST_FORCED_BUILD_KEY, build);
     currentUrl.searchParams.set(BUILD_QUERY, build);
