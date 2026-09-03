@@ -7,6 +7,7 @@ import "../../src/clara-ai-overlay-soft-anchor.css";
 const params = new URLSearchParams(window.location.search);
 const seedExisting = params.get("seed") === "existing";
 const standalone = params.get("mode") === "standalone";
+const enablePwaRuntime = params.get("pwa") === "1";
 
 const user = {
   id: "add-income-regression-user",
@@ -26,7 +27,9 @@ async function resetLocalFinance() {
 }
 
 await resetLocalFinance();
-window.__claraPwaFreshnessRuntime__ = true;
+if (!enablePwaRuntime) {
+  window.__claraPwaFreshnessRuntime__ = true;
+}
 
 const { upsertIncomeSource } = await import("../../src/lib/incomeHubRepository.js");
 const { startFinancialContextSetup } = await import(
@@ -62,6 +65,7 @@ const { default: ClaraAddIncomeOverlayV2 } = await import(
 window.__claraAddIncomeRegression = {
   setupState: incomeSetupState,
   closedStandalone: false,
+  enablePwaRuntime,
 };
 
 function StandaloneHarness() {
