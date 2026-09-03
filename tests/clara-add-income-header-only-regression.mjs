@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chromium } from "playwright";
+import { chromium, devices } from "playwright";
 
 const baseUrl = process.env.CLARA_VISUAL_BASE_URL || "http://127.0.0.1:4173";
 const harnessPath = "/tests/visual/clara-add-income-header-only-regression.html";
@@ -45,8 +45,9 @@ function installVisibleStateObserver(page) {
       const actionVisible = actionRegion
         ? Array.from(actionRegion.children).some((child) => isVisible(child))
         : false;
-      const errorVisible = Array.from(root.querySelectorAll('[role="alert"], [data-clara-conversation-error="true"]'))
-        .some((child) => isVisible(child));
+      const errorVisible = Array.from(
+        root.querySelectorAll('[role="alert"], [data-clara-conversation-error="true"]')
+      ).some((child) => isVisible(child));
 
       const signature = JSON.stringify({ loaderVisible, messageVisible, actionVisible, errorVisible });
       if (signature === state.lastSignature) return;
@@ -197,7 +198,11 @@ try {
     const resumed = await resumeAndAssert(page, "existing-source resume");
     await resumed.locator('[data-clara-income-home="true"]').waitFor({ state: "visible", timeout: 10000 });
     await resumed.getByRole("button", { name: "Done", exact: true }).click();
-    await page.waitForFunction(() => window.__claraAddIncomeRegression?.setupState?.currentStep === "wallet", null, { timeout: 8000 });
+    await page.waitForFunction(
+      () => window.__claraAddIncomeRegression?.setupState?.currentStep === "wallet",
+      null,
+      { timeout: 8000 }
+    );
     assert.equal(
       await page.evaluate(() => window.__claraAddIncomeRegression?.setupState?.currentStep),
       "wallet",
@@ -210,22 +215,71 @@ try {
   {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
     const root = await openSetup(page);
-    await root.locator('[data-clara-conversation-role="assistant"]').first().waitFor({ state: "visible", timeout: 8000 });
+    await root.locator('[data-clara-conversation-role="assistant"]').first().waitFor({
+      state: "visible",
+      timeout: 8000,
+    });
     await root.getByRole("button", { name: "Close Add Income" }).click();
     await resumeAndAssert(page, "close-during-typing resume");
     await page.close();
+  }
+
+  // Chrome DevTools device mode changes more than CSS width: it applies a mobile
+  // user agent, touch capability, device scale factor, and mobile viewport. Run
+  // that real emulation with the PWA freshness runtime enabled so service-worker
+  // activation cannot silently navigate the conversation away.
+  {
+    const context = await browser.newContext({ ...devices["iPhone 12 Pro"] });
+    const page = await context.newPage();
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(String(error?.stack || error)));
+
+    let root = await openSetup(page, "?seed=existing&pwa=1");
+    await page.evaluate(async () => {
+      if ("serviceWorker" in navigator) {
+        await navigator.serviceWorker.ready;
+      }
+    });
+    await page.waitForTimeout(1200);
+
+    assert.equal(
+      page.url().includes("__CLARA_APP_BUILD__"),
+      false,
+      "iPhone emulation: unresolved PWA marker must never be written into the live URL"
+    );
+    await root.locator('[data-clara-income-home="true"]').waitFor({ state: "visible", timeout: 10000 });
+    await assertNoHeaderOnlyState(page, "iPhone PWA runtime home");
+    await assertConversationGeometry(root, "iPhone PWA runtime home");
+
+    await root.getByRole("button", { name: "Close Add Income" }).click();
+    root = await resumeAndAssert(page, "iPhone PWA runtime resume");
+    await root.locator('[data-clara-income-home="true"]').waitFor({ state: "visible", timeout: 10000 });
+    await page.waitForTimeout(600);
+    assert.equal(
+      page.url().includes("__CLARA_APP_BUILD__"),
+      false,
+      "iPhone emulation resume: unresolved PWA marker must never interrupt Add Income"
+    );
+    assert.deepEqual(errors, [], "iPhone PWA runtime: browser errors must stay empty");
+    await context.close();
   }
 
   // Standalone Add Income covers normal ORB ownership outside Financial Context Setup.
   {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     let root = await openSetup(page, "?mode=standalone");
-    await root.locator('[data-clara-conversation-role="assistant"]').first().waitFor({ state: "visible", timeout: 8000 });
+    await root.locator('[data-clara-conversation-role="assistant"]').first().waitFor({
+      state: "visible",
+      timeout: 8000,
+    });
     await assertNoHeaderOnlyState(page, "standalone Add Income initial");
     await root.getByRole("button", { name: "Close Add Income" }).click();
     await page.getByRole("button", { name: "Reopen Add Income" }).click();
     root = page.locator('[data-clara-add-income-chat="true"]');
-    await root.locator('[data-clara-conversation-role="assistant"]').first().waitFor({ state: "visible", timeout: 8000 });
+    await root.locator('[data-clara-conversation-role="assistant"]').first().waitFor({
+      state: "visible",
+      timeout: 8000,
+    });
     await assertNoHeaderOnlyState(page, "standalone Add Income reopen");
     await page.close();
   }
@@ -233,4 +287,6 @@ try {
   await browser.close();
 }
 
-console.log("Verified Add Income never becomes header-only across fresh setup, 5x close/resume, typing interruption, existing source, setup progression, mobile/desktop, and standalone usage.");
+console.log(
+  "Verified Add Income never becomes header-only across fresh setup, 5x close/resume, typing interruption, existing source, setup progression, viewport-only mobile, real iPhone device emulation with PWA runtime, desktop, and standalone usage."
+);

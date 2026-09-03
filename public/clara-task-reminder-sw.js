@@ -1,5 +1,8 @@
 const CLARA_APP_BUILD = "__CLARA_APP_BUILD__";
 const CLARA_BUILD_QUERY = "__clara_build";
+const CLARA_UNSTAMPED_BUILD_PREFIX = "__CLARA_";
+const CLARA_APP_BUILD_READY =
+  Boolean(CLARA_APP_BUILD) && !CLARA_APP_BUILD.startsWith(CLARA_UNSTAMPED_BUILD_PREFIX);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
@@ -9,6 +12,13 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
       await self.clients.claim();
+
+      // Never navigate a live CLARA session with an unresolved release marker.
+      // Vercel previously served the raw placeholder, which could interrupt a
+      // mounted conversation during browser/device-mode refresh and leave only
+      // the Add Income header visible.
+      if (!CLARA_APP_BUILD_READY) return;
+
       const clients = await self.clients.matchAll({
         type: "window",
         includeUncontrolled: true,
