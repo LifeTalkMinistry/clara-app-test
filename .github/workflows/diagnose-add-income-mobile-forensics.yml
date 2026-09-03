@@ -44,8 +44,7 @@ jobs:
         env:
           CLARA_VISUAL_BASE_URL: http://127.0.0.1:4173
         run: node tests/clara-add-income-mobile-first-divergence.mjs
-      - name: Run synchronized desktop/mobile Add Income regression
-        continue-on-error: true
+      - name: Isolate width touch UA DPR
         env:
           CLARA_VISUAL_BASE_URL: http://127.0.0.1:4173
-        run: node tests/clara-add-income-header-only-regression.mjs
+        run: node tests/clara-add-income-mobile-environment-isolation.mjs
