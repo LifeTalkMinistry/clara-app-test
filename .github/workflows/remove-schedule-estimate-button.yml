@@ -1,105 +1,37 @@
-name: Apply Add Income lifecycle repair
+name: Remove schedule estimate button
 on:
   push:
-    branches:
-      - fix/add-income-header-only-20260903
-    paths:
-      - ".github/workflows/remove-schedule-estimate-button.yml"
+    branches: [main]
 permissions:
   contents: write
 jobs:
-  patch:
+  remove:
     if: ${{ github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: fix/add-income-header-only-20260903
-      - name: Patch Add Income state transition
+      - name: Remove button
         run: |
-          python3 - <<'PY'
+          python - <<'PY'
           from pathlib import Path
-
-          path = Path('src/components/fresh/main-dashboard/assistant/ClaraAddIncomeOverlayV2.jsx')
-          text = path.read_text()
-
-          old_show = '''    const show = () => {
-      if (token !== sequenceTokenRef.current) return;
-      setTypedText("");
-      setPendingMessage(chatMessage("assistant", nextText));
-    };'''
-          new_show = '''    const show = () => {
-      if (token !== sequenceTokenRef.current) return;
-      setTypedText("");
-      setPendingMessage(chatMessage("assistant", nextText));
-      setPhase("responding");
-    };'''
-          if old_show in text:
-              text = text.replace(old_show, new_show, 1)
-          elif new_show not in text:
-              raise SystemExit('queueNextAssistantMessage show() target not found')
-
-          old_sequence = '''    sequenceRef.current = replies;
-    sequencePhaseRef.current = nextPhase;
-    setPhase("responding");
-    setInteractionReady(false);'''
-          new_sequence = '''    sequenceRef.current = replies;
-    sequencePhaseRef.current = nextPhase;
-    setInteractionReady(false);'''
-          if old_sequence in text:
-              text = text.replace(old_sequence, new_sequence, 1)
-          elif new_sequence not in text:
-              raise SystemExit('runAssistantSequence target not found')
-
-          const = 'const EMPTY_RESPONDING_RECOVERY_MS = 1000;\n'
-          anchor = 'const INCOME_OPEN_TIMEOUT_MS = 5000;\n'
-          if const not in text:
-              if anchor not in text:
-                  raise SystemExit('opening timeout anchor not found')
-              text = text.replace(anchor, anchor + const, 1)
-
-          guard = '''  useEffect(() => {
-    if (
-      !isActive ||
-      phase !== "responding" ||
-      messages.length !== 0 ||
-      pendingMessage ||
-      busy
-    ) {
-      return undefined;
-    }
-
-    // Secondary invariant guard only: the normal sequence transition enters
-    // responding only when a pending assistant turn is already renderable.
-    const recoveryTimer = window.setTimeout(() => {
-      void loadSourcesAndStart();
-    }, EMPTY_RESPONDING_RECOVERY_MS);
-
-    return () => window.clearTimeout(recoveryTimer);
-  }, [isActive, phase, messages.length, pendingMessage, busy]);
-
-'''
-          cleanup = '''  useEffect(
-    () => () => {
-      openingAttemptRef.current += 1;
-      sequenceTokenRef.current += 1;
-      clearPacingTimers();
-    },
-    []
-  );'''
-          if guard not in text:
-              if cleanup not in text:
-                  raise SystemExit('cleanup effect anchor not found')
-              text = text.replace(cleanup, guard + cleanup, 1)
-
-          path.write_text(text)
+          p = Path('src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardScheduleImpactPortalPanel.jsx')
+          s = p.read_text()
+          s = s.replace('function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClose, onUseEstimate }) {', 'function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClose }) {')
+          s = s.replace('''            {!session.autoClosing && session.total > 0 ? <button type="button" onClick={() => onUseEstimate(session.total)} className="mb-3 w-full rounded-2xl border border-cyan-300/24 bg-cyan-300/[0.10] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.08)]">Use {formatPeso(session.total)} estimate</button> : null}
+''', '')
+          s = s.replace('''
+  const useEstimate = (amount) => {
+    applyEstimateToSchedule(amount);
+    closeImpactChat();
+  };
+''', '\n')
+          s = s.replace(' onUseEstimate={useEstimate}', '')
+          p.write_text(s)
           PY
-      - name: Verify and commit
+      - name: Commit
         run: |
-          git diff --check
-          git diff -- src/components/fresh/main-dashboard/assistant/ClaraAddIncomeOverlayV2.jsx
+          rm -f .github/workflows/remove-schedule-estimate-button.yml .github/workflows/repair-schedule-impact.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/components/fresh/main-dashboard/assistant/ClaraAddIncomeOverlayV2.jsx
-          git diff --cached --quiet || git commit -m "fix: make Add Income reply transition render-safe"
-          git push origin HEAD:fix/add-income-header-only-20260903
+          git add -A
+          git diff --cached --quiet || (git commit -m "Remove manual schedule impact estimate button" && git push)
