@@ -4,10 +4,14 @@ on:
   push:
     branches:
       - fix/add-income-header-only-20260903
+      - fix/mobile-pwa-add-income-20260903
     paths:
       - "src/components/fresh/main-dashboard/assistant/ClaraAddIncomeOverlayV2.jsx"
       - "src/components/fresh/main-dashboard/assistant/ClaraFinancialContextSetupCoordinator.jsx"
       - "src/lib/incomeHubRepository.js"
+      - "src/runtime/installClaraPwaFreshness.js"
+      - "public/clara-task-reminder-sw.js"
+      - "vite.config.js"
       - "tests/clara-add-income-header-only-regression.mjs"
       - "tests/visual/clara-add-income-header-only-regression.html"
       - "tests/visual/clara-add-income-header-only-regression-harness.jsx"
@@ -17,6 +21,9 @@ on:
       - "src/components/fresh/main-dashboard/assistant/ClaraAddIncomeOverlayV2.jsx"
       - "src/components/fresh/main-dashboard/assistant/ClaraFinancialContextSetupCoordinator.jsx"
       - "src/lib/incomeHubRepository.js"
+      - "src/runtime/installClaraPwaFreshness.js"
+      - "public/clara-task-reminder-sw.js"
+      - "vite.config.js"
       - "tests/clara-add-income-header-only-regression.mjs"
       - "tests/visual/clara-add-income-header-only-regression.html"
       - "tests/visual/clara-add-income-header-only-regression-harness.jsx"
@@ -69,9 +76,34 @@ jobs:
           CLARA_VISUAL_BASE_URL: http://127.0.0.1:4173
         run: node tests/clara-add-income-header-only-regression.mjs
 
-      # Compile the actual Vite application here without changing or bypassing
-      # the repository-wide `npm run build` governance gate. That global gate
-      # currently fails on pre-existing legacy-provider references unrelated to
-      # Add Income, while Vercel independently compiles this same application.
+      # Compile the same Vite path Vercel uses and provide the Vercel commit env
+      # explicitly so release-freshness assets are tested as production artifacts.
       - name: Compile production Vite bundle
+        env:
+          VERCEL_GIT_COMMIT_SHA: pwa-regression-build-sha
         run: npx vite build --base=./
+
+      - name: Verify stamped PWA production assets
+        env:
+          EXPECTED_CLARA_BUILD_ID: pwa-regression-build-sha
+        run: |
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const expected = process.env.EXPECTED_CLARA_BUILD_ID;
+          const swPath = "dist/clara-task-reminder-sw.js";
+          const infoPath = "dist/build-info.json";
+          if (!fs.existsSync(swPath)) throw new Error("production service worker is missing");
+          if (!fs.existsSync(infoPath)) throw new Error("production build-info.json is missing");
+          const sw = fs.readFileSync(swPath, "utf8");
+          if (sw.includes("__CLARA_APP_BUILD__")) {
+            throw new Error("production service worker still contains unresolved build marker");
+          }
+          if (!sw.includes(expected)) {
+            throw new Error("production service worker does not contain the expected build id");
+          }
+          const info = JSON.parse(fs.readFileSync(infoPath, "utf8"));
+          if (info.commit !== expected) {
+            throw new Error(`build-info commit mismatch: ${info.commit}`);
+          }
+          console.log(`Verified stamped PWA production assets for ${expected}.`);
+          NODE
