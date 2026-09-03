@@ -1,0 +1,66 @@
+name: Verify Mobile PWA Add Income Repair
+
+on:
+  push:
+    branches:
+      - fix/mobile-pwa-add-income-20260903
+  pull_request:
+    paths:
+      - "public/clara-task-reminder-sw.js"
+      - "vite.config.js"
+      - "tests/clara-add-income-header-only-regression.mjs"
+      - "tests/visual/clara-add-income-header-only-regression-harness.jsx"
+      - ".github/workflows/verify-mobile-pwa-add-income.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      VITE_CLARA_RUNTIME_MODE: local_only
+      VITE_CLARA_AUTH_ENABLED: "false"
+      VITE_CLARA_LOCAL_MODE_ENABLED: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: |
+          npm install --no-save --package-lock=false playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Start Add Income harness
+        run: |
+          npx vite --host 127.0.0.1 --port 4173 > /tmp/clara-add-income-vite.log 2>&1 &
+          for attempt in {1..40}; do
+            if curl --fail --silent http://127.0.0.1:4173/tests/visual/clara-add-income-header-only-regression.html > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/clara-add-income-vite.log
+          exit 1
+      - name: Run mobile/PWA Add Income regression
+        env:
+          CLARA_VISUAL_BASE_URL: http://127.0.0.1:4173
+        run: node tests/clara-add-income-header-only-regression.mjs
+      - name: Compile Vercel-style production bundle
+        env:
+          VERCEL_GIT_COMMIT_SHA: pwa-regression-build-sha
+        run: npx vite build --base=./
+      - name: Verify release freshness artifacts
+        run: |
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const expected = "pwa-regression-build-sha";
+          const sw = fs.readFileSync("dist/clara-task-reminder-sw.js", "utf8");
+          if (sw.includes("__CLARA_APP_BUILD__")) throw new Error("unresolved build marker remains");
+          if (!sw.includes(expected)) throw new Error("stamped service worker build id missing");
+          const info = JSON.parse(fs.readFileSync("dist/build-info.json", "utf8"));
+          if (info.commit !== expected) throw new Error(`build-info mismatch: ${info.commit}`);
+          console.log("Verified Vercel-style PWA freshness artifacts.");
+          NODE
