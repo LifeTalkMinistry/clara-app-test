@@ -92,6 +92,24 @@ function StandaloneHarness() {
   );
 }
 
+function LearningHubOwnershipProbe({ hidden = false }) {
+  return (
+    <div style={hidden ? { display: "none" } : undefined} aria-hidden={hidden ? "true" : undefined}>
+      <section
+        data-clara-learning-hub-section="true"
+        className="w-full bg-[#07142b]"
+      >
+        <div className="h-[180px] w-full">
+          <img
+            alt="Learning Hub regression surface"
+            src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='360' viewBox='0 0 800 360'%3E%3Crect width='800' height='360' fill='%2307142b'/%3E%3C/svg%3E"
+          />
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function SetupHarness() {
   const [state, setState] = useState(incomeSetupState);
   return (
@@ -110,6 +128,10 @@ function SetupHarness() {
           setState(nextState);
         }}
       />
+      {/* Keep a non-layout ownership probe as the third child. The old nth-child(2)
+          selector still collides with SetupFrame, while the semantic selector can
+          be independently verified without changing Add Income geometry. */}
+      <LearningHubOwnershipProbe hidden />
     </div>
   );
 }
@@ -118,17 +140,7 @@ function BillboardHarness() {
   return (
     <div className="clara-community-root min-h-[240px] w-full p-4">
       <style>{".clara-regression-production-order-marker{}"}</style>
-      <section
-        data-clara-learning-hub-section="true"
-        className="w-full bg-[#07142b]"
-      >
-        <div className="h-[180px] w-full">
-          <img
-            alt="Learning Hub regression surface"
-            src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='360' viewBox='0 0 800 360'%3E%3Crect width='800' height='360' fill='%2307142b'/%3E%3C/svg%3E"
-          />
-        </div>
-      </section>
+      <LearningHubOwnershipProbe />
     </div>
   );
 }
