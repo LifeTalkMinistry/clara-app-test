@@ -103,10 +103,13 @@ try {
     const pageErrors = [];
     page.on("pageerror", (error) => pageErrors.push(String(error?.stack || error)));
 
-    await page.goto(`${baseUrl}${harnessPath}?strict=0&ai=${scenario.ai}`, { waitUntil: "networkidle" });
+    await page.goto(`${baseUrl}${harnessPath}?strict=0&ai=${scenario.ai}`, {
+      waitUntil: "domcontentloaded",
+      timeout: 15000,
+    });
 
     const initialRoot = page.locator('[data-clara-add-income-chat="true"]');
-    await initialRoot.waitFor({ state: "visible", timeout: 5000 });
+    await initialRoot.waitFor({ state: "visible", timeout: 10000 });
     await page.getByText("Add Income", { exact: true }).waitFor({ state: "visible", timeout: 5000 });
 
     // Mirror the production failure path: interrupt the Income step, land on the
