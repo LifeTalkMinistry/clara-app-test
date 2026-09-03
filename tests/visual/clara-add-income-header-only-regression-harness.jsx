@@ -29,6 +29,10 @@ await resetLocalFinance();
 window.__claraPwaFreshnessRuntime__ = true;
 
 const { upsertIncomeSource } = await import("../../src/lib/incomeHubRepository.js");
+const { startFinancialContextSetup } = await import(
+  "../../src/lib/financialContextSetupRepository.js"
+);
+
 if (seedExisting) {
   await upsertIncomeSource(user.id, {
     id: "income-source-regression-primary",
@@ -42,6 +46,11 @@ if (seedExisting) {
   });
 }
 
+// The real coordinator persists setup progress before a child step can advance.
+// Seed the same durable income_hub state so the regression tests repository + UI
+// ownership together instead of giving React a state the repository does not know.
+const incomeSetupState = await startFinancialContextSetup(user.id);
+
 await import("../../src/runtime/installClaraOrbGreeting.js");
 const { default: ClaraFinancialContextSetupCoordinator } = await import(
   "../../src/components/fresh/main-dashboard/assistant/ClaraFinancialContextSetupCoordinator.jsx"
@@ -49,20 +58,6 @@ const { default: ClaraFinancialContextSetupCoordinator } = await import(
 const { default: ClaraAddIncomeOverlayV2 } = await import(
   "../../src/components/fresh/main-dashboard/assistant/ClaraAddIncomeOverlayV2.jsx"
 );
-
-const incomeSetupState = {
-  version: 1,
-  status: "in_progress",
-  currentStep: "income_hub",
-  outcomes: {
-    incomeHub: null,
-    wallet: null,
-    moneySchedule: null,
-    obligations: null,
-  },
-  completedAt: null,
-  migration: { reason: null },
-};
 
 window.__claraAddIncomeRegression = {
   setupState: incomeSetupState,
