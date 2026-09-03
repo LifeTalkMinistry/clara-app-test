@@ -4,6 +4,13 @@ const SERVICE_WORKER_PATH = `${BASE_URL}clara-task-reminder-sw.js`;
 const BUILD_INFO_PATH = `${BASE_URL}build-info.json`;
 const BUILD_QUERY = "__clara_build";
 const LAST_FORCED_BUILD_KEY = "clara_last_forced_browser_build";
+const PROTECTED_CONVERSATION_SELECTOR = '[data-clara-pause-overlay="true"]';
+const SAFE_REFRESH_SETTLE_MS = 2500;
+
+let deferredBuild = "";
+let deferredRefreshEligibleAt = 0;
+let deferredRefreshObserver = null;
+let deferredRefreshTimer = 0;
 
 async function fetchLatestBuildInfo() {
   try {
@@ -24,7 +31,29 @@ async function fetchLatestBuildInfo() {
   }
 }
 
-function forceLatestDocument(build) {
+function hasProtectedConversation() {
+  if (typeof document === "undefined") return false;
+  return Boolean(document.querySelector(PROTECTED_CONVERSATION_SELECTOR));
+}
+
+function clearDeferredRefreshTimer() {
+  if (deferredRefreshTimer) window.clearTimeout(deferredRefreshTimer);
+  deferredRefreshTimer = 0;
+}
+
+function stopDeferredRefreshObserver() {
+  deferredRefreshObserver?.disconnect?.();
+  deferredRefreshObserver = null;
+}
+
+function clearDeferredRefresh() {
+  deferredBuild = "";
+  deferredRefreshEligibleAt = 0;
+  clearDeferredRefreshTimer();
+  stopDeferredRefreshObserver();
+}
+
+function performLatestDocumentRefresh(build) {
   if (!build || typeof window === "undefined") return false;
 
   try {
@@ -47,6 +76,77 @@ function forceLatestDocument(build) {
   } catch {
     return false;
   }
+}
+
+function armDeferredRefreshTimer(delay) {
+  if (typeof window === "undefined") return;
+  clearDeferredRefreshTimer();
+  deferredRefreshTimer = window.setTimeout(() => {
+    deferredRefreshTimer = 0;
+    tryDeferredDocumentRefresh();
+  }, Math.max(0, delay));
+}
+
+function tryDeferredDocumentRefresh() {
+  if (!deferredBuild || typeof window === "undefined") return false;
+
+  const remainingSettleMs = deferredRefreshEligibleAt - Date.now();
+  if (remainingSettleMs > 0) {
+    armDeferredRefreshTimer(remainingSettleMs);
+    return false;
+  }
+
+  // Never tear down an active CLARA conversation. Once the startup settle
+  // window has elapsed, the mutation observer will retry immediately after the
+  // overlay is removed from the DOM.
+  if (hasProtectedConversation()) return false;
+
+  const nextBuild = deferredBuild;
+  clearDeferredRefresh();
+  return performLatestDocumentRefresh(nextBuild);
+}
+
+function scheduleDeferredDocumentRefresh(build) {
+  const nextBuild = String(build || "").trim();
+  if (!nextBuild || typeof window === "undefined" || typeof document === "undefined") return;
+
+  try {
+    const currentUrl = new URL(window.location.href);
+    const currentBuild = currentUrl.searchParams.get(BUILD_QUERY) || "";
+    const lastForcedBuild = sessionStorage.getItem(LAST_FORCED_BUILD_KEY) || "";
+
+    if (currentBuild === nextBuild) {
+      sessionStorage.setItem(LAST_FORCED_BUILD_KEY, nextBuild);
+      if (deferredBuild === nextBuild) clearDeferredRefresh();
+      return;
+    }
+
+    if (lastForcedBuild === nextBuild) return;
+  } catch {
+    return;
+  }
+
+  // Detection can happen before React finishes mounting the active setup/chat.
+  // Stage every release refresh through a short app-settle window instead of
+  // navigating inline from the build-info response. This gives CLARA time to
+  // establish its interaction ownership before we decide whether refresh is safe.
+  if (deferredBuild !== nextBuild) {
+    deferredBuild = nextBuild;
+    deferredRefreshEligibleAt = Date.now() + SAFE_REFRESH_SETTLE_MS;
+  }
+
+  if (!deferredRefreshObserver) {
+    deferredRefreshObserver = new MutationObserver(() => {
+      tryDeferredDocumentRefresh();
+    });
+    deferredRefreshObserver.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
+  }
+
+  const remainingSettleMs = Math.max(0, deferredRefreshEligibleAt - Date.now());
+  armDeferredRefreshTimer(remainingSettleMs);
 }
 
 async function refreshWorkerRegistration() {
@@ -75,7 +175,7 @@ async function refreshWorkerRegistration() {
 async function refreshBrowserDocument() {
   const latest = await fetchLatestBuildInfo();
   if (!latest?.commit) return;
-  forceLatestDocument(latest.commit);
+  scheduleDeferredDocumentRefresh(latest.commit);
 }
 
 async function checkForFreshBuild() {

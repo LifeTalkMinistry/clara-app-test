@@ -1,48 +1,25 @@
 const CLARA_APP_BUILD = "__CLARA_APP_BUILD__";
-const CLARA_BUILD_QUERY = "__clara_build";
-const CLARA_UNSTAMPED_BUILD_PREFIX = "__CLARA_";
-const CLARA_APP_BUILD_READY =
-  Boolean(CLARA_APP_BUILD) && !CLARA_APP_BUILD.startsWith(CLARA_UNSTAMPED_BUILD_PREFIX);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    (async () => {
-      await self.clients.claim();
-
-      // Never navigate a live CLARA session with an unresolved release marker.
-      // Vercel previously served the raw placeholder, which could interrupt a
-      // mounted conversation during browser/device-mode refresh and leave only
-      // the Add Income header visible.
-      if (!CLARA_APP_BUILD_READY) return;
-
-      const clients = await self.clients.matchAll({
-        type: "window",
-        includeUncontrolled: true,
-      });
-
-      await Promise.all(
-        clients.map(async (client) => {
-          try {
-            const url = new URL(client.url);
-            if (url.searchParams.get(CLARA_BUILD_QUERY) === CLARA_APP_BUILD) return;
-            url.searchParams.set(CLARA_BUILD_QUERY, CLARA_APP_BUILD);
-            await client.navigate(url.href);
-          } catch {
-            // A refresh failure must never block CLARA notification activation.
-          }
-        })
-      );
-    })()
-  );
+  // The notification worker must never navigate an already-open CLARA window
+  // just because a new worker activates. The page freshness runtime owns safe
+  // release refreshes and defers them while a conversation overlay is active.
+  event.waitUntil(self.clients.claim());
 });
 
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") {
     self.skipWaiting();
+  }
+
+  // Keep the stamped build id observable for diagnostics without using worker
+  // activation as a document-navigation authority.
+  if (event.data?.type === "GET_CLARA_APP_BUILD") {
+    event.source?.postMessage?.({ type: "CLARA_APP_BUILD", build: CLARA_APP_BUILD });
   }
 });
 
