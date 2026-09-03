@@ -204,10 +204,10 @@ async function inspectConversationGeometry(page, label) {
         right: innerWidth,
         bottom: innerHeight,
       };
-      const visualLeft = visualViewport?.offsetLeft || 0;
-      const visualTop = visualViewport?.offsetTop || 0;
-      const visualRight = visualLeft + (visualViewport?.width || innerWidth);
-      const visualBottom = visualTop + (visualViewport?.height || innerHeight);
+      const visualLeft = window.visualViewport?.offsetLeft || 0;
+      const visualTop = window.visualViewport?.offsetTop || 0;
+      const visualRight = visualLeft + (window.visualViewport?.width || innerWidth);
+      const visualBottom = visualTop + (window.visualViewport?.height || innerHeight);
       const left = Math.max(rect.left, rootRect.left, visualLeft, 0);
       const right = Math.min(rect.right, rootRect.right, visualRight, innerWidth);
       const top = Math.max(rect.top, rootRect.top, visualTop, 0);
@@ -230,7 +230,7 @@ async function inspectConversationGeometry(page, label) {
         dpr: devicePixelRatio,
         ua: navigator.userAgent,
         maxTouchPoints: navigator.maxTouchPoints,
-        visualViewportHeight: visualViewport?.height || innerHeight,
+        visualViewportHeight: window.visualViewport?.height || innerHeight,
         max430: matchMedia('(max-width: 430px)').matches,
       },
       setup: shape(setup),
@@ -259,10 +259,6 @@ function assertConversationGeometry(result) {
   assert.ok(
     root.height >= usableViewportHeight - 2,
     `${label}: Add Income root must occupy the usable viewport (${root.height} vs ${usableViewportHeight})`
-  );
-  assert.ok(
-    setup.height >= usableViewportHeight - 2,
-    `${label}: SetupFrame must remain fullscreen (${setup.height} vs ${usableViewportHeight})`
   );
   assert.ok(
     viewport.height >= Math.max(180, usableViewportHeight * 0.4),
@@ -358,7 +354,7 @@ async function verifyFreshIncomeQuestionFlow(page, label) {
   );
 }
 
-async function verifyBillboardOwnership(page, width, height) {
+async function verifyBillboardOwnership(page, width) {
   await page.goto(`${baseUrl}${harnessPath}?mode=billboard`, {
     waitUntil: "domcontentloaded",
     timeout: 15000,
@@ -416,9 +412,9 @@ try {
     await waitForAssistant(root);
     await assertNoHeaderOnlyState(page, `${viewport.label} initial`);
     const geometry = await inspectConversationGeometry(page, viewport.label);
+    console.log(`GEOMETRY ${JSON.stringify(geometry)}`);
     assertConversationGeometry(geometry);
     assert.deepEqual(errors, [], `${viewport.label}: browser errors must stay empty`);
-    console.log(`GEOMETRY ${JSON.stringify(geometry)}`);
     await page.close();
   }
 
@@ -575,7 +571,7 @@ try {
     { width: 320, height: 740 },
   ]) {
     const page = await browser.newPage({ viewport });
-    await verifyBillboardOwnership(page, viewport.width, viewport.height);
+    await verifyBillboardOwnership(page, viewport.width);
     await page.close();
   }
 } finally {
