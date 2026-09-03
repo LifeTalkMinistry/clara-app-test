@@ -308,6 +308,7 @@ export default function ClaraAddIncomeOverlayV2({
       if (token !== sequenceTokenRef.current) return;
       setTypedText("");
       setPendingMessage(chatMessage("assistant", nextText));
+      setPhase("responding");
     };
 
     if (skipDelay) show();
@@ -320,7 +321,6 @@ export default function ClaraAddIncomeOverlayV2({
     const token = sequenceTokenRef.current;
     sequenceRef.current = replies;
     sequencePhaseRef.current = nextPhase;
-    setPhase("responding");
     setInteractionReady(false);
     queueNextAssistantMessage(token, options.skipInitialDelay === true);
   };
@@ -1152,7 +1152,7 @@ export default function ClaraAddIncomeOverlayV2({
           ))}
           {pendingMessage ? <Bubble role="assistant" typing>{typedText}</Bubble> : null}
 
-          {(phase === "opening" || phase === "loading") && !messages.length && !pendingMessage ? (
+          {(phase === "opening" || phase === "loading" || phase === "responding") && !messages.length && !pendingMessage ? (
             <div
               className="flex min-h-[180px] flex-1 items-center justify-center px-5 text-center"
               data-clara-income-opening="true"

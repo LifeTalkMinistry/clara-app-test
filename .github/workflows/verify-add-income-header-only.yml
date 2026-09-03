@@ -1,0 +1,77 @@
+name: Verify Add Income Header-Only Regression
+
+on:
+  push:
+    branches:
+      - fix/add-income-header-only-20260903
+    paths:
+      - "src/components/fresh/main-dashboard/assistant/ClaraAddIncomeOverlayV2.jsx"
+      - "src/components/fresh/main-dashboard/assistant/ClaraFinancialContextSetupCoordinator.jsx"
+      - "src/lib/incomeHubRepository.js"
+      - "tests/clara-add-income-header-only-regression.mjs"
+      - "tests/visual/clara-add-income-header-only-regression.html"
+      - "tests/visual/clara-add-income-header-only-regression-harness.jsx"
+      - ".github/workflows/verify-add-income-header-only.yml"
+  pull_request:
+    paths:
+      - "src/components/fresh/main-dashboard/assistant/ClaraAddIncomeOverlayV2.jsx"
+      - "src/components/fresh/main-dashboard/assistant/ClaraFinancialContextSetupCoordinator.jsx"
+      - "src/lib/incomeHubRepository.js"
+      - "tests/clara-add-income-header-only-regression.mjs"
+      - "tests/visual/clara-add-income-header-only-regression.html"
+      - "tests/visual/clara-add-income-header-only-regression-harness.jsx"
+      - ".github/workflows/verify-add-income-header-only.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      VITE_CLARA_RUNTIME_MODE: local_only
+      VITE_CLARA_AUTH_ENABLED: "false"
+      VITE_CLARA_LOCAL_MODE_ENABLED: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Install browser runtime
+        run: |
+          npm install --no-save --package-lock=false playwright@1.54.2
+          npx playwright install --with-deps chromium
+
+      - name: Start real-component harness
+        run: |
+          npx vite --host 127.0.0.1 --port 4173 > /tmp/clara-add-income-vite.log 2>&1 &
+          echo $! > /tmp/clara-add-income-vite.pid
+          for attempt in {1..40}; do
+            if curl --fail --silent http://127.0.0.1:4173/tests/visual/clara-add-income-header-only-regression.html > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/clara-add-income-vite.log
+          exit 1
+
+      - name: Run Add Income browser regression
+        env:
+          CLARA_VISUAL_BASE_URL: http://127.0.0.1:4173
+        run: node tests/clara-add-income-header-only-regression.mjs
+
+      # Compile the actual Vite application here without changing or bypassing
+      # the repository-wide `npm run build` governance gate. That global gate
+      # currently fails on pre-existing legacy-provider references unrelated to
+      # Add Income, while Vercel independently compiles this same application.
+      - name: Compile production Vite bundle
+        run: npx vite build --base=./
