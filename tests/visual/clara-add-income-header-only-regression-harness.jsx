@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import "../../src/index.css";
 import "../../src/messages-back-to-community-label.css";
@@ -144,12 +145,15 @@ function ProductionLayoutHarness({ children }) {
   );
 }
 
-createRoot(document.getElementById("root")).render(
-  standalone ? (
-    <StandaloneHarness />
-  ) : billboardOnly ? (
-    <ProductionLayoutHarness><BillboardHarness /></ProductionLayoutHarness>
-  ) : (
-    <ProductionLayoutHarness><SetupHarness /></ProductionLayoutHarness>
-  )
-);
+const root = createRoot(document.getElementById("root"));
+flushSync(() => {
+  root.render(
+    standalone ? (
+      <StandaloneHarness />
+    ) : billboardOnly ? (
+      <ProductionLayoutHarness><BillboardHarness /></ProductionLayoutHarness>
+    ) : (
+      <ProductionLayoutHarness><SetupHarness /></ProductionLayoutHarness>
+    )
+  );
+});
