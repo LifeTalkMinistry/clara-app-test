@@ -86,6 +86,16 @@ test("coordinator owns successor selection while existing financial children own
   assert.doesNotMatch(coordinator, /upsertIncomeSource|addWallet\(|saveClaraMoneyRoutine|upsertDebtObligation/);
 });
 
+test("setup chat overlays receive an inactive mount before activation so StrictMode cannot cancel their opening conversation", async () => {
+  const coordinator = await source(coordinatorPath);
+
+  assert.match(coordinator, /function SetupOverlayActivationBridge/);
+  assert.match(coordinator, /const \[overlayActive, setOverlayActive\] = useState\(false\)/);
+  assert.match(coordinator, /window\.setTimeout\(\(\) => setOverlayActive\(true\), 0\)/);
+  assert.ok((coordinator.match(/<SetupOverlayActivationBridge>/g) || []).length >= 3);
+  assert.ok((coordinator.match(/isActive=\{overlayActive\}/g) || []).length >= 3);
+});
+
 test("plain child close interrupts setup and successful structured results are the only advancement boundary", async () => {
   const coordinator = await source(coordinatorPath);
 
