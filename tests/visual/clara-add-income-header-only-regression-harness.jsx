@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
 import "../../src/index.css";
+import "../../src/messages-back-to-community-label.css";
+import "../../src/clara-financial-context-official.css";
 import "../../src/clara-universal-background.css";
 import "../../src/clara-ai-overlay-soft-anchor.css";
 
@@ -31,6 +33,9 @@ if (!enablePwaRuntime) {
   window.__claraPwaFreshnessRuntime__ = true;
 }
 
+// Mirror production's global runtime/CSS registry instead of the reduced visual harness.
+await import("../../src/runtime/installClaraRuntimePatches.js");
+
 const { upsertIncomeSource } = await import("../../src/lib/incomeHubRepository.js");
 const { startFinancialContextSetup } = await import(
   "../../src/lib/financialContextSetupRepository.js"
@@ -49,9 +54,6 @@ if (seedExisting) {
   });
 }
 
-// The real coordinator persists setup progress before a child step can advance.
-// Seed the same durable income_hub state so the regression tests repository + UI
-// ownership together instead of giving React a state the repository does not know.
 const incomeSetupState = await startFinancialContextSetup(user.id);
 
 await import("../../src/runtime/installClaraOrbGreeting.js");
@@ -92,7 +94,7 @@ function SetupHarness() {
   const [state, setState] = useState(incomeSetupState);
   return (
     <div
-      className="clara-community-root fixed inset-0 flex h-[100dvh] w-screen flex-col overflow-hidden bg-[#06111f] text-white"
+      className="clara-community-root fixed inset-0 z-[80] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[#06111f] text-white"
       data-community-view="orb"
       data-clara-financial-context-gated="true"
     >
