@@ -163,8 +163,6 @@ try {
     let root = await openSetup(page);
     await assertNoHeaderOnlyState(page, `${viewport.label} initial`);
 
-    // Close before the first paced assistant turn is guaranteed to finish, then
-    // repeat the durable setup resume five times.
     await root.getByRole("button", { name: "Close Add Income" }).click();
     for (let cycle = 1; cycle <= 5; cycle += 1) {
       root = await resumeAndAssert(page, `${viewport.label} close-resume ${cycle}`);
@@ -187,8 +185,6 @@ try {
     await page.close();
   }
 
-  // Existing Income Hub source must recover to its action menu and allow setup
-  // to advance to Wallet using the same production coordinator.
   {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
     const root = await openSetup(page, "?seed=existing");
@@ -211,7 +207,6 @@ try {
     await page.close();
   }
 
-  // Close during an active assistant typing turn, then resume deterministically.
   {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
     const root = await openSetup(page);
@@ -224,47 +219,69 @@ try {
     await page.close();
   }
 
-  // Chrome DevTools device mode changes more than CSS width: it applies a mobile
-  // user agent, touch capability, device scale factor, and mobile viewport. Run
-  // that real emulation with the PWA freshness runtime enabled so service-worker
-  // activation cannot silently navigate the conversation away.
+  // Reproduce the production freshness path instead of merely enabling the PWA
+  // runtime. The old regression got a 404 for build-info.json on the Vite dev
+  // server, so forceLatestDocument() never ran. Here we return a newer build id
+  // while Add Income is visibly active under real iPhone emulation.
   {
+    const forcedBuild = "forced-mobile-regression-build";
     const context = await browser.newContext({ ...devices["iPhone 12 Pro"] });
+    await context.route("**/build-info.json?*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: { "Cache-Control": "no-store" },
+        body: JSON.stringify({ commit: forcedBuild, builtAt: new Date().toISOString() }),
+      });
+    });
+
     const page = await context.newPage();
     const errors = [];
+    let freshnessNavigations = 0;
     page.on("pageerror", (error) => errors.push(String(error?.stack || error)));
-
-    let root = await openSetup(page, "?seed=existing&pwa=1");
-    await page.evaluate(async () => {
-      if ("serviceWorker" in navigator) {
-        await navigator.serviceWorker.ready;
+    page.on("framenavigated", (frame) => {
+      if (frame === page.mainFrame() && frame.url().includes("__clara_fresh=")) {
+        freshnessNavigations += 1;
       }
     });
-    await page.waitForTimeout(1200);
+
+    let root = await openSetup(page, "?seed=existing&pwa=1");
+    await root.locator('[data-clara-income-home="true"]').waitFor({ state: "visible", timeout: 10000 });
+    await page.waitForTimeout(1600);
 
     assert.equal(
-      page.url().includes("__CLARA_APP_BUILD__"),
+      page.url().includes("__clara_fresh="),
       false,
-      "iPhone emulation: unresolved PWA marker must never be written into the live URL"
+      "iPhone production-freshness path: Add Income must not be document-reloaded while active"
     );
-    await root.locator('[data-clara-income-home="true"]').waitFor({ state: "visible", timeout: 10000 });
-    await assertNoHeaderOnlyState(page, "iPhone PWA runtime home");
-    await assertConversationGeometry(root, "iPhone PWA runtime home");
+    assert.equal(
+      freshnessNavigations,
+      0,
+      "iPhone production-freshness path: no forced document navigation may occur while Add Income is active"
+    );
+    await assertNoHeaderOnlyState(page, "iPhone production-freshness active conversation");
+    await assertConversationGeometry(root, "iPhone production-freshness active conversation");
 
+    // Once the conversation closes, the deferred freshness request may safely
+    // refresh the document. This protects user interaction without disabling the
+    // release freshness mechanism.
     await root.getByRole("button", { name: "Close Add Income" }).click();
-    root = await resumeAndAssert(page, "iPhone PWA runtime resume");
-    await root.locator('[data-clara-income-home="true"]').waitFor({ state: "visible", timeout: 10000 });
-    await page.waitForTimeout(600);
-    assert.equal(
-      page.url().includes("__CLARA_APP_BUILD__"),
-      false,
-      "iPhone emulation resume: unresolved PWA marker must never interrupt Add Income"
+    await page.waitForFunction(
+      (build) => {
+        const url = new URL(window.location.href);
+        return url.searchParams.get("__clara_build") === build && url.searchParams.has("__clara_fresh");
+      },
+      forcedBuild,
+      { timeout: 8000 }
     );
-    assert.deepEqual(errors, [], "iPhone PWA runtime: browser errors must stay empty");
+    assert.ok(
+      freshnessNavigations >= 1,
+      "iPhone production-freshness path: deferred refresh should occur after Add Income closes"
+    );
+    assert.deepEqual(errors, [], "iPhone production-freshness path: browser errors must stay empty");
     await context.close();
   }
 
-  // Standalone Add Income covers normal ORB ownership outside Financial Context Setup.
   {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     let root = await openSetup(page, "?mode=standalone");
@@ -288,5 +305,5 @@ try {
 }
 
 console.log(
-  "Verified Add Income never becomes header-only across fresh setup, 5x close/resume, typing interruption, existing source, setup progression, viewport-only mobile, real iPhone device emulation with PWA runtime, desktop, and standalone usage."
+  "Verified Add Income never becomes header-only across fresh setup, 5x close/resume, typing interruption, existing source, setup progression, viewport-only mobile, real iPhone production freshness navigation, desktop, and standalone usage."
 );
