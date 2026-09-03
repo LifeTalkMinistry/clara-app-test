@@ -3,8 +3,7 @@ name: Verify Add Income Header-Only Regression
 on:
   push:
     branches:
-      - fix/add-income-header-only-20260903
-      - fix/mobile-pwa-add-income-20260903
+      - main
     paths:
       - "src/components/fresh/main-dashboard/assistant/ClaraAddIncomeOverlayV2.jsx"
       - "src/components/fresh/main-dashboard/assistant/ClaraFinancialContextSetupCoordinator.jsx"
@@ -100,6 +99,9 @@ jobs:
           }
           if (!sw.includes(expected)) {
             throw new Error("production service worker does not contain the expected build id");
+          }
+          if (!sw.includes('const CLARA_UNSTAMPED_BUILD_PREFIX = "__CLARA_";')) {
+            throw new Error("production service worker lost unresolved-build safety guard");
           }
           const info = JSON.parse(fs.readFileSync(infoPath, "utf8"));
           if (info.commit !== expected) {
