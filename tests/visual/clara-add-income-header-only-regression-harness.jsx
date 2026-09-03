@@ -98,6 +98,8 @@ function SetupHarness() {
       data-community-view="orb"
       data-clara-financial-context-gated="true"
     >
+      {/* Community.jsx emits this style element before the gated route content. */}
+      <style>{".clara-forensic-production-order-marker{}"}</style>
       <ClaraFinancialContextSetupCoordinator
         user={user}
         initialState={state}
@@ -110,6 +112,18 @@ function SetupHarness() {
   );
 }
 
+function ProductionLayoutHarness() {
+  return (
+    <div className="theme-page-shell flex min-h-screen w-full flex-col">
+      <div className="relative flex min-w-0 flex-1 flex-col">
+        <main className="min-h-0 flex-1">
+          <SetupHarness />
+        </main>
+      </div>
+    </div>
+  );
+}
+
 createRoot(document.getElementById("root")).render(
-  standalone ? <StandaloneHarness /> : <SetupHarness />
+  standalone ? <StandaloneHarness /> : <ProductionLayoutHarness />
 );
