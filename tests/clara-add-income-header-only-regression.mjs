@@ -248,12 +248,11 @@ async function inspectConversationGeometry(page, label) {
   }, label);
 }
 
-function assertConversationGeometry(result) {
-  const { label, env, setup, root, viewport, assistant } = result;
+function assertConversationShell(result) {
+  const { label, env, setup, root, viewport } = result;
   assert.ok(setup, `${label}: Financial Context SetupFrame must exist`);
   assert.ok(root, `${label}: Add Income root must exist`);
   assert.ok(viewport, `${label}: conversation viewport must exist`);
-  assert.ok(assistant, `${label}: assistant content must exist`);
 
   const usableViewportHeight = env.visualViewportHeight || env.height;
   assert.ok(
@@ -265,14 +264,20 @@ function assertConversationGeometry(result) {
     `${label}: conversation viewport collapsed to ${viewport.height}px`
   );
   assert.equal(
-    assistant.paintVisible,
-    true,
-    `${label}: assistant content must be paint-visible, not merely present in the DOM`
-  );
-  assert.equal(
     String(setup.contain || "none").includes("paint"),
     false,
     `${label}: Financial Context SetupFrame must not acquire billboard contain: paint`
+  );
+}
+
+function assertConversationGeometry(result) {
+  assertConversationShell(result);
+  const { label, assistant } = result;
+  assert.ok(assistant, `${label}: assistant content must exist`);
+  assert.equal(
+    assistant.paintVisible,
+    true,
+    `${label}: assistant content must be paint-visible, not merely present in the DOM`
   );
 }
 
@@ -342,7 +347,7 @@ async function verifyFreshIncomeQuestionFlow(page, label) {
   });
   await assertNoHeaderOnlyState(page, `${label} completed source questions`);
   const geometry = await inspectConversationGeometry(page, `${label} completed source questions`);
-  assertConversationGeometry(geometry);
+  assertConversationShell(geometry);
   assert.equal(
     geometry.action.paintVisible,
     true,
