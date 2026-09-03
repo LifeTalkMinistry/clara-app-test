@@ -29,9 +29,71 @@ async function diagnosticTrace(page) {
     return {
       timerEvents,
       domEvents,
-      tail: events.slice(-80),
+      tail: events.slice(-120),
     };
   });
+}
+
+async function detectHeaderOnlyGap(page, root, label, cycle) {
+  const opening = root.locator('[data-clara-income-opening="true"]');
+  await opening.waitFor({ state: "visible", timeout: 2500 }).catch(() => {});
+
+  const handle = await page.waitForFunction(
+    () => {
+      const chat = document.querySelector('[data-clara-add-income-chat="true"]');
+      if (!chat) return false;
+
+      const shellRect = chat.getBoundingClientRect();
+      const shellStyle = getComputedStyle(chat);
+      const shellVisible =
+        shellRect.width > 0 &&
+        shellRect.height > 0 &&
+        shellStyle.display !== "none" &&
+        shellStyle.visibility !== "hidden" &&
+        Number.parseFloat(shellStyle.opacity || "1") > 0;
+      if (!shellVisible) return false;
+
+      const openingVisible = Boolean(chat.querySelector('[data-clara-income-opening="true"]'));
+      const stack = chat.querySelector('[data-clara-ai-message-stack="true"]');
+      const stackChildren = stack?.children.length || 0;
+      const actionRegion = chat.querySelector('[data-clara-conversation-action-region="true"]');
+      const visibleActions = actionRegion
+        ? Array.from(actionRegion.children).filter((node) => {
+            const rect = node.getBoundingClientRect();
+            const style = getComputedStyle(node);
+            return (
+              rect.width > 0 &&
+              rect.height > 0 &&
+              style.display !== "none" &&
+              style.visibility !== "hidden" &&
+              Number.parseFloat(style.opacity || "1") > 0
+            );
+          }).length
+        : 0;
+
+      if (!openingVisible && stackChildren === 0 && visibleActions === 0) {
+        return {
+          observedAt: performance.now(),
+          openingVisible,
+          stackChildren,
+          visibleActions,
+          assistantRows: chat.querySelectorAll('[data-clara-conversation-role="assistant"]').length,
+          pendingRows: chat.querySelectorAll('[data-clara-conversation-role="assistant"][data-clara-conversation-pending="true"]').length,
+          shellHeight: shellRect.height,
+        };
+      }
+      return false;
+    },
+    null,
+    { timeout: 2500, polling: 10 }
+  ).catch(() => null);
+
+  if (!handle) return null;
+  const gap = await handle.jsonValue();
+  const trace = await diagnosticTrace(page);
+  const evidence = { label, cycle, gap, trace };
+  console.log(`ADD_INCOME_HEADER_ONLY_PROVEN ${label} cycle=${cycle}\n${JSON.stringify(evidence, null, 2)}`);
+  return evidence;
 }
 
 async function assertResumeCycle(page, label, cycle) {
@@ -42,6 +104,8 @@ async function assertResumeCycle(page, label, cycle) {
   const root = page.locator('[data-clara-add-income-chat="true"]');
   await root.waitFor({ state: "visible", timeout: 5000 });
   await page.getByText("Add Income", { exact: true }).waitFor({ state: "visible", timeout: 5000 });
+
+  const headerOnlyEvidence = await detectHeaderOnlyGap(page, root, label, cycle);
 
   const assistant = root.locator('[data-clara-conversation-role="assistant"]').first();
   try {
@@ -92,7 +156,7 @@ async function assertResumeCycle(page, label, cycle) {
   assert.ok((state.viewportRect?.height || 0) > 0, `${label} cycle ${cycle}: viewport needs non-zero height`);
   assert.ok((state.stackRect?.height || 0) > 0, `${label} cycle ${cycle}: stack needs non-zero height`);
 
-  return { root, state };
+  return { root, state, headerOnlyEvidence };
 }
 
 const browser = await chromium.launch({ headless: true });
@@ -101,6 +165,7 @@ try {
   for (const scenario of scenarios) {
     const page = await browser.newPage({ viewport: scenario.viewport });
     const pageErrors = [];
+    const headerOnlyEvidence = [];
     page.on("pageerror", (error) => pageErrors.push(String(error?.stack || error)));
 
     await page.goto(`${baseUrl}${harnessPath}?strict=0&ai=${scenario.ai}`, {
@@ -118,12 +183,21 @@ try {
     await page.getByRole("button", { name: /Resume setup/i }).waitFor({ state: "visible", timeout: 5000 });
 
     for (let cycle = 1; cycle <= 5; cycle += 1) {
-      const { root } = await assertResumeCycle(page, scenario.label, cycle);
+      const result = await assertResumeCycle(page, scenario.label, cycle);
+      if (result.headerOnlyEvidence) headerOnlyEvidence.push(result.headerOnlyEvidence);
       if (cycle < 5) {
-        await root.getByRole("button", { name: "Close Add Income" }).click();
+        await result.root.getByRole("button", { name: "Close Add Income" }).click();
         await page.getByRole("button", { name: /Resume setup/i }).waitFor({ state: "visible", timeout: 5000 });
       }
     }
+
+    // This diagnostic branch intentionally proves the existing defect before any
+    // production repair: at least one close/resume cycle must expose a visible
+    // Add Income shell with no loader, message, or actionable control.
+    assert.ok(
+      headerOnlyEvidence.length > 0,
+      `${scenario.label}: expected the current production Add Income lifecycle to expose its header-only gap`
+    );
 
     await page.locator('[data-clara-income-source-first-choice="true"]').waitFor({
       state: "visible",
@@ -138,10 +212,9 @@ try {
     const trace = await diagnosticTrace(page);
     fs.writeFileSync(
       path.join(artifactDir, `${scenario.label}-trace.json`),
-      JSON.stringify(trace, null, 2),
+      JSON.stringify({ headerOnlyEvidence, ...trace }, null, 2),
       "utf8"
     );
-    console.log(`ADD_INCOME_TRACE ${scenario.label}\n${JSON.stringify(trace, null, 2)}`);
 
     assert.deepEqual(pageErrors, [], `${scenario.label}: browser page errors must stay empty`);
     await page.close();
@@ -150,4 +223,4 @@ try {
   await browser.close();
 }
 
-console.log("Verified Financial Context Setup Add Income close/resume five times, first assistant visibility, actionable category controls, and message-stack geometry on desktop/mobile with and without the global AI environment class.");
+console.log("Proved the current Financial Context Setup Add Income lifecycle exposes a header-only interval after close/resume; the assistant later recovers when the delayed reply timer fires.");
