@@ -13,6 +13,9 @@ on:
       - "tests/clara-tutorial-orb-visual.mjs"
       - "tests/visual/clara-tutorial-orb.html"
       - "tests/visual/clara-tutorial-orb-harness.jsx"
+      - "tests/clara-financial-context-income-visual.mjs"
+      - "tests/visual/clara-financial-context-income.html"
+      - "tests/visual/clara-financial-context-income-harness.jsx"
       - ".github/workflows/verify-tutorial-real-orb.yml"
   workflow_dispatch:
 
@@ -66,6 +69,11 @@ jobs:
           CLARA_VISUAL_BASE_URL: http://127.0.0.1:4173
         run: node tests/clara-tutorial-orb-visual.mjs
 
+      - name: Diagnose Financial Context Add Income resume lifecycle
+        env:
+          CLARA_VISUAL_BASE_URL: http://127.0.0.1:4173
+        run: node tests/clara-financial-context-income-visual.mjs
+
       - name: Run repository production build gate
         run: npm run build
 
@@ -75,5 +83,14 @@ jobs:
         with:
           name: clara-tutorial-orb-visuals
           path: artifacts/tutorial-orb
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload Add Income diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clara-add-income-resume-diagnostic
+          path: artifacts/add-income-diagnostic
           if-no-files-found: warn
           retention-days: 7
