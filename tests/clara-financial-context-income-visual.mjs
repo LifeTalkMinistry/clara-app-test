@@ -15,9 +15,9 @@ const scenarios = [
 
 fs.mkdirSync(artifactDir, { recursive: true });
 
-async function diagnosticTrace(page) {
-  return page.evaluate(() => {
-    const events = window.__claraAddIncomeDiagnostic?.events || [];
+async function diagnosticTrace(page, afterEvent = 0) {
+  return page.evaluate((start) => {
+    const events = (window.__claraAddIncomeDiagnostic?.events || []).filter((entry) => entry.n > start);
     const timerEvents = events.filter((entry) => {
       const stack = String(entry.stack || "");
       return (
@@ -31,89 +31,73 @@ async function diagnosticTrace(page) {
       domEvents,
       tail: events.slice(-120),
     };
-  });
+  }, afterEvent);
 }
 
-async function detectHeaderOnlyGap(page, root, label, cycle) {
-  const opening = root.locator('[data-clara-income-opening="true"]');
-  await opening.waitFor({ state: "visible", timeout: 2500 }).catch(() => {});
+function findHeaderOnlySnapshot(trace) {
+  return trace.domEvents.find((entry) => (
+    entry.rootPresent === true &&
+    entry.openingPresent === false &&
+    Number(entry.stackChildren || 0) === 0 &&
+    Number(entry.assistantRows || 0) === 0
+  )) || null;
+}
 
-  const handle = await page.waitForFunction(
-    () => {
-      const chat = document.querySelector('[data-clara-add-income-chat="true"]');
-      if (!chat) return false;
-
-      const shellRect = chat.getBoundingClientRect();
-      const shellStyle = getComputedStyle(chat);
-      const shellVisible =
-        shellRect.width > 0 &&
-        shellRect.height > 0 &&
-        shellStyle.display !== "none" &&
-        shellStyle.visibility !== "hidden" &&
-        Number.parseFloat(shellStyle.opacity || "1") > 0;
-      if (!shellVisible) return false;
-
-      const openingVisible = Boolean(chat.querySelector('[data-clara-income-opening="true"]'));
-      const stack = chat.querySelector('[data-clara-ai-message-stack="true"]');
-      const stackChildren = stack?.children.length || 0;
-      const actionRegion = chat.querySelector('[data-clara-conversation-action-region="true"]');
-      const visibleActions = actionRegion
-        ? Array.from(actionRegion.children).filter((node) => {
-            const rect = node.getBoundingClientRect();
-            const style = getComputedStyle(node);
-            return (
-              rect.width > 0 &&
-              rect.height > 0 &&
-              style.display !== "none" &&
-              style.visibility !== "hidden" &&
-              Number.parseFloat(style.opacity || "1") > 0
-            );
-          }).length
-        : 0;
-
-      if (!openingVisible && stackChildren === 0 && visibleActions === 0) {
-        return {
-          observedAt: performance.now(),
-          openingVisible,
-          stackChildren,
-          visibleActions,
-          assistantRows: chat.querySelectorAll('[data-clara-conversation-role="assistant"]').length,
-          pendingRows: chat.querySelectorAll('[data-clara-conversation-role="assistant"][data-clara-conversation-pending="true"]').length,
-          shellHeight: shellRect.height,
-        };
-      }
-      return false;
-    },
-    null,
-    { timeout: 2500, polling: 10 }
-  ).catch(() => null);
-
-  if (!handle) return null;
-  const gap = await handle.jsonValue();
-  const trace = await diagnosticTrace(page);
-  const evidence = { label, cycle, gap, trace };
-  console.log(`ADD_INCOME_HEADER_ONLY_PROVEN ${label} cycle=${cycle}\n${JSON.stringify(evidence, null, 2)}`);
-  return evidence;
+function findReplyTimerEvidence(trace, headerOnlySnapshot) {
+  const scheduled = trace.timerEvents.find((entry) => (
+    entry.type === "timeout-scheduled" &&
+    String(entry.stack || "").includes("queueNextAssistantMessage")
+  )) || null;
+  const fired = scheduled
+    ? trace.timerEvents.find((entry) => entry.type === "timeout-fired" && entry.id === scheduled.id) || null
+    : null;
+  const cleared = scheduled
+    ? trace.timerEvents.find((entry) => entry.type === "timeout-cleared" && entry.id === scheduled.id) || null
+    : null;
+  return {
+    scheduled,
+    fired,
+    cleared,
+    headerOnlyBeforeReplyFired: Boolean(
+      scheduled &&
+      headerOnlySnapshot &&
+      (!fired || Number(headerOnlySnapshot.t) < Number(fired.t))
+    ),
+  };
 }
 
 async function assertResumeCycle(page, label, cycle) {
   const resume = page.getByRole("button", { name: /Resume setup/i });
   await resume.waitFor({ state: "visible", timeout: 5000 });
+  const startEvent = await page.evaluate(() => window.__claraAddIncomeDiagnostic?.counter || 0);
   await resume.click();
 
   const root = page.locator('[data-clara-add-income-chat="true"]');
   await root.waitFor({ state: "visible", timeout: 5000 });
   await page.getByText("Add Income", { exact: true }).waitFor({ state: "visible", timeout: 5000 });
 
-  const headerOnlyEvidence = await detectHeaderOnlyGap(page, root, label, cycle);
-
   const assistant = root.locator('[data-clara-conversation-role="assistant"]').first();
   try {
-    await assistant.waitFor({ state: "visible", timeout: 3500 });
+    await assistant.waitFor({ state: "visible", timeout: 7000 });
   } catch (error) {
-    const trace = await diagnosticTrace(page);
+    const trace = await diagnosticTrace(page, startEvent);
     console.error(`ADD_INCOME_TRACE_FAILURE ${label} cycle=${cycle}\n${JSON.stringify(trace, null, 2)}`);
     throw error;
+  }
+
+  const trace = await diagnosticTrace(page, startEvent);
+  const headerOnlySnapshot = findHeaderOnlySnapshot(trace);
+  const replyTimer = findReplyTimerEvidence(trace, headerOnlySnapshot);
+  const evidence = headerOnlySnapshot ? {
+    label,
+    cycle,
+    headerOnlySnapshot,
+    replyTimer,
+    trace,
+  } : null;
+
+  if (evidence) {
+    console.log(`ADD_INCOME_HEADER_ONLY_PROVEN ${label} cycle=${cycle}\n${JSON.stringify(evidence, null, 2)}`);
   }
 
   const state = await root.evaluate((element) => {
@@ -156,7 +140,7 @@ async function assertResumeCycle(page, label, cycle) {
   assert.ok((state.viewportRect?.height || 0) > 0, `${label} cycle ${cycle}: viewport needs non-zero height`);
   assert.ok((state.stackRect?.height || 0) > 0, `${label} cycle ${cycle}: stack needs non-zero height`);
 
-  return { root, state, headerOnlyEvidence };
+  return { root, state, evidence };
 }
 
 const browser = await chromium.launch({ headless: true });
@@ -184,7 +168,7 @@ try {
 
     for (let cycle = 1; cycle <= 5; cycle += 1) {
       const result = await assertResumeCycle(page, scenario.label, cycle);
-      if (result.headerOnlyEvidence) headerOnlyEvidence.push(result.headerOnlyEvidence);
+      if (result.evidence) headerOnlyEvidence.push(result.evidence);
       if (cycle < 5) {
         await result.root.getByRole("button", { name: "Close Add Income" }).click();
         await page.getByRole("button", { name: /Resume setup/i }).waitFor({ state: "visible", timeout: 5000 });
@@ -192,11 +176,14 @@ try {
     }
 
     // This diagnostic branch intentionally proves the existing defect before any
-    // production repair: at least one close/resume cycle must expose a visible
-    // Add Income shell with no loader, message, or actionable control.
+    // production repair. The inverse becomes the permanent production regression.
     assert.ok(
       headerOnlyEvidence.length > 0,
       `${scenario.label}: expected the current production Add Income lifecycle to expose its header-only gap`
+    );
+    assert.ok(
+      headerOnlyEvidence.some((entry) => entry.replyTimer.headerOnlyBeforeReplyFired),
+      `${scenario.label}: expected a header-only snapshot before the first delayed reply timer fired`
     );
 
     await page.locator('[data-clara-income-source-first-choice="true"]').waitFor({
@@ -209,7 +196,7 @@ try {
       fullPage: true,
     });
 
-    const trace = await diagnosticTrace(page);
+    const trace = await diagnosticTrace(page, 0);
     fs.writeFileSync(
       path.join(artifactDir, `${scenario.label}-trace.json`),
       JSON.stringify({ headerOnlyEvidence, ...trace }, null, 2),
@@ -223,4 +210,4 @@ try {
   await browser.close();
 }
 
-console.log("Proved the current Financial Context Setup Add Income lifecycle exposes a header-only interval after close/resume; the assistant later recovers when the delayed reply timer fires.");
+console.log("Proved the current Financial Context Setup Add Income lifecycle exposes a header-only interval after close/resume before the delayed assistant reply timer fires.");
