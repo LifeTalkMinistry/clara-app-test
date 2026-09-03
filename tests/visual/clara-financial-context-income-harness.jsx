@@ -78,6 +78,11 @@ async function resetLocalFinance() {
 }
 
 await resetLocalFinance();
+
+// The production ORB bootstrap imports the PWA freshness runtime. In this isolated
+// real-component harness, suppress only the document-refresh side effect so the
+// browser can remain on the diagnostic URL. This does not change Add Income code.
+window.__claraPwaFreshnessRuntime__ = true;
 await import("../../src/runtime/installClaraOrbGreeting.js");
 const { default: ClaraFinancialContextSetupCoordinator } = await import(
   "../../src/components/fresh/main-dashboard/assistant/ClaraFinancialContextSetupCoordinator.jsx"
