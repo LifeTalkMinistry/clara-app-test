@@ -1,0 +1,120 @@
+name: Apply Add Income Lifecycle Repair
+
+on:
+  push:
+    branches:
+      - fix/add-income-header-only-20260903
+    paths:
+      - ".github/workflows/apply-add-income-lifecycle-fix.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/add-income-header-only-20260903
+
+      - name: Patch first invalid Add Income transition
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/components/fresh/main-dashboard/assistant/ClaraAddIncomeOverlayV2.jsx")
+          text = path.read_text()
+
+          old = '''    const show = () => {
+              if (token !== sequenceTokenRef.current) return;
+              setTypedText("");
+              setPendingMessage(chatMessage("assistant", nextText));
+            };
+          '''
+          # Normalize indentation target from source rather than hiding a mismatch.
+          old = '''    const show = () => {
+              if (token !== sequenceTokenRef.current) return;
+              setTypedText("");
+              setPendingMessage(chatMessage("assistant", nextText));
+            };'''.replace("              ", "      ")
+          new = '''    const show = () => {
+              if (token !== sequenceTokenRef.current) return;
+              setTypedText("");
+              setPendingMessage(chatMessage("assistant", nextText));
+              setPhase("responding");
+            };'''.replace("              ", "      ")
+          if old not in text:
+              raise SystemExit("queueNextAssistantMessage show() target not found")
+          text = text.replace(old, new, 1)
+
+          old = '''    sequenceRef.current = replies;
+              sequencePhaseRef.current = nextPhase;
+              setPhase("responding");
+              setInteractionReady(false);'''.replace("              ", "    ")
+          new = '''    sequenceRef.current = replies;
+              sequencePhaseRef.current = nextPhase;
+              setInteractionReady(false);'''.replace("              ", "    ")
+          if old not in text:
+              raise SystemExit("runAssistantSequence premature phase target not found")
+          text = text.replace(old, new, 1)
+
+          constant_anchor = 'const INCOME_OPEN_TIMEOUT_MS = 5000;\n'
+          if constant_anchor not in text:
+              raise SystemExit("timeout constant anchor not found")
+          text = text.replace(
+              constant_anchor,
+              constant_anchor + 'const EMPTY_RESPONDING_RECOVERY_MS = 1000;\n',
+              1,
+          )
+
+          effect_anchor = '''  useEffect(
+              () => () => {
+                openingAttemptRef.current += 1;
+                sequenceTokenRef.current += 1;
+                clearPacingTimers();
+              },
+              []
+            );'''.replace("              ", "    ")
+          guard = '''  useEffect(() => {
+              if (
+                !isActive ||
+                phase !== "responding" ||
+                messages.length !== 0 ||
+                pendingMessage ||
+                busy
+              ) {
+                return undefined;
+              }
+
+              // Secondary invariant guard only. The normal sequence transition commits
+              // a pending assistant turn before entering responding. If an unexpected
+              // lifecycle path ever violates that invariant, restart this Add Income
+              // bootstrap instead of leaving a visible header-only shell.
+              const recoveryTimer = window.setTimeout(() => {
+                void loadSourcesAndStart();
+              }, EMPTY_RESPONDING_RECOVERY_MS);
+
+              return () => window.clearTimeout(recoveryTimer);
+            }, [isActive, phase, messages.length, pendingMessage, busy]);
+
+'''.replace("              ", "    ")
+          if effect_anchor not in text:
+              raise SystemExit("cleanup effect anchor not found")
+          text = text.replace(effect_anchor, guard + effect_anchor, 1)
+
+          path.write_text(text)
+          PY
+
+      - name: Verify focused diff shape
+        run: |
+          git diff --check
+          git diff -- src/components/fresh/main-dashboard/assistant/ClaraAddIncomeOverlayV2.jsx
+
+      - name: Commit repair
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/fresh/main-dashboard/assistant/ClaraAddIncomeOverlayV2.jsx
+          git commit -m "fix: make Add Income reply transition render-safe"
+          git push origin HEAD:fix/add-income-header-only-20260903
