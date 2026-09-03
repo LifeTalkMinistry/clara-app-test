@@ -58,12 +58,17 @@ function inspectPage(page, label) {
   }, label);
 }
 
-async function runCase(browser, label, options) {
+async function openCase(browser, options) {
   const context = await browser.newContext(options);
   const page = await context.newPage();
   await page.goto(`${baseUrl}${harnessPath}`, { waitUntil: "domcontentloaded", timeout: 15000 });
   await page.locator('[data-clara-add-income-chat="true"]').waitFor({ state: "attached", timeout: 10000 });
   await page.waitForTimeout(900);
+  return { context, page };
+}
+
+async function runCase(browser, label, options) {
+  const { context, page } = await openCase(browser, options);
   const result = await inspectPage(page, label);
   console.log(`ISOLATION ${JSON.stringify(result)}`);
   await context.close();
@@ -114,6 +119,29 @@ try {
     hasTouch: false,
     deviceScaleFactor: 1,
   });
+
+  // Bidirectional causality test: change only paint containment.
+  {
+    const { context, page } = await openCase(browser, {
+      viewport: { width: 390, height: 844 }, isMobile: false, hasTouch: false, deviceScaleFactor: 1,
+    });
+    console.log(`COUNTERFACTUAL ${JSON.stringify(await inspectPage(page, "390-before-contain-none"))}`);
+    await page.addStyleTag({ content: '[data-clara-financial-context-setup="true"] { contain: none !important; }' });
+    await page.waitForTimeout(50);
+    console.log(`COUNTERFACTUAL ${JSON.stringify(await inspectPage(page, "390-after-contain-none"))}`);
+    await context.close();
+  }
+
+  {
+    const { context, page } = await openCase(browser, {
+      viewport: { width: 431, height: 844 }, isMobile: false, hasTouch: false, deviceScaleFactor: 1,
+    });
+    console.log(`COUNTERFACTUAL ${JSON.stringify(await inspectPage(page, "431-before-contain-paint"))}`);
+    await page.addStyleTag({ content: '[data-clara-financial-context-setup="true"] { contain: paint !important; }' });
+    await page.waitForTimeout(50);
+    console.log(`COUNTERFACTUAL ${JSON.stringify(await inspectPage(page, "431-after-contain-paint"))}`);
+    await context.close();
+  }
 } finally {
   await browser.close();
 }
