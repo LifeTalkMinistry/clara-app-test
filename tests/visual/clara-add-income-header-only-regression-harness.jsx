@@ -76,8 +76,7 @@ function StandaloneHarness() {
       {active ? (
         <ClaraAddIncomeOverlayV2
           isActive
-          user={user}
-          claraAssistantContext={{ wallets: [] }}
+          claraAssistantContext={{ user, wallets: [] }}
           onClose={() => {
             window.__claraAddIncomeRegression.closedStandalone = true;
             setActive(false);
