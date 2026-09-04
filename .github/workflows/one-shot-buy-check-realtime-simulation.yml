@@ -1,10 +1,10 @@
-name: One-shot Buy Check Means projection authority fix
+name: One-shot Buy Check realtime Means simulation
 
 on:
   push:
     paths:
       - '.github/workflows/one-shot-buy-check-realtime-simulation.yml'
-      - '.github/scripts/patch-buy-check-projection-authority.py'
+      - '.github/scripts/patch-buy-check-realtime-simulation.py'
 
 permissions:
   contents: write
@@ -18,31 +18,19 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Apply surgical Buy Check authority patch
-        run: python .github/scripts/patch-buy-check-projection-authority.py
-      - name: Install dependencies
-        run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
-      - name: Run Buy Check and Means regressions
-        run: |
-          node --check src/lib/clara-buy-check-metric-impact.js
-          node --test tests/buy-check-metric-impact.test.mjs
-          node --test tests/buy-check-preview-commit-consistency.test.mjs
-          node --test tests/means-score-final-acceptance-regression.test.mjs
-          node --test tests/means-score-single-authority-regression.test.mjs
-      - name: Commit verified fix
+      - name: Patch Ask Before You Spend simulation rules
+        run: python .github/scripts/patch-buy-check-realtime-simulation.py
+      - name: Commit patch
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add src/lib/clara-buy-check-metric-impact.js tests/buy-check-metric-impact.test.mjs
+          git add src/lib/clara-buy-check-expert-ai.js
           if git diff --cached --quiet; then
-            echo 'No product changes to commit.'
+            echo 'No changes to commit.'
             exit 0
           fi
-          git commit -m 'Fix Buy Check Means projection authority'
+          git commit -m 'Make Buy Check use realtime projected Means score'
           git push origin HEAD:main
