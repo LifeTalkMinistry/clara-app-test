@@ -1,10 +1,9 @@
-name: One-shot Buy Check realtime Means simulation
+name: One-shot Buy Check Means projection authority fix
 
 on:
   push:
     paths:
       - '.github/workflows/one-shot-buy-check-realtime-simulation.yml'
-      - '.github/scripts/patch-buy-check-realtime-simulation.py'
 
 permissions:
   contents: write
@@ -18,19 +17,242 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Patch Ask Before You Spend simulation rules
-        run: python .github/scripts/patch-buy-check-realtime-simulation.py
-      - name: Commit patch
+      - name: Preserve canonical Means projection authority
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source_path = Path('src/lib/clara-buy-check-metric-impact.js')
+          source = source_path.read_text(encoding='utf-8')
+
+          old_import = '''import {
+            calculateUpcomingCoverageState,
+            selectConservativeMeansScore,
+          } from "./clara-means-next-cycle-coverage.js";'''
+          new_import = '''import { calculateUpcomingCoverageState } from "./clara-means-next-cycle-coverage.js";'''
+          if old_import not in source:
+              raise SystemExit('Expected Buy Check Means import block not found')
+          source = source.replace(old_import, new_import, 1)
+
+          helper_marker = '''  return "In Deficit";
+          }
+
+          function simulateMeansPurchaseImpact({'''
+          helper_replacement = '''  return "In Deficit";
+          }
+
+          function selectProjectedMeansAuthority({
+            snapshot = {},
+            projectedCurrentCycleRawScore = null,
+            projectedUpcomingCoverage = null,
+          } = {}) {
+            const limitingWindow = clean(snapshot?.meansScoreLimitingWindow).toLowerCase();
+            const currentRawScore = Number(projectedCurrentCycleRawScore);
+            const currentResolved =
+              projectedCurrentCycleRawScore !== null &&
+              projectedCurrentCycleRawScore !== undefined &&
+              Number.isFinite(currentRawScore);
+            const upcomingRawScore = Number(projectedUpcomingCoverage?.rawScore);
+            const upcomingResolved =
+              snapshot?.upcomingCycleResolved === true &&
+              projectedUpcomingCoverage?.coverageResolved === true &&
+              Number.isFinite(upcomingRawScore);
+
+            if (limitingWindow === "upcoming") {
+              return {
+                rawScore: upcomingResolved ? upcomingRawScore : null,
+                score: upcomingResolved ? projectedUpcomingCoverage.score : null,
+                limitingWindow: "upcoming",
+              };
+            }
+
+            return {
+              rawScore: currentResolved ? currentRawScore : null,
+              score: currentResolved ? Math.round(currentRawScore) : null,
+              limitingWindow: "current",
+            };
+          }
+
+          function simulateMeansPurchaseImpact({'''
+          if helper_marker not in source:
+              raise SystemExit('Expected insertion point for projection authority helper not found')
+          source = source.replace(helper_marker, helper_replacement, 1)
+
+          old_selection = '''  const conservative = selectConservativeMeansScore({
+            currentCycleRawScore: projectedCurrentCycleRawScore,
+            upcomingCoverageRawScore: projectedUpcomingCoverage?.rawScore ?? null,
+          });
+          const projectedRawScore = conservative.rawScore;
+          const projectedScoreAfterPurchase = conservative.score;'''
+          new_selection = '''  const projectedAuthority = selectProjectedMeansAuthority({
+            snapshot,
+            projectedCurrentCycleRawScore,
+            projectedUpcomingCoverage,
+          });
+          const projectedRawScore = projectedAuthority.rawScore;
+          const projectedScoreAfterPurchase = projectedAuthority.score;'''
+          if old_selection not in source:
+              raise SystemExit('Expected hypothetical conservative selector not found')
+          source = source.replace(old_selection, new_selection, 1)
+
+          old_window = '    projectedMeansLimitingWindow: conservative.limitingWindow,'
+          new_window = '    projectedMeansLimitingWindow: projectedAuthority.limitingWindow,'
+          if old_window not in source:
+              raise SystemExit('Expected projected Means limiting window return not found')
+          source = source.replace(old_window, new_window, 1)
+
+          source_path.write_text(source, encoding='utf-8')
+
+          test_path = Path('tests/buy-check-metric-impact.test.mjs')
+          tests = test_path.read_text(encoding='utf-8')
+
+          fixture_window_needle = '''    currentCycleRawMeansScore: 405,
+              upcomingCycleResolved: true,'''
+          fixture_window_replacement = '''    currentCycleRawMeansScore: 405,
+              meansScoreLimitingWindow: "upcoming",
+              upcomingCycleResolved: true,'''
+          count = tests.count(fixture_window_needle)
+          if count != 2:
+              raise SystemExit(f'Expected 2 rolling fixture authority insertions, found {count}')
+          tests = tests.replace(fixture_window_needle, fixture_window_replacement)
+
+          marker = 'production 127 upcoming-limited projection keeps the canonical upcoming authority'
+          if marker not in tests:
+              tests += r'''
+
+          const productionUpcomingLimited127Snapshot = {
+            score: 127,
+            meansScoreLimitingWindow: "upcoming",
+            cycle100Anchor: 820,
+            requiredRunway: 820,
+            wallBill: 2497,
+            scoreRoom: 2497,
+            currentRealRoom: 2497,
+            availableNow: 3317,
+            availableWalletMoney: 3317,
+            remainingPlannedSpending: 820,
+            upcoming: 820,
+            currentCycleMeansScore: 405,
+            currentCycleRawMeansScore: 100 + ((2497 / 820) * 100),
+            upcomingCycleResolved: true,
+            upcomingCycleRequirement: 12170,
+            lowestExpectedIncome: 13000,
+            upcomingCoverageRawScore: (15497 / 12170) * 100,
+            upcomingCoverageScore: 127,
+          };
+
+          test("production 127 upcoming-limited projection keeps the canonical upcoming authority", () => {
+            assert.equal(Math.round((15497 / 12170) * 100), 127);
+
+            const cases = [
+              [1000, 119],
+              [2000, 111],
+              [3000, 103],
+              [4000, 94],
+              [5000, 86],
+              [2436, 107],
+              [2437, 107],
+              [2438, 107],
+              [2900, 104],
+              [2999, 103],
+              [3000, 103],
+              [3001, 103],
+              [3100, 102],
+            ];
+
+            assert.equal(productionUpcomingLimited127Snapshot.score, 127);
+            assert.equal(productionUpcomingLimited127Snapshot.meansScoreLimitingWindow, "upcoming");
+
+            for (const [purchasePrice, expectedScore] of cases) {
+              const impact = simulateMeansPurchaseImpact({
+                snapshot: productionUpcomingLimited127Snapshot,
+                purchasePrice,
+              });
+              assert.equal(
+                impact.projectedScoreAfterPurchase,
+                expectedScore,
+                `unexpected projected score for ₱${purchasePrice}`,
+              );
+              assert.equal(impact.projectedMeansLimitingWindow, "upcoming");
+              assert.equal(impact.projectedRawScore, impact.projectedUpcomingCoverageRawScore);
+            }
+
+            const threeThousand = simulateMeansPurchaseImpact({
+              snapshot: productionUpcomingLimited127Snapshot,
+              purchasePrice: 3000,
+            });
+            assert.equal(Math.round(threeThousand.projectedCurrentCycleRawScore), 39);
+            assert.equal(Math.round(threeThousand.projectedUpcomingCoverageRawScore), 103);
+            assert.equal(threeThousand.projectedScoreAfterPurchase, 103);
+          });
+
+          test("upcoming-limited preview does not mutate the canonical snapshot", () => {
+            const candidate = structuredClone(productionUpcomingLimited127Snapshot);
+            const before = structuredClone(candidate);
+            simulateMeansPurchaseImpact({ snapshot: candidate, purchasePrice: 3000 });
+            assert.deepEqual(candidate, before);
+          });
+
+          test("canonical current-window preview remains current-window authoritative", () => {
+            const currentLimited = {
+              ...productionUpcomingLimited127Snapshot,
+              score: 405,
+              meansScoreLimitingWindow: "current",
+            };
+            const impact = simulateMeansPurchaseImpact({
+              snapshot: currentLimited,
+              purchasePrice: 3000,
+            });
+            assert.equal(Math.round(impact.projectedCurrentCycleRawScore), 39);
+            assert.equal(Math.round(impact.projectedUpcomingCoverageRawScore), 103);
+            assert.equal(impact.projectedScoreAfterPurchase, 39);
+            assert.equal(impact.projectedMeansLimitingWindow, "current");
+          });
+
+          test("unresolved canonical Means snapshot does not fabricate upcoming authority", () => {
+            const unresolvedUpcoming = {
+              ...productionUpcomingLimited127Snapshot,
+              score: null,
+              meansScoreLimitingWindow: "upcoming",
+              upcomingCycleResolved: false,
+              upcomingCycleRequirement: 0,
+            };
+            const impact = simulateMeansPurchaseImpact({
+              snapshot: unresolvedUpcoming,
+              purchasePrice: 1000,
+            });
+            assert.equal(impact.projectedUpcomingCoverageRawScore, null);
+            assert.equal(impact.projectedRawScore, null);
+            assert.equal(impact.projectedScoreAfterPurchase, null);
+            assert.equal(impact.projectedMeansLimitingWindow, "upcoming");
+          });
+          '''
+
+          test_path.write_text(tests, encoding='utf-8')
+          PY
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
+      - name: Run Buy Check and Means regressions
+        run: |
+          node --check src/lib/clara-buy-check-metric-impact.js
+          node --test tests/buy-check-metric-impact.test.mjs
+          node --test tests/buy-check-preview-commit-consistency.test.mjs
+          node --test tests/means-score-final-acceptance-regression.test.mjs
+          node --test tests/means-score-single-authority-regression.test.mjs
+      - name: Commit verified fix
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add src/lib/clara-buy-check-expert-ai.js
+          git add src/lib/clara-buy-check-metric-impact.js tests/buy-check-metric-impact.test.mjs
           if git diff --cached --quiet; then
             echo 'No changes to commit.'
             exit 0
           fi
-          git commit -m 'Make Buy Check use realtime projected Means score'
+          git commit -m 'Fix Buy Check Means projection authority'
           git push origin HEAD:main
