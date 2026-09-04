@@ -9,10 +9,7 @@ import {
   normalizeFinancialDateKey,
 } from "./clara-financial-day.js";
 import { matchMeansOutflowToRequirement } from "./clara-means-cycle-baseline.js";
-import {
-  calculateUpcomingCoverageState,
-  selectConservativeMeansScore,
-} from "./clara-means-next-cycle-coverage.js";
+import { calculateUpcomingCoverageState } from "./clara-means-next-cycle-coverage.js";
 
 const STOP_WORDS = new Set([
   "a", "an", "and", "buy", "buying", "for", "get", "i", "item", "my", "of", "pay",
@@ -320,6 +317,38 @@ function statusForScore(score) {
   return "In Deficit";
 }
 
+function selectProjectedMeansAuthority({
+  snapshot = {},
+  projectedCurrentCycleRawScore = null,
+  projectedUpcomingCoverage = null,
+} = {}) {
+  const limitingWindow = clean(snapshot?.meansScoreLimitingWindow).toLowerCase();
+  const currentRawScore = Number(projectedCurrentCycleRawScore);
+  const currentResolved =
+    projectedCurrentCycleRawScore !== null &&
+    projectedCurrentCycleRawScore !== undefined &&
+    Number.isFinite(currentRawScore);
+  const upcomingRawScore = Number(projectedUpcomingCoverage?.rawScore);
+  const upcomingResolved =
+    snapshot?.upcomingCycleResolved === true &&
+    projectedUpcomingCoverage?.coverageResolved === true &&
+    Number.isFinite(upcomingRawScore);
+
+  if (limitingWindow === "upcoming") {
+    return {
+      rawScore: upcomingResolved ? upcomingRawScore : null,
+      score: upcomingResolved ? projectedUpcomingCoverage.score : null,
+      limitingWindow: "upcoming",
+    };
+  }
+
+  return {
+    rawScore: currentResolved ? currentRawScore : null,
+    score: currentResolved ? Math.round(currentRawScore) : null,
+    limitingWindow: "current",
+  };
+}
+
 function simulateMeansPurchaseImpact({
   snapshot = {},
   purchasePrice = 0,
@@ -393,12 +422,13 @@ function simulateMeansPurchaseImpact({
           upcomingCycleRequirement,
         })
       : null;
-  const conservative = selectConservativeMeansScore({
-    currentCycleRawScore: projectedCurrentCycleRawScore,
-    upcomingCoverageRawScore: projectedUpcomingCoverage?.rawScore ?? null,
+  const projectedAuthority = selectProjectedMeansAuthority({
+    snapshot,
+    projectedCurrentCycleRawScore,
+    projectedUpcomingCoverage,
   });
-  const projectedRawScore = conservative.rawScore;
-  const projectedScoreAfterPurchase = conservative.score;
+  const projectedRawScore = projectedAuthority.rawScore;
+  const projectedScoreAfterPurchase = projectedAuthority.score;
   const scoreChange = Number.isFinite(currentScore) && projectedScoreAfterPurchase != null
     ? projectedScoreAfterPurchase - currentScore
     : null;
@@ -422,7 +452,7 @@ function simulateMeansPurchaseImpact({
     projectedRawScore,
     projectedCurrentCycleRawScore,
     projectedUpcomingCoverageRawScore: projectedUpcomingCoverage?.rawScore ?? null,
-    projectedMeansLimitingWindow: conservative.limitingWindow,
+    projectedMeansLimitingWindow: projectedAuthority.limitingWindow,
     scoreChange,
     currentStatus: statusForScore(currentScore),
     projectedStatus: statusForScore(projectedScoreAfterPurchase),

@@ -244,6 +244,7 @@ test("rolling Means preview cannot jump from upcoming-limited 98 back to isolate
     requiredRunway: cycle100Anchor,
     currentCycleMeansScore: 405,
     currentCycleRawMeansScore: 405,
+    meansScoreLimitingWindow: "upcoming",
     upcomingCycleResolved: true,
     upcomingCycleRequirement: 15820,
     lowestExpectedIncome: 13000,
@@ -279,6 +280,7 @@ test("rolling Means preview preserves 98 for a fully matched current-cycle payme
     requiredRunway: cycle100Anchor,
     currentCycleMeansScore: 405,
     currentCycleRawMeansScore: 405,
+    meansScoreLimitingWindow: "upcoming",
     upcomingCycleResolved: true,
     upcomingCycleRequirement: 15820,
     lowestExpectedIncome: 13000,
@@ -297,4 +299,110 @@ test("rolling Means preview preserves 98 for a fully matched current-cycle payme
   assert.equal(impact.projectedWallBill, 2497);
   assert.equal(impact.projectedScoreAfterPurchase, 98);
   assert.equal(impact.scoreChange, 0);
+});
+
+
+const productionUpcomingLimited127Snapshot = {
+  score: 127,
+  meansScoreLimitingWindow: "upcoming",
+  cycle100Anchor: 820,
+  requiredRunway: 820,
+  wallBill: 2497,
+  scoreRoom: 2497,
+  currentRealRoom: 2497,
+  availableNow: 3317,
+  availableWalletMoney: 3317,
+  remainingPlannedSpending: 820,
+  upcoming: 820,
+  currentCycleMeansScore: 405,
+  currentCycleRawMeansScore: 100 + ((2497 / 820) * 100),
+  upcomingCycleResolved: true,
+  upcomingCycleRequirement: 12170,
+  lowestExpectedIncome: 13000,
+  upcomingCoverageRawScore: (15497 / 12170) * 100,
+  upcomingCoverageScore: 127,
+};
+
+test("production 127 upcoming-limited projection keeps the canonical upcoming authority", () => {
+  assert.equal(Math.round((15497 / 12170) * 100), 127);
+  const cases = [
+    [1000, 119],
+    [2000, 111],
+    [3000, 103],
+    [4000, 94],
+    [5000, 86],
+    [2436, 107],
+    [2437, 107],
+    [2438, 107],
+    [2900, 104],
+    [2999, 103],
+    [3000, 103],
+    [3001, 103],
+    [3100, 102],
+  ];
+
+  assert.equal(productionUpcomingLimited127Snapshot.score, 127);
+  assert.equal(productionUpcomingLimited127Snapshot.meansScoreLimitingWindow, "upcoming");
+  for (const [purchasePrice, expectedScore] of cases) {
+    const impact = simulateMeansPurchaseImpact({
+      snapshot: productionUpcomingLimited127Snapshot,
+      purchasePrice,
+    });
+    assert.equal(
+      impact.projectedScoreAfterPurchase,
+      expectedScore,
+      `unexpected projected score for ₱${purchasePrice}`,
+    );
+    assert.equal(impact.projectedMeansLimitingWindow, "upcoming");
+    assert.equal(impact.projectedRawScore, impact.projectedUpcomingCoverageRawScore);
+  }
+
+  const threeThousand = simulateMeansPurchaseImpact({
+    snapshot: productionUpcomingLimited127Snapshot,
+    purchasePrice: 3000,
+  });
+  assert.equal(Math.round(threeThousand.projectedCurrentCycleRawScore), 39);
+  assert.equal(Math.round(threeThousand.projectedUpcomingCoverageRawScore), 103);
+  assert.equal(threeThousand.projectedScoreAfterPurchase, 103);
+});
+
+test("upcoming-limited preview does not mutate the canonical snapshot", () => {
+  const candidate = structuredClone(productionUpcomingLimited127Snapshot);
+  const before = structuredClone(candidate);
+  simulateMeansPurchaseImpact({ snapshot: candidate, purchasePrice: 3000 });
+  assert.deepEqual(candidate, before);
+});
+
+test("canonical current-window preview remains current-window authoritative", () => {
+  const currentLimited = {
+    ...productionUpcomingLimited127Snapshot,
+    score: 405,
+    meansScoreLimitingWindow: "current",
+  };
+  const impact = simulateMeansPurchaseImpact({
+    snapshot: currentLimited,
+    purchasePrice: 3000,
+  });
+  assert.equal(Math.round(impact.projectedCurrentCycleRawScore), 39);
+  assert.equal(Math.round(impact.projectedUpcomingCoverageRawScore), 103);
+  assert.equal(impact.projectedScoreAfterPurchase, 39);
+  assert.equal(impact.projectedMeansLimitingWindow, "current");
+});
+
+test("unresolved canonical Means snapshot does not fabricate upcoming authority", () => {
+  const unresolvedUpcoming = {
+    ...productionUpcomingLimited127Snapshot,
+    score: null,
+    meansScoreLimitingWindow: "upcoming",
+    upcomingCycleResolved: false,
+    upcomingCycleRequirement: 0,
+  };
+  const impact = simulateMeansPurchaseImpact({
+    snapshot: unresolvedUpcoming,
+    purchasePrice: 1000,
+  });
+  assert.equal(impact.projectedUpcomingCoverageRawScore, null);
+  assert.equal(impact.projectedRawScore, null);
+  assert.equal(impact.projectedScoreAfterPurchase, null);
+  assert.equal(impact.projectedMeansLimitingWindow, "upcoming");
 });
