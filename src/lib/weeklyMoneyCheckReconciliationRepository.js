@@ -178,7 +178,10 @@ export async function reconcileWeeklyMoneyCheckWallets(
 
       // Validate the full set before mutating anything. This preserves atomicity
       // when one wallet received a legitimate transaction while the check was open.
+      // Income Hub reservations are cumulative so two wallet differences can never
+      // independently spend the same source balance inside one Cross-Check.
       const resolved = [];
+      const incomeSourceReservations = new Map();
       for (const snapshot of candidates) {
         const wallet = await tx.get(WALLET_STORE, snapshot.walletId);
         if (!wallet) {
@@ -217,15 +220,24 @@ export async function reconcileWeeklyMoneyCheckWallets(
             throw new Error("The selected Income Hub source is no longer available.");
           }
 
-          if (incomeSourceBalance(incomeSource) + EPSILON < adjustment) {
+          const sourceId = clean(incomeSource.id);
+          const reservedForSource = incomeSourceReservations.get(sourceId) || 0;
+          const requiredFromSource = reservedForSource + adjustment;
+          if (incomeSourceBalance(incomeSource) + EPSILON < requiredFromSource) {
             throw new Error(
-              `${incomeSource.name || "Income Hub"} no longer has enough available money to explain this wallet increase.`
+              `${incomeSource.name || "Income Hub"} no longer has enough available money for all wallet increases linked to it.`
             );
           }
+          incomeSourceReservations.set(sourceId, requiredFromSource);
         }
 
         resolved.push({ snapshot, wallet, currentBalance, alreadyAligned: false, incomeSource });
       }
+
+      // Keep the latest staged version of each Income Hub source. If one source
+      // explains more than one wallet increase, every later mutation starts from
+      // the already-decremented state rather than the pre-check snapshot.
+      const incomeSourceStates = new Map();
 
       for (const entry of resolved) {
         if (entry.alreadyAligned) continue;
@@ -249,19 +261,21 @@ export async function reconcileWeeklyMoneyCheckWallets(
         walletUpdates.push(walletRecord);
 
         if (incomeSource) {
-          const currentIn = incomeSourceMoneyIn(incomeSource);
-          const currentOut = incomeSourceMoneyOut(incomeSource);
+          const sourceId = clean(incomeSource.id);
+          const currentSource = incomeSourceStates.get(sourceId) || incomeSource;
+          const currentIn = incomeSourceMoneyIn(currentSource);
+          const currentOut = incomeSourceMoneyOut(currentSource);
           const nextOut = currentOut + adjustment;
           const nextSourceBalance = currentIn - nextOut;
-          const sourceName = clean(incomeSource.name || incomeSource.title || "Income Source");
+          const sourceName = clean(currentSource.name || currentSource.title || "Income Source");
           const activityId = `income_transfer_${transactionId}`;
           const activityLog = [
             {
               id: activityId,
               type: "transfer_money",
               amount: adjustment,
-              sourceId: incomeSource.id,
-              source_id: incomeSource.id,
+              sourceId: currentSource.id,
+              source_id: currentSource.id,
               sourceName,
               source_name: sourceName,
               destinationWalletId: snapshot.walletId,
@@ -277,7 +291,7 @@ export async function reconcileWeeklyMoneyCheckWallets(
               createdAt: now,
               created_at: now,
             },
-            ...incomeSourceActivityLog(incomeSource),
+            ...incomeSourceActivityLog(currentSource),
           ]
             .filter((activity, index, items) =>
               items.findIndex((candidate) => candidate?.id === activity?.id) === index
@@ -287,7 +301,7 @@ export async function reconcileWeeklyMoneyCheckWallets(
           const incomeSourceRecord = await tx.put(
             INCOME_SOURCE_STORE,
             {
-              ...incomeSource,
+              ...currentSource,
               totalMoneyIn: currentIn,
               total_money_in: currentIn,
               totalMoneyOut: nextOut,
@@ -303,8 +317,9 @@ export async function reconcileWeeklyMoneyCheckWallets(
               syncStatus: "local_only",
               source: "local",
             },
-            incomeSource
+            currentSource
           );
+          incomeSourceStates.set(sourceId, incomeSourceRecord);
           incomeSourceUpdates.push(incomeSourceRecord);
 
           const transactionRecord = tx.makeRecord(WALLET_TRANSACTION_STORE, {
@@ -322,8 +337,10 @@ export async function reconcileWeeklyMoneyCheckWallets(
             title: `Income from ${sourceName}`,
             name: `Income from ${sourceName}`,
             notes: `Weekly Cross-Check linked ${adjustment} already available in ${sourceName} to ${snapshot.walletName}.`,
-            income_source_id: incomeSource.id,
-            incomeSourceId: incomeSource.id,
+            date: now,
+            transaction_date: now,
+            income_source_id: currentSource.id,
+            incomeSourceId: currentSource.id,
             income_flow_type: "income_source_transfer",
             incomeFlowType: "income_source_transfer",
             weekly_money_check_id: reconciliationId,
