@@ -39,11 +39,27 @@ test("Income Hub wallet-increase reconciliation is atomic and does not touch Mea
 
   assert.match(reconciliation, /LOCAL_FINANCE_STORES\.privatePreferences/);
   assert.match(reconciliation, /income_hub_transfer/);
-  assert.match(reconciliation, /income_source_id: incomeSource\.id/);
+  assert.match(reconciliation, /income_source_id: currentSource\.id/);
   assert.match(reconciliation, /income_flow_type: "income_source_transfer"/);
   assert.match(reconciliation, /currentBalance: nextSourceBalance/);
   assert.match(reconciliation, /\[INCOME_SOURCE_STORE, WALLET_STORE, WALLET_TRANSACTION_STORE\]/);
+  assert.match(reconciliation, /date: now/);
+  assert.match(reconciliation, /transaction_date: now/);
   assert.doesNotMatch(reconciliation, /cycle100Anchor/);
   assert.doesNotMatch(reconciliation, /requiredRunway/);
   assert.doesNotMatch(reconciliation, /resetMeansAssumedSpent/);
+});
+
+test("one Income Hub source cannot be spent twice across multiple wallet increases", async () => {
+  const reconciliation = await source(
+    "../src/lib/weeklyMoneyCheckReconciliationRepository.js"
+  );
+
+  assert.match(reconciliation, /const incomeSourceReservations = new Map\(\)/);
+  assert.match(reconciliation, /const reservedForSource = incomeSourceReservations\.get\(sourceId\) \|\| 0/);
+  assert.match(reconciliation, /const requiredFromSource = reservedForSource \+ adjustment/);
+  assert.match(reconciliation, /incomeSourceReservations\.set\(sourceId, requiredFromSource\)/);
+  assert.match(reconciliation, /const incomeSourceStates = new Map\(\)/);
+  assert.match(reconciliation, /const currentSource = incomeSourceStates\.get\(sourceId\) \|\| incomeSource/);
+  assert.match(reconciliation, /incomeSourceStates\.set\(sourceId, incomeSourceRecord\)/);
 });
