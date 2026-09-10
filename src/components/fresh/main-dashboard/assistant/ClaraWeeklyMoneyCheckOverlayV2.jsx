@@ -18,7 +18,7 @@ import {
 } from "@/lib/clara-conversation-pacing";
 
 const SESSION_STORAGE_PREFIX = "clara_weekly_money_check_v1";
-const FLOW_VERSION = "weekly-money-check-chat-v5-confirm-first-money-lent";
+const FLOW_VERSION = "weekly-money-check-chat-v6-wallet-increase-source";
 const DIFFERENCE_EPSILON = 0.009;
 const BELOW_MEANS_BADGE_ID = "below_your_means";
 
@@ -35,6 +35,37 @@ function money(value = 0) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   })}`;
+}
+
+function getIncomeSourceId(source = {}) {
+  return clean(source?.id || source?.sourceId || source?.source_id);
+}
+
+function getIncomeSourceName(source = {}) {
+  return clean(source?.name || source?.title || source?.category || "Income Source") || "Income Source";
+}
+
+function getIncomeSourceAvailableBalance(source = {}) {
+  const direct = Number(
+    source?.currentBalance ??
+      source?.current_balance ??
+      source?.balance
+  );
+  if (Number.isFinite(direct)) return Math.max(0, direct);
+
+  const moneyIn = Number(source?.totalMoneyIn ?? source?.total_money_in ?? source?.moneyIn ?? source?.money_in);
+  const moneyOut = Number(source?.totalMoneyOut ?? source?.total_money_out ?? source?.moneyOut ?? source?.money_out);
+  const safeMoneyIn = Number.isFinite(moneyIn) ? moneyIn : 0;
+  const safeMoneyOut = Number.isFinite(moneyOut) ? moneyOut : 0;
+  return Math.max(0, safeMoneyIn - safeMoneyOut);
+}
+
+function isActiveIncomeSource(source = {}) {
+  return Boolean(source) &&
+    !source?.deletedAt &&
+    !source?.deleted_at &&
+    !source?.isArchived &&
+    !source?.is_archived;
 }
 
 function getFirstName(user = {}) {
@@ -174,9 +205,10 @@ function getDirectionChoices(snapshot) {
 
   if (difference > 0) {
     return [
-      { id: "money_in", label: "Money came in" },
+      { id: "income_hub", label: "It came from Income Hub" },
       { id: "transfer_in", label: "I transferred money here" },
       { id: "refund", label: "Refund or reimbursement" },
+      { id: "balance_adjustment", label: "Just correct this wallet" },
       { id: "other", label: "Something else" },
       { id: "unknown", label: "I’m not sure" },
     ];
@@ -304,7 +336,7 @@ function buildConcernCopy(snapshot) {
   if (difference < 0) {
     return `Your ${snapshot.walletName} is still ${amount} lower than CLARA can explain. ${known} What happened to the remaining ${amount}?`;
   }
-  return `Your ${snapshot.walletName} is still ${amount} higher than CLARA can explain. ${known} Where did the remaining ${amount} come from?`;
+  return `Your ${snapshot.walletName} is still ${amount} higher than CLARA can explain. ${known} If this was money already recorded in Income Hub, I can link it instead of counting it again. What caused the increase?`;
 }
 
 function walletConfirmationQuestion(snapshot) {
@@ -358,6 +390,18 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
         })),
     [claraAssistantContext?.wallets]
   );
+  const activeIncomeSources = useMemo(
+    () =>
+      (Array.isArray(claraAssistantContext?.incomeSources) ? claraAssistantContext.incomeSources : [])
+        .filter(isActiveIncomeSource)
+        .map((source) => ({
+          id: getIncomeSourceId(source),
+          name: getIncomeSourceName(source),
+          availableBalance: getIncomeSourceAvailableBalance(source),
+        }))
+        .filter((source) => source.id),
+    [claraAssistantContext?.incomeSources]
+  );
   const weeklyFlow = useMemo(
     () => getWeeklyFlow(claraAssistantContext?.transactionHubSnapshot),
     [claraAssistantContext?.transactionHubSnapshot]
@@ -388,6 +432,10 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
 
   const currentSnapshot = snapshots[currentWalletIndex] || null;
   const currentReviewSnapshot = reviewWalletIndex >= 0 ? snapshots[reviewWalletIndex] : null;
+  const currentPositiveDifference = Math.max(0, Number(currentReviewSnapshot?.difference) || 0);
+  const eligibleIncomeSources = activeIncomeSources.filter(
+    (source) => source.availableBalance + DIFFERENCE_EPSILON >= currentPositiveDifference
+  );
 
   const append = (...nextMessages) => {
     setMessages((current) => [...current, ...nextMessages]);
@@ -881,6 +929,29 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
     const userMessage = chatMessage("user", choice.label);
     append(userMessage);
 
+    if (choice.id === "income_hub") {
+      if (currentPositiveDifference <= DIFFERENCE_EPSILON) return;
+
+      if (!eligibleIncomeSources.length) {
+        persist({ phase: "classify_difference", messages: [...messages, userMessage] });
+        runAssistantSequence(
+          [
+            `I can’t match ${money(currentPositiveDifference)} to money currently available in Income Hub, so I won’t pretend it came from there.`,
+            `If the ${currentReviewSnapshot.walletName} balance itself is correct, choose “Just correct this wallet” instead.`,
+          ],
+          "classify_difference"
+        );
+        return;
+      }
+
+      persist({ phase: "income_source_select", messages: [...messages, userMessage] });
+      runAssistantSequence(
+        [`Which Income Hub source did the ${money(currentPositiveDifference)} come from?`],
+        "income_source_select"
+      );
+      return;
+    }
+
     if (choice.id === "spent" || choice.id === "other") {
       const nextPhase = choice.id === "spent" ? "forgotten_spend_detail" : "other_detail";
       setError("");
@@ -909,13 +980,65 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
     );
     const reply = choice.id === "unknown"
       ? "That’s okay. I’ll keep the reason unexplained instead of inventing one."
-      : choice.id.includes("transfer")
-        ? "Got it. I’ll keep that as a transfer explanation, not as spending."
-        : "Got it. I’ve captured that explanation for this cross-check.";
+      : choice.id === "balance_adjustment"
+        ? `Got it. I’ll correct ${currentReviewSnapshot.walletName} to the amount you confirmed without labeling this difference as income.`
+        : choice.id.includes("transfer")
+          ? "Got it. I’ll keep that as a transfer explanation, not as spending."
+          : "Got it. I’ve captured that explanation for this cross-check.";
     persist({ snapshots: nextSnapshots, messages: [...messages, userMessage] });
     runAssistantSequence([reply], "reviewing", {
       onComplete: () => moveToNextDifference(nextSnapshots, reviewWalletIndex, [...messages, userMessage]),
     });
+  };
+
+  const selectIncomeSource = (source) => {
+    if (!controlsReady || phase !== "income_source_select" || !currentReviewSnapshot) return;
+    const amount = Math.max(0, Number(currentReviewSnapshot.difference) || 0);
+    if (!source?.id || amount <= DIFFERENCE_EPSILON) return;
+
+    if (source.availableBalance + DIFFERENCE_EPSILON < amount) {
+      setError(`${source.name} no longer has enough available money for this difference.`);
+      return;
+    }
+
+    const userMessage = chatMessage("user", source.name);
+    const currentIndex = reviewWalletIndex;
+    const nextSnapshots = snapshots.map((snapshot, index) =>
+      index === currentIndex
+        ? {
+            ...snapshot,
+            explanation: {
+              kind: "income_hub_transfer",
+              incomeSourceId: source.id,
+              income_source_id: source.id,
+              incomeSourceName: source.name,
+              income_source_name: source.name,
+              amount,
+              capturedAt: new Date().toISOString(),
+            },
+          }
+        : snapshot
+    );
+
+    append(userMessage);
+    setError("");
+    persist({ snapshots: nextSnapshots, messages: [...messages, userMessage] });
+    runAssistantSequence(
+      [
+        `Got it. I’ll link ${money(amount)} already available in ${source.name} to ${currentReviewSnapshot.walletName}. That keeps the wallet accurate without counting the same money twice.`,
+      ],
+      "reviewing",
+      { onComplete: () => moveToNextDifference(nextSnapshots, currentIndex, [...messages, userMessage]) }
+    );
+  };
+
+  const backIncomeSource = () => {
+    if (!controlsReady || phase !== "income_source_select" || !currentReviewSnapshot) return;
+    const userMessage = chatMessage("user", "Back");
+    append(userMessage);
+    setError("");
+    persist({ phase: "classify_difference", messages: [...messages, userMessage] });
+    runAssistantSequence([buildConcernCopy(currentReviewSnapshot)], "classify_difference");
   };
 
   const submitDetail = () => {
@@ -1027,6 +1150,17 @@ export default function ClaraWeeklyMoneyCheckOverlayV2({
                   <ChoiceButton key={choice.id} onClick={() => handleChoice(choice)}>{choice.label}</ChoiceButton>
                 ))}
                 <ChoiceButton secondary onClick={recheckReviewWallet}>Back</ChoiceButton>
+              </div>
+            ) : null}
+
+            {phase === "income_source_select" && currentReviewSnapshot && controlsReady ? (
+              <div className="relative z-20 mt-1 grid gap-2.5">
+                {eligibleIncomeSources.map((source) => (
+                  <ChoiceButton key={source.id} onClick={() => selectIncomeSource(source)}>
+                    {source.name} · {money(source.availableBalance)} available
+                  </ChoiceButton>
+                ))}
+                <ChoiceButton secondary onClick={backIncomeSource}>Back</ChoiceButton>
               </div>
             ) : null}
 

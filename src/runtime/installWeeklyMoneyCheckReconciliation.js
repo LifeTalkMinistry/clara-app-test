@@ -106,9 +106,12 @@ async function reconcileCompletedWeeklyCheck(session) {
       reconciliationId,
     });
     const reconciledAt = new Date().toISOString();
+    const linkedIncomeCopy = result.incomeHubTransfers > 0
+      ? ` ${result.incomeHubTransfers} ${result.incomeHubTransfers === 1 ? "difference was" : "differences were"} linked to Income Hub instead of being counted as new money.`
+      : "";
     const reconciliationMessage =
       result.adjustedWallets > 0
-        ? `Your wallet balances are now aligned with the actual amounts you confirmed. I recorded ${result.adjustedWallets} Weekly Cross-Check adjustment${result.adjustedWallets === 1 ? "" : "s"} in Transaction Hub so the correction stays traceable. No difference was applied twice.`
+        ? `Your wallet balances are now aligned with the actual amounts you confirmed. I reconciled ${result.adjustedWallets} wallet difference${result.adjustedWallets === 1 ? "" : "s"} in Transaction Hub so the correction stays traceable.${linkedIncomeCopy} No difference was applied twice.`
         : "Your wallet balances are now aligned with the actual amounts you confirmed. No extra adjustment was needed.";
 
     const stored = findStoredSession(session);
@@ -127,6 +130,8 @@ async function reconcileCompletedWeeklyCheck(session) {
       reconciled_at: reconciledAt,
       reconciledWallets: result.adjustedWallets,
       reconciled_wallets: result.adjustedWallets,
+      incomeHubTransfers: result.incomeHubTransfers,
+      income_hub_transfers: result.incomeHubTransfers,
       reconciliationError: null,
       reconciliation_error: null,
       conversationMessages: nextMessages,
@@ -138,6 +143,7 @@ async function reconcileCompletedWeeklyCheck(session) {
           detail: {
             reconciliationId: result.reconciliationId,
             adjustedWallets: result.adjustedWallets,
+            incomeHubTransfers: result.incomeHubTransfers,
           },
         })
       );
