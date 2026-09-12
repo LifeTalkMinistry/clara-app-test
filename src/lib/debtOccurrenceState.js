@@ -41,6 +41,28 @@ export function getPaidDebtOccurrenceDates(record = {}) {
   return [...new Set(values.map((entry) => dateKey(entry?.dueDate || entry?.due_date || entry)).filter(Boolean))];
 }
 
+export function getSkippedDebtOccurrenceDates(record = {}) {
+  const raw =
+    record?.skippedOccurrences ||
+    record?.skipped_occurrences ||
+    record?.skippedOccurrenceDates ||
+    record?.skipped_occurrence_dates ||
+    [];
+  const values = Array.isArray(raw) ? raw : [];
+  return [...new Set(values.map((entry) => dateKey(entry?.dueDate || entry?.due_date || entry)).filter(Boolean))];
+}
+
+export function isDebtOccurrenceSkipped(record = {}, dueDate = "") {
+  const target = dateKey(dueDate);
+  return Boolean(target && getSkippedDebtOccurrenceDates(record).includes(target));
+}
+
+export function appendSkippedDebtOccurrence(record = {}, dueDate = "") {
+  const target = dateKey(dueDate);
+  if (!target) return getSkippedDebtOccurrenceDates(record);
+  return [...new Set([...getSkippedDebtOccurrenceDates(record), target])].sort();
+}
+
 export function isDebtOccurrencePaid(record = {}, dueDate = "", expectedAmount = 0) {
   const target = dateKey(dueDate);
   if (!target) return false;
@@ -87,6 +109,16 @@ export function getDebtOccurrenceState(record = {}, referenceDate = new Date()) 
       .reverse()
       .find((event) => dateKey(event?.date) <= today) || null;
 
+  if (currentDue && isDebtOccurrenceSkipped(record, currentDue?.date)) {
+    const dueDate = dateKey(currentDue.date);
+    return {
+      state: "skipped",
+      dueDate,
+      amount: Math.max(0, Number(currentDue?.amount || 0)),
+      event: currentDue,
+    };
+  }
+
   if (
     currentDue &&
     !isDebtOccurrencePaid(record, currentDue?.date, currentDue?.amount)
@@ -104,6 +136,7 @@ export function getDebtOccurrenceState(record = {}, referenceDate = new Date()) 
     events.find(
       (event) =>
         dateKey(event?.date) > today &&
+        !isDebtOccurrenceSkipped(record, event?.date) &&
         !isDebtOccurrencePaid(record, event?.date, event?.amount)
     ) || null;
   if (next) {

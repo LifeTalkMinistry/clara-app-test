@@ -4,7 +4,11 @@ import {
   upsertLocalRecord,
   softDeleteLocalRecord,
 } from "@/lib/localFinanceStore";
-import { appendPaidDebtOccurrence, getDebtOccurrenceState } from "@/lib/debtOccurrenceState";
+import {
+  appendPaidDebtOccurrence,
+  appendSkippedDebtOccurrence,
+  getDebtOccurrenceState,
+} from "@/lib/debtOccurrenceState";
 import {
   DEBT_OBLIGATION_RECORD_KIND,
   getDebtBalance,
@@ -304,6 +308,39 @@ export async function markDebtOccurrencePaid(localUserId, id, options = {}) {
 
   const result = await upsertLocalRecord(DEBT_OBLIGATION_STORE, record, safeLocalUserId);
   emitDebtObligationsUpdated(safeLocalUserId, "occurrence_paid");
+  return result;
+}
+
+
+export async function skipDebtOccurrenceForCycle(localUserId, id, options = {}) {
+  const safeLocalUserId = normalizeLocalUserId(localUserId);
+  const safeId = normalizeString(id);
+  if (!safeId) throw new Error("Debt obligation id is required.");
+
+  const records = await getLocalRecords(DEBT_OBLIGATION_STORE, safeLocalUserId);
+  const current = (records || []).find((record) => normalizeString(record?.id) === safeId);
+  if (!current) throw new Error("Debt / Obligation could not be found.");
+
+  const occurrence = getDebtOccurrenceState(current, options.referenceDate || new Date());
+  const dueDate = normalizeString(options.dueDate || occurrence?.dueDate).slice(0, 10);
+  if (!dueDate) throw new Error("There is no payment occurrence to skip.");
+
+  const skippedOccurrences = appendSkippedDebtOccurrence(current, dueDate);
+  const now = new Date().toISOString();
+  const record = {
+    ...current,
+    id: safeId,
+    localUserId: safeLocalUserId,
+    skippedOccurrences,
+    skipped_occurrences: skippedOccurrences,
+    lastSkippedOccurrenceDate: dueDate,
+    last_skipped_occurrence_date: dueDate,
+    updatedAt: now,
+    updated_at: now,
+  };
+
+  const result = await upsertLocalRecord(DEBT_OBLIGATION_STORE, record, safeLocalUserId);
+  emitDebtObligationsUpdated(safeLocalUserId, "occurrence_skipped");
   return result;
 }
 

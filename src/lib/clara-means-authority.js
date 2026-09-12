@@ -18,6 +18,7 @@ import {
   isActiveDebtObligation,
 } from "@/lib/debtObligationMath";
 import { getLocalRecords } from "@/lib/localFinanceStore";
+import { isDebtOccurrenceSkipped } from "@/lib/debtOccurrenceState";
 import { getRecurrenceOccurrences } from "@/lib/recurringCashFlowRepository";
 import {
   CLARA_MONEY_SCHEDULE_SOURCE,
@@ -510,6 +511,7 @@ export function buildMeansDebtOccurrences(records = [], cycleStart, cycleEnd) {
           sourceType: "debt",
           amount: planned,
           actualPaid: cumulativeActualForOccurrence(record, dueDate),
+          waivedAmount: isDebtOccurrenceSkipped(record, dueDate) ? planned : 0,
           fulfilledBeforeCycle: amountPaidBeforeCycle(record, dueDate, cycleStart),
           source: "debt_obligation",
         };

@@ -19,7 +19,7 @@ import {
 } from "@/lib/clara-wallet-money-semantics";
 import { financialDateKey } from "@/lib/clara-financial-day";
 import { payDebtObligationFromWallet } from "@/lib/debtPaymentRepository";
-import { getDebtTitle } from "@/lib/debtObligationStore";
+import { getDebtTitle, skipDebtOccurrenceForCycle } from "@/lib/debtObligationStore";
 import { getDebtOccurrenceState, getPaidDebtOccurrenceDates } from "@/lib/debtOccurrenceState";
 import {
   estimateDebtPayoffMonths,
@@ -69,6 +69,9 @@ function getSafeDueMeta(record) {
   }
   if (occurrence.state === "due_today") {
     return { label: `Every ${ordinal(dueDay)} · Due today`, state: "due_today", dueDate: occurrence.dueDate };
+  }
+  if (occurrence.state === "skipped") {
+    return { label: `Every ${ordinal(dueDay)} · Skipped ${dueLabel}`, state: "skipped", dueDate: occurrence.dueDate };
   }
   return { label: `Every ${ordinal(dueDay)} · Next ${dueLabel}`, state: "scheduled", dueDate: occurrence.dueDate };
 }
@@ -168,6 +171,8 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
   const [paymentNotice, setPaymentNotice] = useState("");
   const [loadingWallets, setLoadingWallets] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [skipConfirmOpen, setSkipConfirmOpen] = useState(false);
+  const [skipping, setSkipping] = useState(false);
 
   const balance = getObligationBalance(effectiveRecord);
   const monthly = getObligationMonthly(effectiveRecord);
@@ -204,8 +209,10 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
     status,
   });
   const canPay =
+    dueMeta.state !== "skipped" &&
     !["paid", "completed", "closed"].includes(status) &&
     (monthly > 0 || (mode === "balance" && balance > 0));
+  const canSkip = canPay && Boolean(dueMeta.dueDate);
   const localUserId = String(effectiveRecord?.localUserId || effectiveRecord?.local_user_id || "").trim();
   const selectedWallet = paymentWallets.find(
     (wallet) => getWalletId(wallet) === paymentWalletId
@@ -310,6 +317,27 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
     }
   };
 
+
+  const submitSkip = async () => {
+    if (!canSkip || skipping || !localUserId) return;
+    setSkipping(true);
+    setPaymentNotice("");
+    try {
+      const updated = await skipDebtOccurrenceForCycle(localUserId, effectiveRecord.id, {
+        dueDate: dueMeta.dueDate,
+        referenceDate: new Date(),
+      });
+      if (updated) setLocalRecord(updated);
+      setSkipConfirmOpen(false);
+      setPaymentOpen(false);
+      setPaymentNotice("Skipped for this cycle. No money was deducted.");
+    } catch (error) {
+      setPaymentNotice(error?.message || "Unable to skip this payment.");
+    } finally {
+      setSkipping(false);
+    }
+  };
+
   return (
     <PremiumFinanceItemSurface tone={tone} className="p-3.5">
       <div className="grid grid-cols-[48px_minmax(0,1fr)_32px] items-start gap-3">
@@ -404,15 +432,63 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
         ) : null}
 
         {canPay ? (
-          <button
-            type="button"
-            disabled={loadingWallets || paying}
-            onClick={openPayment}
-            className="mt-3 flex min-h-[42px] w-full items-center justify-center gap-2 rounded-xl border border-emerald-300/20 bg-emerald-400/[0.08] px-3 text-[11px] font-black text-emerald-200 disabled:opacity-45"
-          >
-            {loadingWallets ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-            {loadingWallets ? "Loading wallets..." : "Pay Obligation"}
-          </button>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              disabled={loadingWallets || paying || skipping}
+              onClick={openPayment}
+              className="flex min-h-[42px] items-center justify-center gap-2 rounded-xl border border-emerald-300/20 bg-emerald-400/[0.08] px-3 text-[11px] font-black text-emerald-200 disabled:opacity-45"
+            >
+              {loadingWallets ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              {loadingWallets ? "Loading..." : "Pay"}
+            </button>
+            <button
+              type="button"
+              disabled={!canSkip || loadingWallets || paying || skipping}
+              onClick={() => {
+                setPaymentOpen(false);
+                setSkipConfirmOpen(true);
+                setPaymentNotice("");
+              }}
+              className="flex min-h-[42px] items-center justify-center rounded-xl border border-white/[0.09] bg-white/[0.035] px-3 text-[11px] font-black text-white/70 disabled:opacity-45"
+            >
+              {skipping ? "Skipping..." : "Skip"}
+            </button>
+          </div>
+        ) : null}
+
+        {dueMeta.state === "skipped" ? (
+          <div className="mt-3 rounded-xl border border-white/[0.07] bg-white/[0.035] px-3 py-2.5 text-center text-[11px] font-black text-white/58">
+            Skipped for this cycle · no wallet deduction
+          </div>
+        ) : null}
+
+        {skipConfirmOpen ? (
+          <div className="mt-3 rounded-2xl border border-white/[0.08] bg-black/[0.16] p-3">
+            <p className="text-xs font-black text-white/90">Skip this payment for this cycle?</p>
+            <p className="mt-1 text-[10px] font-semibold leading-4 text-white/45">
+              No money will be deducted. This obligation stays active for future cycles.
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={skipping}
+                onClick={() => setSkipConfirmOpen(false)}
+                className="min-h-[38px] rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 text-[11px] font-black text-white/65 disabled:opacity-45"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={skipping}
+                onClick={submitSkip}
+                className="flex min-h-[38px] items-center justify-center gap-2 rounded-xl border border-amber-300/18 bg-amber-400/[0.07] px-3 text-[11px] font-black text-amber-100 disabled:opacity-45"
+              >
+                {skipping ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                {skipping ? "Skipping..." : "Skip payment"}
+              </button>
+            </div>
+          </div>
         ) : null}
 
         {paymentOpen ? (

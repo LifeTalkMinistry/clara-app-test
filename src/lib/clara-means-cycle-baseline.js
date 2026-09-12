@@ -44,6 +44,12 @@ function normalizedOccurrence(value = {}, index = 0) {
       value.actualPaidBeforeCycle ??
       value.actual_paid_before_cycle
   );
+  const waivedAmount = money(
+    value.waivedAmount ??
+      value.waived_amount ??
+      value.skippedAmount ??
+      value.skipped_amount
+  );
   const kind = text(value.kind || value.sourceType || value.source_type || "requirement") ||
     "requirement";
 
@@ -55,6 +61,7 @@ function normalizedOccurrence(value = {}, index = 0) {
     plannedAmount,
     fulfilledAmount,
     fulfilledBeforeCycle,
+    waivedAmount,
     actualPaid: fulfilledAmount,
     amount: plannedAmount,
     kind,
@@ -161,7 +168,8 @@ function buildRequirements({
       : entry.plannedAmount;
     const fulfilledAmount = Math.min(entry.fulfilledAmount, plannedAmount);
     const fulfilledBeforeCycle = Math.min(entry.fulfilledBeforeCycle, plannedAmount);
-    const remainingAmount = Math.max(plannedAmount - fulfilledAmount, 0);
+    const waivedAmount = Math.min(entry.waivedAmount, Math.max(plannedAmount - fulfilledAmount, 0));
+    const remainingAmount = Math.max(plannedAmount - fulfilledAmount - waivedAmount, 0);
     const anchorAmount = Math.max(plannedAmount - fulfilledBeforeCycle, 0);
 
     requirements.push({
@@ -177,6 +185,7 @@ function buildRequirements({
       plannedAmount,
       fulfilledAmount,
       fulfilledBeforeCycle,
+      waivedAmount,
       remainingAmount,
       anchorAmount,
       actualPaid: fulfilledAmount,
