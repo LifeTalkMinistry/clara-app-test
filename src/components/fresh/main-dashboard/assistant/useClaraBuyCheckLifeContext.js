@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { CLARA_FOUNDING_ACCESS_ENABLED } from "@/config/claraFeatureFlags";
 import useClaraSupport from "@/hooks/useClaraSupport";
 import {
   DEFAULT_CLARA_LIFE_PROFILE,
@@ -21,6 +22,9 @@ export default function useClaraBuyCheckLifeContext(user) {
   const saveTimerRef = useRef(null);
 
   const supportTier = useMemo(() => {
+    // Founding Access grants the highest software-only personalization level.
+    // Human monthly coaching remains a separate real-person service.
+    if (CLARA_FOUNDING_ACCESS_ENABLED) return "builder";
     if (!supportState.isActive) return null;
     return normalizeSupportTier(supportState.record?.tier);
   }, [supportState.isActive, supportState.record?.tier]);
