@@ -264,6 +264,52 @@ async function applyEmergencyDelta({ localUserId, delta, repository }) {
   });
 }
 
+function adjustManualPaymentHistory(debt = {}, dueDate = "", delta = 0, now = "") {
+  const history = Array.isArray(debt.paymentHistory)
+    ? [...debt.paymentHistory]
+    : Array.isArray(debt.payment_history)
+      ? [...debt.payment_history]
+      : [];
+  if (!dueDate || !Number.isFinite(delta) || delta === 0) return history;
+
+  if (delta > 0) {
+    history.push({
+      id: `manual_expense_debt_payment_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+      amount: delta,
+      dueDate,
+      due_date: dueDate,
+      paidAt: now,
+      paid_at: now,
+      source: "manual_expense_linked_target",
+      meansRequirementKey: `debt:${text(debt.id)}:${dueDate}`,
+      means_requirement_key: `debt:${text(debt.id)}:${dueDate}`,
+    });
+    return history;
+  }
+
+  let remainingReversal = Math.abs(delta);
+  for (let index = history.length - 1; index >= 0 && remainingReversal > 0; index -= 1) {
+    const entry = history[index];
+    const entryDueDate = text(entry?.dueDate || entry?.due_date).slice(0, 10);
+    const source = text(entry?.source);
+    if (entryDueDate !== dueDate || source !== "manual_expense_linked_target") continue;
+
+    const entryAmount = Math.max(toAmount(entry?.amount), 0);
+    if (entryAmount <= remainingReversal) {
+      remainingReversal -= entryAmount;
+      history.splice(index, 1);
+    } else {
+      history[index] = {
+        ...entry,
+        amount: entryAmount - remainingReversal,
+      };
+      remainingReversal = 0;
+    }
+  }
+
+  return history;
+}
+
 async function applyDebtDelta({ localUserId, targetId, delta }) {
   if (!targetId) throw new Error("Debt / Obligation link is missing its target.");
 
@@ -279,9 +325,34 @@ async function applyDebtDelta({ localUserId, targetId, delta }) {
   const next = mode === "recurring" ? current : Math.max(current - delta, 0);
   const now = new Date().toISOString();
   const completed = mode === "balance" && next <= 0;
-  const occurrence = delta > 0 ? getDebtOccurrenceState(debt, new Date()) : null;
+  const occurrence = delta !== 0 ? getDebtOccurrenceState(debt, new Date()) : null;
   const paidOccurrenceDate = occurrence?.dueDate || "";
-  const paidOccurrences = paidOccurrenceDate ? appendPaidDebtOccurrence(debt, paidOccurrenceDate) : (debt.paidOccurrences || debt.paid_occurrences || []);
+  const paymentHistory = adjustManualPaymentHistory(debt, paidOccurrenceDate, delta, now);
+  const occurrencePaidAmount = paidOccurrenceDate
+    ? paymentHistory.reduce((sum, entry) => {
+        const entryDueDate = text(entry?.dueDate || entry?.due_date).slice(0, 10);
+        return entryDueDate === paidOccurrenceDate
+          ? sum + Math.max(toAmount(entry?.amount), 0)
+          : sum;
+      }, 0)
+    : 0;
+  const occurrenceExpectedAmount = Math.max(
+    toAmount(occurrence?.amount || debt?.monthlyPayment || debt?.monthly_payment || debt?.monthlyDebt),
+    0
+  );
+  const occurrenceSatisfied = Boolean(
+    paidOccurrenceDate &&
+      occurrenceExpectedAmount > 0 &&
+      occurrencePaidAmount >= occurrenceExpectedAmount
+  );
+  const existingPaidOccurrences = Array.isArray(debt.paidOccurrences)
+    ? debt.paidOccurrences
+    : Array.isArray(debt.paid_occurrences)
+      ? debt.paid_occurrences
+      : [];
+  const paidOccurrences = occurrenceSatisfied
+    ? appendPaidDebtOccurrence(debt, paidOccurrenceDate)
+    : existingPaidOccurrences.filter((date) => text(date).slice(0, 10) !== paidOccurrenceDate);
   const record = {
     ...debt,
     id: debt.id,
@@ -294,6 +365,8 @@ async function applyDebtDelta({ localUserId, targetId, delta }) {
     amount: next,
     debt_balance: next,
     status: completed ? "completed" : "active",
+    paymentHistory,
+    payment_history: paymentHistory,
     paidAt: completed ? now : null,
     paid_at: completed ? now : null,
     lastPaymentAmount: delta > 0 ? delta : debt.lastPaymentAmount || null,
@@ -302,8 +375,16 @@ async function applyDebtDelta({ localUserId, targetId, delta }) {
     last_paid_at: delta > 0 ? now : debt.last_paid_at || null,
     paidOccurrences,
     paid_occurrences: paidOccurrences,
-    lastPaidOccurrenceDate: paidOccurrenceDate || debt.lastPaidOccurrenceDate || debt.last_paid_occurrence_date || null,
-    last_paid_occurrence_date: paidOccurrenceDate || debt.last_paid_occurrence_date || debt.lastPaidOccurrenceDate || null,
+    lastPaidOccurrenceDate: occurrenceSatisfied
+      ? paidOccurrenceDate
+      : debt.lastPaidOccurrenceDate === paidOccurrenceDate
+        ? null
+        : debt.lastPaidOccurrenceDate || debt.last_paid_occurrence_date || null,
+    last_paid_occurrence_date: occurrenceSatisfied
+      ? paidOccurrenceDate
+      : debt.last_paid_occurrence_date === paidOccurrenceDate
+        ? null
+        : debt.last_paid_occurrence_date || debt.lastPaidOccurrenceDate || null,
     updatedAt: now,
     updated_at: now,
     deletedAt: null,
