@@ -31,6 +31,27 @@ test("the existing pricing/trial component is preserved for future reactivation"
   assert.match(gate, /Take Control/);
 });
 
+test("membership upsell runtime is dormant while Founding Access is enabled", () => {
+  const source = read("src/hooks/useClaraSupport.js");
+  assert.match(source, /if \(CLARA_FOUNDING_ACCESS_ENABLED\)[\s\S]*setBackendRecord\(null\)/);
+  assert.match(source, /CLARA_FOUNDING_ACCESS_ENABLED \|\| isSupportRecordActive\(record\)/);
+  assert.match(source, /status: "founding_access"/);
+});
+
+test("personal context receives the highest software-only access without granting human coaching", () => {
+  const source = read("src/components/fresh/main-dashboard/assistant/useClaraBuyCheckLifeContext.js");
+  assert.match(source, /if \(CLARA_FOUNDING_ACCESS_ENABLED\) return "builder"/);
+  assert.match(source, /Human monthly coaching remains a separate real-person service/);
+});
+
+test("legacy tier and activation routes cannot flash paid-access UI", () => {
+  const tierSelect = read("src/pages/TierSelect.jsx");
+  const activation = read("src/pages/Activation.jsx");
+  assert.match(tierSelect, /<Navigate to="\/dashboard" replace \/>/);
+  assert.match(activation, /if \(CLARA_FOUNDING_ACCESS_ENABLED\)[\s\S]*<Navigate to="\/dashboard" replace \/>/);
+  assert.match(activation, /function LegacyActivation\(\)/);
+});
+
 test("server-authoritative cohort survives authenticated client normalization", () => {
   const client = read("src/lib/clara-backend-client.js");
   const authority = read("src/lib/backend-membership-authority.js");
