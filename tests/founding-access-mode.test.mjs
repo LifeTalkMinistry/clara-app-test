@@ -23,12 +23,14 @@ test("product access bypasses trial and paid state before the pricing gate can r
   assert.match(source, /checking: CLARA_FOUNDING_ACCESS_ENABLED \? false/);
 });
 
-test("the existing pricing/trial component is preserved for future reactivation", () => {
+test("legacy pricing/trial entry point resolves straight to CLARA ORB", () => {
   const community = read("src/pages/Community.jsx");
   const gate = read("src/components/community/ClaraTrialAccessGate.jsx");
   assert.match(community, /ClaraTrialAccessGate/);
-  assert.match(gate, /15-Day Trial/);
-  assert.match(gate, /Take Control/);
+  assert.match(gate, /import ClaraOrbPage/);
+  assert.match(gate, /return <ClaraOrbPage \/>/);
+  assert.doesNotMatch(gate, /15-Day Trial/);
+  assert.doesNotMatch(gate, /Take Control/);
 });
 
 test("membership upsell runtime is dormant while Founding Access is enabled", () => {
