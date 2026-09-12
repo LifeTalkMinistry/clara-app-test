@@ -1,12 +1,21 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { CheckCircle2, KeyRound, Lock, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CLARA_FOUNDING_ACCESS_ENABLED } from "@/config/claraFeatureFlags";
 import useUserRole from "@/hooks/useUserRole";
 import { validateActivationCode, formatActivationCode } from "@/lib/activation";
 
 export default function Activation() {
+  if (CLARA_FOUNDING_ACCESS_ENABLED) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <LegacyActivation />;
+}
+
+function LegacyActivation() {
   const navigate = useNavigate();
   const { user, planLabel, isPreActivation, refreshUser, loading } = useUserRole();
   const [code, setCode] = useState("");
