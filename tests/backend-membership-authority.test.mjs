@@ -100,7 +100,7 @@ test("backend profile overwrites local membership claims without deleting local 
   assert.equal(profile.membership_source, "backend");
 });
 
-test("backend user normalization preserves canonical supporter plans, status, and timestamps", () => {
+test("backend user normalization preserves canonical membership and Founder cohort independently", () => {
   assert.deepEqual(
     normalizeUser({
       id: 4,
@@ -117,18 +117,31 @@ test("backend user normalization preserves canonical supporter plans, status, an
       name: "Max",
       email: "max@example.com",
       role: "admin",
-      plan: "champion",
       status: "active",
+      plan: "champion",
+      access_cohort: "standard",
+      access_cohort_assigned_at: null,
       created_at: "created",
       updated_at: "updated",
     }
   );
 
-  assert.equal(normalizeUser({ id: 5, plan: "builder", status: "active" }).plan, "builder");
-  assert.equal(normalizeUser({ id: 5, plan: "committed", status: "active" }).plan, FREE_PLAN_KEY);
-  assert.equal(normalizeUser({ id: 5, plan: "pro", status: "approved" }).plan, "free");
+  const founder = normalizeUser({
+    id: 5,
+    plan: "free",
+    status: "active",
+    access_cohort: "founder",
+    access_cohort_assigned_at: "2026-09-12T00:00:00Z",
+  });
+  assert.equal(founder.plan, "free");
+  assert.equal(founder.access_cohort, "founder");
+  assert.equal(founder.access_cohort_assigned_at, "2026-09-12T00:00:00Z");
+
+  assert.equal(normalizeUser({ id: 6, plan: "builder", status: "active" }).plan, "builder");
+  assert.equal(normalizeUser({ id: 6, plan: "committed", status: "active" }).plan, FREE_PLAN_KEY);
+  assert.equal(normalizeUser({ id: 6, plan: "pro", status: "approved" }).plan, "free");
   assert.equal(
-    normalizeUser({ id: 5, plan: "pro", status: "approved" }).status,
+    normalizeUser({ id: 6, plan: "pro", status: "approved" }).status,
     "inactive"
   );
 });
