@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { CLARA_FOUNDING_ACCESS_ENABLED } from "@/config/claraFeatureFlags";
 import useUserRole from "@/hooks/useUserRole";
 import {
   backendRequest,
@@ -33,10 +34,16 @@ function normalizeTrial(trial) {
 export default function useClaraProductAccess() {
   const { isAdmin, isPaid, loading: roleLoading } = useUserRole();
   const [trial, setTrial] = useState(() => normalizeTrial(null));
-  const [checking, setChecking] = useState(true);
+  const [checking, setChecking] = useState(() => !CLARA_FOUNDING_ACCESS_ENABLED);
   const [error, setError] = useState("");
 
   const refreshAccess = useCallback(async () => {
+    if (CLARA_FOUNDING_ACCESS_ENABLED) {
+      setChecking(false);
+      setError("");
+      return null;
+    }
+
     if (roleLoading) return null;
 
     if (isAdmin || isPaid) {
@@ -83,7 +90,11 @@ export default function useClaraProductAccess() {
   }, []);
 
   const hasProductAccess = useMemo(
-    () => isAdmin || isPaid || trial.status === "active",
+    () =>
+      CLARA_FOUNDING_ACCESS_ENABLED ||
+      isAdmin ||
+      isPaid ||
+      trial.status === "active",
     [isAdmin, isPaid, trial.status]
   );
 
@@ -91,7 +102,7 @@ export default function useClaraProductAccess() {
     isAdmin,
     isPaid,
     trial,
-    checking: roleLoading || checking,
+    checking: CLARA_FOUNDING_ACCESS_ENABLED ? false : roleLoading || checking,
     error,
     hasProductAccess,
     refreshAccess,
