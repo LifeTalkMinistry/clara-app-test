@@ -1,0 +1,36 @@
+name: One-shot debt occurrence Pay Skip
+
+on:
+  push:
+    paths:
+      - ".github/workflows/one-shot-debt-occurrence-skip.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Apply debt occurrence Pay / Skip patch
+        run: python scripts/add_debt_occurrence_skip.py
+      - name: Run focused regression
+        run: node --test tests/debt-occurrence-skip-regression.test.mjs
+      - name: Verify production contracts
+        run: |
+          grep -q "skipDebtOccurrence" src/lib/debtObligationStore.js
+          grep -q "isDebtOccurrenceSkipped" src/lib/debtOccurrenceState.js
+          grep -q "meansFulfilledAmount" src/lib/clara-means-authority.js
+          grep -q '"Pay"' src/components/financial-carousel/cards/debt/ui/DebtObligationItem.jsx
+          grep -q 'Skip this cycle' src/components/financial-carousel/cards/debt/ui/DebtObligationItem.jsx
+      - name: Commit Pay / Skip implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/debtOccurrenceState.js src/lib/debtObligationStore.js src/lib/clara-means-cycle-baseline.js src/lib/clara-means-authority.js src/components/financial-carousel/cards/debt/ui/DebtObligationItem.jsx tests/debt-occurrence-skip-regression.test.mjs
+          git commit -m "Add per-cycle debt Pay and Skip actions"
+          git push origin HEAD:main
