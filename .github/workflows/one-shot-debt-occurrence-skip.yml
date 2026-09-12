@@ -34,3 +34,5 @@ jobs:
           git add src/lib/debtOccurrenceState.js src/lib/debtObligationStore.js src/lib/clara-means-cycle-baseline.js src/lib/clara-means-authority.js src/components/financial-carousel/cards/debt/ui/DebtObligationItem.jsx tests/debt-occurrence-skip-regression.test.mjs
           git commit -m "Add per-cycle debt Pay and Skip actions"
           git push origin HEAD:main
+
+# Trigger marker: 2026-09-12 Pay / Skip
