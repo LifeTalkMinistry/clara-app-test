@@ -23,10 +23,19 @@ export const CLARA_LOCAL_MODE_ENABLED = readEnvFlag(
   true
 );
 
+// Product-level switch for the temporary launch period. Defaulting to true
+// makes a build safe for Founding Access unless monetization is deliberately
+// reactivated later.
+export const CLARA_FOUNDING_ACCESS_ENABLED = readEnvFlag(
+  "VITE_CLARA_FOUNDING_ACCESS_ENABLED",
+  true
+);
+
 export function getClaraFeatureFlags() {
   return {
     authEnabled: CLARA_AUTH_ENABLED,
     accountLinkingEnabled: CLARA_ACCOUNT_LINKING_ENABLED,
     localModeEnabled: CLARA_LOCAL_MODE_ENABLED,
+    foundingAccessEnabled: CLARA_FOUNDING_ACCESS_ENABLED,
   };
 }
