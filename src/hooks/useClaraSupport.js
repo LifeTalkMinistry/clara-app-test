@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { CLARA_FOUNDING_ACCESS_ENABLED } from "@/config/claraFeatureFlags";
 import { backendRequest, getStoredBackendToken } from "@/lib/clara-backend-client";
 import {
   getSupportDisplayState,
@@ -58,6 +59,15 @@ export default function useClaraSupport(user) {
   const clearError = useCallback(() => setError(""), []);
 
   const refresh = useCallback(async () => {
+    if (CLARA_FOUNDING_ACCESS_ENABLED) {
+      setBackendRecord(null);
+      setLiveAccount(null);
+      setChampionCapacity(null);
+      setLoading(false);
+      setError("");
+      return null;
+    }
+
     if (!isSupportRuntimeRouteAllowed()) {
       setLoading(false);
       return null;
@@ -110,7 +120,7 @@ export default function useClaraSupport(user) {
   }, [refresh]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return undefined;
+    if (typeof window === "undefined" || CLARA_FOUNDING_ACCESS_ENABLED) return undefined;
     const sync = () => {
       if (document.visibilityState === "visible") refresh();
     };
@@ -157,9 +167,16 @@ export default function useClaraSupport(user) {
   }, [accountPlan, accountStatus, accountTier, backendRecord]);
 
   const support = useMemo(() => getSupportDisplayState(record), [record]);
-  const isActive = useMemo(() => isSupportRecordActive(record), [record]);
+  const isActive = useMemo(
+    () => CLARA_FOUNDING_ACCESS_ENABLED || isSupportRecordActive(record),
+    [record]
+  );
 
   const startSupport = useCallback(async (tierKey) => {
+    if (CLARA_FOUNDING_ACCESS_ENABLED) {
+      clearError();
+      return { status: "founding_access" };
+    }
     if (!user?.id || purchaseTier) return null;
     clearError();
     setPurchaseTier(tierKey);
