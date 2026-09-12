@@ -15,6 +15,7 @@ export const BACKEND_ACCOUNT_PLANS = Object.freeze([
   BACKEND_CHAMPION_PLAN,
 ]);
 export const BACKEND_ACCOUNT_STATUSES = Object.freeze(["active", "pending", "inactive"]);
+export const BACKEND_ACCESS_COHORTS = Object.freeze(["founder", "standard"]);
 
 // The backend keys remain unchanged for compatibility with the existing payment
 // and admin infrastructure. Only the product-facing labels have changed.
@@ -34,6 +35,11 @@ export function normalizeBackendStatus(value) {
   return BACKEND_ACCOUNT_STATUSES.includes(normalized) ? normalized : "inactive";
 }
 
+export function normalizeBackendAccessCohort(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return BACKEND_ACCESS_COHORTS.includes(normalized) ? normalized : "standard";
+}
+
 export function isBackendSupportPlanActive(serverUser = {}) {
   const plan = normalizeBackendPlan(serverUser.plan);
   return plan !== BACKEND_FREE_PLAN && normalizeBackendStatus(serverUser.status) === "active";
@@ -48,6 +54,7 @@ export function isBackendCommittedActive(serverUser = {}) {
 export function buildBackendMembershipProfile(serverUser = {}, baseProfile = {}) {
   const backendPlan = normalizeBackendPlan(serverUser.plan);
   const accountStatus = normalizeBackendStatus(serverUser.status);
+  const accessCohort = normalizeBackendAccessCohort(serverUser.access_cohort);
   const activeSupportPlan =
     backendPlan !== BACKEND_FREE_PLAN && accountStatus === "active";
   const membershipStatus =
@@ -59,6 +66,8 @@ export function buildBackendMembershipProfile(serverUser = {}, baseProfile = {})
     plan_key: backendPlan,
     subscription_plan: backendPlan,
     backend_plan: backendPlan,
+    access_cohort: accessCohort,
+    access_cohort_assigned_at: serverUser.access_cohort_assigned_at || null,
     account_status: accountStatus,
     membership_source: "backend",
     access_level: activeSupportPlan ? "committed" : "free",
