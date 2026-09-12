@@ -18,6 +18,8 @@ jobs:
           fetch-depth: 0
       - name: Apply debt occurrence Skip patch
         run: python scripts/add_debt_skip_occurrence.py
+      - name: Normalize focused verifier
+        run: python scripts/fix_debt_skip_regression_assertion.py
       - name: Run focused regression
         run: node --test tests/debt-skip-occurrence-regression.test.mjs
       - name: Commit Skip implementation
