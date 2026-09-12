@@ -7,6 +7,7 @@ const USER_KEY = "clara_backend_user_v1";
 const USER_VERIFIED_AT_KEY = "clara_backend_user_verified_at_v1";
 const VALID_STATUSES = new Set(["active", "pending", "inactive"]);
 const VALID_PLANS = new Set(["free", "supporter", "builder", "champion"]);
+const VALID_ACCESS_COHORTS = new Set(["founder", "standard"]);
 
 function getBuildEnvironment() {
   try {
@@ -85,6 +86,11 @@ function normalizePlan(value) {
   return VALID_PLANS.has(normalized) ? normalized : "free";
 }
 
+function normalizeAccessCohort(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return VALID_ACCESS_COHORTS.has(normalized) ? normalized : "standard";
+}
+
 export function normalizeUser(payload = {}) {
   const user = extractUserPayload(payload);
   const id = user?.id ?? user?.user_id ?? user?.userId ?? null;
@@ -99,6 +105,9 @@ export function normalizeUser(payload = {}) {
     role: normalizeRole(user.role || user.user_role),
     status: normalizeStatus(user.status || user.account_status),
     plan: normalizePlan(user.plan || user.subscription_plan),
+    access_cohort: normalizeAccessCohort(user.access_cohort),
+    access_cohort_assigned_at:
+      user.access_cohort_assigned_at || user.accessCohortAssignedAt || null,
     created_at: user.created_at || user.createdAt || null,
     updated_at: user.updated_at || user.updatedAt || null,
   };
