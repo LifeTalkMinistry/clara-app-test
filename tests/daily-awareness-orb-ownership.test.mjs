@@ -54,14 +54,17 @@ test("onboarding tutorial reuses the Orb surface without owning Daily Awareness"
   assert.match(orbSource, /if \(!isCommandModeEnabled\) return undefined;/);
 });
 
-test("Community access gate renders before the production ORB branch", async () => {
+test("Community preserves the legacy pricing gate but Founding Access bypasses it before ORB ownership", async () => {
   const communitySource = await readSource("src/pages/Community.jsx");
-  const gateBranch = communitySource.indexOf(") : gateCurrentView ? (");
+  const productAccessSource = await readSource("src/hooks/useClaraProductAccess.js");
+  const gateBranch = communitySource.indexOf("{gateCurrentView ? (");
   const orbBranch = communitySource.indexOf(") : activeView === \"orb\" ? (");
 
-  assert.ok(gateBranch > 0, "trial/access gate branch must exist");
-  assert.ok(orbBranch > gateBranch, "the access gate must win before ClaraOrbPage can mount");
+  assert.ok(gateBranch > 0, "legacy pricing gate must remain preserved for future reactivation");
+  assert.ok(orbBranch > gateBranch, "the preserved gate branch must remain structurally before ClaraOrbPage");
   assert.match(communitySource.slice(orbBranch, orbBranch + 160), /<ClaraOrbPage \/>/);
+  assert.match(productAccessSource, /CLARA_FOUNDING_ACCESS_ENABLED \|\|[\s\S]*isAdmin[\s\S]*isPaid/);
+  assert.match(productAccessSource, /checking: CLARA_FOUNDING_ACCESS_ENABLED \? false/);
 });
 
 test("Daily Awareness cleanup removes ORB-scoped listeners, timers, banner, and install ownership", async () => {
