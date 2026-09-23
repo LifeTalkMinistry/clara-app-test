@@ -97,7 +97,7 @@ export const getCarouselData = ({
     investmentFund: {
       title: "Income Hub",
       amount: 0,
-      subtitle: "Where your money comes from before it enters your wallets.",
+      subtitle: "Where your money comes",
       state: "ready",
     },
 
