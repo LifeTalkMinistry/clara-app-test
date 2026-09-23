@@ -337,9 +337,9 @@ main > *:last-child {
 }
 
 /* Dashboard ad / billboard edge alignment fix
-   Keeps the ad card, media layer, and glow/border using the same rounded edge. */
+   Own the real Learning Hub/billboard surface instead of a structural child slot. */
 @media (max-width: 430px) {
-  .theme-page-shell main > div:first-child > :nth-child(2) {
+  .theme-page-shell main [data-clara-learning-hub-section="true"] {
     position: relative;
     width: 100%;
     max-width: 100%;
@@ -350,14 +350,14 @@ main > *:last-child {
     box-sizing: border-box;
   }
 
-  .theme-page-shell main > div:first-child > :nth-child(2) > * {
+  .theme-page-shell main [data-clara-learning-hub-section="true"] > * {
     max-width: 100%;
   }
 
-  .theme-page-shell main > div:first-child > :nth-child(2) img,
-  .theme-page-shell main > div:first-child > :nth-child(2) video,
-  .theme-page-shell main > div:first-child > :nth-child(2) canvas,
-  .theme-page-shell main > div:first-child > :nth-child(2) picture {
+  .theme-page-shell main [data-clara-learning-hub-section="true"] img,
+  .theme-page-shell main [data-clara-learning-hub-section="true"] video,
+  .theme-page-shell main [data-clara-learning-hub-section="true"] canvas,
+  .theme-page-shell main [data-clara-learning-hub-section="true"] picture {
     display: block;
     width: 100% !important;
     height: 100% !important;
@@ -368,11 +368,11 @@ main > *:last-child {
 }
 
 @media (max-width: 374px) {
-  .theme-page-shell main > div:first-child > :nth-child(2),
-  .theme-page-shell main > div:first-child > :nth-child(2) img,
-  .theme-page-shell main > div:first-child > :nth-child(2) video,
-  .theme-page-shell main > div:first-child > :nth-child(2) canvas,
-  .theme-page-shell main > div:first-child > :nth-child(2) picture {
+  .theme-page-shell main [data-clara-learning-hub-section="true"],
+  .theme-page-shell main [data-clara-learning-hub-section="true"] img,
+  .theme-page-shell main [data-clara-learning-hub-section="true"] video,
+  .theme-page-shell main [data-clara-learning-hub-section="true"] canvas,
+  .theme-page-shell main [data-clara-learning-hub-section="true"] picture {
     border-radius: 22px !important;
   }
 }
@@ -547,4 +547,3 @@ main > *:last-child {
     margin-bottom: var(--clara-dashboard-edge-gap) !important;
   }
 }
-
