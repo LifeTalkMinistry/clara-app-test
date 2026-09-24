@@ -307,13 +307,9 @@ export default function Login() {
   const { user, signIn, signUp, loading: authLoading } = useAuth();
   const requestedMode = new URLSearchParams(location.search).get("mode");
   const initialMode =
-    requestedMode === "landing"
-      ? "landing"
-      : requestedMode === "signup"
-        ? "signup"
-        : requestedMode === "login" || location.state?.from
-          ? "login"
-          : "landing";
+    requestedMode === "signup"
+      ? "signup"
+      : "login";
 
   const [mode, setMode] = useState(initialMode);
   const [trialModalOpen, setTrialModalOpen] = useState(false);
@@ -475,15 +471,17 @@ export default function Login() {
       </div>
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-6 sm:px-6">
-        <button
-          type="button"
-          onClick={() => switchMode("landing")}
-          disabled={loading}
-          className="mb-3 inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-medium text-white/42 transition hover:bg-white/[0.05] hover:text-white/72 disabled:opacity-40"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Back to CLARA
-        </button>
+        {mode !== "login" ? (
+          <button
+            type="button"
+            onClick={() => switchMode("login")}
+            disabled={loading}
+            className="mb-3 inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-medium text-white/42 transition hover:bg-white/[0.05] hover:text-white/72 disabled:opacity-40"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to login
+          </button>
+        ) : null}
 
         <div className="mb-4 flex justify-center">
           <ClaraLogo variant="icon" theme="dark" />
