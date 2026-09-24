@@ -73,7 +73,7 @@ test("dashboard, home, orb, refresh, and manual community views converge on Comm
   const app = await source(appPath);
   const community = await source(communityPath);
 
-  assert.match(app, /path="\/dashboard"[\s\S]*Navigate to="\/community\?view=home"/);
+  assert.match(app, /const CLARA_HOME_PATH = "\/community\?view=home"/);\n  assert.match(app, /path="\/dashboard"[\s\S]*Navigate to=\{CLARA_HOME_PATH\}/);
   assert.match(app, /path="\/community"[\s\S]*<Community/);
   assert.match(community, /requestedView = searchParams\.get\("view"\) \|\| "orb"/);
   assert.doesNotMatch(community, /financialSetupGateActive/);
