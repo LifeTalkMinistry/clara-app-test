@@ -89,6 +89,9 @@ function normalizedProtectedMap(value) {
       date: normalized.date,
       amount: normalized.plannedAmount,
       plannedAmount: normalized.plannedAmount,
+      fulfilledAmount: normalized.fulfilledAmount,
+      fulfilledBeforeCycle: normalized.fulfilledBeforeCycle,
+      waivedAmount: normalized.waivedAmount,
       kind: normalized.kind,
       sourceType: normalized.sourceType,
       sourceId: normalized.sourceId,
@@ -156,6 +159,9 @@ function buildRequirements({
         date: entry.date,
         amount: entry.plannedAmount,
         plannedAmount: entry.plannedAmount,
+        fulfilledAmount: entry.fulfilledAmount,
+        fulfilledBeforeCycle: entry.fulfilledBeforeCycle,
+        waivedAmount: entry.waivedAmount,
         kind: entry.kind,
         sourceType: entry.sourceType,
         sourceId: entry.sourceId,
@@ -171,6 +177,15 @@ function buildRequirements({
     const waivedAmount = Math.min(entry.waivedAmount, Math.max(plannedAmount - fulfilledAmount, 0));
     const remainingAmount = Math.max(plannedAmount - fulfilledAmount - waivedAmount, 0);
     const anchorAmount = Math.max(plannedAmount - fulfilledBeforeCycle, 0);
+
+    if (protectedEntry) {
+      protectedMap[entry.id] = {
+        ...protectedEntry,
+        fulfilledAmount,
+        fulfilledBeforeCycle,
+        waivedAmount,
+      };
+    }
 
     requirements.push({
       requirementKey: entry.id,
@@ -193,13 +208,22 @@ function buildRequirements({
     });
   });
 
-  // Once a requirement reaches today/past it remains represented while unfulfilled,
-  // even if the live plan is later edited or removed. Future deletions remain legitimate.
+  // Once a requirement reaches today/past it remains represented if its live source
+  // later disappears. Persist its latest fulfilled/waived state so a resolved item
+  // cannot be resurrected as fully unpaid merely because the source was removed.
   Object.values(protectedMap).forEach((entry) => {
     if (liveIds.has(entry.id)) return;
     if (!currentDay || entry.date > currentDay) return;
     if (entry.date < start || entry.date >= end) return;
     const plannedAmount = money(entry.plannedAmount ?? entry.amount);
+    const fulfilledAmount = Math.min(money(entry.fulfilledAmount), plannedAmount);
+    const fulfilledBeforeCycle = Math.min(money(entry.fulfilledBeforeCycle), plannedAmount);
+    const waivedAmount = Math.min(
+      money(entry.waivedAmount),
+      Math.max(plannedAmount - fulfilledAmount, 0)
+    );
+    const remainingAmount = Math.max(plannedAmount - fulfilledAmount - waivedAmount, 0);
+    const anchorAmount = Math.max(plannedAmount - fulfilledBeforeCycle, 0);
     requirements.push({
       requirementKey: entry.id,
       id: entry.id,
@@ -211,12 +235,13 @@ function buildRequirements({
       kind: text(entry.kind || "requirement") || "requirement",
       protected: true,
       plannedAmount,
-      fulfilledAmount: 0,
-      fulfilledBeforeCycle: 0,
-      remainingAmount: plannedAmount,
-      anchorAmount: plannedAmount,
-      actualPaid: 0,
-      amount: plannedAmount,
+      fulfilledAmount,
+      fulfilledBeforeCycle,
+      waivedAmount,
+      remainingAmount,
+      anchorAmount,
+      actualPaid: fulfilledAmount,
+      amount: remainingAmount,
       retainedAfterPlanMutation: true,
     });
   });
