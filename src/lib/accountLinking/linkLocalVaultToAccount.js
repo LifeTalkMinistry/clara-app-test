@@ -62,6 +62,68 @@ export function snapshotsMatch(before = {}, after = {}) {
   return JSON.stringify(before) === JSON.stringify(after);
 }
 
+export function diffVaultSnapshots(before = {}, after = {}) {
+  const storeNames = new Set([
+    ...Object.keys(before || {}),
+    ...Object.keys(after || {}),
+  ]);
+  const changed = {};
+
+  for (const storeName of storeNames) {
+    const left = before?.[storeName] || {
+      active: 0,
+      deleted: 0,
+      activeIds: [],
+      deletedIds: [],
+    };
+    const right = after?.[storeName] || {
+      active: 0,
+      deleted: 0,
+      activeIds: [],
+      deletedIds: [],
+    };
+
+    const leftActive = new Set(left.activeIds || []);
+    const rightActive = new Set(right.activeIds || []);
+    const leftDeleted = new Set(left.deletedIds || []);
+    const rightDeleted = new Set(right.deletedIds || []);
+
+    const addedActiveIds = [...rightActive].filter((id) => !leftActive.has(id));
+    const removedActiveIds = [...leftActive].filter((id) => !rightActive.has(id));
+    const addedDeletedIds = [...rightDeleted].filter((id) => !leftDeleted.has(id));
+    const removedDeletedIds = [...leftDeleted].filter((id) => !rightDeleted.has(id));
+
+    if (
+      Number(left.active || 0) !== Number(right.active || 0) ||
+      Number(left.deleted || 0) !== Number(right.deleted || 0) ||
+      addedActiveIds.length ||
+      removedActiveIds.length ||
+      addedDeletedIds.length ||
+      removedDeletedIds.length
+    ) {
+      changed[storeName] = {
+        beforeActive: Number(left.active || 0),
+        afterActive: Number(right.active || 0),
+        beforeDeleted: Number(left.deleted || 0),
+        afterDeleted: Number(right.deleted || 0),
+        addedActiveIds,
+        removedActiveIds,
+        addedDeletedIds,
+        removedDeletedIds,
+      };
+    }
+  }
+
+  return changed;
+}
+
+function logVaultVerificationDiff(vaultId, before, after) {
+  console.warn("[CLARA Vault Verification Debug]", {
+    vaultId,
+    changedStores: diffVaultSnapshots(before, after),
+  });
+}
+
 const defaultAdapters = {
   getActiveVaultId: () => getActiveLocalVaultId() || ensureActiveLocalVaultId(),
   getMetadata: getActiveVaultMetadata,
@@ -124,6 +186,7 @@ export async function linkLocalVaultToAccountWithAdapters(
   if (metadata?.linkStatus === "linked" && linkedAccountId === accountUserId) {
     const after = await adapters.readSnapshot(vaultId);
     if (!snapshotsMatch(before, after)) {
+      logVaultVerificationDiff(vaultId, before, after);
       throw linkError("Local record verification failed.", "VAULT_VERIFICATION_FAILED");
     }
     return {
@@ -150,6 +213,7 @@ export async function linkLocalVaultToAccountWithAdapters(
 
     const after = await adapters.readSnapshot(vaultId);
     if (!snapshotsMatch(before, after)) {
+      logVaultVerificationDiff(vaultId, before, after);
       throw linkError("Local record verification failed.", "VAULT_VERIFICATION_FAILED");
     }
 

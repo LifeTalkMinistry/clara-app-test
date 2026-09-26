@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import {
+  assertSuccessfulFinancialContextMigration,
   normalizePreparedFinancialContext,
   reconcileFinancialContextMigration,
 } from "../src/lib/clara-financial-context-migration.js";
@@ -151,7 +152,7 @@ test("receiving data stages an isolated vault and verifies canonical financial t
   assert.match(vaultSource, /meansCycleBaselineRecordId\(targetVaultId, cycleStart, cycleEnd\)/);
   assert.match(
     vaultSource,
-    /restoreClaraLocalDataFromFile\([\s\S]*indexedDbOnly\(transferPrepared\)/
+    /restoreClaraLocalDataFromFile\([\s\S]*indexedDbOnly\(transferPrepared\)[\s\S]*dispatchEvents: false/
   );
   assert.match(
     vaultSource,
@@ -159,7 +160,7 @@ test("receiving data stages an isolated vault and verifies canonical financial t
   );
   assert.match(
     vaultSource,
-    /storageOnly\(transferPrepared\)[\s\S]*buildFinancialContextMigrationSnapshot\([\s\S]*vaultId: newVaultId/
+    /storageOnly\(transferPrepared\)[\s\S]*dispatchEvents: false[\s\S]*buildFinancialContextMigrationSnapshot\([\s\S]*vaultId: newVaultId/
   );
   assert.match(
     vaultSource,
@@ -167,6 +168,96 @@ test("receiving data stages an isolated vault and verifies canonical financial t
   );
   assert.match(vaultSource, /clearLocalUserPrivateData\(newVaultId\)/);
   assert.match(vaultSource, /rollbackLastDeviceTransfer/);
+  assert.doesNotMatch(vaultSource, /setActiveLocalVaultId\(newVaultId\)/);
+  assert.doesNotMatch(vaultSource, /setTimeout\(/);
+});
+
+test("device transfer staging and rollback restores stay lifecycle-silent", () => {
+  const importStart = vaultSource.indexOf("export async function importDeviceTransferIntoNewVault");
+  const importEnd = vaultSource.indexOf("\n}\n\nexport async function rollbackLastDeviceTransfer", importStart);
+  const importFunction = vaultSource.slice(importStart, importEnd);
+  const successEnd = importFunction.indexOf("\n  } catch (error) {");
+  const successPath = importFunction.slice(0, successEnd);
+
+  assert.ok(importStart >= 0 && importEnd > importStart && successEnd > 0);
+  assert.match(
+    successPath,
+    /indexedDbOnly\(transferPrepared\)\),[\s\S]*\{ dispatchEvents: false \}/
+  );
+  assert.match(
+    successPath,
+    /storageOnly\(transferPrepared\)\),[\s\S]*\{ dispatchEvents: false \}/
+  );
+  assert.match(
+    vaultSource,
+    /async function restorePreparedBackup[\s\S]*restoreClaraLocalDataFromFile\([\s\S]*dispatchEvents: false/
+  );
+
+  const assertIndex = successPath.indexOf("assertSuccessfulFinancialContextMigration(migrationResult)");
+  const refreshIndex = successPath.indexOf("publishDeviceTransferRefresh({");
+  assert.ok(assertIndex >= 0 && refreshIndex > assertIndex);
+});
+
+test("successful transfer activates once and publishes one refresh only after completed recovery", () => {
+  const importStart = vaultSource.indexOf("export async function importDeviceTransferIntoNewVault");
+  const importEnd = vaultSource.indexOf("\n}\n\nexport async function rollbackLastDeviceTransfer", importStart);
+  const importFunction = vaultSource.slice(importStart, importEnd);
+  const successEnd = importFunction.indexOf("\n  } catch (error) {");
+  const successPath = importFunction.slice(0, successEnd);
+
+  const reconciliationDebugIndex = successPath.indexOf("[CLARA Transfer Reconciliation Debug]");
+  const assertIndex = successPath.indexOf("assertSuccessfulFinancialContextMigration(migrationResult)");
+  const switchIndex = successPath.indexOf("switchAccountVault({");
+  const completedIndex = successPath.indexOf('status: "completed"');
+  const refreshIndex = successPath.indexOf("publishDeviceTransferRefresh({");
+  const switchCalls = successPath.match(/switchAccountVault\(\{/g) || [];
+  const refreshCalls = successPath.match(/publishDeviceTransferRefresh\(\{/g) || [];
+
+  assert.ok(reconciliationDebugIndex >= 0);
+  assert.ok(reconciliationDebugIndex < assertIndex);
+  assert.ok(assertIndex < switchIndex);
+  assert.ok(switchIndex < completedIndex);
+  assert.ok(completedIndex < refreshIndex);
+  assert.equal(switchCalls.length, 1);
+  assert.equal(refreshCalls.length, 1);
+  assert.match(successPath, /source: "device-transfer"[\s\S]*completed: true/);
+});
+
+test("failed transfer rollback stays isolated and restores the receiving device silently", () => {
+  const importStart = vaultSource.indexOf("export async function importDeviceTransferIntoNewVault");
+  const importEnd = vaultSource.indexOf("\n}\n\nexport async function rollbackLastDeviceTransfer", importStart);
+  const importFunction = vaultSource.slice(importStart, importEnd);
+  const catchStart = importFunction.indexOf("\n  } catch (error) {");
+  const rollbackPath = importFunction.slice(catchStart);
+
+  assert.match(rollbackPath, /if \(storageWriteStarted\)[\s\S]*restorePreparedBackup\(recoveryPrepared/);
+  assert.match(rollbackPath, /clearLocalUserPrivateData\(newVaultId\)/);
+  assert.match(rollbackPath, /if \(vaultSwitched\)[\s\S]*vaultId: oldVaultId/);
+  assert.match(rollbackPath, /status: "rolled_back_after_failure"/);
+  assert.doesNotMatch(rollbackPath, /publishDeviceTransferRefresh/);
+});
+
+test("financial reconciliation mismatch still blocks destination activation", () => {
+  const source = canonicalSnapshot({
+    wallet: 10000,
+    remaining: 5000,
+    anchor: 10000,
+    vaultId: "source-vault",
+  });
+  const destination = canonicalSnapshot({
+    wallet: 10000,
+    remaining: 4500,
+    anchor: 10000,
+    vaultId: "destination-vault",
+  });
+
+  const result = reconcileFinancialContextMigration({ source, destination });
+  assert.equal(result.status, "failed");
+  assert.equal(result.reconciliation.remainingPlanMatch, false);
+  assert.throws(
+    () => assertSuccessfulFinancialContextMigration(result),
+    (error) => error.code === "CLARA_FINANCIAL_MIGRATION_MISMATCH"
+  );
 });
 
 test("device transfer source package captures canonical financial truth", () => {

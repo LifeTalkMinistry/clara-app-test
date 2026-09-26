@@ -131,7 +131,18 @@ function removeTransferredOnlyStorageKeys(transferredKeys = [], recoveryPrepared
 
 async function restorePreparedBackup(prepared, { transferredKeys = [] } = {}) {
   removeTransferredOnlyStorageKeys(transferredKeys, prepared);
-  return restoreClaraLocalDataFromFile(restoreFileLike(prepared));
+  return restoreClaraLocalDataFromFile(restoreFileLike(prepared), {
+    dispatchEvents: false,
+  });
+}
+
+function publishDeviceTransferRefresh(detail) {
+  if (typeof window === "undefined" || typeof CustomEvent === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("clara-data-restored", {
+      detail,
+    })
+  );
 }
 
 function normalizeStoreRecords(store) {
@@ -541,7 +552,8 @@ export async function importDeviceTransferIntoNewVault(snapshot, { user, profile
 
   try {
     const staged = await restoreClaraLocalDataFromFile(
-      restoreFileLike(indexedDbOnly(transferPrepared))
+      restoreFileLike(indexedDbOnly(transferPrepared)),
+      { dispatchEvents: false }
     );
     const stagedErrors = restoreErrors(staged);
     if (stagedErrors.length > 0) {
@@ -562,7 +574,8 @@ export async function importDeviceTransferIntoNewVault(snapshot, { user, profile
     // the receiving vault's original storage if any later verification fails.
     storageWriteStarted = true;
     const storageResult = await restoreClaraLocalDataFromFile(
-      restoreFileLike(storageOnly(transferPrepared))
+      restoreFileLike(storageOnly(transferPrepared)),
+      { dispatchEvents: false }
     );
     const finalErrors = restoreErrors(storageResult);
     if (finalErrors.length > 0 || storageRestoreSkipped(storageResult) > 0) {
@@ -586,6 +599,38 @@ export async function importDeviceTransferIntoNewVault(snapshot, { user, profile
       sourceVaultId: sourceFinancialSnapshot?.localVaultId || snapshot?.source_vault_id || null,
       destinationVaultId: newVaultId,
     });
+
+    console.info("[CLARA Transfer Reconciliation Debug]", {
+      sourceVaultId:
+        sourceFinancialSnapshot?.localVaultId || snapshot?.source_vault_id || null,
+      destinationVaultId: newVaultId,
+      status: migrationResult?.status,
+      reconciliation: migrationResult?.reconciliation,
+      unresolvedCodes: Array.isArray(migrationResult?.unresolved)
+        ? migrationResult.unresolved.map((item) => item?.code).filter(Boolean)
+        : [],
+      source: sourceFinancialSnapshot
+        ? {
+            activeCycle: sourceFinancialSnapshot.activeCycle,
+            availableWalletMoney: sourceFinancialSnapshot.availableWalletMoney,
+            remainingPlannedSpending: sourceFinancialSnapshot.remainingPlannedSpending,
+            cycle100Anchor: sourceFinancialSnapshot.cycle100Anchor,
+            anchorState: sourceFinancialSnapshot.anchorState,
+            meansScore: sourceFinancialSnapshot.meansScore,
+          }
+        : null,
+      destination: destinationFinancialSnapshot
+        ? {
+            activeCycle: destinationFinancialSnapshot.activeCycle,
+            availableWalletMoney: destinationFinancialSnapshot.availableWalletMoney,
+            remainingPlannedSpending: destinationFinancialSnapshot.remainingPlannedSpending,
+            cycle100Anchor: destinationFinancialSnapshot.cycle100Anchor,
+            anchorState: destinationFinancialSnapshot.anchorState,
+            meansScore: destinationFinancialSnapshot.meansScore,
+          }
+        : null,
+    });
+
     assertSuccessfulFinancialContextMigration(migrationResult);
 
     // Permanent account activation is the final step, after record, storage, and canonical
@@ -617,6 +662,12 @@ export async function importDeviceTransferIntoNewVault(snapshot, { user, profile
       completedAt: new Date().toISOString(),
       destinationFinancialSnapshot,
       financialMigration: migrationResult,
+    });
+
+    publishDeviceTransferRefresh({
+      source: "device-transfer",
+      localUserId: newVaultId,
+      completed: true,
     });
 
     return {
@@ -693,6 +744,12 @@ export async function rollbackLastDeviceTransfer({ user } = {}) {
     rolledBackAt: new Date().toISOString(),
   });
   window.localStorage.removeItem(LAST_TRANSFER_KEY);
+
+  publishDeviceTransferRefresh({
+    source: "device-transfer-rollback",
+    localUserId: record.oldVaultId,
+    rolledBack: true,
+  });
 
   return {
     restoredVaultId: record.oldVaultId,

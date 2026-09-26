@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  diffVaultSnapshots,
   linkLocalVaultToAccountWithAdapters,
   snapshotsMatch,
 } from "../src/lib/accountLinking/linkLocalVaultToAccount.js";
@@ -65,6 +66,37 @@ test("snapshot comparison preserves active and deleted record IDs", () => {
     }),
     false
   );
+});
+
+test("vault verification diff reports a real concurrent writer without weakening strict matching", () => {
+  const before = {
+    life_profile: {
+      active: 1,
+      deleted: 0,
+      activeIds: ["profile-a"],
+      deletedIds: [],
+    },
+  };
+  const after = {
+    life_profile: {
+      active: 2,
+      deleted: 0,
+      activeIds: ["profile-a", "profile-b"],
+      deletedIds: [],
+    },
+  };
+
+  assert.equal(snapshotsMatch(before, after), false);
+  assert.deepEqual(diffVaultSnapshots(before, after).life_profile, {
+    beforeActive: 1,
+    afterActive: 2,
+    beforeDeleted: 0,
+    afterDeleted: 0,
+    addedActiveIds: ["profile-b"],
+    removedActiveIds: [],
+    addedDeletedIds: [],
+    removedDeletedIds: [],
+  });
 });
 
 test("links metadata without changing local records", async () => {
