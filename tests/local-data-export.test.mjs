@@ -1,6 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+const RESTORE_EVENTS = [
+  "clara:active-local-vault-updated",
+  "clara-local-profile-updated",
+  "clara-local-setup-profile-updated",
+  "clara-local-journey-reset",
+  "clara-data-restored",
+];
+
 class MemoryStorage {
   constructor() {
     this.values = new Map();
@@ -236,8 +244,7 @@ test("restore imports localStorage, sessionStorage, finance IndexedDB, and notif
   assert.equal(result.shouldReload, true);
   assert.equal(result.summary.restoredIndexedDBDatabases, 2);
   assert.equal(result.summary.restoredIndexedDBRecords, 3);
-  assert.ok(browser.events.includes("clara:active-local-vault-updated"));
-  assert.ok(browser.events.includes("clara-data-restored"));
+  assert.deepEqual(browser.events, RESTORE_EVENTS);
 
   const finance = browser.indexedDB.dbs.get("clara_local_finance");
   assert.equal(finance.stores.get("wallets").records.get("wallet-1").localUserId, "vault-a");
@@ -246,6 +253,23 @@ test("restore imports localStorage, sessionStorage, finance IndexedDB, and notif
 
   const notifications = browser.indexedDB.dbs.get("clara_local_notifications");
   assert.equal(notifications.stores.get("notifications").records.get("notification-1").scopeKey, "user-1:daily:test");
+});
+
+test("silent restore applies local and IndexedDB data without lifecycle events", async () => {
+  const browser = installBrowser();
+  const { restoreClaraLocalDataFromFile } = await loadModule();
+
+  const result = await restoreClaraLocalDataFromFile(backupFile(makeBackup()), {
+    dispatchEvents: false,
+  });
+
+  assert.equal(browser.localStorage.getItem("clara_local_vault_id_v1"), "vault-a");
+  assert.equal(browser.sessionStorage.getItem("clara_settings_session_test"), JSON.stringify({ open: true }));
+  assert.equal(result.summary.restoredIndexedDBRecords, 3);
+  assert.deepEqual(browser.events, []);
+
+  const finance = browser.indexedDB.dbs.get("clara_local_finance");
+  assert.equal(finance.stores.get("wallets").records.get("wallet-1").localUserId, "vault-a");
 });
 
 test("known IndexedDB databases export even when indexedDB.databases is unavailable", async () => {
