@@ -113,8 +113,22 @@ test("Means debt builder consumes canonical paid and skipped occurrence truth", 
   );
   assert.match(authority, /isDebtOccurrencePaid\(record, dueDate, planned\)/);
   assert.match(authority, /isDebtOccurrenceSkipped\(record, dueDate\)/);
-  assert.match(
-    authority,
-    /actualPaid:\s*occurrencePaid\s*\?\s*planned\s*:\s*cumulativeActualForOccurrence\(record, dueDate\)/
-  );
+  assert.match(authority, /const actualPaid = cumulativeActualForOccurrence\(record, dueDate\)/);
+  assert.match(authority, /const resolvedUnpaidRemainder =/);
+  assert.match(authority, /waivedAmount: skipped \? planned : resolvedUnpaidRemainder/);
+});
+
+test("declared partial debt payment preserves actual paid truth while closing the cycle remainder", () => {
+  const resolved = resolveAdaptiveMeansBaselineState({
+    cycleStart,
+    cycleEnd,
+    today: "2026-09-10",
+    occurrences: [occurrence({ amount: 1500, actualPaid: 1000, waivedAmount: 500 })],
+  });
+
+  assert.equal(resolved.cycle100Anchor, 1500);
+  assert.equal(resolved.remainingPlannedSpending, 0);
+  assert.equal(resolved.requirements[0].actualPaid, 1000);
+  assert.equal(resolved.requirements[0].waivedAmount, 500);
+  assert.equal(resolved.requirements[0].remainingAmount, 0);
 });
