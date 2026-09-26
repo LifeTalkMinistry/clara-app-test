@@ -3,6 +3,11 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 
 import { resolveAdaptiveMeansBaselineState } from "../src/lib/clara-means-cycle-baseline.js";
+import {
+  getDebtOccurrencePaidAmount,
+  getPaidDebtOccurrenceDates,
+  isDebtOccurrencePaid,
+} from "../src/lib/debtOccurrenceState.js";
 
 // User-declared Pay or Skip resolves the current debt occurrence without resizing Cycle 100.
 const cycleStart = "2026-09-01";
@@ -108,12 +113,10 @@ test("Means debt builder consumes canonical paid and skipped occurrence truth", 
     "utf8"
   );
 
-  assert.match(
-    authority,
-    /import \{ isDebtOccurrencePaid, isDebtOccurrenceSkipped \} from "@\/lib\/debtOccurrenceState";/
-  );
-  assert.match(authority, /isDebtOccurrencePaid\(record, dueDate, planned\)/);
-  assert.match(authority, /isDebtOccurrenceSkipped\(record, dueDate\)/);
+  assert.match(authority, /getDebtOccurrencePaidAmount/);
+  assert.match(authority, /getDebtOccurrencePayments/);
+  assert.match(authority, /isDebtOccurrencePaid/);
+  assert.match(authority, /isDebtOccurrenceSkipped/);
   assert.match(authority, /const actualPaid = cumulativeActualForOccurrence\(record, dueDate\)/);
   assert.match(authority, /const resolvedUnpaidRemainder =/);
   assert.match(authority, /waivedAmount: skipped \? planned : resolvedUnpaidRemainder/);
@@ -132,4 +135,36 @@ test("declared partial debt payment preserves actual paid truth while closing th
   assert.equal(resolved.requirements[0].actualPaid, 1000);
   assert.equal(resolved.requirements[0].waivedAmount, 500);
   assert.equal(resolved.requirements[0].remainingAmount, 0);
+});
+
+test("legacy payment written to a future period is reconciled to the latest due occurrence at payment time", () => {
+  const paidAt = "2026-09-26T02:00:00.000Z";
+  const record = {
+    id: "tithe-2",
+    title: "2nd Cut off Tithes",
+    recordKind: "debt_obligation",
+    obligationMode: "recurring",
+    monthlyPayment: 1500,
+    dueDay: 25,
+    status: "active",
+    createdAt: "2026-08-01T00:00:00.000Z",
+    paymentHistory: [
+      {
+        id: "legacy-payment",
+        amount: 1500,
+        dueDate: "2026-10-25",
+        paidAt,
+        source: "legacy_mark_paid",
+      },
+    ],
+    paidOccurrences: ["2026-10-25"],
+    lastPaidOccurrenceDate: "2026-10-25",
+    lastPaidAt: paidAt,
+  };
+
+  assert.deepEqual(getPaidDebtOccurrenceDates(record), ["2026-09-25"]);
+  assert.equal(isDebtOccurrencePaid(record, "2026-09-25", 1500), true);
+  assert.equal(isDebtOccurrencePaid(record, "2026-10-25", 1500), false);
+  assert.equal(getDebtOccurrencePaidAmount(record, "2026-09-25"), 1500);
+  assert.equal(getDebtOccurrencePaidAmount(record, "2026-10-25"), 0);
 });

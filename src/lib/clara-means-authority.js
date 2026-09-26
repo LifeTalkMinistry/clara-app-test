@@ -18,7 +18,12 @@ import {
   isActiveDebtObligation,
 } from "@/lib/debtObligationMath";
 import { getLocalRecords } from "@/lib/localFinanceStore";
-import { isDebtOccurrencePaid, isDebtOccurrenceSkipped } from "@/lib/debtOccurrenceState";
+import {
+  getDebtOccurrencePaidAmount,
+  getDebtOccurrencePayments,
+  isDebtOccurrencePaid,
+  isDebtOccurrenceSkipped,
+} from "@/lib/debtOccurrenceState";
 import { getRecurrenceOccurrences } from "@/lib/recurringCashFlowRepository";
 import {
   CLARA_MONEY_SCHEDULE_SOURCE,
@@ -461,17 +466,11 @@ function debtOccurrenceDates(record = {}, cycleStart, cycleEnd) {
 }
 
 function cumulativeActualForOccurrence(record = {}, dueDate = "") {
-  return readDebtPayments(record).reduce(
-    (sum, payment) => paymentDueDate(payment) === dueDate
-      ? sum + nonNegative(payment?.amount)
-      : sum,
-    0
-  );
+  return getDebtOccurrencePaidAmount(record, dueDate);
 }
 
 function amountPaidBeforeCycle(record = {}, dueDate = "", cycleStart = "") {
-  return readDebtPayments(record).reduce((sum, payment) => {
-    if (paymentDueDate(payment) !== dueDate) return sum;
+  return getDebtOccurrencePayments(record, dueDate).reduce((sum, payment) => {
     const actualDate = paymentActualDate(payment);
     if (!actualDate || actualDate >= cycleStart) return sum;
     return sum + nonNegative(payment?.amount);
@@ -487,8 +486,7 @@ function shouldIncludeDebtOccurrence(record, dueDate, cycleStart) {
   if (isDebtOccurrencePaid(record, dueDate, planned)) return true;
   if (isActiveDebtObligation(record)) return true;
 
-  return readDebtPayments(record).some((payment) => {
-    if (paymentDueDate(payment) !== dueDate) return false;
+  return getDebtOccurrencePayments(record, dueDate).some((payment) => {
     const actualDate = paymentActualDate(payment);
     return Boolean(actualDate && actualDate >= cycleStart);
   });
