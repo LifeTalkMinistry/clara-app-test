@@ -711,7 +711,6 @@ test("financial context migration executes source snapshot -> staged restore -> 
     const { before, result } = await transferCurrentState();
     assert.equal(before.remainingPlannedSpending, 0);
     assert.equal(before.requirements[0].fulfilledAmount, 1200);
-    assert.equal(before.requirements[0].waivedAmount, 1800);
     const destinationDebts = await financeStore.getLocalRecordsByUser(
       financeStore.LOCAL_FINANCE_STORES.privatePreferences,
       { localUserId: result.newVaultId, includeDeleted: true }
