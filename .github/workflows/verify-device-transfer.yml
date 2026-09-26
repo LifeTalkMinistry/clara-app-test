@@ -19,6 +19,7 @@ on:
       - "tests/device-transfer-safety.test.mjs"
       - "tests/cloud-vault-sync.test.mjs"
       - "tests/settings-local-only-regression.test.mjs"
+      - ".github/workflows/verify-device-transfer.yml"
 
 permissions:
   contents: read
@@ -32,8 +33,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-      - run: npm ci
+      - run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
       - name: Run transfer safety regressions
         run: >-
           node --test
