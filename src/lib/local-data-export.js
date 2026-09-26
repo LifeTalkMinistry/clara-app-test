@@ -741,7 +741,10 @@ export async function readClaraBackupFile(file) {
   }
 }
 
-export async function restoreClaraLocalDataFromFile(file) {
+export async function restoreClaraLocalDataFromFile(
+  file,
+  { dispatchEvents = true } = {}
+) {
   if (!isBrowser()) {
     throw new Error("CLARA backup upload can only run inside the app.");
   }
@@ -760,7 +763,9 @@ export async function restoreClaraLocalDataFromFile(file) {
     indexedDB: indexedDbResult,
   };
 
-  dispatchRestoreEvents(restoreDetail);
+  if (dispatchEvents) {
+    dispatchRestoreEvents(restoreDetail);
+  }
 
   const restoredSummary = {
     localStorage: localResult.restored,
