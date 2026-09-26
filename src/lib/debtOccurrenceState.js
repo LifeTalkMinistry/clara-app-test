@@ -7,7 +7,7 @@ const dateKey = (value) =>
     ? financialDateKey(value)
     : normalizeFinancialDateKey(value) || financialDateKey(value);
 
-function getStructuredPaymentHistory(record = {}) {
+function getRawStructuredPaymentHistory(record = {}) {
   const history = Array.isArray(record?.paymentHistory)
     ? record.paymentHistory
     : Array.isArray(record?.payment_history)
@@ -16,18 +16,85 @@ function getStructuredPaymentHistory(record = {}) {
   return history.filter(Boolean);
 }
 
+function paymentActualDate(entry = {}) {
+  return dateKey(
+    entry?.actualPaymentDate ||
+      entry?.actual_payment_date ||
+      entry?.paymentDate ||
+      entry?.payment_date ||
+      entry?.paidAt ||
+      entry?.paid_at ||
+      entry?.recordedAt ||
+      entry?.recorded_at ||
+      entry?.createdAt ||
+      entry?.created_at
+  );
+}
+
+function latestScheduledOccurrenceOnOrBefore(record = {}, targetDate = "") {
+  const target = dateKey(targetDate);
+  if (!target) return "";
+  const referenceDate = new Date(`${target}T12:00:00+08:00`);
+  const events = buildDebtObligationScheduleProjection([record], { referenceDate })
+    .filter((event) => text(event?.direction || "out").toLowerCase() === "out")
+    .map((event) => dateKey(event?.date))
+    .filter(Boolean)
+    .sort();
+  return [...events].reverse().find((date) => date <= target) || "";
+}
+
+function legacyFutureDueDateRemap(record = {}) {
+  const remap = new Map();
+  getRawStructuredPaymentHistory(record).forEach((entry) => {
+    if (text(entry?.source).toLowerCase() !== "legacy_mark_paid") return;
+    const storedDueDate = dateKey(entry?.dueDate || entry?.due_date);
+    const actualDate = paymentActualDate(entry);
+    if (!storedDueDate || !actualDate || storedDueDate <= actualDate) return;
+
+    const intendedOccurrence = latestScheduledOccurrenceOnOrBefore(record, actualDate);
+    if (!intendedOccurrence || intendedOccurrence >= storedDueDate) return;
+    remap.set(storedDueDate, intendedOccurrence);
+  });
+  return remap;
+}
+
+function getStructuredPaymentHistory(record = {}) {
+  const remap = legacyFutureDueDateRemap(record);
+  return getRawStructuredPaymentHistory(record).map((entry) => {
+    const storedDueDate = dateKey(entry?.dueDate || entry?.due_date);
+    const reconciledDueDate = remap.get(storedDueDate);
+    if (!reconciledDueDate) return entry;
+    return {
+      ...entry,
+      dueDate: reconciledDueDate,
+      due_date: reconciledDueDate,
+      legacyOriginalDueDate: storedDueDate,
+      legacy_original_due_date: storedDueDate,
+    };
+  });
+}
+
 function hasStructuredPaymentHistory(record = {}) {
   return getStructuredPaymentHistory(record).length > 0;
 }
 
-function getStructuredOccurrencePaidAmount(record = {}, dueDate = "") {
+export function getDebtOccurrencePayments(record = {}, dueDate = "") {
   const target = dateKey(dueDate);
-  if (!target) return 0;
-  return getStructuredPaymentHistory(record).reduce((sum, entry) => {
-    const entryDueDate = dateKey(entry?.dueDate || entry?.due_date);
-    const amount = Math.max(0, Number(entry?.amount || 0));
-    return entryDueDate === target ? sum + amount : sum;
-  }, 0);
+  if (!target) return [];
+  return getStructuredPaymentHistory(record).filter(
+    (entry) => dateKey(entry?.dueDate || entry?.due_date) === target
+  );
+}
+
+export function getDebtOccurrencePaidAmount(record = {}, dueDate = "") {
+  return getDebtOccurrencePayments(record, dueDate).reduce(
+    (sum, entry) => sum + Math.max(0, Number(entry?.amount || 0)),
+    0
+  );
+}
+
+function getStructuredOccurrencePaidAmount(record = {}, dueDate = "") {
+  return getDebtOccurrencePaidAmount(record, dueDate);
 }
 
 export function getPaidDebtOccurrenceDates(record = {}) {
@@ -38,7 +105,11 @@ export function getPaidDebtOccurrenceDates(record = {}) {
     record?.paid_occurrence_dates ||
     [];
   const values = Array.isArray(raw) ? raw : [];
-  return [...new Set(values.map((entry) => dateKey(entry?.dueDate || entry?.due_date || entry)).filter(Boolean))];
+  const remap = legacyFutureDueDateRemap(record);
+  return [...new Set(values
+    .map((entry) => dateKey(entry?.dueDate || entry?.due_date || entry))
+    .map((date) => remap.get(date) || date)
+    .filter(Boolean))];
 }
 
 export function getSkippedDebtOccurrenceDates(record = {}) {
@@ -68,12 +139,14 @@ export function isDebtOccurrencePaid(record = {}, dueDate = "", _expectedAmount 
   if (!target) return false;
   if (getPaidDebtOccurrenceDates(record).includes(target)) return true;
 
-  const explicit = dateKey(
+  const remap = legacyFutureDueDateRemap(record);
+  const explicitStored = dateKey(
     record?.lastPaidOccurrenceDate ||
       record?.last_paid_occurrence_date ||
       record?.paidOccurrenceDate ||
       record?.paid_occurrence_date
   );
+  const explicit = remap.get(explicitStored) || explicitStored;
   if (explicit && explicit === target) return true;
 
   // A Debt / Obligation occurrence is a user decision boundary, not an automatic
