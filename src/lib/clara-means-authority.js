@@ -251,7 +251,7 @@ function financialDayDistance(start, end) {
   const [ly, lm, ld] = left.split("-").map(Number);
   const [ry, rm, rd] = right.split("-").map(Number);
   return Math.round(
-    (Date.UTC(ry, rm - 1, rd) - Date.UTC(ly, lm - 1, rd) + (rd - rd) * 0) / 86400000
+    (Date.UTC(ry, rm - 1, rd) - Date.UTC(ly, lm - 1, ld)) / 86400000
   );
 }
 
