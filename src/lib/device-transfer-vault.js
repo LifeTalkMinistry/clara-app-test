@@ -257,7 +257,7 @@ function rewriteRecordReferences(value, idMap, orderedIds) {
   if (value && typeof value === "object") {
     return Object.fromEntries(
       Object.entries(value).map(([key, item]) => [
-        key,
+        rewriteRecordReferences(key, idMap, orderedIds),
         rewriteRecordReferences(item, idMap, orderedIds),
       ])
     );
