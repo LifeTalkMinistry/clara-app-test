@@ -55,7 +55,7 @@ test("full payment of the active period advances directly to the next scheduled 
   assert.equal(occurrence.state, "upcoming");
 });
 
-test("partial payment keeps the active period open until its indicated amount is fully satisfied", () => {
+test("declared partial payment resolves the active period instead of inventing a remainder", () => {
   const record = recurringDebt([
     {
       amount: 40,
@@ -65,8 +65,8 @@ test("partial payment keeps the active period open until its indicated amount is
   ]);
 
   const occurrence = getDebtOccurrenceState(record, referenceDate);
-  assert.equal(occurrence.dueDate, "2026-08-27");
-  assert.equal(occurrence.state, "overdue");
+  assert.equal(occurrence.dueDate, "2026-09-27");
+  assert.equal(occurrence.state, "upcoming");
 });
 
 test("debt card keeps a persistent paid-period indicator in the expanded obligation UI", () => {

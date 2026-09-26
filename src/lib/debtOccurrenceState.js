@@ -63,7 +63,7 @@ export function appendSkippedDebtOccurrence(record = {}, dueDate = "") {
   return [...new Set([...getSkippedDebtOccurrenceDates(record), target])].sort();
 }
 
-export function isDebtOccurrencePaid(record = {}, dueDate = "", expectedAmount = 0) {
+export function isDebtOccurrencePaid(record = {}, dueDate = "", _expectedAmount = 0) {
   const target = dateKey(dueDate);
   if (!target) return false;
   if (getPaidDebtOccurrenceDates(record).includes(target)) return true;
@@ -76,17 +76,14 @@ export function isDebtOccurrencePaid(record = {}, dueDate = "", expectedAmount =
   );
   if (explicit && explicit === target) return true;
 
-  // Modern records own occurrence truth through paymentHistory + paidOccurrences.
-  // A partial payment still updates lastPaidAt for audit/history, so using that
-  // timestamp as a paid-occurrence signal would incorrectly skip the remainder.
-  // Keep the timestamp fallback only for genuinely old records that predate
-  // structured per-occurrence payment history.
+  // A Debt / Obligation occurrence is a user decision boundary, not an automatic
+  // arrears calculator. Once the user records any positive payment for the exact
+  // due occurrence, that occurrence is resolved for the cycle. The actual amount
+  // remains in paymentHistory for Wallet/audit truth; CLARA must not invent the
+  // unpaid difference as another current-cycle commitment unless the user creates
+  // a new obligation for it explicitly.
   if (hasStructuredPaymentHistory(record)) {
-    const requiredAmount = Math.max(0, Number(expectedAmount || 0));
-    if (requiredAmount > 0) {
-      return getStructuredOccurrencePaidAmount(record, target) >= requiredAmount;
-    }
-    return false;
+    return getStructuredOccurrencePaidAmount(record, target) > 0;
   }
 
   const legacyPaid = dateKey(record?.lastPaidAt || record?.last_paid_at || record?.paidAt || record?.paid_at);

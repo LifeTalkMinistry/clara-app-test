@@ -503,7 +503,13 @@ export function buildMeansDebtOccurrences(records = [], cycleStart, cycleEnd) {
       .filter((dueDate) => shouldIncludeDebtOccurrence(record, dueDate, cycleStart))
       .map((dueDate) => {
         const requirementKey = `debt:${id}:${dueDate}`;
+        const actualPaid = cumulativeActualForOccurrence(record, dueDate);
+        const skipped = isDebtOccurrenceSkipped(record, dueDate);
         const occurrencePaid = isDebtOccurrencePaid(record, dueDate, planned);
+        const resolvedUnpaidRemainder =
+          occurrencePaid && !skipped
+            ? Math.max(planned - actualPaid, 0)
+            : 0;
         return {
           id: requirementKey,
           requirementKey,
@@ -513,10 +519,8 @@ export function buildMeansDebtOccurrences(records = [], cycleStart, cycleEnd) {
           kind: "debt",
           sourceType: "debt",
           amount: planned,
-          actualPaid: occurrencePaid
-            ? planned
-            : cumulativeActualForOccurrence(record, dueDate),
-          waivedAmount: isDebtOccurrenceSkipped(record, dueDate) ? planned : 0,
+          actualPaid,
+          waivedAmount: skipped ? planned : resolvedUnpaidRemainder,
           fulfilledBeforeCycle: amountPaidBeforeCycle(record, dueDate, cycleStart),
           source: "debt_obligation",
         };
@@ -533,7 +537,8 @@ export function calculateMeansOutstandingDebtCommitments(
     .reduce((sum, entry) => {
       const planned = nonNegative(entry?.amount);
       const actualPaid = nonNegative(entry?.actualPaid ?? entry?.actual_paid);
-      return sum + Math.max(planned - actualPaid, 0);
+      const waivedAmount = nonNegative(entry?.waivedAmount ?? entry?.waived_amount);
+      return sum + Math.max(planned - actualPaid - waivedAmount, 0);
     }, 0);
 }
 

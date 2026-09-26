@@ -709,7 +709,7 @@ test("financial context migration executes source snapshot -> staged restore -> 
     await persistV7Baseline({ cycleStart: dates.cycleStart, cycleEnd: dates.cycleEnd, anchor: 3000 });
 
     const { before, result } = await transferCurrentState();
-    assert.equal(before.remainingPlannedSpending, 1800);
+    assert.equal(before.remainingPlannedSpending, 0);
     assert.equal(before.requirements[0].fulfilledAmount, 1200);
     const destinationDebts = await financeStore.getLocalRecordsByUser(
       financeStore.LOCAL_FINANCE_STORES.privatePreferences,
