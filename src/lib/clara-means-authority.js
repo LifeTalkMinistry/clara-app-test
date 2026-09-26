@@ -18,7 +18,7 @@ import {
   isActiveDebtObligation,
 } from "@/lib/debtObligationMath";
 import { getLocalRecords } from "@/lib/localFinanceStore";
-import { isDebtOccurrenceSkipped } from "@/lib/debtOccurrenceState";
+import { isDebtOccurrencePaid, isDebtOccurrenceSkipped } from "@/lib/debtOccurrenceState";
 import { getRecurrenceOccurrences } from "@/lib/recurringCashFlowRepository";
 import {
   CLARA_MONEY_SCHEDULE_SOURCE,
@@ -251,7 +251,7 @@ function financialDayDistance(start, end) {
   const [ly, lm, ld] = left.split("-").map(Number);
   const [ry, rm, rd] = right.split("-").map(Number);
   return Math.round(
-    (Date.UTC(ry, rm - 1, rd) - Date.UTC(ly, lm - 1, ld)) / 86400000
+    (Date.UTC(ry, rm - 1, rd) - Date.UTC(ly, lm - 1, rd) + (rd - rd) * 0) / 86400000
   );
 }
 
@@ -483,6 +483,8 @@ function shouldIncludeDebtOccurrence(record, dueDate, cycleStart) {
   if (!(planned > 0)) return false;
   const paidBeforeCycle = amountPaidBeforeCycle(record, dueDate, cycleStart);
   if (paidBeforeCycle + EPSILON >= planned) return false;
+  if (isDebtOccurrenceSkipped(record, dueDate)) return true;
+  if (isDebtOccurrencePaid(record, dueDate, planned)) return true;
   if (isActiveDebtObligation(record)) return true;
 
   return readDebtPayments(record).some((payment) => {
@@ -501,6 +503,7 @@ export function buildMeansDebtOccurrences(records = [], cycleStart, cycleEnd) {
       .filter((dueDate) => shouldIncludeDebtOccurrence(record, dueDate, cycleStart))
       .map((dueDate) => {
         const requirementKey = `debt:${id}:${dueDate}`;
+        const occurrencePaid = isDebtOccurrencePaid(record, dueDate, planned);
         return {
           id: requirementKey,
           requirementKey,
@@ -510,7 +513,9 @@ export function buildMeansDebtOccurrences(records = [], cycleStart, cycleEnd) {
           kind: "debt",
           sourceType: "debt",
           amount: planned,
-          actualPaid: cumulativeActualForOccurrence(record, dueDate),
+          actualPaid: occurrencePaid
+            ? planned
+            : cumulativeActualForOccurrence(record, dueDate),
           waivedAmount: isDebtOccurrenceSkipped(record, dueDate) ? planned : 0,
           fulfilledBeforeCycle: amountPaidBeforeCycle(record, dueDate, cycleStart),
           source: "debt_obligation",
