@@ -214,7 +214,8 @@ test("20 debt actualPaid reduces Remaining Plan but not Cycle 100 Anchor", () =>
 test("21 multiple debt payments aggregate by occurrence identity", async () => {
   const authority = await source("../src/lib/clara-means-authority.js");
   assert.match(authority, /cumulativeActualForOccurrence/);
-  assert.match(authority, /paymentDueDate\(payment\) === dueDate/);
+  assert.match(authority, /getDebtOccurrencePaidAmount\(record, dueDate\)/);
+  assert.match(authority, /getDebtOccurrencePayments\(record, dueDate\)/);
 });
 
 test("22 debt payment owner keeps due-date, debt and Wallet identities", async () => {
