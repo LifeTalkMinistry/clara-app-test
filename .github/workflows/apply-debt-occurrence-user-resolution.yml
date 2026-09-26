@@ -1,0 +1,165 @@
+name: Apply debt occurrence user resolution patch
+
+on:
+  push:
+    branches: [fix/debt-occurrence-user-resolution]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/debt-occurrence-user-resolution
+          fetch-depth: 0
+
+      - name: Patch canonical occurrence and Means semantics
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f"Expected patch target not found in {path}")
+              text = text.replace(old, new, 1)
+              p.write_text(text)
+
+          replace_once(
+              "src/lib/clara-means-authority.js",
+              '''      .map((dueDate) => {
+                  const requirementKey = `debt:${id}:${dueDate}`;
+                  const occurrencePaid = isDebtOccurrencePaid(record, dueDate, planned);
+                  return {
+                    id: requirementKey,
+                    requirementKey,
+                    debtId: id,
+                    sourceId: id,
+                    date: dueDate,
+                    kind: "debt",
+                    sourceType: "debt",
+                    amount: planned,
+                    actualPaid: occurrencePaid
+                      ? planned
+                      : cumulativeActualForOccurrence(record, dueDate),
+                    waivedAmount: isDebtOccurrenceSkipped(record, dueDate) ? planned : 0,
+                    fulfilledBeforeCycle: amountPaidBeforeCycle(record, dueDate, cycleStart),
+                    source: "debt_obligation",
+                  };
+                });''',
+              '''      .map((dueDate) => {
+                  const requirementKey = `debt:${id}:${dueDate}`;
+                  const actualPaid = cumulativeActualForOccurrence(record, dueDate);
+                  const skipped = isDebtOccurrenceSkipped(record, dueDate);
+                  const occurrencePaid = isDebtOccurrencePaid(record, dueDate, planned);
+                  const resolvedUnpaidRemainder =
+                    occurrencePaid && !skipped
+                      ? Math.max(planned - actualPaid, 0)
+                      : 0;
+                  return {
+                    id: requirementKey,
+                    requirementKey,
+                    debtId: id,
+                    sourceId: id,
+                    date: dueDate,
+                    kind: "debt",
+                    sourceType: "debt",
+                    amount: planned,
+                    actualPaid,
+                    waivedAmount: skipped ? planned : resolvedUnpaidRemainder,
+                    fulfilledBeforeCycle: amountPaidBeforeCycle(record, dueDate, cycleStart),
+                    source: "debt_obligation",
+                  };
+                });'''
+          )
+
+          replace_once(
+              "src/lib/clara-means-authority.js",
+              '''    .reduce((sum, entry) => {
+                const planned = nonNegative(entry?.amount);
+                const actualPaid = nonNegative(entry?.actualPaid ?? entry?.actual_paid);
+                return sum + Math.max(planned - actualPaid, 0);
+              }, 0);''',
+              '''    .reduce((sum, entry) => {
+                const planned = nonNegative(entry?.amount);
+                const actualPaid = nonNegative(entry?.actualPaid ?? entry?.actual_paid);
+                const waivedAmount = nonNegative(entry?.waivedAmount ?? entry?.waived_amount);
+                return sum + Math.max(planned - actualPaid - waivedAmount, 0);
+              }, 0);'''
+          )
+
+          replace_once(
+              "tests/debt-paid-period-indicator-regression.test.mjs",
+              '''test("partial payment keeps the active period open until its indicated amount is fully satisfied", () => {
+                const record = recurringDebt([
+                  {
+                    amount: 40,
+                    dueDate: "2026-08-27",
+                    paidAt: "2026-08-28T01:00:00.000Z",
+                  },
+                ]);
+
+                const occurrence = getDebtOccurrenceState(record, referenceDate);
+                assert.equal(occurrence.dueDate, "2026-08-27");
+                assert.equal(occurrence.state, "overdue");
+              });''',
+              '''test("declared partial payment resolves the active period instead of inventing a remainder", () => {
+                const record = recurringDebt([
+                  {
+                    amount: 40,
+                    dueDate: "2026-08-27",
+                    paidAt: "2026-08-28T01:00:00.000Z",
+                  },
+                ]);
+
+                const occurrence = getDebtOccurrenceState(record, referenceDate);
+                assert.equal(occurrence.dueDate, "2026-09-27");
+                assert.equal(occurrence.state, "upcoming");
+              });'''
+          )
+
+          p = Path("tests/means-resolved-occurrence-state-regression.test.mjs")
+          text = p.read_text()
+          old = '''  assert.match(
+              authority,
+              /actualPaid:\\s*occurrencePaid\\s*\\?\\s*planned\\s*:\\s*cumulativeActualForOccurrence\\(record, dueDate\\)/
+            );
+          });'''
+          new = '''  assert.match(authority, /const actualPaid = cumulativeActualForOccurrence\\(record, dueDate\\)/);
+            assert.match(authority, /const resolvedUnpaidRemainder =/);
+            assert.match(authority, /waivedAmount: skipped \\? planned : resolvedUnpaidRemainder/);
+          });
+
+          test("declared partial debt payment preserves actual paid truth while closing the cycle remainder", () => {
+            const resolved = resolveAdaptiveMeansBaselineState({
+              cycleStart,
+              cycleEnd,
+              today: "2026-09-10",
+              occurrences: [occurrence({ amount: 1500, actualPaid: 1000, waivedAmount: 500 })],
+            });
+
+            assert.equal(resolved.cycle100Anchor, 1500);
+            assert.equal(resolved.remainingPlannedSpending, 0);
+            assert.equal(resolved.requirements[0].actualPaid, 1000);
+            assert.equal(resolved.requirements[0].waivedAmount, 500);
+            assert.equal(resolved.requirements[0].remainingAmount, 0);
+          });'''
+          if old not in text:
+              raise SystemExit("Expected Means regression target not found")
+          p.write_text(text.replace(old, new, 1))
+
+          # Remove this one-shot workflow from the final branch diff.
+          Path(".github/workflows/apply-debt-occurrence-user-resolution.yml").unlink()
+
+      - name: Commit patched source and regressions
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Close debt occurrence on declared pay or skip decision"
+          git push origin HEAD:fix/debt-occurrence-user-resolution
