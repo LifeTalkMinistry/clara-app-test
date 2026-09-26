@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 
 import { resolveAdaptiveMeansBaselineState } from "../src/lib/clara-means-cycle-baseline.js";
 
+// User-declared Pay or Skip resolves the current debt occurrence without resizing Cycle 100.
 const cycleStart = "2026-09-01";
 const cycleEnd = "2026-10-01";
 
