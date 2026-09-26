@@ -480,6 +480,21 @@ function sameCycle(left, right) {
   );
 }
 
+function deriveFinancialSemantics(snapshot = {}) {
+  const availableWalletMoney = signed(snapshot?.availableWalletMoney);
+  const remainingPlannedSpending = money(snapshot?.remainingPlannedSpending);
+  const cycle100Anchor = money(snapshot?.cycle100Anchor);
+  const wallBill = availableWalletMoney - remainingPlannedSpending;
+  const meansScore = cycle100Anchor > 0
+    ? Math.round(100 + ((wallBill / cycle100Anchor) * 100))
+    : null;
+
+  return {
+    wallBill,
+    meansScore,
+  };
+}
+
 export function reconcileFinancialContextMigration({
   source,
   destination,
@@ -506,6 +521,8 @@ export function reconcileFinancialContextMigration({
     };
   }
 
+  const sourceDerived = deriveFinancialSemantics(source);
+  const destinationDerived = deriveFinancialSemantics(destination);
   const reconciliation = {
     cycleMatch: sameCycle(source.activeCycle, destination.activeCycle),
     walletMatch: equalNumber(
@@ -521,8 +538,15 @@ export function reconcileFinancialContextMigration({
     anchorMatch:
       equalNumber(source.cycle100Anchor, destination.cycle100Anchor, epsilon) &&
       text(source.anchorState) === text(destination.anchorState),
-    wallBillMatch: equalNumber(source.wallBill, destination.wallBill, epsilon),
-    meansScoreMatch: equalNullableNumber(source.meansScore, destination.meansScore, epsilon),
+    // Wall Bill and Means Score are derived values. Recalculate them from the
+    // authoritative transferred inputs instead of blocking activation because an
+    // older/stale source package serialized derived display values differently.
+    wallBillMatch: equalNumber(sourceDerived.wallBill, destinationDerived.wallBill, epsilon),
+    meansScoreMatch: equalNullableNumber(
+      sourceDerived.meansScore,
+      destinationDerived.meansScore,
+      epsilon
+    ),
   };
 
   const unresolvedItems = [...(Array.isArray(unresolved) ? unresolved : [])];
@@ -539,6 +563,28 @@ export function reconcileFinancialContextMigration({
     sourceVaultId,
     destinationVaultId,
     reconciliation,
+    diagnostics: {
+      sourceReportedWallBillMatchesDerived: equalNumber(
+        source.wallBill,
+        sourceDerived.wallBill,
+        epsilon
+      ),
+      destinationReportedWallBillMatchesDerived: equalNumber(
+        destination.wallBill,
+        destinationDerived.wallBill,
+        epsilon
+      ),
+      sourceReportedMeansScoreMatchesDerived: equalNullableNumber(
+        source.meansScore,
+        sourceDerived.meansScore,
+        epsilon
+      ),
+      destinationReportedMeansScoreMatchesDerived: equalNullableNumber(
+        destination.meansScore,
+        destinationDerived.meansScore,
+        epsilon
+      ),
+    },
     unresolved: unresolvedItems,
   };
 }
