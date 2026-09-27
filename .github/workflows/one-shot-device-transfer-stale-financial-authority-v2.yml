@@ -1,0 +1,67 @@
+name: One-shot Device Transfer stale financial authority repair v2
+
+on:
+  push:
+    branches:
+      - fix/device-transfer-stale-financial-authority
+
+permissions:
+  contents: write
+
+jobs:
+  patch-validate-and-commit:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repair branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/device-transfer-stale-financial-authority
+          fetch-depth: 0
+
+      - name: Apply surgical patch without changing permanent workflows
+        run: |
+          python3 scripts/patch_device_transfer_stale_financial_authority.py
+          git checkout -- .github/workflows/means-authority-verification.yml
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
+
+      - name: Syntax check
+        run: node --check src/lib/clara-financial-context-migration.js
+
+      - name: Run stale-authority regression
+        run: node --test tests/device-transfer-stale-financial-authority.test.mjs
+
+      - name: Run complete Device Transfer financial lifecycle
+        run: node --test tests/device-transfer-financial-context-integration.test.mjs
+
+      - name: Run existing transfer safety regressions
+        run: |
+          node --test tests/device-transfer-safety.test.mjs
+          node --test tests/device-transfer-legacy-means-identity.test.mjs
+          node --test tests/device-transfer-historical-identity-scope.test.mjs
+
+      - name: Build production web app
+        run: npm run build:web
+        env:
+          VITE_GEMINI_MODEL: gemini-3.6-flash
+          VITE_CLARA_RUNTIME_MODE: local_only
+          VITE_CLARA_AUTH_ENABLED: "false"
+          VITE_CLARA_LOCAL_MODE_ENABLED: "true"
+
+      - name: Remove temporary patcher
+        run: rm scripts/patch_device_transfer_stale_financial_authority.py
+
+      - name: Commit validated repair
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Handle stale Device Transfer debt authority safely"
+          git push origin HEAD:fix/device-transfer-stale-financial-authority
