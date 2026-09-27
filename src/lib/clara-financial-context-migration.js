@@ -17,6 +17,97 @@ const signed = (value) => {
 };
 const money = (value) => Math.max(0, signed(value));
 
+function debtPaymentHistory(record = {}) {
+  const rows = Array.isArray(record?.paymentHistory)
+    ? record.paymentHistory
+    : Array.isArray(record?.payment_history)
+      ? record.payment_history
+      : [];
+  return rows.filter(Boolean);
+}
+
+function debtRecordId(record = {}) {
+  return text(record?.id || record?.debtId || record?.debt_id || record?.obligationId || record?.obligation_id);
+}
+
+function legacyPaymentStoredDueDate(payment = {}) {
+  return dateKey(payment?.dueDate || payment?.due_date);
+}
+
+function legacyPaymentActualDate(payment = {}) {
+  return dateKey(
+    payment?.actualPaymentDate ||
+      payment?.actual_payment_date ||
+      payment?.paymentDate ||
+      payment?.payment_date ||
+      payment?.paidAt ||
+      payment?.paid_at ||
+      payment?.recordedAt ||
+      payment?.recorded_at ||
+      payment?.createdAt ||
+      payment?.created_at
+  );
+}
+
+/**
+ * Evidence for one narrowly-defined authority upgrade: older CLARA builds could store
+ * a legacy_mark_paid Debt / Obligation payment against a future due occurrence. The
+ * current authority remaps only that historical shape to the latest active occurrence
+ * on or before the actual payment date. This helper proves the exact active-cycle plan
+ * amount whose old derived snapshot can legitimately differ after a transfer.
+ */
+export function buildLegacyFutureDebtMigrationCompatibility(
+  debtRecords = [],
+  requirements = [],
+  epsilon = CLARA_FINANCIAL_RECONCILIATION_EPSILON
+) {
+  const affected = new Map();
+
+  (Array.isArray(debtRecords) ? debtRecords : []).forEach((record) => {
+    if (record?.deletedAt || record?.deleted_at) return;
+    const recordId = debtRecordId(record);
+    if (!recordId) return;
+
+    const debtRequirements = (Array.isArray(requirements) ? requirements : [])
+      .filter(
+        (entry) =>
+          lower(entry?.sourceType || entry?.kind) === "debt" &&
+          text(entry?.sourceId) === recordId &&
+          dateKey(entry?.date)
+      )
+      .sort((left, right) => dateKey(left?.date).localeCompare(dateKey(right?.date)));
+    if (debtRequirements.length === 0) return;
+
+    debtPaymentHistory(record).forEach((payment) => {
+      if (lower(payment?.source) !== "legacy_mark_paid") return;
+      const storedDueDate = legacyPaymentStoredDueDate(payment);
+      const actualDate = legacyPaymentActualDate(payment);
+      if (!storedDueDate || !actualDate || storedDueDate <= actualDate) return;
+
+      const intended = [...debtRequirements]
+        .reverse()
+        .find((entry) => dateKey(entry?.date) <= actualDate);
+      if (!intended) return;
+
+      const plannedAmount = money(intended?.plannedAmount);
+      const remainingAmount = money(intended?.remainingAmount);
+      const fulfilledAmount = money(intended?.fulfilledAmount);
+      if (!(plannedAmount > epsilon)) return;
+      if (remainingAmount > epsilon || fulfilledAmount + epsilon < plannedAmount) return;
+
+      const key = text(intended?.requirementKey) || `${recordId}:${dateKey(intended?.date)}`;
+      affected.set(key, plannedAmount);
+    });
+  });
+
+  if (affected.size === 0) return null;
+  return {
+    code: "legacy_future_debt_occurrence_authority_upgrade",
+    affectedRequirementCount: affected.size,
+    affectedPlanAmount: [...affected.values()].reduce((sum, amount) => sum + amount, 0),
+  };
+}
+
 function financeDatabase(prepared) {
   return (prepared?.data?.indexedDB?.databases || []).find(
     (database) => database?.name === "clara_local_finance"
@@ -377,22 +468,36 @@ export async function buildFinancialContextMigrationSnapshot({
   const owner = text(vaultId);
   if (!owner) throw new Error("A vault id is required for financial migration reconciliation.");
 
-  const [meansAuthority, financeRepository, financialEngine] = await Promise.all([
+  const [meansAuthority, financeRepository, financialEngine, localFinanceStore] = await Promise.all([
     import("./clara-means-authority.js"),
     import("./financeRepository.js"),
     import("../utils/financialEngine.js"),
+    import("./localFinanceStore.js"),
   ]);
 
   const scopedProfile = migrationProfile(profile, owner);
-  const [canonical, wallets, walletTransactions, transfers, savingsGoals, emergencyFund] =
-    await Promise.all([
-      meansAuthority.buildCanonicalMeansSnapshot({ profile: scopedProfile, now }),
-      financeRepository.getWallets(owner).catch(() => []),
-      financeRepository.getWalletTransactions(owner).catch(() => []),
-      financeRepository.getTransfers(owner).catch(() => []),
-      financeRepository.getSavingsGoals(owner).catch(() => []),
-      financeRepository.getEmergencyFund(owner).catch(() => null),
-    ]);
+  const [
+    canonical,
+    wallets,
+    walletTransactions,
+    transfers,
+    savingsGoals,
+    emergencyFund,
+    privatePreferences,
+  ] = await Promise.all([
+    meansAuthority.buildCanonicalMeansSnapshot({ profile: scopedProfile, now }),
+    financeRepository.getWallets(owner).catch(() => []),
+    financeRepository.getWalletTransactions(owner).catch(() => []),
+    financeRepository.getTransfers(owner).catch(() => []),
+    financeRepository.getSavingsGoals(owner).catch(() => []),
+    financeRepository.getEmergencyFund(owner).catch(() => null),
+    localFinanceStore
+      .getLocalRecordsByUser(localFinanceStore.LOCAL_FINANCE_STORES.privatePreferences, {
+        localUserId: owner,
+        includeDeleted: false,
+      })
+      .catch(() => []),
+  ]);
 
   const walletState = meansAuthority.calculateMeansAvailableWalletState(
     wallets,
@@ -423,6 +528,14 @@ export async function buildFinancialContextMigrationSnapshot({
         remainingAmount: money(entry?.remainingAmount),
       }))
     : [];
+
+  const legacyFutureDebtCompatibility = buildLegacyFutureDebtMigrationCompatibility(
+    (Array.isArray(privatePreferences) ? privatePreferences : []).filter((record) => {
+      const kind = lower(record?.recordKind || record?.recordType || record?.kind);
+      return kind === "debt_obligation";
+    }),
+    requirements
+  );
 
   const availableWalletMoney = signed(
     canonical?.availableWalletMoney ?? walletState.availableNow
@@ -456,6 +569,9 @@ export async function buildFinancialContextMigrationSnapshot({
       requirementKey: entry.requirementKey,
       fulfilledAmount: entry.fulfilledAmount,
     })),
+    compatibilityEvidence: {
+      legacyFutureDebtOccurrence: legacyFutureDebtCompatibility,
+    },
   };
 }
 
@@ -555,7 +671,40 @@ export function reconcileFinancialContextMigration({
   }
 
   const allMatch = Object.values(reconciliation).every(Boolean);
-  const status = unresolvedItems.length > 0 ? "unresolved" : allMatch ? "success" : "failed";
+  const legacyFutureDebtEvidence =
+    destination?.compatibilityEvidence?.legacyFutureDebtOccurrence || null;
+  const staleAuthorityPlanDelta =
+    money(source?.remainingPlannedSpending) - money(destination?.remainingPlannedSpending);
+  const legacyFutureDebtAuthorityUpgradeMatch = Boolean(
+    unresolvedItems.length === 0 &&
+      !allMatch &&
+      reconciliation.cycleMatch &&
+      reconciliation.walletMatch &&
+      reconciliation.anchorMatch &&
+      !reconciliation.remainingPlanMatch &&
+      staleAuthorityPlanDelta > epsilon &&
+      money(legacyFutureDebtEvidence?.affectedPlanAmount) > epsilon &&
+      equalNumber(
+        staleAuthorityPlanDelta,
+        legacyFutureDebtEvidence?.affectedPlanAmount,
+        epsilon
+      )
+  );
+  const status =
+    unresolvedItems.length > 0
+      ? "unresolved"
+      : allMatch || legacyFutureDebtAuthorityUpgradeMatch
+        ? "success"
+        : "failed";
+  const compatibilityAdjustment = legacyFutureDebtAuthorityUpgradeMatch
+    ? {
+        code: legacyFutureDebtEvidence.code,
+        affectedRequirementCount: legacyFutureDebtEvidence.affectedRequirementCount,
+        affectedPlanAmount: legacyFutureDebtEvidence.affectedPlanAmount,
+        sourceRemainingPlannedSpending: money(source?.remainingPlannedSpending),
+        destinationRemainingPlannedSpending: money(destination?.remainingPlannedSpending),
+      }
+    : null;
 
   return {
     status,
@@ -563,6 +712,7 @@ export function reconcileFinancialContextMigration({
     sourceVaultId,
     destinationVaultId,
     reconciliation,
+    compatibilityAdjustment,
     diagnostics: {
       sourceReportedWallBillMatchesDerived: equalNumber(
         source.wallBill,
@@ -584,6 +734,8 @@ export function reconcileFinancialContextMigration({
         destinationDerived.meansScore,
         epsilon
       ),
+      legacyFutureDebtAuthorityPlanDelta: staleAuthorityPlanDelta,
+      legacyFutureDebtAuthorityUpgradeMatch,
     },
     unresolved: unresolvedItems,
   };
