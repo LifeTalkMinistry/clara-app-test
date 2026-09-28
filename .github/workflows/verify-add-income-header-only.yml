@@ -5,6 +5,7 @@ on:
     branches:
       - main
     paths:
+      - "src/mobile-responsive.css"
       - "src/components/fresh/main-dashboard/assistant/ClaraAddIncomeOverlayV2.jsx"
       - "src/components/fresh/main-dashboard/assistant/ClaraFinancialContextSetupCoordinator.jsx"
       - "src/lib/incomeHubRepository.js"
@@ -17,6 +18,7 @@ on:
       - ".github/workflows/verify-add-income-header-only.yml"
   pull_request:
     paths:
+      - "src/mobile-responsive.css"
       - "src/components/fresh/main-dashboard/assistant/ClaraAddIncomeOverlayV2.jsx"
       - "src/components/fresh/main-dashboard/assistant/ClaraFinancialContextSetupCoordinator.jsx"
       - "src/lib/incomeHubRepository.js"
